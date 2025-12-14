@@ -2,10 +2,12 @@ services:
   db:
     image: postgres:16-alpine
     container_name: naqel_maps_db
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: naqel_maps
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: naqelmaps000
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
