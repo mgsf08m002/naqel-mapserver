@@ -1,0 +1,155 @@
+{% extends 'system_admin/base.html' %}
+{% load static %}
+
+{% block title %}Delete User - System Admin - Naqel Maps{% endblock %}
+
+{% block page_title %}Delete User{% endblock %}
+
+{% block content %}
+<div class="bg-white -mx-6 -my-6 px-6 py-10 min-h-[calc(100vh-64px)]">
+    <div class="max-w-5xl mx-auto space-y-12">
+        <header class="space-y-3">
+            <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
+                <span class="h-px w-6 bg-gray-300"></span>
+                <span>User Management</span>
+            </div>
+            <div class="flex flex-col gap-2">
+                <h1 class="text-3xl font-semibold text-gray-900">Delete a user</h1>
+                <p class="text-sm text-gray-600 max-w-2xl">Search for a user by email address. This action cannot be undone and will permanently delete the user and all associated data.</p>
+            </div>
+        </header>
+
+        <!-- Search Section -->
+        {% if not user_to_delete %}
+        <section class="space-y-6">
+            <form method="post" class="space-y-6">
+                {% csrf_token %}
+                <input type="hidden" name="intent" value="search_user">
+
+                <div id="deleteUserSearchNotify"
+                     class="hidden"
+                     data-errors="{% if search_errors %}{{ search_errors|join:'||'|escapejs }}{% endif %}">
+                </div>
+
+                <div class="flex flex-col gap-2">
+                    <label for="search_email" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Email Address</label>
+                    <div class="flex gap-3">
+                        <input id="search_email" name="search_email" type="email" required class="flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-200" placeholder="Enter user email address">
+                        <button type="submit" class="rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+                            Search
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </section>
+        {% endif %}
+
+        <!-- Delete Confirmation Section -->
+        {% if user_to_delete and not user_deleted %}
+        <section class="space-y-6">
+            <div id="deleteUserNotify"
+                 class="hidden"
+                 data-deleted="{% if user_deleted %}true{% else %}false{% endif %}"
+                 data-success-message="{% if success_message %}{{ success_message|escapejs }}{% endif %}"
+                 data-errors="{% if delete_errors %}{{ delete_errors|join:'||'|escapejs }}{% endif %}">
+            </div>
+
+            <!-- Warning Message -->
+            <div class="bg-red-50 border-2 border-red-200 rounded-xl p-6">
+                <div class="flex items-start gap-3">
+                    <svg class="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <div>
+                        <h3 class="text-sm font-semibold text-red-900 mb-1">Warning: This action cannot be undone</h3>
+                        <p class="text-sm text-red-800">Deleting this user will permanently remove their account and all associated data from the system.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Information -->
+            <div class="border border-gray-200 rounded-xl p-6 space-y-4">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">User Information</p>
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <p class="text-xs text-gray-500">Full Name</p>
+                        <p class="text-sm font-medium text-gray-900 mt-1">{{ user_to_delete.get_full_name|default:"Not set" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500">Email Address</p>
+                        <p class="text-sm font-medium text-gray-900 mt-1">{{ user_to_delete.email }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500">Role</p>
+                        <p class="text-sm font-medium text-gray-900 mt-1">{{ user_profile.role|title|default:"Not assigned" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500">Account Status</p>
+                        <p class="text-sm font-medium {% if user_to_delete.is_active %}text-green-600{% else %}text-red-600{% endif %} mt-1">
+                            {% if user_to_delete.is_active %}Active{% else %}Inactive{% endif %}
+                        </p>
+                    </div>
+                    {% if user_profile.account_creation_date %}
+                    <div class="md:col-span-2">
+                        <p class="text-xs text-gray-500">Account Created</p>
+                        <p class="text-sm font-medium text-gray-900 mt-1">{{ user_profile.account_creation_date|date:"F j, Y" }} at {{ user_profile.account_creation_time|time:"g:i A" }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Delete Form -->
+            <form method="post" class="space-y-6">
+                {% csrf_token %}
+                <input type="hidden" name="intent" value="delete_user">
+                <input type="hidden" name="user_id" value="{{ user_to_delete.id }}">
+
+                <div class="flex items-center gap-4 pt-4">
+                    <a href="{% url 'system_admin:users' %}" class="rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+                        Cancel
+                    </a>
+                    <button type="button" onclick="window.location.href='{% url 'system_admin:delete_user' %}'" class="rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+                        Search Another
+                    </button>
+                    <button type="submit" class="inline-flex items-center justify-center rounded-full bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition">
+                        Delete User
+                    </button>
+                </div>
+            </form>
+        </section>
+        {% endif %}
+
+        <!-- Success Message After Deletion -->
+        {% if user_deleted %}
+        <section class="space-y-6">
+            <div class="bg-green-50 border-2 border-green-200 rounded-xl p-6 text-center">
+                <svg class="w-12 h-12 text-green-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                <h3 class="text-sm font-semibold text-green-900 mb-1">User Deleted Successfully</h3>
+                <p class="text-sm text-green-800">The user and all associated data have been permanently removed from the system.</p>
+            </div>
+            <div class="flex justify-center">
+                <a href="{% url 'system_admin:users' %}" class="rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+                    Back to Users
+                </a>
+            </div>
+        </section>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'system_admin/js/delete_user.js' %}"></script>
+<style>
+    body, main {
+        background: white !important;
+    }
+    main > div {
+        padding: 0 !important;
+        background: white !important;
+    }
+</style>
+{% endblock %}
+

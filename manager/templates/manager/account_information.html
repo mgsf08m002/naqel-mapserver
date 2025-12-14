@@ -1,0 +1,171 @@
+{% extends 'manager/base.html' %}
+{% load static %}
+
+{% block title %}Account Information - Manager - Naqel Maps{% endblock %}
+
+{% block page_title %}Account Information{% endblock %}
+
+{% block content %}
+<div class="bg-white -mx-6 -my-6 px-6 py-10 min-h-[calc(100vh-64px)]">
+    <div class="max-w-5xl mx-auto space-y-12">
+        <header class="space-y-3">
+            <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
+                <span class="h-px w-6 bg-gray-300"></span>
+                <span>Account</span>
+            </div>
+            <div class="flex flex-col gap-2">
+                <h1 class="text-3xl font-semibold text-gray-900">Profile overview</h1>
+                <p class="text-sm text-gray-600 max-w-2xl">Manage your profile image and review the key details linked to your manager account.</p>
+            </div>
+        </header>
+
+        <!-- Profile -->
+        <section class="space-y-6">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-center gap-4">
+                    <button id="profileAvatar" type="button" class="group relative w-16 h-16 rounded-full border border-gray-300 bg-white text-gray-900 flex items-center justify-center overflow-hidden focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+                        {% if profile.profile_image %}
+                        <img id="profileImage" src="{{ profile.profile_image.url }}" alt="Profile" class="w-full h-full object-cover">
+                        <span id="profileInitials" class="hidden text-lg font-semibold">{{ user.first_name|default:"Manager"|first|upper }}</span>
+                        {% else %}
+                        <img id="profileImage" src="" alt="Profile" class="hidden w-full h-full object-cover">
+                        <span id="profileInitials" class="text-lg font-semibold">{{ user.first_name|default:"Manager"|first|upper }}</span>
+                        {% endif %}
+                        <div class="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-[10px] font-medium tracking-wide">
+                            Update photo
+                        </div>
+                    </button>
+                    <input id="profileInput" type="file" accept="image/*" class="hidden" aria-label="Upload profile photo">
+                    <div class="flex flex-col gap-1">
+                        <p class="text-lg font-semibold text-gray-900">{{ user.get_full_name|default:"Manager" }}</p>
+                        <p class="text-sm text-gray-500">Manager</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 text-sm text-gray-600">
+                    <span id="photoState">{% if profile.profile_image %}Photo added{% else %}No photo uploaded{% endif %}</span>
+                    <button id="removePhotoBtn" type="button" class="px-3 py-1.5 rounded-full border border-gray-200 text-gray-700 hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed" {% if not profile.profile_image %}disabled{% endif %}>
+                        Remove
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Details -->
+        <section class="space-y-6">
+            <div class="flex items-center justify-between">
+                <div class="space-y-1">
+                    <h2 class="text-xl font-semibold text-gray-900">Details</h2>
+                    <p class="text-sm text-gray-600">Edit your contact info. Role, status, and membership date are fixed.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="editBtn" type="button" class="rounded-full border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200">
+                        Edit
+                    </button>
+                    <button id="cancelBtn" type="button" class="hidden rounded-full border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200">
+                        Cancel
+                    </button>
+                    <button id="saveBtn" type="submit" form="accountForm" class="hidden rounded-full bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200">
+                        Save
+                    </button>
+                </div>
+            </div>
+
+            <form id="accountForm" method="post" class="space-y-6">
+                {% csrf_token %}
+                <input type="hidden" name="intent" value="update_profile">
+
+                <div class="grid gap-6 md:grid-cols-2">
+                    <div class="flex flex-col gap-2">
+                        <label for="email" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Email</label>
+                        <input id="email" name="email" type="email" value="{{ user.email|default_if_none:'' }}" class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900" disabled readonly>
+                        <p class="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <label for="full_name" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Full name</label>
+                        <input id="full_name" name="full_name" type="text" value="{{ user.get_full_name|default_if_none:''|default:'Manager' }}" class="editable-field w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-200" disabled>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <p class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Status</p>
+                        <div class="rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900">
+                            Active
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <p class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Role</p>
+                        <div class="rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900">
+                            Manager
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <p class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Account Creation Date</p>
+                        <div class="rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900">
+                            {% if profile.account_creation_date %}
+                                {{ profile.account_creation_date|date:"F j, Y" }}
+                            {% else %}
+                                Not set
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <p class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Account Creation Time</p>
+                        <div class="rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900">
+                            {% if profile.account_creation_time %}
+                                {{ profile.account_creation_time|time:"g:i A" }}
+                            {% else %}
+                                Not set
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div id="accountNotify"
+                     class="hidden"
+                     data-updated="{% if profile_updated %}true{% else %}false{% endif %}"
+                     data-errors="{% if update_errors %}{{ update_errors|join:'||'|escapejs }}{% endif %}">
+                </div>
+            </form>
+        </section>
+    </div>
+</div>
+
+<!-- Image Cropper Modal -->
+<div id="cropModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Crop Profile Image</h3>
+            <button id="closeCropModal" type="button" class="text-gray-400 hover:text-gray-600 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="p-6 flex-1 overflow-auto">
+            <div class="flex justify-center">
+                <img id="cropImage" src="" alt="Crop" style="max-width: 100%; max-height: 60vh;">
+            </div>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
+            <button id="cancelCrop" type="button" class="px-4 py-2 rounded-full border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition">
+                Cancel
+            </button>
+            <button id="saveCrop" type="button" class="px-4 py-2 rounded-full bg-black text-sm font-semibold text-white hover:bg-gray-800 transition">
+                Save Crop
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Cropper.js CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
+<!-- Cropper.js JS -->
+<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+<script src="{% static 'manager/js/account_information.js' %}"></script>
+{% endblock %}
+

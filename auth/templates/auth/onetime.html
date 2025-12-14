@@ -1,0 +1,262 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Admin Registration - Naqel Maps</title>
+    <link href="{% static 'css/output.css' %}" rel="stylesheet">
+</head>
+<body class="bg-white min-h-screen font-sans">
+    <div class="flex min-h-screen">
+        <!-- Left Column - Registration Form -->
+        <div class="flex-1 flex flex-col justify-center px-8 py-12 bg-white">
+            <div class="mx-auto w-full max-w-sm">
+                <!-- Registration Form -->
+                <div>
+                    <h2 class="text-3xl font-bold text-black mb-2" id="stepTitle"></h2>
+                    <p class="text-black mb-8" id="stepDescription"></p>
+
+                    <form id="registrationForm" class="space-y-6">
+                        {% csrf_token %}
+                        
+                        <!-- Step 0: Welcome Screen -->
+                        <div id="step0" class="step-content">
+                            <div class="text-center">
+                                <h2 class="text-4xl font-bold text-black mb-4 animate-fade-in" id="welcomeTitle">Register the System Admin</h2>
+                                <button 
+                                    type="button"
+                                    id="getStartedButton"
+                                    class="mt-8 bg-black hover:bg-gray-900 text-white font-semibold py-3 px-8 rounded-full transition duration-200 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 animate-fade-in-delay"
+                                >
+                                    Get Started
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 1: Full Name -->
+                        <div id="step1" class="step-content hidden">
+                            <div class="animate-fade-in">
+                                <label for="fullName" class="block text-sm font-medium text-black mb-2">
+                                    Full Name
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="fullName" 
+                                    name="full_name" 
+                                    required
+                                    placeholder="Enter your full name"
+                                    class="w-full px-4 py-3 border border-black rounded-full focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Email -->
+                        <div id="step2" class="step-content hidden">
+                            <div class="animate-fade-in">
+                                <label for="email" class="block text-sm font-medium text-black mb-2">
+                                    Email Address
+                                </label>
+                                <input 
+                                    type="email" 
+                                    id="email" 
+                                    name="email" 
+                                    required
+                                    placeholder="Enter your email address"
+                                    class="w-full px-4 py-3 border border-black rounded-full focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Password -->
+                        <div id="step3" class="step-content hidden">
+                            <div class="animate-fade-in">
+                                <label for="password" class="block text-sm font-medium text-black mb-2">
+                                    Password
+                                </label>
+                                <input 
+                                    type="password" 
+                                    id="password" 
+                                    name="password" 
+                                    required
+                                    placeholder="Enter your password"
+                                    class="w-full px-4 py-3 border border-black rounded-full focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+                                >
+                                <p class="text-xs text-black mt-2">Password must be at least 8 characters</p>
+                            </div>
+                        </div>
+
+                        <!-- Step 4: Confirm Password -->
+                        <div id="step4" class="step-content hidden">
+                            <div class="animate-fade-in">
+                                <label for="confirmPassword" class="block text-sm font-medium text-black mb-2">
+                                    Confirm Password
+                                </label>
+                                <input 
+                                    type="password" 
+                                    id="confirmPassword" 
+                                    name="confirm_password" 
+                                    required
+                                    placeholder="Confirm your password"
+                                    class="w-full px-4 py-3 border border-black rounded-full focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Step 5: Thank You Message -->
+                        <div id="step5" class="step-content hidden">
+                            <div class="text-center animate-fade-in">
+                                <div class="mb-6">
+                                    <svg class="w-16 h-16 mx-auto text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </div>
+                                <h3 class="text-2xl font-bold text-black mb-4">Thank You!</h3>
+                                <p class="text-black mb-4">System Admin account has been created successfully.</p>
+                                <p class="text-sm text-black" id="redirectMessage">Redirecting to login page in 5 seconds...</p>
+                            </div>
+                        </div>
+
+                        <!-- Error Message -->
+                        <div id="errorMessage" class="hidden text-sm text-black bg-gray-100 border border-black p-3 rounded-full"></div>
+
+                        <!-- Navigation Buttons -->
+                        <div id="navigationButtons" class="flex space-x-4 animate-fade-in-delay">
+                            <button 
+                                type="button"
+                                id="prevButton"
+                                class="hidden w-full bg-white hover:bg-gray-100 text-black font-semibold py-3 px-4 rounded-full border border-black transition duration-200 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
+                            >
+                                Previous
+                            </button>
+                            <button 
+                                type="button"
+                                id="nextButton"
+                                class="w-full bg-black hover:bg-gray-900 text-white font-semibold py-3 px-4 rounded-full transition duration-200 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
+                            >
+                                Next
+                            </button>
+                            <button 
+                                type="submit"
+                                id="submitButton"
+                                class="hidden w-full bg-black hover:bg-gray-900 text-white font-semibold py-3 px-4 rounded-full transition duration-200 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
+                            >
+                                Create Account
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Logo -->
+        <div class="hidden lg:flex flex-1 bg-black p-12 flex-col justify-center items-center border-l border-black">
+            <div class="flex items-center justify-center">
+                <img src="{% static 'auth/images/logo.png' %}" alt="Logo" class="max-w-xs w-full h-auto">
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.6s ease-out forwards;
+            opacity: 0;
+        }
+        .animate-fade-in-delay {
+            animation: fadeIn 0.6s ease-out 0.3s forwards;
+            opacity: 0;
+        }
+        .step-content.animate-step {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+    </style>
+    <!-- Notification Container -->
+    <div id="notificationContainer" class="fixed top-20 left-1/2 z-50 space-y-3 w-auto max-w-md"></div>
+    
+    <!-- Notification Template -->
+    <template id="notificationTemplate">
+        <div class="notification-item bg-white border-2 border-black rounded-full px-6 py-4 shadow-lg flex items-center justify-between opacity-0 transform -translate-y-full transition-all duration-300 w-full">
+            <div class="flex items-center space-x-3 flex-1">
+                <div class="notification-icon flex-shrink-0"></div>
+                <p class="notification-message text-sm font-medium text-black flex-1"></p>
+            </div>
+            <button class="notification-close ml-4 text-black hover:text-gray-600 transition flex-shrink-0" aria-label="Close">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    </template>
+    
+    <style>
+        #notificationContainer {
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+        #notificationContainer > * {
+            pointer-events: auto;
+        }
+        .notification-item {
+            min-width: 320px;
+            max-width: 500px;
+            width: 100%;
+        }
+        .notification-item.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .notification-item.hide {
+            opacity: 0;
+            transform: translateY(-100%);
+        }
+        @media (max-width: 640px) {
+            #notificationContainer {
+                top: 1rem;
+                left: 1rem;
+                right: 1rem;
+                transform: none;
+                max-width: 100%;
+            }
+        }
+    </style>
+    
+    <script src="{% static 'notifications/js/notifications.js' %}"></script>
+    <script>
+        // Load Django messages as notifications
+        document.addEventListener('DOMContentLoaded', function() {
+            function showDjangoNotifications() {
+                if (window.notify) {
+                    const messages = [
+                        {% for message in messages %}
+                        {
+                            message: "{{ message|escapejs }}",
+                            type: '{% if message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% elif message.tags == "success" %}success{% else %}info{% endif %}'
+                        }{% if not forloop.last %},{% endif %}
+                        {% endfor %}
+                    ];
+                    if (messages.length > 0) {
+                        messages.forEach(function(msg) {
+                            window.notify.show(msg.message, msg.type, 7000);
+                        });
+                    }
+                } else {
+                    setTimeout(showDjangoNotifications, 50);
+                }
+            }
+            showDjangoNotifications();
+        });
+    </script>
+    <script src="{% static 'auth/js/onetime.js' %}"></script>
+</body>
+</html>
+

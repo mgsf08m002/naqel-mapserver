@@ -1,0 +1,184 @@
+{% extends 'system_admin/base.html' %}
+{% load static %}
+
+{% block title %}Permissions - System Admin - Naqel Maps{% endblock %}
+
+{% block page_title %}Permissions{% endblock %}
+
+{% block content %}
+<div class="bg-white -mx-6 -my-6 px-4 sm:px-6 py-6 sm:py-8 min-h-[calc(100vh-64px)] overflow-x-hidden">
+    <div class="max-w-6xl mx-auto space-y-6">
+        <header class="space-y-3">
+            <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
+                <span class="h-px w-6 bg-gray-300"></span>
+                <span>User Management</span>
+            </div>
+            <div class="flex flex-col gap-2">
+                <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900">Permissions</h1>
+                <p class="text-xs sm:text-sm text-gray-600 max-w-2xl">Manage user permissions for managers and editors. Grant or modify access to dashboard, security, and account information.</p>
+            </div>
+        </header>
+
+        <!-- Search and Controls Section -->
+        <section class="space-y-4">
+            <!-- Search Bar -->
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Search users by name, email, or role..." 
+                    class="w-full pl-12 pr-4 py-3 rounded-full border-2 border-gray-200 bg-white text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-900 focus:ring-2 focus:ring-gray-200 transition-colors"
+                >
+                <button 
+                    id="clearSearchBtn" 
+                    type="button" 
+                    class="hidden absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Controls Row -->
+            <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                <!-- Results Counter -->
+                <div id="resultsCounter" class="text-sm text-gray-600">
+                    <span id="resultsCount" class="font-semibold text-gray-900">0</span> users found
+                </div>
+
+                <!-- View Switcher and Filters -->
+                <div class="flex items-center gap-3 flex-wrap">
+                    <!-- View Switcher -->
+                    <div class="flex items-center gap-1 bg-gray-50 rounded-full p-1 border border-gray-200 shadow-sm">
+                        <button id="viewClassic" type="button" class="view-btn active px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200" data-view="classic" title="Classic View">
+                            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                            </svg>
+                            Classic
+                        </button>
+                        <button id="viewList" type="button" class="view-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200" data-view="list" title="List View">
+                            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                            </svg>
+                            List
+                        </button>
+                        <button id="viewTable" type="button" class="view-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200" data-view="table" title="Table View">
+                            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                            Table
+                        </button>
+                    </div>
+
+                    <!-- Role Filter -->
+                    <div class="relative">
+                        <select id="roleFilter" class="appearance-none rounded-full border-2 border-gray-200 bg-white px-4 py-2 pr-8 text-xs font-semibold text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-200 transition-colors shadow-sm">
+                            <option value="">All Roles</option>
+                            <option value="manager">Manager</option>
+                            <option value="editor">Editor</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Users Display Area -->
+        <section id="usersContainer" class="space-y-4">
+            <!-- Loading State -->
+            <div id="loadingState" class="flex items-center justify-center py-12">
+                <div class="text-center">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
+                    <p class="text-sm text-gray-600">Loading users...</p>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden text-center py-12">
+                <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                </svg>
+                <p class="text-sm font-medium text-gray-900 mb-1">No users found</p>
+                <p class="text-xs text-gray-500">Try adjusting your filters</p>
+            </div>
+
+            <!-- Classic View -->
+            <div id="classicView" class="hidden grid gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3">
+                <!-- User cards will be inserted here -->
+            </div>
+
+            <!-- List View -->
+            <div id="listView" class="hidden space-y-2 sm:space-y-3">
+                <!-- User list items will be inserted here -->
+            </div>
+
+            <!-- Table View -->
+            <div id="tableView" class="hidden w-full overflow-x-auto rounded-lg border-2 border-gray-200 bg-white shadow-sm" style="max-width: 100%;">
+                <table class="w-full min-w-max border-collapse">
+                    <thead class="bg-gray-50">
+                        <tr class="border-b-2 border-gray-200">
+                            <th class="text-left py-3 px-3 sm:px-4 text-[10px] sm:text-[11px] font-semibold text-gray-900 uppercase tracking-wider whitespace-nowrap">Full Name</th>
+                            <th class="text-left py-3 px-3 sm:px-4 text-[10px] sm:text-[11px] font-semibold text-gray-900 uppercase tracking-wider whitespace-nowrap">Email</th>
+                            <th class="text-left py-3 px-3 sm:px-4 text-[10px] sm:text-[11px] font-semibold text-gray-900 uppercase tracking-wider whitespace-nowrap">Role</th>
+                            <th class="text-left py-3 px-3 sm:px-4 text-[10px] sm:text-[11px] font-semibold text-gray-900 uppercase tracking-wider whitespace-nowrap">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-gray-100">
+                        <!-- Table rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'system_admin/js/permissions.js' %}"></script>
+<style>
+    body, main {
+        background: white !important;
+        overflow-x: hidden !important;
+    }
+    main > div {
+        padding: 0 !important;
+        background: white !important;
+        overflow-x: hidden !important;
+    }
+    html {
+        overflow-x: hidden !important;
+    }
+    .view-btn.active {
+        background-color: black;
+        color: white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .view-btn:not(.active) {
+        color: #4b5563;
+    }
+    .view-btn:not(.active):hover {
+        background-color: white;
+        color: black;
+    }
+    #searchInput:focus {
+        box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+    }
+    #tableView {
+        -webkit-overflow-scrolling: touch;
+    }
+    #tableView table {
+        table-layout: auto;
+    }
+</style>
+{% endblock %}
+

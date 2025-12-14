@@ -1,0 +1,115 @@
+{% extends 'system_admin/base.html' %}
+{% load static %}
+
+{% block title %}Check Permissions - System Admin - Naqel Maps{% endblock %}
+
+{% block page_title %}Check Permissions{% endblock %}
+
+{% block content %}
+<div class="bg-white -mx-6 -my-6 px-4 sm:px-6 py-6 sm:py-8 min-h-[calc(100vh-64px)] overflow-x-hidden">
+    <div class="max-w-3xl mx-auto space-y-8">
+        <header class="space-y-3">
+            <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
+                <span class="h-px w-6 bg-gray-300"></span>
+                <span>User Management</span>
+            </div>
+            <div class="flex flex-col gap-2">
+                <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900">Check Permissions</h1>
+                <p class="text-xs sm:text-sm text-gray-600 max-w-2xl">View and modify permissions for <span class="font-semibold text-gray-900">{{ user.get_full_name|default:user.email }}</span>.</p>
+            </div>
+        </header>
+
+        <form id="checkPermissionForm" method="post" class="space-y-6">
+            {% csrf_token %}
+            <input type="hidden" name="intent" value="update_permissions">
+            <input type="hidden" name="user_id" value="{{ user.id }}">
+
+            <div class="space-y-4">
+                <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
+                    <span class="h-px w-6 bg-gray-300"></span>
+                    <span>{{ role|title }} Permissions</span>
+                </div>
+                <p class="text-sm text-gray-600">Select or deselect permissions for this {{ role }}.</p>
+            </div>
+
+            <div class="space-y-4">
+                {% if role == 'manager' %}
+                <!-- Access Dashboard Permission (Manager only) -->
+                <label class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
+                    <input 
+                        type="checkbox" 
+                        name="can_access_dashboard" 
+                        id="can_access_dashboard" 
+                        {% if profile.can_access_dashboard %}checked{% endif %}
+                        class="w-4 h-4 text-black border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer"
+                    >
+                    <div class="flex-1">
+                        <span class="text-sm font-semibold text-gray-900">Access Dashboard</span>
+                        <p class="text-xs text-gray-500 mt-0.5">Allow the manager to view and access the dashboard</p>
+                    </div>
+                </label>
+                {% endif %}
+
+                <!-- Access Security Page Permission -->
+                <label class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
+                    <input 
+                        type="checkbox" 
+                        name="can_access_security" 
+                        id="can_access_security" 
+                        {% if profile.can_access_security %}checked{% endif %}
+                        class="w-4 h-4 text-black border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer"
+                    >
+                    <div class="flex-1">
+                        <span class="text-sm font-semibold text-gray-900">Access Security Page</span>
+                        <p class="text-xs text-gray-500 mt-0.5">Allow the {{ role }} to access the security settings page</p>
+                    </div>
+                </label>
+
+                <!-- Access Account Information Permission -->
+                <label class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
+                    <input 
+                        type="checkbox" 
+                        name="can_access_account_information" 
+                        id="can_access_account_information" 
+                        {% if profile.can_access_account_information %}checked{% endif %}
+                        class="w-4 h-4 text-black border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer"
+                    >
+                    <div class="flex-1">
+                        <span class="text-sm font-semibold text-gray-900">Access Account Information</span>
+                        <p class="text-xs text-gray-500 mt-0.5">Allow the {{ role }} to access and update account information</p>
+                    </div>
+                </label>
+            </div>
+
+            <div id="checkPermissionNotify" 
+                 class="hidden"
+                 data-success="{% if permissions_updated %}true{% else %}false{% endif %}"
+                 data-success-message="{% if permissions_updated %}{{ success_message|escapejs }}{% endif %}"
+                 data-errors=""></div>
+
+            <div class="flex items-center gap-4 pt-6 border-t border-gray-200">
+                <a href="{% url 'system_admin:permissions' %}" class="flex-1 rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition text-center">
+                    Cancel
+                </a>
+                <button type="submit" class="flex-1 inline-flex items-center justify-center rounded-full bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+                    Update Permissions
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'system_admin/js/check_permission.js' %}"></script>
+<style>
+    body, main {
+        background: white !important;
+    }
+    main > div {
+        padding: 0 !important;
+        background: white !important;
+    }
+</style>
+{% endblock %}
+
