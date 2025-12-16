@@ -9,8 +9,8 @@ from system_admin.models import UserProfile
 
 
 @login_required(login_url='/login/')
-def dashboard_view(request):
-    """Editor Dashboard view."""
+def map_view(request):
+    """Editor Map view - landing page after login."""
     # Check if user has editor role
     if not hasattr(request.user, 'profile') or request.user.profile.role != 'editor':
         logout(request)
@@ -20,7 +20,7 @@ def dashboard_view(request):
     if not request.user.profile.password_setup_completed:
         return redirect('auth:password_setup')
     
-    return render(request, 'editor/home.html')
+    return render(request, 'editor/map.html')
 
 
 @login_required(login_url='/login/')

@@ -1,0 +1,32 @@
+{% extends 'editor/base.html' %}
+{% load static %}
+
+{% block title %}Editor - Map{% endblock %}
+
+{% block main_class %}relative{% endblock %}
+
+{% block content_wrapper %}
+{% block content %}
+<!-- MapLibre GL CSS -->
+<link rel='stylesheet' href='https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css' />
+
+<!-- MapLibre GL JS -->
+<script src='https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js'></script>
+
+<!-- TerraDraw CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.css"/>
+
+<!-- TerraDraw JS -->
+<script src="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.umd.js"></script>
+
+<div class="w-full h-full relative">
+    <div id="map" class="w-full h-full"></div>
+    <pre id="info" class="block absolute left-1/2 top-[680px] -translate-x-1/2 min-h-[20px] w-[45%] p-2 border-none rounded-[25px] text-xs text-left text-[#222] bg-white z-10"></pre>
+</div>
+{% endblock %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mapping/js/map.js' %}"></script>
+{% endblock %}
+

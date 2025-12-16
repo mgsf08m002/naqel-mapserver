@@ -20,11 +20,12 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 urlpatterns = [
-    path('', RedirectView.as_view(url='/login/', permanent=False), name='home'),
+    path('', include('home.urls')),
     path('', include('auth.urls')),
     path('system-admin/', include('system_admin.urls')),
     path('manager/', include('manager.urls')),
     path('editor/', include('editor.urls')),
+    path('mapping/', include('mapping.urls')),
 ]
 
 if settings.DEBUG:

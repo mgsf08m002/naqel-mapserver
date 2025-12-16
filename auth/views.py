@@ -75,38 +75,15 @@ def login_api(request):
                     redirect_url = '/'
             # Redirect based on user role
             elif user.is_superuser:
-                redirect_url = reverse('system_admin:dashboard')
+                redirect_url = reverse('system_admin:map')
             elif hasattr(user, 'profile') and user.profile.role:
                 # Check permissions for managers and editors
                 if user.profile.role == 'manager':
-                    # Check if manager has any permissions
-                    has_any_permission = (
-                        user.profile.can_access_dashboard or
-                        user.profile.can_access_security or
-                        user.profile.can_access_account_information
-                    )
-                    if not has_any_permission:
-                        logout(request)
-                        return JsonResponse({
-                            'success': False,
-                            'message': 'No permissions granted. Please contact your system administrator.',
-                            'notification': {'message': 'No permissions granted. Please contact your system administrator.', 'type': 'error'}
-                        }, status=403)
-                    redirect_url = reverse('manager:dashboard')
+                    # Map is accessible without permissions, other pages require permissions
+                    redirect_url = reverse('manager:map')
                 elif user.profile.role == 'editor':
-                    # Check if editor has any permissions
-                    has_any_permission = (
-                        user.profile.can_access_security or
-                        user.profile.can_access_account_information
-                    )
-                    if not has_any_permission:
-                        logout(request)
-                        return JsonResponse({
-                            'success': False,
-                            'message': 'No permissions granted. Please contact your system administrator.',
-                            'notification': {'message': 'No permissions granted. Please contact your system administrator.', 'type': 'error'}
-                        }, status=403)
-                    redirect_url = reverse('editor:dashboard')
+                    # Map is accessible without permissions, other pages require permissions
+                    redirect_url = reverse('editor:map')
                 else:
                     redirect_url = '/'
             else:
@@ -243,12 +220,12 @@ def password_setup_view(request):
     if request.user.profile.role not in ['manager', 'editor']:
         return redirect('auth:login')
     
-    # If already completed, redirect to dashboard
+    # If already completed, redirect to map
     if request.user.profile.password_setup_completed:
         if request.user.profile.role == 'manager':
-            return redirect('manager:dashboard')
+            return redirect('manager:map')
         elif request.user.profile.role == 'editor':
-            return redirect('editor:dashboard')
+            return redirect('editor:map')
     
     context = {
         'role': request.user.profile.role.title(),
@@ -261,11 +238,11 @@ def password_setup_view(request):
             request.user.profile.password_setup_completed = True
             request.user.profile.save()
             
-            # Redirect to appropriate dashboard
+            # Redirect to appropriate map
             if request.user.profile.role == 'manager':
-                return redirect('manager:dashboard')
+                return redirect('manager:map')
             elif request.user.profile.role == 'editor':
-                return redirect('editor:dashboard')
+                return redirect('editor:map')
         
         elif intent == 'set_password':
             errors = []
@@ -298,9 +275,9 @@ def password_setup_view(request):
                 
                 # Redirect after a moment
                 if request.user.profile.role == 'manager':
-                    return redirect('manager:dashboard')
+                    return redirect('manager:map')
                 elif request.user.profile.role == 'editor':
-                    return redirect('editor:dashboard')
+                    return redirect('editor:map')
             else:
                 context['setup_errors'] = errors
     

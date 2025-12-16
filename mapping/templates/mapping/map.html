@@ -1,0 +1,33 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSA Map Editing Module</title>
+    <meta property="og:description" content="Style a polygon with the fill layer type." />
+    
+    <!-- MapLibre GL CSS -->
+    <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css' />
+    
+    <!-- MapLibre GL JS -->
+    <script src='https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js'></script>
+    
+    <!-- TerraDraw CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.css"/>
+    
+    <!-- TerraDraw JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.umd.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <link href="{% static 'css/output.css' %}" rel="stylesheet">
+</head>
+<body class="m-0 p-0 relative h-screen overflow-hidden">
+    <div id="map" class="w-full h-full"></div>
+    <pre id="info" class="block absolute left-1/2 top-[680px] -translate-x-1/2 min-h-[20px] w-[45%] p-2 border-none rounded-[25px] text-xs text-left text-[#222] bg-white z-10"></pre>
+    
+    <!-- Map JavaScript -->
+    <script src="{% static 'mapping/js/map.js' %}"></script>
+</body>
+</html>
+

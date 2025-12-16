@@ -48,6 +48,8 @@ INSTALLED_APPS = [
     'system_admin',
     'manager',
     'editor',
+    'mapping',
+    'home',
 ]
 
 MIDDLEWARE = [
