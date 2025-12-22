@@ -95,6 +95,7 @@ const map = new maplibregl.Map({
     container: 'map',
     center: [46.727866, 24.723580],
     zoom: 9.5,
+    maxZoom: 19,
     maxBounds: bounds,
     style: {
         "version": 8,
@@ -102,9 +103,13 @@ const map = new maplibregl.Map({
             "satellite": {
                 "type": "raster",
                 "tiles": [
-                    "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"
+                    "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                    // "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"
                 ],
-                "tileSize": 256
+                "tileSize": 256,
+                "maxzoom": 19,
+                "attribution": "Source: Esri, Maxar, Earthstar Geographics"
+                // Original: EOX / ESA Sentinel-2 Cloudless 2020
             }
         },
         "layers": [{
