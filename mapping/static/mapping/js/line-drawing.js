@@ -18,6 +18,178 @@
     let sidePanelContent = null;
     let currentFeatureLabel = 'Line';
 
+    function hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : { r: 239, g: 68, b: 68 };
+    }
+
+    function getVisualizationStyle(featureLabel) {
+        const label = featureLabel ? featureLabel.toLowerCase() : 'line';
+        
+        const styles = {
+            'motorway': {
+                lineColor: '#3b82f6',
+                glowColor: '#3b82f6',
+                lineWidth: 6,
+                glowWidth: 12,
+                glowOpacity: 0.6,
+                markerColor: '#ffffff',
+                markerGlowColor: '#3b82f6'
+            },
+            'trunk road': {
+                lineColor: '#10b981',
+                glowColor: '#10b981',
+                lineWidth: 6,
+                glowWidth: 12,
+                glowOpacity: 0.6,
+                markerColor: '#ffffff',
+                markerGlowColor: '#10b981'
+            },
+            'primary road': {
+                lineColor: '#f97316',
+                glowColor: '#f97316',
+                lineWidth: 5,
+                glowWidth: 10,
+                glowOpacity: 0.5,
+                markerColor: '#ffffff',
+                markerGlowColor: '#f97316'
+            },
+            'secondary road': {
+                lineColor: '#eab308',
+                glowColor: '#eab308',
+                lineWidth: 5,
+                glowWidth: 10,
+                glowOpacity: 0.5,
+                markerColor: '#ffffff',
+                markerGlowColor: '#eab308'
+            },
+            'tertiary road': {
+                lineColor: '#a855f7',
+                glowColor: '#a855f7',
+                lineWidth: 4,
+                glowWidth: 8,
+                glowOpacity: 0.5,
+                markerColor: '#ffffff',
+                markerGlowColor: '#a855f7'
+            },
+            'motorway link': {
+                lineColor: '#60a5fa',
+                glowColor: '#60a5fa',
+                lineWidth: 5,
+                glowWidth: 10,
+                glowOpacity: 0.5,
+                markerColor: '#ffffff',
+                markerGlowColor: '#60a5fa'
+            },
+            'trunk link': {
+                lineColor: '#34d399',
+                glowColor: '#34d399',
+                lineWidth: 5,
+                glowWidth: 10,
+                glowOpacity: 0.5,
+                markerColor: '#ffffff',
+                markerGlowColor: '#34d399'
+            },
+            'primary link': {
+                lineColor: '#fb923c',
+                glowColor: '#fb923c',
+                lineWidth: 4,
+                glowWidth: 8,
+                glowOpacity: 0.5,
+                markerColor: '#ffffff',
+                markerGlowColor: '#fb923c'
+            },
+            'secondary link': {
+                lineColor: '#fde047',
+                glowColor: '#fde047',
+                lineWidth: 4,
+                glowWidth: 8,
+                glowOpacity: 0.5,
+                markerColor: '#ffffff',
+                markerGlowColor: '#fde047'
+            },
+            'tertiary link': {
+                lineColor: '#c084fc',
+                glowColor: '#c084fc',
+                lineWidth: 4,
+                glowWidth: 8,
+                glowOpacity: 0.5,
+                markerColor: '#ffffff',
+                markerGlowColor: '#c084fc'
+            },
+            'minor/unclassified road': {
+                lineColor: '#06b6d4',
+                glowColor: '#06b6d4',
+                lineWidth: 4,
+                glowWidth: 9,
+                glowOpacity: 0.55,
+                markerColor: '#ffffff',
+                markerGlowColor: '#06b6d4'
+            },
+            'residential road': {
+                lineColor: '#ec4899',
+                glowColor: '#ec4899',
+                lineWidth: 4,
+                glowWidth: 8,
+                glowOpacity: 0.6,
+                markerColor: '#ffffff',
+                markerGlowColor: '#ec4899'
+            },
+            'living street': {
+                lineColor: '#84cc16',
+                glowColor: '#84cc16',
+                lineWidth: 3,
+                glowWidth: 7,
+                glowOpacity: 0.5,
+                markerColor: '#ffffff',
+                markerGlowColor: '#84cc16'
+            },
+            'service road': {
+                lineColor: '#f59e0b',
+                glowColor: '#f59e0b',
+                lineWidth: 3,
+                glowWidth: 7,
+                glowOpacity: 0.55,
+                markerColor: '#ffffff',
+                markerGlowColor: '#f59e0b'
+            },
+            'track / land-access road': {
+                lineColor: '#f43f5e',
+                glowColor: '#f43f5e',
+                lineWidth: 4,
+                glowWidth: 9,
+                glowOpacity: 0.6,
+                markerColor: '#ffffff',
+                markerGlowColor: '#f43f5e'
+            }
+        };
+        
+        let normalizedLabel = label.trim();
+        
+        if (styles[normalizedLabel]) {
+            return styles[normalizedLabel];
+        }
+        
+        normalizedLabel = normalizedLabel.replace(/\s+/g, ' ');
+        if (styles[normalizedLabel]) {
+            return styles[normalizedLabel];
+        }
+        
+        return {
+            lineColor: '#ffffff',
+            glowColor: '#ef4444',
+            lineWidth: 4,
+            glowWidth: 10,
+            glowOpacity: 0.5,
+            markerColor: '#ffffff',
+            markerGlowColor: '#ef4444'
+        };
+    }
+
     function initLineDrawing() {
         let drawControl = null;
         if (typeof draw !== 'undefined' && draw) {
@@ -540,12 +712,14 @@
                 }
             });
 
+            const style = getVisualizationStyle(currentFeatureLabel);
+
             const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             glowPath.setAttribute('d', pathData);
             glowPath.setAttribute('fill', 'none');
-            glowPath.setAttribute('stroke', '#ef4444');
-            glowPath.setAttribute('stroke-width', '10');
-            glowPath.setAttribute('stroke-opacity', '0.5');
+            glowPath.setAttribute('stroke', style.glowColor);
+            glowPath.setAttribute('stroke-width', style.glowWidth.toString());
+            glowPath.setAttribute('stroke-opacity', style.glowOpacity.toString());
             glowPath.setAttribute('filter', 'url(#blur)');
             glowPath.setAttribute('stroke-linecap', 'round');
             glowPath.setAttribute('stroke-linejoin', 'round');
@@ -554,8 +728,8 @@
             const mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             mainPath.setAttribute('d', pathData);
             mainPath.setAttribute('fill', 'none');
-            mainPath.setAttribute('stroke', '#ffffff');
-            mainPath.setAttribute('stroke-width', '4');
+            mainPath.setAttribute('stroke', style.lineColor);
+            mainPath.setAttribute('stroke-width', style.lineWidth.toString());
             mainPath.setAttribute('stroke-opacity', '1');
             mainPath.setAttribute('stroke-linecap', 'round');
             mainPath.setAttribute('stroke-linejoin', 'round');
@@ -569,7 +743,7 @@
                 markerGlow.setAttribute('cx', x.toString());
                 markerGlow.setAttribute('cy', y.toString());
                 markerGlow.setAttribute('r', '8');
-                markerGlow.setAttribute('fill', '#ef4444');
+                markerGlow.setAttribute('fill', style.markerGlowColor);
                 markerGlow.setAttribute('opacity', '0.6');
                 markerGlow.setAttribute('filter', 'url(#blur)');
                 svg.appendChild(markerGlow);
@@ -578,8 +752,8 @@
                 marker.setAttribute('cx', x.toString());
                 marker.setAttribute('cy', y.toString());
                 marker.setAttribute('r', '6');
-                marker.setAttribute('fill', '#ffffff');
-                marker.setAttribute('stroke', '#ffffff');
+                marker.setAttribute('fill', style.markerColor);
+                marker.setAttribute('stroke', style.markerColor);
                 marker.setAttribute('stroke-width', '2');
                 svg.appendChild(marker);
             });
@@ -614,6 +788,12 @@
             selectedFeatureName.textContent = currentFeatureLabel;
         }
 
+        if (currentLineId) {
+            renderLineAsMapLibreLayer(currentLineId);
+            forceMarkersVisibility();
+        }
+        
+        updateLineVisualization();
         updateFeatureTypeVisualization();
     }
 
@@ -662,13 +842,26 @@
                 return;
             }
             
+            const style = getVisualizationStyle(currentFeatureLabel);
+            
             const existingSource = map.getSource(sourceId);
-            if (existingSource && existingSource.setData) {
+            const existingGlowLayer = map.getLayer(glowLayerId);
+            const existingLayer = map.getLayer(layerId);
+            
+            if (existingSource && existingSource.setData && existingGlowLayer && existingLayer) {
                 try {
                     existingSource.setData({
                         type: 'FeatureCollection',
                         features: [feature]
                     });
+                    
+                    map.setPaintProperty(glowLayerId, 'line-color', style.glowColor);
+                    map.setPaintProperty(glowLayerId, 'line-width', style.glowWidth);
+                    map.setPaintProperty(glowLayerId, 'line-opacity', style.glowOpacity);
+                    
+                    map.setPaintProperty(layerId, 'line-color', style.lineColor);
+                    map.setPaintProperty(layerId, 'line-width', style.lineWidth);
+                    
                     hideDefaultRendering();
                     return;
                 } catch (e) {
@@ -703,9 +896,9 @@
                 type: 'line',
                 source: sourceId,
                 paint: {
-                    'line-color': '#ef4444',
-                    'line-width': 10,
-                    'line-opacity': 0.5,
+                    'line-color': style.glowColor,
+                    'line-width': style.glowWidth,
+                    'line-opacity': style.glowOpacity,
                     'line-blur': 6
                 }
             });
@@ -715,8 +908,8 @@
                 type: 'line',
                 source: sourceId,
                 paint: {
-                    'line-color': '#ffffff',
-                    'line-width': 4,
+                    'line-color': style.lineColor,
+                    'line-width': style.lineWidth,
                     'line-opacity': 1
                 }
             });
@@ -780,15 +973,19 @@
 
             clearVertexMarkers();
 
+            const style = getVisualizationStyle(currentFeatureLabel);
+            const glowColorRgb = hexToRgb(style.markerGlowColor);
+            const glowShadow = '0 0 4px rgba(' + glowColorRgb.r + ', ' + glowColorRgb.g + ', ' + glowColorRgb.b + ', 0.8), 0 0 8px rgba(' + glowColorRgb.r + ', ' + glowColorRgb.g + ', ' + glowColorRgb.b + ', 0.6)';
+
             coordinates.forEach(function(coord, index) {
                 const el = document.createElement('div');
                 el.className = 'vertex-marker';
                 el.style.width = '12px';
                 el.style.height = '12px';
                 el.style.borderRadius = '50%';
-                el.style.backgroundColor = '#ffffff';
-                el.style.border = '2px solid #ffffff';
-                el.style.boxShadow = '0 0 4px rgba(239, 68, 68, 0.8), 0 0 8px rgba(239, 68, 68, 0.6)';
+                el.style.backgroundColor = style.markerColor;
+                el.style.border = '2px solid ' + style.markerColor;
+                el.style.boxShadow = glowShadow;
                 el.style.pointerEvents = 'none';
                 el.style.zIndex = '1000';
                 el.setAttribute('data-vertex-index', index.toString());
@@ -1279,12 +1476,15 @@
                 }
             });
 
+            const style = getVisualizationStyle(currentFeatureLabel);
+            const scaleFactor = 0.25;
+
             const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             glowPath.setAttribute('d', pathData);
             glowPath.setAttribute('fill', 'none');
-            glowPath.setAttribute('stroke', '#ef4444');
-            glowPath.setAttribute('stroke-width', '2.5');
-            glowPath.setAttribute('stroke-opacity', '0.6');
+            glowPath.setAttribute('stroke', style.glowColor);
+            glowPath.setAttribute('stroke-width', (style.glowWidth * scaleFactor).toString());
+            glowPath.setAttribute('stroke-opacity', style.glowOpacity.toString());
             glowPath.setAttribute('stroke-linecap', 'round');
             glowPath.setAttribute('stroke-linejoin', 'round');
             glowPath.setAttribute('filter', 'url(#' + filterId + ')');
@@ -1293,8 +1493,8 @@
             const mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             mainPath.setAttribute('d', pathData);
             mainPath.setAttribute('fill', 'none');
-            mainPath.setAttribute('stroke', '#ffffff');
-            mainPath.setAttribute('stroke-width', '1.2');
+            mainPath.setAttribute('stroke', style.lineColor);
+            mainPath.setAttribute('stroke-width', (style.lineWidth * scaleFactor).toString());
             mainPath.setAttribute('stroke-opacity', '1');
             mainPath.setAttribute('stroke-linecap', 'round');
             mainPath.setAttribute('stroke-linejoin', 'round');
@@ -1308,7 +1508,7 @@
                 markerGlow.setAttribute('cx', x.toFixed(2));
                 markerGlow.setAttribute('cy', y.toFixed(2));
                 markerGlow.setAttribute('r', '2.5');
-                markerGlow.setAttribute('fill', '#ef4444');
+                markerGlow.setAttribute('fill', style.markerGlowColor);
                 markerGlow.setAttribute('opacity', '0.5');
                 markerGlow.setAttribute('filter', 'url(#' + filterId + ')');
                 svg.appendChild(markerGlow);
@@ -1317,8 +1517,8 @@
                 marker.setAttribute('cx', x.toFixed(2));
                 marker.setAttribute('cy', y.toFixed(2));
                 marker.setAttribute('r', '1.5');
-                marker.setAttribute('fill', '#ffffff');
-                marker.setAttribute('stroke', '#ffffff');
+                marker.setAttribute('fill', style.markerColor);
+                marker.setAttribute('stroke', style.markerColor);
                 marker.setAttribute('stroke-width', '0.5');
                 svg.appendChild(marker);
             });
