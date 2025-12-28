@@ -41,8 +41,6 @@
             retryCount++;
             if (retryCount < MAX_RETRY_ATTEMPTS) {
                 setTimeout(initEditMode, 100);
-            } else {
-                console.warn('Edit mode: Map instance not found after maximum retries');
             }
             return;
         }
@@ -91,7 +89,8 @@
         if (areaBtn) areaBtn.addEventListener('click', () => selectTool('area'));
         if (undoBtn) undoBtn.addEventListener('click', handleUndo);
         if (redoBtn) redoBtn.addEventListener('click', handleRedo);
-        if (saveBtn) saveBtn.addEventListener('click', handleSave);
+        // Save button is handled by save-line-edit.js to avoid duplicate calls
+        // if (saveBtn) saveBtn.addEventListener('click', handleSave);
         if (zoomInBtn) zoomInBtn.addEventListener('click', handleZoomIn);
     }
 
@@ -221,7 +220,7 @@
                 }
             }
         } catch (error) {
-            console.error('Edit mode: Error updating button state', error);
+            // Error updating button state
         }
     }
 
@@ -306,7 +305,6 @@
         }
         
         if (!terraDrawInstance) {
-            console.warn('Edit mode: TerraDraw instance not found');
             return;
         }
         
@@ -319,7 +317,6 @@
         
         const terraDrawMode = modeMap[tool];
         if (!terraDrawMode) {
-            console.warn('Edit mode: Unknown tool:', tool);
             return;
         }
         
@@ -327,7 +324,7 @@
             // Set the TerraDraw mode
             terraDrawInstance.setMode(terraDrawMode);
         } catch (error) {
-            console.error('Edit mode: Error setting TerraDraw mode:', error);
+            // Error setting TerraDraw mode
         }
     }
 
@@ -364,8 +361,6 @@
      */
     function handleUndo() {
         // TODO: Implement undo logic
-        console.log('Undo clicked');
-        
         // Example: You can use TerraDraw undo functionality
         // if (drawInstance && drawInstance.undo) {
         //     drawInstance.undo();
@@ -377,8 +372,6 @@
      */
     function handleRedo() {
         // TODO: Implement redo logic
-        console.log('Redo clicked');
-        
         // Example: You can use TerraDraw redo functionality
         // if (drawInstance && drawInstance.redo) {
         //     drawInstance.redo();
@@ -389,7 +382,14 @@
      * Handle save action
      */
     function handleSave() {
-        // Get TerraDraw instance
+        // Delegate to save-line-edit.js handler if available
+        // This prevents duplicate calls - save-line-edit.js handles the actual save
+        if (typeof window.handleSaveLineEdit === 'function') {
+            window.handleSaveLineEdit();
+            return;
+        }
+        
+        // Fallback: Get TerraDraw instance
         let terraDrawInstance = null;
         if (typeof drawInstance !== 'undefined' && drawInstance) {
             terraDrawInstance = drawInstance;
@@ -398,14 +398,12 @@
         }
         
         if (!terraDrawInstance) {
-            console.warn('Edit mode: TerraDraw instance not found for save');
             return;
         }
         
         try {
             // Get current drawings
             const snapshot = terraDrawInstance.getSnapshot();
-            console.log('Edit mode: Save clicked - Snapshot:', snapshot);
             
             // TODO: Send snapshot to server
             // Example: Send to backend API
@@ -415,7 +413,7 @@
             //     body: JSON.stringify({ features: snapshot })
             // });
         } catch (error) {
-            console.error('Edit mode: Error saving drawings:', error);
+            // Error saving drawings
         }
     }
 
@@ -444,7 +442,6 @@
             }
         } catch (error) {
             // Mode change events may not be available in TerraDraw API
-            console.debug('Edit mode: TerraDraw mode change events not available');
         }
     }
 

@@ -24,7 +24,6 @@
                 this.template = document.getElementById('notificationTemplate');
                 
                 if (!this.container || !this.template) {
-                    console.error('Notification container or template not found');
                     return;
                 }
 
@@ -45,7 +44,6 @@
                 // Retry initialization
                 this.init();
                 if (!this.container || !this.template) {
-                    console.error('Notification system not initialized');
                     return null;
                 }
             }

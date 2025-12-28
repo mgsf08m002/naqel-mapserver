@@ -11,7 +11,6 @@
         if (changePasswordBtn) {
             changePasswordBtn.addEventListener('click', () => {
                 // Placeholder for future implementation
-                console.log('Change User Account Password clicked');
                 // TODO: Navigate to change password page when implemented
             });
         }
@@ -22,7 +21,6 @@
         if (forgotPasswordRequestsBtn) {
             forgotPasswordRequestsBtn.addEventListener('click', () => {
                 // Placeholder for future implementation
-                console.log('Forgot Password Requests clicked');
                 // TODO: Navigate to forgot password requests page when implemented
             });
         }

@@ -281,7 +281,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitBtn.textContent = originalText;
             }
         } catch (error) {
-            console.error('Registration error:', error);
+            // Registration error
             showError('An error occurred. Please try again.');
             submitBtn.disabled = false;
             submitBtn.textContent = originalText;

@@ -135,7 +135,6 @@
             state.users = data.users || [];
             applyFilters();
         } catch (error) {
-            console.error('Error loading users:', error);
             showError('Failed to load users. Please try again.');
         } finally {
             elements.loadingState?.classList.add('hidden');
@@ -519,7 +518,6 @@
                 });
             }
         } catch (e) {
-            console.warn('Failed to load preferences:', e);
             // Default to classic view on error
             switchView('classic', false);
         }
@@ -535,7 +533,7 @@
             localStorage.setItem('allUsersSearchQuery', state.searchQuery);
             localStorage.setItem('allUsersVisibleColumns', JSON.stringify(state.visibleColumns));
         } catch (e) {
-            console.warn('Failed to save preferences:', e);
+            // Failed to save preferences
         }
     }
 

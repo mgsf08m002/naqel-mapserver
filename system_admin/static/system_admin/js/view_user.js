@@ -45,7 +45,6 @@
 
             renderUserDetails(data.user);
         } catch (error) {
-            console.error('Error loading user details:', error);
             showError(error.message || 'Failed to load user information. Please try again.');
         } finally {
             elements.loadingState?.classList.add('hidden');

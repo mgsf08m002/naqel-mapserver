@@ -189,7 +189,6 @@
                     }
                 })
                 .catch(error => {
-                    console.error('Error uploading photo:', error);
                     if (saveCrop) {
                         saveCrop.disabled = false;
                         saveCrop.textContent = 'Save Crop';
@@ -240,7 +239,6 @@
                 }
             })
             .catch(error => {
-                console.error('Error removing photo:', error);
                 showNotification('Failed to remove photo. Please try again.', 'error');
             });
         };

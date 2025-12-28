@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     submitBtn.textContent = originalText;
                 }
             } catch (error) {
-                console.error('Login error:', error);
+                // Login error
                 
                 // Show generic error notification
                 showNotification('An error occurred. Please try again.', 'error');

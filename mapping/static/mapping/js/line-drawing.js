@@ -221,7 +221,6 @@
             setupLineDrawingListeners();
             startHidingDefaultRendering();
         } catch (error) {
-            console.error('Line drawing: Error initializing', error);
             setTimeout(function() { initLineDrawing(); }, 200);
         }
     }
@@ -263,7 +262,7 @@
                     stopDrawingMonitor();
                 }
             } catch (e) {
-                console.debug('Line drawing: Error monitoring drawing', e);
+                // Error monitoring drawing
             }
         }, 100);
 
@@ -305,7 +304,7 @@
                 });
             });
         } catch (e) {
-            console.debug('Line drawing: Could not hide default rendering', e);
+            // Could not hide default rendering
         }
     }
     
@@ -331,7 +330,7 @@
                 attributeFilter: ['d', 'x1', 'y1', 'x2', 'y2', 'class']
             });
         } catch (e) {
-            console.debug('Line drawing: Could not setup SVG observer', e);
+            // Could not setup SVG observer
         }
     }
     
@@ -381,9 +380,9 @@
                     }
                     drawingLineId = null;
                 }
-            } catch (e) {
-                console.debug('Line drawing: Error in drawing monitor', e);
-            }
+                } catch (e) {
+                    // Error in drawing monitor
+                }
         }, 50);
     }
     
@@ -416,7 +415,7 @@
                         try {
                             drawInstance.setMode('select');
                         } catch (e) {
-                            console.debug('Line drawing: Could not set select mode', e);
+                            // Could not set select mode
                         }
                     }
                     
@@ -433,7 +432,7 @@
                 }, 100);
             }
         } catch (error) {
-            console.error('Line drawing: Error handling line drawn', error);
+            // Error handling line drawn
         }
     }
 
@@ -465,7 +464,6 @@
                 forceMarkersVisibility();
             }, 100);
         } catch (error) {
-            console.error('Line drawing: Error selecting line', error);
             selectedLineId = id;
             currentLineId = id;
             
@@ -517,7 +515,7 @@
                 }
             }
         } catch (error) {
-            console.error('Line drawing: Error handling feature selection', error);
+            // Error handling feature selection
         }
     }
 
@@ -542,6 +540,254 @@
                 map._lineMarkerUpdater = null;
             }
         }
+    }
+
+    /**
+     * Show Search Features screen for approved line editing (Editor/System Admin)
+     */
+    function showLineSidePanelForApprovedLineEdit(featureLabel) {
+        const sidePanel = document.getElementById('editSidePanel');
+        if (!sidePanel) {
+            setTimeout(function() {
+                showLineSidePanelForApprovedLineEdit(featureLabel);
+            }, 100);
+            return;
+        }
+
+        // Get approved line data BEFORE removing edit screen
+        const editScreen = document.getElementById('editFeatureScreen');
+        let approvedLineId = null;
+        let approvedLineGeometry = null;
+        let approvedLineData = null;
+        
+        if (editScreen) {
+            approvedLineId = editScreen.getAttribute('data-approved-line-id');
+            const geometryAttr = editScreen.getAttribute('data-approved-line-geometry');
+            const lineDataAttr = editScreen.getAttribute('data-line-data');
+            
+            if (geometryAttr) {
+                try {
+                    approvedLineGeometry = JSON.parse(geometryAttr);
+                } catch (e) {
+                    // Error parsing geometry
+                }
+            }
+            
+            if (lineDataAttr) {
+                try {
+                    approvedLineData = JSON.parse(lineDataAttr);
+                } catch (e) {
+                    // Error parsing line data
+                }
+            }
+            
+            // Also try to get from window storage
+            if (approvedLineId && window.approvedLinesBeingEdited && window.approvedLinesBeingEdited[approvedLineId]) {
+                approvedLineData = window.approvedLinesBeingEdited[approvedLineId];
+                if (!approvedLineGeometry && approvedLineData.geometry) {
+                    approvedLineGeometry = approvedLineData.geometry;
+                }
+            }
+            
+            // Store in window for dropdown selection
+            if (approvedLineData) {
+                window.approvedLineBeingEdited = approvedLineData;
+            }
+            
+            // Remove edit feature screen
+            editScreen.remove();
+        } else {
+            // Try to get from window storage if edit screen not found
+            if (window.approvedLineBeingEdited) {
+                approvedLineData = window.approvedLineBeingEdited;
+                approvedLineGeometry = approvedLineData.geometry;
+                approvedLineId = approvedLineData.id;
+            }
+        }
+
+        // Show default sidepanel elements
+        showSidePanelDefaultElements();
+
+        // Hide search results if visible
+        const searchResults = document.getElementById('featureSearchResults');
+        if (searchResults) {
+            searchResults.style.display = 'none';
+        }
+
+        // Ensure content area is visible
+        const contentArea = document.querySelector('#editSidePanel .flex-1.overflow-y-auto');
+        if (contentArea) {
+            contentArea.style.display = 'block';
+        }
+
+        // Update current feature label to the one from approved line BEFORE creating dropdowns
+        const labelToUse = featureLabel || (approvedLineData ? (approvedLineData.current_feature_label || approvedLineData.feature_type || 'Line') : 'Line');
+        if (labelToUse) {
+            updateCurrentFeatureLabel(labelToUse);
+        }
+
+        // Ensure dropdowns container exists and is visible
+        let dropdownsContainer = document.getElementById('lineDropdownsContainer');
+        
+        if (!dropdownsContainer) {
+            // Create dropdowns container if it doesn't exist
+            if (!sidePanelContent) {
+                setTimeout(function() {
+                    showLineSidePanelForApprovedLineEdit(featureLabel);
+                }, 100);
+                return;
+            }
+
+            sidePanelContent.innerHTML = '';
+
+            const visualizationContainer = createLineVisualization();
+            if (visualizationContainer) {
+                sidePanelContent.appendChild(visualizationContainer);
+                // Ensure the feature name is updated after container is created
+                const featureNameElement = document.getElementById('lineVisualizationFeatureName');
+                if (featureNameElement && labelToUse) {
+                    featureNameElement.textContent = labelToUse;
+                }
+            }
+
+            dropdownsContainer = document.createElement('div');
+            dropdownsContainer.className = 'space-y-3';
+            dropdownsContainer.id = 'lineDropdownsContainer';
+
+            const dropdownLabels = [
+                'Major Roads...',
+                'Minor Roads...',
+                'Rails...',
+                'Paths...',
+                'Waterways...',
+                'Barrier Features...',
+                'Natural Features...',
+                'Utility Features...'
+            ];
+
+            dropdownLabels.forEach(function(label) {
+                const dropdownBox = createDropdownBox(label, false);
+                dropdownsContainer.appendChild(dropdownBox);
+            });
+
+            const lineBox = createLineBox();
+            dropdownsContainer.appendChild(lineBox);
+
+            sidePanelContent.appendChild(dropdownsContainer);
+            populateDropdowns();
+        } else {
+            // Ensure dropdowns container is visible
+            dropdownsContainer.style.display = 'block';
+            
+            // Check if visualization container exists, if not create it
+            let visualizationContainer = document.getElementById('lineVisualizationContainer');
+            if (!visualizationContainer && sidePanelContent) {
+                visualizationContainer = createLineVisualization();
+                if (visualizationContainer) {
+                    // Insert before dropdowns container
+                    sidePanelContent.insertBefore(visualizationContainer, dropdownsContainer);
+                    // Update feature name
+                    const featureNameElement = document.getElementById('lineVisualizationFeatureName');
+                    if (featureNameElement && labelToUse) {
+                        featureNameElement.textContent = labelToUse;
+                    }
+                }
+            } else if (visualizationContainer) {
+                // Ensure visualization container is visible
+                visualizationContainer.style.display = 'block';
+                // Update feature name if it exists
+                const featureNameElement = document.getElementById('lineVisualizationFeatureName');
+                if (featureNameElement && labelToUse) {
+                    featureNameElement.textContent = labelToUse;
+                }
+                // Ensure SVG container is also visible
+                const svgContainer = document.getElementById('lineVisualizationSVG');
+                if (svgContainer) {
+                    svgContainer.style.display = 'block';
+                }
+            }
+        }
+        
+        // Update visualization - do this for both new and existing containers
+        setTimeout(function() {
+            updateSearchFeatureScreenSelection();
+            
+            // Get the latest feature label from stored data (in case it was updated)
+            let finalFeatureLabel = labelToUse;
+            if (approvedLineData) {
+                const latestLabel = approvedLineData.current_feature_label || approvedLineData.feature_type;
+                if (latestLabel && latestLabel !== finalFeatureLabel) {
+                    finalFeatureLabel = latestLabel;
+                    updateCurrentFeatureLabel(finalFeatureLabel);
+                }
+            }
+            
+            // Ensure we have geometry - try multiple sources
+            let geometryToUse = approvedLineGeometry;
+            if (!geometryToUse && approvedLineData && approvedLineData.geometry) {
+                geometryToUse = approvedLineData.geometry;
+            }
+            if (!geometryToUse && window.approvedLineBeingEdited && window.approvedLineBeingEdited.geometry) {
+                geometryToUse = window.approvedLineBeingEdited.geometry;
+            }
+            
+            // Check if SVG container exists before updating
+            let svgContainer = document.getElementById('lineVisualizationSVG');
+            
+            if (!svgContainer) {
+                // If SVG container doesn't exist, try to create visualization container
+                if (sidePanelContent) {
+                    let visualizationContainer = document.getElementById('lineVisualizationContainer');
+                    if (!visualizationContainer) {
+                        visualizationContainer = createLineVisualization();
+                        if (visualizationContainer) {
+                            const dropdownsContainer = document.getElementById('lineDropdownsContainer');
+                            if (dropdownsContainer) {
+                                sidePanelContent.insertBefore(visualizationContainer, dropdownsContainer);
+                            } else {
+                                sidePanelContent.appendChild(visualizationContainer);
+                            }
+                            // Update feature name
+                            const featureNameElement = document.getElementById('lineVisualizationFeatureName');
+                            if (featureNameElement && finalFeatureLabel) {
+                                featureNameElement.textContent = finalFeatureLabel;
+                            }
+                        }
+                    }
+                }
+                // Retry after a short delay if container was just created
+                setTimeout(function() {
+                    const retrySvgContainer = document.getElementById('lineVisualizationSVG');
+                    if (retrySvgContainer && geometryToUse) {
+                        updateLineVisualizationFromGeometry(geometryToUse, finalFeatureLabel);
+                    }
+                }, 100);
+                return;
+            }
+            
+            // Ensure SVG container is visible
+            svgContainer.style.display = 'block';
+            
+            // Update visualization using approved line geometry if available
+            if (geometryToUse) {
+                updateLineVisualizationFromGeometry(geometryToUse, finalFeatureLabel);
+                
+                // Verify visualization after a short delay to catch any clearing
+                setTimeout(function() {
+                    const verifySvg = document.getElementById('lineVisualizationSVG');
+                    if (verifySvg) {
+                        const svg = verifySvg.querySelector('svg');
+                        // If SVG was cleared, recreate it
+                        if (!svg && geometryToUse) {
+                            updateLineVisualizationFromGeometry(geometryToUse, finalFeatureLabel);
+                        }
+                    }
+                }, 200);
+            } else {
+                // Fallback message
+                svgContainer.innerHTML = '<div class="text-gray-400 text-xs p-4 text-center">No visualization available</div>';
+            }
+        }, 150);
     }
 
     function showLineSidePanel() {
@@ -613,6 +859,7 @@
         const container = document.createElement('div');
         container.id = 'lineVisualizationContainer';
         container.className = 'mb-4 p-4 bg-gray-800 rounded-lg border border-gray-700';
+        container.style.display = 'block'; // Ensure container is visible
 
         const labelText = document.createElement('div');
         labelText.className = 'text-xs font-medium text-gray-400 mb-2';
@@ -622,19 +869,178 @@
         const valueDisplay = document.createElement('div');
         valueDisplay.id = 'lineVisualizationFeatureName';
         valueDisplay.className = 'text-sm font-semibold text-white mb-3';
-        valueDisplay.textContent = 'Line';
+        // Use current feature label instead of hardcoding 'Line'
+        valueDisplay.textContent = currentFeatureLabel || 'Line';
         container.appendChild(valueDisplay);
 
         const svgContainer = document.createElement('div');
         svgContainer.id = 'lineVisualizationSVG';
         svgContainer.className = 'relative w-full';
         svgContainer.style.height = '200px';
+        svgContainer.style.width = '100%';
+        svgContainer.style.minHeight = '200px';
         svgContainer.style.backgroundColor = '#1f2937';
         svgContainer.style.borderRadius = '4px';
         svgContainer.style.overflow = 'hidden';
+        svgContainer.style.display = 'block';
+        svgContainer.style.visibility = 'visible';
+        svgContainer.style.opacity = '1';
         container.appendChild(svgContainer);
 
         return container;
+    }
+
+    /**
+     * Update line visualization from provided geometry (for approved lines)
+     */
+    function updateLineVisualizationFromGeometry(geometry, featureLabel) {
+        const svgContainer = document.getElementById('lineVisualizationSVG');
+        if (!svgContainer) {
+            return;
+        }
+        
+        if (!geometry) {
+            return;
+        }
+
+        try {
+            if (geometry.type !== 'LineString') {
+                return;
+            }
+
+            const coordinates = geometry.coordinates;
+            if (!coordinates || coordinates.length < 2) {
+                svgContainer.innerHTML = '';
+                return;
+            }
+
+            // Ensure container has dimensions - if not, wait a bit and retry
+            let width = svgContainer.offsetWidth;
+            let height = svgContainer.offsetHeight;
+            
+            if (!width || !height || width === 0 || height === 0) {
+                // Container might not be visible yet, use default dimensions
+                width = 300;
+                height = 200;
+                // Force dimensions if container exists but has no size
+                if (svgContainer.parentElement) {
+                    svgContainer.style.width = '100%';
+                    svgContainer.style.height = '200px';
+                    width = svgContainer.offsetWidth || 300;
+                    height = svgContainer.offsetHeight || 200;
+                }
+            }
+            const padding = 20;
+
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            coordinates.forEach(function(coord) {
+                minX = Math.min(minX, coord[0]);
+                minY = Math.min(minY, coord[1]);
+                maxX = Math.max(maxX, coord[0]);
+                maxY = Math.max(maxY, coord[1]);
+            });
+
+            const rangeX = maxX - minX || 0.001;
+            const rangeY = maxY - minY || 0.001;
+            const scaleX = (width - padding * 2) / rangeX;
+            const scaleY = (height - padding * 2) / rangeY;
+            const scale = Math.min(scaleX, scaleY);
+
+            const centerX = (minX + maxX) / 2;
+            const centerY = (minY + maxY) / 2;
+            const offsetX = width / 2 - centerX * scale;
+            const offsetY = height / 2 + centerY * scale;
+
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', width.toString());
+            svg.setAttribute('height', height.toString());
+            svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+            svg.style.display = 'block';
+
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            
+            const blurFilter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+            blurFilter.setAttribute('id', 'blur-approved');
+            blurFilter.setAttribute('x', '-50%');
+            blurFilter.setAttribute('y', '-50%');
+            blurFilter.setAttribute('width', '200%');
+            blurFilter.setAttribute('height', '200%');
+            const feGaussianBlur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
+            feGaussianBlur.setAttribute('stdDeviation', '4');
+            blurFilter.appendChild(feGaussianBlur);
+            defs.appendChild(blurFilter);
+            svg.appendChild(defs);
+
+            // Use same coordinate transformation as working updateLineVisualization function
+            let pathData = 'M ';
+            coordinates.forEach(function(coord, index) {
+                const x = coord[0] * scale + offsetX;
+                const y = -coord[1] * scale + offsetY;
+                if (index === 0) {
+                    pathData += x.toFixed(2) + ' ' + y.toFixed(2);
+                } else {
+                    pathData += ' L ' + x.toFixed(2) + ' ' + y.toFixed(2);
+                }
+            });
+
+            // Get visualization style based on feature label
+            const labelToUse = featureLabel || getCurrentFeatureLabel();
+            const style = getVisualizationStyle(labelToUse);
+
+            // Draw glow path
+            const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            glowPath.setAttribute('d', pathData);
+            glowPath.setAttribute('fill', 'none');
+            glowPath.setAttribute('stroke', style.glowColor);
+            glowPath.setAttribute('stroke-width', style.glowWidth.toString());
+            glowPath.setAttribute('stroke-opacity', style.glowOpacity.toString());
+            glowPath.setAttribute('stroke-linecap', 'round');
+            glowPath.setAttribute('stroke-linejoin', 'round');
+            glowPath.setAttribute('filter', 'url(#blur-approved)');
+            svg.appendChild(glowPath);
+
+            // Draw main line path
+            const mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            mainPath.setAttribute('d', pathData);
+            mainPath.setAttribute('fill', 'none');
+            mainPath.setAttribute('stroke', style.lineColor);
+            mainPath.setAttribute('stroke-width', style.lineWidth.toString());
+            mainPath.setAttribute('stroke-opacity', '1');
+            mainPath.setAttribute('stroke-linecap', 'round');
+            mainPath.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(mainPath);
+
+            // Draw markers at vertices - use same coordinate transformation
+            coordinates.forEach(function(coord) {
+                const x = coord[0] * scale + offsetX;
+                const y = -coord[1] * scale + offsetY;
+
+                // Marker glow
+                const markerGlow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                markerGlow.setAttribute('cx', x.toFixed(2));
+                markerGlow.setAttribute('cy', y.toFixed(2));
+                markerGlow.setAttribute('r', '4');
+                markerGlow.setAttribute('fill', style.markerGlowColor);
+                markerGlow.setAttribute('opacity', '0.5');
+                markerGlow.setAttribute('filter', 'url(#blur-approved)');
+                svg.appendChild(markerGlow);
+
+                // Main marker
+                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                marker.setAttribute('cx', x.toFixed(2));
+                marker.setAttribute('cy', y.toFixed(2));
+                marker.setAttribute('r', '2.5');
+                marker.setAttribute('fill', style.markerColor);
+                marker.setAttribute('stroke', style.markerColor);
+                marker.setAttribute('stroke-width', '1');
+                svg.appendChild(marker);
+            });
+
+            svgContainer.innerHTML = '';
+            svgContainer.appendChild(svg);
+        } catch (error) {
+            // Error updating visualization
+        }
     }
 
     function updateLineVisualization() {
@@ -762,7 +1168,7 @@
             svgContainer.appendChild(svg);
 
         } catch (e) {
-            console.error('Error updating line visualization:', e);
+            // Error updating line visualization
         }
     }
 
@@ -793,8 +1199,12 @@
             forceMarkersVisibility();
         }
         
-        updateLineVisualization();
-        updateFeatureTypeVisualization();
+        // Only update visualization if we're not editing an approved line
+        // (approved lines use updateLineVisualizationFromGeometry instead)
+        if (!window.approvedLineBeingEdited) {
+            updateLineVisualization();
+            updateFeatureTypeVisualization();
+        }
     }
 
     function getCurrentFeatureLabel() {
@@ -806,7 +1216,7 @@
             try {
                 marker.remove();
             } catch (e) {
-                console.debug('Error removing marker', e);
+                // Error removing marker
             }
         });
         vertexMarkers = [];
@@ -865,7 +1275,7 @@
                     hideDefaultRendering();
                     return;
                 } catch (e) {
-                    console.debug('Line drawing: Could not update source, recreating', e);
+                    // Could not update source, recreating
                 }
             }
             
@@ -880,7 +1290,7 @@
                     map.removeSource(sourceId);
                 }
             } catch (e) {
-                console.debug('Line drawing: Could not remove existing layers', e);
+                // Could not remove existing layers
             }
             
             map.addSource(sourceId, {
@@ -926,7 +1336,6 @@
             hideDefaultRendering();
             
         } catch (e) {
-            console.error('Error rendering line as MapLibre layer:', e);
             setTimeout(function() {
                 renderLineAsMapLibreLayer(id);
             }, 100);
@@ -953,7 +1362,7 @@
             
             delete map._drawnLineLayers[id];
         } catch (e) {
-            console.error('Error removing MapLibre line layer:', e);
+            // Error removing MapLibre line layer
         }
     }
 
@@ -1025,7 +1434,7 @@
             map.on('move', updateMarkers);
             map.on('zoom', updateMarkers);
         } catch (e) {
-            console.debug('Line drawing: Error forcing markers visibility', e);
+            // Error forcing markers visibility
         }
     }
 
@@ -1161,7 +1570,14 @@
         });
     }
 
-    function showEditFeatureScreen() {
+    function showEditFeatureScreen(options) {
+        options = options || {};
+        const hideBackButton = options.hideBackButton || false;
+        const requestGeometry = options.requestGeometry || null;
+        const lineData = options.lineData || null;
+        const isApprovedLine = options.isApprovedLine || false;
+        const approvedLineId = options.approvedLineId || null;
+        
         const sidePanel = document.getElementById('editSidePanel');
         if (!sidePanel) return;
 
@@ -1182,6 +1598,26 @@
         const editScreen = document.createElement('div');
         editScreen.id = 'editFeatureScreen';
         editScreen.className = 'h-full flex flex-col bg-gray-800';
+        
+        // Store request geometry for visualization
+        if (requestGeometry) {
+            editScreen.setAttribute('data-request-geometry', JSON.stringify(requestGeometry));
+        }
+        
+        // Store line data if provided
+        if (lineData) {
+            editScreen.setAttribute('data-line-data', JSON.stringify(lineData));
+        }
+        
+        // Store approved line information if provided
+        if (isApprovedLine && approvedLineId) {
+            editScreen.setAttribute('data-approved-line-id', approvedLineId.toString());
+            editScreen.setAttribute('data-is-approved-line', 'true');
+            // Store the original geometry for saving edits
+            if (requestGeometry) {
+                editScreen.setAttribute('data-approved-line-geometry', JSON.stringify(requestGeometry));
+            }
+        }
 
         const header = document.createElement('div');
         header.className = 'px-6 py-4 border-b border-gray-700 flex items-center justify-between';
@@ -1189,9 +1625,70 @@
         const backButton = document.createElement('button');
         backButton.className = 'p-2 hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0';
         backButton.innerHTML = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>';
-        backButton.addEventListener('click', function() {
-            showLineSidePanel();
-        });
+        
+        // Hide back button if viewing a request or if manager viewing approved line
+        if (hideBackButton) {
+            backButton.style.display = 'none';
+        } else {
+            backButton.addEventListener('click', function() {
+                // Check if this is an approved line being edited
+                const isApprovedLine = editScreen.getAttribute('data-is-approved-line') === 'true';
+                const approvedLineId = editScreen.getAttribute('data-approved-line-id');
+                
+                if (isApprovedLine && approvedLineId) {
+                    // Prioritize window storage (most up-to-date) over edit screen attributes
+                    let lineData = null;
+                    let featureLabel = null; // Don't use getCurrentFeatureLabel() as it might have default 'Line' value
+                    
+                    // First, try to get from window storage (most up-to-date, especially after dropdown changes)
+                    if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id === parseInt(approvedLineId)) {
+                        lineData = window.approvedLineBeingEdited;
+                    } else if (window.approvedLinesBeingEdited && window.approvedLinesBeingEdited[approvedLineId]) {
+                        lineData = window.approvedLinesBeingEdited[approvedLineId];
+                        window.approvedLineBeingEdited = lineData;
+                    }
+                    
+                    // Fallback to edit screen data if window storage doesn't have it
+                    if (!lineData) {
+                        const lineDataAttr = editScreen.getAttribute('data-line-data');
+                        
+                        if (lineDataAttr) {
+                            try {
+                                lineData = JSON.parse(lineDataAttr);
+                                
+                                // Store in window for future use
+                                window.approvedLineBeingEdited = lineData;
+                                if (!window.approvedLinesBeingEdited) {
+                                    window.approvedLinesBeingEdited = {};
+                                }
+                                window.approvedLinesBeingEdited[approvedLineId] = lineData;
+                            } catch (e) {
+                                // Error parsing line data
+                            }
+                        }
+                    }
+                    
+                    // Get feature label from line data (prioritize current_feature_label, then feature_type)
+                    if (lineData) {
+                        // Prioritize current_feature_label over feature_type
+                        featureLabel = lineData.current_feature_label || lineData.feature_type;
+                    } else {
+                        // Last resort: use getCurrentFeatureLabel() if no lineData found
+                        featureLabel = getCurrentFeatureLabel();
+                    }
+                    
+                    // Fallback to 'Line' only if featureLabel is still null/undefined
+                    if (!featureLabel) {
+                        featureLabel = 'Line';
+                    }
+                    
+                    showLineSidePanelForApprovedLineEdit(featureLabel);
+                } else {
+                    // Normal flow: just show the side panel
+                    showLineSidePanel();
+                }
+            });
+        }
 
         const title = document.createElement('h2');
         title.className = 'text-lg font-semibold text-white flex-1 text-center';
@@ -1200,9 +1697,15 @@
         const closeButton = document.createElement('button');
         closeButton.className = 'p-2 hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0';
         closeButton.innerHTML = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
-        closeButton.addEventListener('click', function() {
-            showLineSidePanel();
-        });
+        
+        // Disable close button if viewing a request
+        if (hideBackButton) {
+            closeButton.style.display = 'none';
+        } else {
+            closeButton.addEventListener('click', function() {
+                showLineSidePanel();
+            });
+        }
 
         header.appendChild(backButton);
         header.appendChild(title);
@@ -1242,7 +1745,44 @@
 
         setTimeout(function() {
             updateFeatureTypeLabelDisplay();
-            updateFeatureTypeVisualization();
+            // Update visualization - use request geometry if available
+            if (requestGeometry) {
+                updateFeatureTypeVisualizationFromGeometry(requestGeometry);
+            } else {
+                updateFeatureTypeVisualization();
+            }
+            
+            // Populate existing data if editing an approved line
+            if (isApprovedLine && lineData) {
+                setTimeout(function() {
+                    // Populate fields data - try manager-requests.js first, then load-approved-lines.js
+                    if (lineData.fields_data) {
+                        if (typeof window.populateFieldsData === 'function') {
+                            window.populateFieldsData(lineData.fields_data);
+                        } else if (typeof window.populateFieldsDataForApprovedLine === 'function') {
+                            window.populateFieldsDataForApprovedLine(lineData.fields_data);
+                        }
+                    }
+                    
+                    // Populate tags data
+                    if (lineData.tags_data) {
+                        if (typeof window.populateTagsData === 'function') {
+                            window.populateTagsData(lineData.tags_data);
+                        } else if (typeof window.populateTagsDataForApprovedLine === 'function') {
+                            window.populateTagsDataForApprovedLine(lineData.tags_data);
+                        }
+                    }
+                    
+                    // Populate relations data
+                    if (lineData.relations_data) {
+                        if (typeof window.populateRelationsData === 'function') {
+                            window.populateRelationsData(lineData.relations_data);
+                        } else if (typeof window.populateRelationsDataForApprovedLine === 'function') {
+                            window.populateRelationsDataForApprovedLine(lineData.relations_data);
+                        }
+                    }
+                }, 300);
+            }
         }, 100);
     }
 
@@ -1379,21 +1919,37 @@
         visualizationContainer.style.backgroundColor = '#1f2937';
         visualizationContainer.style.borderRadius = '4px';
         visualizationContainer.style.overflow = 'hidden';
-        visualizationContainer.setAttribute('title', 'Click to change feature type');
-        visualizationContainer.addEventListener('click', function() {
-            updateSearchFeatureScreenSelection();
-            showLineSidePanel();
-        });
+        
+        // Check if we're in view-only mode (manager viewing request)
+        const editScreen = document.getElementById('editFeatureScreen');
+        const isViewOnly = editScreen && editScreen.getAttribute('data-request-geometry');
+        
+        if (!isViewOnly) {
+            visualizationContainer.setAttribute('title', 'Click to change feature type');
+            visualizationContainer.addEventListener('click', function() {
+                updateSearchFeatureScreenSelection();
+                showLineSidePanel();
+            });
+        } else {
+            visualizationContainer.style.cursor = 'default';
+            visualizationContainer.classList.remove('cursor-pointer', 'hover:opacity-80');
+        }
 
         const selectedFeatureName = document.createElement('div');
         selectedFeatureName.id = 'selectedFeatureName';
         selectedFeatureName.className = 'text-sm font-semibold text-white cursor-pointer hover:text-blue-300 transition-colors';
         selectedFeatureName.textContent = labelToSet;
-        selectedFeatureName.setAttribute('title', 'Click to change feature type');
-        selectedFeatureName.addEventListener('click', function() {
-            updateSearchFeatureScreenSelection();
-            showLineSidePanel();
-        });
+        
+        if (!isViewOnly) {
+            selectedFeatureName.setAttribute('title', 'Click to change feature type');
+            selectedFeatureName.addEventListener('click', function() {
+                updateSearchFeatureScreenSelection();
+                showLineSidePanel();
+            });
+        } else {
+            selectedFeatureName.style.cursor = 'default';
+            selectedFeatureName.classList.remove('cursor-pointer', 'hover:text-blue-300');
+        }
 
         selectorContainer.appendChild(visualizationContainer);
         selectorContainer.appendChild(selectedFeatureName);
@@ -1403,15 +1959,52 @@
         return container;
     }
 
+    /**
+     * Update Feature Type visualization from request geometry (for manager viewing requests)
+     */
+    function updateFeatureTypeVisualizationFromGeometry(geometry) {
+        const container = document.getElementById('featureTypeVisualization');
+        if (!container || !geometry || geometry.type !== 'LineString') return;
+
+        const coordinates = geometry.coordinates;
+        if (!coordinates || coordinates.length < 2) {
+            if (container) container.innerHTML = '';
+            return;
+        }
+
+        renderFeatureTypeVisualization(container, coordinates);
+    }
+
     function updateFeatureTypeVisualization() {
         const container = document.getElementById('featureTypeVisualization');
-        if (!container || !currentLineId || !drawInstance) return;
+        if (!container) {
+            return;
+        }
+
+        const editScreen = document.getElementById('editFeatureScreen');
+        if (editScreen && editScreen.getAttribute('data-request-geometry')) {
+            try {
+                const requestGeometry = JSON.parse(editScreen.getAttribute('data-request-geometry'));
+                if (requestGeometry && requestGeometry.coordinates) {
+                    renderFeatureTypeVisualization(container, requestGeometry.coordinates);
+                    return;
+                }
+            } catch (e) {
+                console.error('Error parsing request geometry:', e);
+            }
+        }
+
+        if (!currentLineId || !drawInstance) {
+            container.innerHTML = '';
+            return;
+        }
 
         try {
             const snapshot = drawInstance.getSnapshot();
             const feature = snapshot?.find(function(f) { return f.id === currentLineId; });
 
             if (!feature || !feature.geometry || feature.geometry.type !== 'LineString') {
+                container.innerHTML = '';
                 return;
             }
 
@@ -1421,6 +2014,23 @@
                 return;
             }
 
+            renderFeatureTypeVisualization(container, coordinates);
+        } catch (error) {
+            console.error('Error rendering visualization:', error);
+            if (container) container.innerHTML = '';
+        }
+    }
+
+    /**
+     * Render the Feature Type visualization SVG
+     */
+    function renderFeatureTypeVisualization(container, coordinates) {
+        if (!container || !coordinates || coordinates.length < 2) {
+            if (container) container.innerHTML = '';
+            return;
+        }
+
+        try {
             const width = 60;
             const height = 30;
             const padding = 4;
@@ -1476,7 +2086,8 @@
                 }
             });
 
-            const style = getVisualizationStyle(currentFeatureLabel);
+            const featureLabel = getCurrentFeatureLabel();
+            const style = getVisualizationStyle(featureLabel);
             const scaleFactor = 0.25;
 
             const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -1525,9 +2136,8 @@
 
             container.innerHTML = '';
             container.appendChild(svg);
-
         } catch (e) {
-            console.error('Error updating feature type visualization:', e);
+            if (container) container.innerHTML = '';
         }
     }
 
@@ -2934,16 +3544,187 @@
                     }
                 }
                 
-                if (currentLineId) {
+                // Check if we're editing an approved line
+                const approvedLineData = window.approvedLineBeingEdited || null;
+                
+                if (approvedLineData) {
+                    // Update the approved line visualization on the map
+                    if (approvedLineData.id) {
+                        updateApprovedLineVisualization(approvedLineData.id, selectedValue);
+                    }
+                    
+                    // Update side panel visualization if it's visible
+                    const sidePanel = document.getElementById('editSidePanel');
+                    const isSidePanelVisible = sidePanel && !sidePanel.classList.contains('-translate-x-full');
+                    const svgContainer = document.getElementById('lineVisualizationSVG');
+                    
+                    if (isSidePanelVisible && svgContainer && approvedLineData.geometry) {
+                        updateLineVisualizationFromGeometry(approvedLineData.geometry, selectedValue);
+                    }
+                    
+                    // Preserve existing data when changing feature type
+                    // Store current fields, tags, and relations data before showing edit screen
+                    const existingFieldsData = approvedLineData.fields_data || {};
+                    const existingTagsData = approvedLineData.tags_data || [];
+                    const existingRelationsData = approvedLineData.relations_data || [];
+                    
+                    // Update the feature label in the stored data
+                    const updatedLineData = Object.assign({}, approvedLineData, {
+                        current_feature_label: selectedValue,
+                        feature_type: selectedValue,
+                        fields_data: existingFieldsData,
+                        tags_data: existingTagsData,
+                        relations_data: existingRelationsData
+                    });
+                    
+                    // Update the stored approved line data
+                    window.approvedLineBeingEdited = updatedLineData;
+                    if (window.approvedLinesBeingEdited) {
+                        window.approvedLinesBeingEdited[approvedLineData.id] = updatedLineData;
+                    }
+                    
+                    // Show Edit Feature screen with updated feature label and preserved data
+                    setTimeout(function() {
+                        showEditFeatureScreen({
+                            hideBackButton: false,
+                            requestGeometry: approvedLineData.geometry,
+                            lineData: updatedLineData,
+                            isApprovedLine: true,
+                            approvedLineId: approvedLineData.id
+                        });
+                    }, 10);
+                } else if (currentLineId) {
+                    // Normal flow: editing a newly drawn line
                     selectLine(currentLineId);
                     setTimeout(function() {
                         showEditFeatureScreen();
                     }, 10);
+                } else {
+                    // No line selected, just update visualization
+                    updateLineVisualization();
                 }
             });
 
             dropdownMenu.appendChild(item);
         });
+    }
+
+    /**
+     * Update approved line visualization on the map when feature type changes
+     */
+    function updateApprovedLineVisualization(approvedLineId, newFeatureLabel) {
+        if (typeof map === 'undefined' || !map) return;
+        
+        const featureId = 'approved-line-' + approvedLineId;
+        const sourceId = 'approved-line-source-' + approvedLineId;
+        const glowLayerId = 'approved-line-glow-' + approvedLineId;
+        const layerId = 'approved-line-layer-' + approvedLineId;
+        
+        // Get the source to get the geometry
+        if (!map.getSource(sourceId)) {
+            return;
+        }
+        
+        // Try to get geometry from stored approved line data first
+        let geometry = null;
+        let feature = null;
+        
+        if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id === approvedLineId) {
+            geometry = window.approvedLineBeingEdited.geometry;
+            feature = {
+                geometry: geometry,
+                type: 'Feature'
+            };
+        } else if (window.approvedLinesBeingEdited && window.approvedLinesBeingEdited[approvedLineId]) {
+            geometry = window.approvedLinesBeingEdited[approvedLineId].geometry;
+            feature = {
+                geometry: geometry,
+                type: 'Feature'
+            };
+        } else {
+            // Fallback: try to get from source data
+            const source = map.getSource(sourceId);
+            const sourceData = source._data;
+            
+            if (sourceData) {
+                // Handle both Feature and FeatureCollection
+                if (sourceData.type === 'Feature') {
+                    feature = sourceData;
+                    geometry = sourceData.geometry;
+                } else if (sourceData.type === 'FeatureCollection' && sourceData.features && sourceData.features.length > 0) {
+                    feature = sourceData.features[0];
+                    geometry = feature.geometry;
+                } else if (sourceData.features && sourceData.features.length > 0) {
+                    // Handle case where it's stored as features array directly
+                    feature = sourceData.features[0];
+                    geometry = feature.geometry;
+                }
+            }
+        }
+        
+        // Get new visualization style - use local function
+        let style;
+        if (typeof getVisualizationStyle === 'function') {
+            style = getVisualizationStyle(newFeatureLabel);
+        } else {
+            // Default style
+            style = {
+                lineColor: '#ffffff',
+                glowColor: '#ef4444',
+                lineWidth: 4,
+                glowWidth: 10,
+                glowOpacity: 0.5,
+                markerColor: '#ffffff',
+                markerGlowColor: '#ef4444'
+            };
+        }
+        
+        // Update glow layer
+        if (map.getLayer(glowLayerId)) {
+            map.setPaintProperty(glowLayerId, 'line-color', style.glowColor);
+            map.setPaintProperty(glowLayerId, 'line-width', style.glowWidth);
+            map.setPaintProperty(glowLayerId, 'line-opacity', style.glowOpacity);
+        }
+        
+        // Update main line layer
+        if (map.getLayer(layerId)) {
+            map.setPaintProperty(layerId, 'line-color', style.lineColor);
+            map.setPaintProperty(layerId, 'line-width', style.lineWidth);
+        }
+        
+        // Update vertex markers - only if we have geometry
+        if (feature && geometry && geometry.type === 'LineString' && geometry.coordinates) {
+            // Remove all existing markers for this line
+            geometry.coordinates.forEach(function(coord, index) {
+                const markerId = 'approved-marker-' + approvedLineId + '-' + index;
+                const existingMarker = document.getElementById(markerId);
+                if (existingMarker) {
+                    existingMarker.remove();
+                }
+            });
+            
+            // Recreate markers with new style
+            geometry.coordinates.forEach(function(coord, index) {
+                const markerId = 'approved-marker-' + approvedLineId + '-' + index;
+                
+                const markerEl = document.createElement('div');
+                markerEl.id = markerId;
+                markerEl.className = 'approved-line-vertex-marker';
+                markerEl.style.width = '8px';
+                markerEl.style.height = '8px';
+                markerEl.style.borderRadius = '50%';
+                markerEl.style.backgroundColor = style.markerColor;
+                markerEl.style.border = '2px solid ' + style.markerGlowColor;
+                markerEl.style.boxShadow = '0 0 8px ' + style.markerGlowColor + ', 0 0 12px ' + style.markerGlowColor;
+                
+                const marker = new maplibregl.Marker({
+                    element: markerEl,
+                    anchor: 'center'
+                })
+                .setLngLat(coord)
+                .addTo(map);
+            });
+        }
     }
 
     function updateDropdownData(dropdownIndex, options) {
@@ -2966,7 +3747,41 @@
     window.lineDrawingHandler = {
         selectLine: selectLine,
         getCurrentLineId: getCurrentLineId,
+        getCurrentFeatureLabel: getCurrentFeatureLabel,
+        getDrawInstance: function() { return drawInstance; },
         updateDropdownData: updateDropdownData,
-        updateCurrentFeatureLabel: updateCurrentFeatureLabel
+        updateCurrentFeatureLabel: updateCurrentFeatureLabel,
+        updateFeatureTypeVisualization: updateFeatureTypeVisualization,
+        updateFeatureTypeLabelDisplay: updateFeatureTypeLabelDisplay,
+        showEditFeatureScreen: showEditFeatureScreen,
+        addFieldToContainer: addFieldToContainer,
+        updateAddFieldDisplay: updateAddFieldDisplay,
+        addMultilingualNameField: addMultilingualNameField
+    };
+    
+    window.addFieldToContainer = addFieldToContainer;
+    window.updateAddFieldDisplay = updateAddFieldDisplay;
+    window.addMultilingualNameField = addMultilingualNameField;
+    
+    window.getCurrentLineId = getCurrentLineId;
+    window.getCurrentFeatureLabel = getCurrentFeatureLabel;
+    window.getDrawInstance = function() { return drawInstance; };
+    window.getVisualizationStyle = getVisualizationStyle;
+    window.updateFeatureTypeVisualization = updateFeatureTypeVisualization;
+    window.removeMapLibreLineLayer = removeMapLibreLineLayer;
+    window.clearVertexMarkers = clearVertexMarkers;
+    window.clearCurrentLine = function() {
+        if (currentLineId) {
+            // Remove MapLibre layers
+            removeMapLibreLineLayer(currentLineId);
+            
+            // Clear vertex markers
+            clearVertexMarkers();
+            
+            // Reset current line ID
+            // Note: We don't remove from TerraDraw as it may not be necessary
+            // The line can stay in TerraDraw's snapshot, we just clear our visual representation
+            currentLineId = null;
+        }
     };
 })();

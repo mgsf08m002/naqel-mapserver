@@ -175,7 +175,6 @@ if (drawInstance) {
         const snapshot = drawInstance.getSnapshot();
         const features = snapshot?.find((feature) => feature.id === id);
         selectedFeature = JSON.stringify(features);
-        console.log(selectedFeature);
     });
     
     // Listen for finish event to handle line drawing
