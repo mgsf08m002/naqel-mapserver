@@ -60,7 +60,29 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'config.middleware.CSPMiddleware',  # Custom CSP middleware
 ]
+
+# Content Security Policy (CSP) settings
+# Note: In production, you should use django-csp package for better CSP management
+if DEBUG:
+    # More permissive CSP for development
+    CSP_DEFAULT_SRC = ["'self'"]
+    CSP_SCRIPT_SRC = ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net"]
+    CSP_STYLE_SRC = ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"]
+    CSP_FONT_SRC = ["'self'", "https://fonts.gstatic.com", "data:"]
+    CSP_IMG_SRC = ["'self'", "data:", "blob:", "https://services.arcgisonline.com", "https://tiles.maps.eox.at"]
+    CSP_CONNECT_SRC = ["'self'", "blob:", "https://services.arcgisonline.com", "https://tiles.maps.eox.at", "https://unpkg.com", "https://cdn.jsdelivr.net"]
+    CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers
+else:
+    # Stricter CSP for production (recommended to use django-csp package)
+    CSP_DEFAULT_SRC = ["'self'"]
+    CSP_SCRIPT_SRC = ["'self'", "https://unpkg.com", "https://cdn.jsdelivr.net"]
+    CSP_STYLE_SRC = ["'self'", "https://unpkg.com", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"]
+    CSP_FONT_SRC = ["'self'", "https://fonts.gstatic.com", "data:"]
+    CSP_IMG_SRC = ["'self'", "data:", "blob:", "https://services.arcgisonline.com", "https://tiles.maps.eox.at"]
+    CSP_CONNECT_SRC = ["'self'", "blob:", "https://services.arcgisonline.com", "https://tiles.maps.eox.at", "https://unpkg.com", "https://cdn.jsdelivr.net"]
+    CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers
 
 ROOT_URLCONF = 'config.urls'
 

@@ -16,6 +16,9 @@
 <!-- TerraDraw CSS -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.css"/>
 
+<!-- Line Drawing Styles -->
+<link rel="stylesheet" href="{% static 'mapping/css/line-styles.css' %}"/>
+
 <!-- TerraDraw JS -->
 <script src="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.umd.js"></script>
 
@@ -65,9 +68,12 @@
             
             <!-- Panel Content -->
             <div class="flex-1 overflow-y-auto px-6 py-4">
-                <!-- Search results will appear here -->
-                <div id="featureSearchResults" class="space-y-2">
-                    <!-- Placeholder for search results -->
+                <!-- Dynamic content area for line dropdowns -->
+                <div id="sidePanelContent" class="space-y-2">
+                    <!-- Search results will appear here when not in line editing mode -->
+                    <div id="featureSearchResults" class="space-y-2">
+                        <!-- Placeholder for search results -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -186,5 +192,6 @@
 
 {% block extra_js %}
 <script src="{% static 'mapping/js/map.js' %}"></script>
+<script src="{% static 'mapping/js/line-drawing.js' %}"></script>
 {% endblock %}
 

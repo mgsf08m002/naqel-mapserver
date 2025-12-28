@@ -1,0 +1,86 @@
+/**
+ * Line Drawing Styles
+ * MapLibre native layers handle line rendering
+ * CSS only for markers and UI elements
+ */
+
+/* Hide default SVG line rendering - MapLibre layers are used instead */
+#map .maplibregl-canvas-container svg path,
+#map .maplibregl-canvas-container svg line,
+.maplibregl-map .maplibregl-canvas-container svg path,
+.maplibregl-map .maplibregl-canvas-container svg line,
+#map svg[class*="terra"] path,
+#map svg[class*="terra"] line,
+.maplibregl-map svg[class*="terra"] path,
+.maplibregl-map svg[class*="terra"] line {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+#map .maplibregl-canvas-container svg path[d*="L"],
+#map .maplibregl-canvas-container svg path[d*="M"],
+#map .maplibregl-canvas-container svg path[d*="l"],
+#map .maplibregl-canvas-container svg path[d*="m"],
+.maplibregl-map .maplibregl-canvas-container svg path[d*="L"],
+.maplibregl-map .maplibregl-canvas-container svg path[d*="M"],
+.maplibregl-map .maplibregl-canvas-container svg path[d*="l"],
+.maplibregl-map .maplibregl-canvas-container svg path[d*="m"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.terra-draw path,
+.terra-draw line,
+[class*="terra-draw"] path,
+[class*="terra-draw"] line,
+svg[data-terra-draw] path,
+svg[data-terra-draw] line {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* Vertex markers - white with red glow */
+.vertex-marker {
+    background-color: #ffffff !important;
+    border: 2px solid #ffffff !important;
+    box-shadow: 0 0 4px rgba(239, 68, 68, 0.8), 0 0 8px rgba(239, 68, 68, 0.6) !important;
+}
+
+/* Sidepanel dropdown styles */
+#lineDropdownsContainer button[data-dropdown-toggle] {
+    transition: all 0.2s ease-in-out;
+}
+
+#lineDropdownsContainer button[data-dropdown-toggle]:hover {
+    transform: translateX(2px);
+}
+
+#lineDropdownsContainer [role="menu"] {
+    scrollbar-width: thin;
+    scrollbar-color: #4b5563 #374151;
+}
+
+
+#lineDropdownsContainer [role="menu"]::-webkit-scrollbar {
+    width: 6px;
+}
+
+#lineDropdownsContainer [role="menu"]::-webkit-scrollbar-track {
+    background: #374151;
+    border-radius: 3px;
+}
+
+#lineDropdownsContainer [role="menu"]::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 3px;
+}
+
+#lineDropdownsContainer [role="menu"]::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}

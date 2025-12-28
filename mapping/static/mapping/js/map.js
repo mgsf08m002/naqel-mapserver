@@ -162,7 +162,7 @@ const draw = new MaplibreTerradrawControl.MaplibreTerradrawControl({
         'delete',
         'download'
     ],
-    open: true,
+    open: true
 });
 map.addControl(draw, 'top-left');
 
@@ -176,6 +176,18 @@ if (drawInstance) {
         const features = snapshot?.find((feature) => feature.id === id);
         selectedFeature = JSON.stringify(features);
         console.log(selectedFeature);
+    });
+    
+    // Listen for finish event to handle line drawing
+    drawInstance.on('finish', (id) => {
+        const snapshot = drawInstance.getSnapshot();
+        const feature = snapshot?.find(f => f.id === id);
+        
+        // If it's a line, trigger line drawing handler
+        if (feature && feature.geometry && feature.geometry.type === 'LineString') {
+            // The line-drawing.js will handle this, but we ensure the event is captured
+            console.log('Line drawn with ID:', id);
+        }
     });
 }
 
