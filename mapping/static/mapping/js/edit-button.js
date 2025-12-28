@@ -326,7 +326,6 @@
         try {
             // Set the TerraDraw mode
             terraDrawInstance.setMode(terraDrawMode);
-            console.log('Edit mode: Tool activated -', tool, '->', terraDrawMode);
         } catch (error) {
             console.error('Edit mode: Error setting TerraDraw mode:', error);
         }

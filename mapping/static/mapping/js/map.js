@@ -186,7 +186,6 @@ if (drawInstance) {
         // If it's a line, trigger line drawing handler
         if (feature && feature.geometry && feature.geometry.type === 'LineString') {
             // The line-drawing.js will handle this, but we ensure the event is captured
-            console.log('Line drawn with ID:', id);
         }
     });
 }

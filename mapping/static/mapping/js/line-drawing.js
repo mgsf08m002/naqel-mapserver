@@ -16,6 +16,7 @@
 
     let sidePanel = null;
     let sidePanelContent = null;
+    let currentFeatureLabel = 'Line';
 
     function initLineDrawing() {
         let drawControl = null;
@@ -273,7 +274,10 @@
         try {
             selectedLineId = id;
             currentLineId = id;
-            updateCurrentFeatureLabel('Line');
+            
+            if (!currentFeatureLabel) {
+                updateCurrentFeatureLabel('Line');
+            }
 
             const currentMode = drawInstance.getMode();
             if (currentMode !== 'select') {
@@ -292,7 +296,11 @@
             console.error('Line drawing: Error selecting line', error);
             selectedLineId = id;
             currentLineId = id;
-            updateCurrentFeatureLabel('Line');
+            
+            if (!currentFeatureLabel) {
+                updateCurrentFeatureLabel('Line');
+            }
+            
             applyGlowingEffect(id);
             forceMarkersVisibility();
         }
@@ -370,9 +378,21 @@
             return;
         }
 
+        const editScreen = document.getElementById('editFeatureScreen');
+        if (editScreen) {
+            editScreen.remove();
+        }
+
+        showSidePanelDefaultElements();
+
         const searchResults = document.getElementById('featureSearchResults');
         if (searchResults) {
             searchResults.style.display = 'none';
+        }
+
+        const contentArea = document.querySelector('#editSidePanel .flex-1.overflow-y-auto');
+        if (contentArea) {
+            contentArea.style.display = 'block';
         }
 
         let dropdownsContainer = document.getElementById('lineDropdownsContainer');
@@ -404,6 +424,9 @@
                 const dropdownBox = createDropdownBox(label, false);
                 dropdownsContainer.appendChild(dropdownBox);
             });
+
+            const lineBox = createLineBox();
+            dropdownsContainer.appendChild(lineBox);
 
             sidePanelContent.appendChild(dropdownsContainer);
             populateDropdowns();
@@ -570,15 +593,32 @@
     }
 
     function updateCurrentFeatureLabel(featureType) {
+        if (!featureType) {
+            featureType = 'Line';
+        }
+        
+        currentFeatureLabel = featureType;
+        
         const valueDisplay = document.getElementById('currentFeatureValue');
         if (valueDisplay) {
-            valueDisplay.textContent = featureType || 'Line';
+            valueDisplay.textContent = currentFeatureLabel;
         }
         
         const visualizationFeatureName = document.getElementById('lineVisualizationFeatureName');
         if (visualizationFeatureName) {
-            visualizationFeatureName.textContent = featureType || 'Line';
+            visualizationFeatureName.textContent = currentFeatureLabel;
         }
+
+        const selectedFeatureName = document.getElementById('selectedFeatureName');
+        if (selectedFeatureName) {
+            selectedFeatureName.textContent = currentFeatureLabel;
+        }
+
+        updateFeatureTypeVisualization();
+    }
+
+    function getCurrentFeatureLabel() {
+        return currentFeatureLabel || 'Line';
     }
 
     function clearVertexMarkers() {
@@ -845,6 +885,478 @@
         return container;
     }
 
+    function createLineBox() {
+        const container = document.createElement('div');
+        container.className = 'relative';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'w-full bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg px-4 py-3 text-left text-white transition-colors duration-200 flex items-center justify-between group';
+        button.setAttribute('data-line-box', 'true');
+
+        const iconContainer = document.createElement('div');
+        iconContainer.className = 'flex-shrink-0 w-6 h-6 flex items-center justify-center';
+
+        const folderContainer = document.createElement('div');
+        folderContainer.className = 'w-5 h-5 rounded flex items-center justify-center bg-gray-500/20';
+
+        const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        iconSvg.setAttribute('class', 'w-4 h-4');
+        iconSvg.setAttribute('viewBox', '0 0 24 24');
+        iconSvg.setAttribute('fill', 'none');
+        iconSvg.setAttribute('stroke', '#9CA3AF');
+        iconSvg.setAttribute('stroke-width', '2');
+        iconSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M6 8v8M12 8v8M18 8v8"></path>';
+        folderContainer.appendChild(iconSvg);
+        iconContainer.appendChild(folderContainer);
+
+        const buttonContent = document.createElement('div');
+        buttonContent.className = 'flex items-center gap-3 flex-1';
+        buttonContent.appendChild(iconContainer);
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'text-sm font-medium flex-1';
+        labelSpan.textContent = 'Line';
+        buttonContent.appendChild(labelSpan);
+
+        const chevron = document.createElement('svg');
+        chevron.className = 'w-4 h-4 text-gray-400 group-hover:text-white transition-colors';
+        chevron.setAttribute('fill', 'none');
+        chevron.setAttribute('stroke', 'currentColor');
+        chevron.setAttribute('viewBox', '0 0 24 24');
+        chevron.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>';
+        buttonContent.appendChild(chevron);
+
+        button.appendChild(buttonContent);
+
+        button.addEventListener('click', function(e) {
+            e.stopPropagation();
+            handleLineBoxClick();
+        });
+
+        container.appendChild(button);
+        return container;
+    }
+
+    function handleLineBoxClick() {
+        if (!currentLineId) return;
+
+        currentFeatureLabel = 'Line';
+        updateCurrentFeatureLabel('Line');
+        selectLine(currentLineId);
+        showEditFeatureScreen();
+    }
+
+    function updateDropdownButtonText(dropdownLabel, selectedValue) {
+        const dropdownsContainer = document.getElementById('lineDropdownsContainer');
+        if (!dropdownsContainer) return;
+
+        const dropdowns = dropdownsContainer.querySelectorAll('[data-dropdown-toggle]');
+        dropdowns.forEach(function(dropdownButton) {
+            const menuId = dropdownButton.getAttribute('data-dropdown-toggle');
+            const menu = document.getElementById(menuId);
+            if (menu && menu.getAttribute('data-dropdown-label') === dropdownLabel) {
+                const labelSpan = dropdownButton.querySelector('span');
+                if (labelSpan) {
+                    labelSpan.textContent = dropdownLabel;
+                }
+            }
+        });
+    }
+
+    function showEditFeatureScreen() {
+        const sidePanel = document.getElementById('editSidePanel');
+        if (!sidePanel) return;
+
+        const existingEditScreen = document.getElementById('editFeatureScreen');
+        if (existingEditScreen) {
+            existingEditScreen.remove();
+        }
+
+        if (!currentFeatureLabel) {
+            currentFeatureLabel = 'Line';
+        }
+
+        hideSidePanelDefaultElements();
+
+        const flexContainer = sidePanel.querySelector('.h-full.flex.flex-col');
+        if (!flexContainer) return;
+
+        const editScreen = document.createElement('div');
+        editScreen.id = 'editFeatureScreen';
+        editScreen.className = 'h-full flex flex-col bg-gray-800';
+
+        const header = document.createElement('div');
+        header.className = 'px-6 py-4 border-b border-gray-700 flex items-center justify-between';
+
+        const backButton = document.createElement('button');
+        backButton.className = 'p-2 hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0';
+        backButton.innerHTML = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>';
+        backButton.addEventListener('click', function() {
+            showLineSidePanel();
+        });
+
+        const title = document.createElement('h2');
+        title.className = 'text-lg font-semibold text-white flex-1 text-center';
+        title.textContent = 'Edit feature';
+
+        const closeButton = document.createElement('button');
+        closeButton.className = 'p-2 hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0';
+        closeButton.innerHTML = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+        closeButton.addEventListener('click', function() {
+            showLineSidePanel();
+        });
+
+        header.appendChild(backButton);
+        header.appendChild(title);
+        header.appendChild(closeButton);
+        editScreen.appendChild(header);
+
+        const content = document.createElement('div');
+        content.className = 'flex-1 overflow-y-auto';
+
+        const featureTypeItem = createFeatureTypeMenuItem();
+        content.appendChild(featureTypeItem);
+
+        const menuItems = [
+            { label: 'Fields', id: 'fields' },
+            { label: 'Tags (0)', id: 'tags' },
+            { label: 'Relations (0)', id: 'relations' }
+        ];
+
+        menuItems.forEach(function(item) {
+            const menuItem = createEditFeatureMenuItem(item.label, item.id);
+            content.appendChild(menuItem);
+        });
+
+        editScreen.appendChild(content);
+        flexContainer.appendChild(editScreen);
+
+        setTimeout(function() {
+            updateFeatureTypeLabelDisplay();
+            updateFeatureTypeVisualization();
+        }, 100);
+    }
+
+    function updateFeatureTypeLabelDisplay() {
+        const labelToDisplay = getCurrentFeatureLabel();
+        
+        const selectedFeatureName = document.getElementById('selectedFeatureName');
+        if (selectedFeatureName) {
+            selectedFeatureName.textContent = labelToDisplay;
+        }
+        
+        const visualizationFeatureName = document.getElementById('lineVisualizationFeatureName');
+        if (visualizationFeatureName) {
+            visualizationFeatureName.textContent = labelToDisplay;
+        }
+    }
+
+    function updateSearchFeatureScreenSelection() {
+        if (!currentFeatureLabel) return;
+
+        const dropdownsContainer = document.getElementById('lineDropdownsContainer');
+        if (!dropdownsContainer) return;
+
+        if (currentFeatureLabel === 'Line') {
+            return;
+        }
+
+        const dropdowns = dropdownsContainer.querySelectorAll('[role="menu"]');
+        let found = false;
+        
+        dropdowns.forEach(function(menu) {
+            const selectedValue = menu.getAttribute('data-selected-value');
+            if (selectedValue) {
+                const items = menu.querySelectorAll('[role="menuitem"]');
+                items.forEach(function(item) {
+                    const itemValue = item.getAttribute('data-value');
+                    const itemLabel = item.textContent.trim();
+                    if (itemLabel === currentFeatureLabel || itemValue === currentFeatureLabel) {
+                        const dropdownLabel = menu.getAttribute('data-dropdown-label');
+                        if (dropdownLabel) {
+                            updateDropdownButtonText(dropdownLabel, currentFeatureLabel);
+                            found = true;
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    function hideSidePanelDefaultElements() {
+        const sidePanel = document.getElementById('editSidePanel');
+        if (!sidePanel) return;
+
+        const flexContainer = sidePanel.querySelector('.h-full.flex.flex-col');
+        if (!flexContainer) return;
+
+        const children = Array.from(flexContainer.children);
+        children.forEach(function(child) {
+            if (child.id !== 'editFeatureScreen') {
+                child.style.display = 'none';
+            }
+        });
+    }
+
+    function showSidePanelDefaultElements() {
+        const sidePanel = document.getElementById('editSidePanel');
+        if (!sidePanel) return;
+
+        const flexContainer = sidePanel.querySelector('.h-full.flex.flex-col');
+        if (!flexContainer) return;
+
+        const children = Array.from(flexContainer.children);
+        children.forEach(function(child) {
+            if (child.id !== 'editFeatureScreen') {
+                child.style.display = 'block';
+            }
+        });
+    }
+
+    function createFeatureTypeMenuItem() {
+        const container = document.createElement('div');
+        container.className = 'border-b border-gray-700';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-700 transition-colors group';
+        button.setAttribute('data-menu-item', 'featureType');
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'text-sm font-medium text-blue-400 group-hover:text-blue-300 transition-colors';
+        labelSpan.textContent = 'Feature Type';
+
+        button.appendChild(labelSpan);
+
+        const content = document.createElement('div');
+        content.id = 'content-featureType';
+        content.className = 'px-6 pb-4 pt-2';
+        content.setAttribute('data-content', 'featureType');
+
+        const featureTypeSelector = createFeatureTypeSelector();
+        content.appendChild(featureTypeSelector);
+
+        let isExpanded = true;
+
+        button.addEventListener('click', function() {
+            isExpanded = !isExpanded;
+            if (isExpanded) {
+                content.classList.remove('hidden');
+            } else {
+                content.classList.add('hidden');
+            }
+        });
+
+        container.appendChild(button);
+        container.appendChild(content);
+
+        return container;
+    }
+
+    function createFeatureTypeSelector() {
+        const labelToSet = getCurrentFeatureLabel();
+        
+        const container = document.createElement('div');
+        container.className = 'w-full';
+
+        const selectorContainer = document.createElement('div');
+        selectorContainer.className = 'flex items-center gap-3';
+
+        const visualizationContainer = document.createElement('div');
+        visualizationContainer.id = 'featureTypeVisualization';
+        visualizationContainer.className = 'flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity';
+        visualizationContainer.style.width = '60px';
+        visualizationContainer.style.height = '30px';
+        visualizationContainer.style.backgroundColor = '#1f2937';
+        visualizationContainer.style.borderRadius = '4px';
+        visualizationContainer.style.overflow = 'hidden';
+        visualizationContainer.setAttribute('title', 'Click to change feature type');
+        visualizationContainer.addEventListener('click', function() {
+            updateSearchFeatureScreenSelection();
+            showLineSidePanel();
+        });
+
+        const selectedFeatureName = document.createElement('div');
+        selectedFeatureName.id = 'selectedFeatureName';
+        selectedFeatureName.className = 'text-sm font-semibold text-white cursor-pointer hover:text-blue-300 transition-colors';
+        selectedFeatureName.textContent = labelToSet;
+        selectedFeatureName.setAttribute('title', 'Click to change feature type');
+        selectedFeatureName.addEventListener('click', function() {
+            updateSearchFeatureScreenSelection();
+            showLineSidePanel();
+        });
+
+        selectorContainer.appendChild(visualizationContainer);
+        selectorContainer.appendChild(selectedFeatureName);
+
+        container.appendChild(selectorContainer);
+
+        return container;
+    }
+
+    function updateFeatureTypeVisualization() {
+        const container = document.getElementById('featureTypeVisualization');
+        if (!container || !currentLineId || !drawInstance) return;
+
+        try {
+            const snapshot = drawInstance.getSnapshot();
+            const feature = snapshot?.find(function(f) { return f.id === currentLineId; });
+
+            if (!feature || !feature.geometry || feature.geometry.type !== 'LineString') {
+                return;
+            }
+
+            const coordinates = feature.geometry.coordinates;
+            if (!coordinates || coordinates.length < 2) {
+                container.innerHTML = '';
+                return;
+            }
+
+            const width = 60;
+            const height = 30;
+            const padding = 4;
+
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            coordinates.forEach(function(coord) {
+                minX = Math.min(minX, coord[0]);
+                minY = Math.min(minY, coord[1]);
+                maxX = Math.max(maxX, coord[0]);
+                maxY = Math.max(maxY, coord[1]);
+            });
+
+            const rangeX = maxX - minX || 0.001;
+            const rangeY = maxY - minY || 0.001;
+            const scaleX = (width - padding * 2) / rangeX;
+            const scaleY = (height - padding * 2) / rangeY;
+            const scale = Math.min(scaleX, scaleY) * 0.8;
+
+            const centerX = (minX + maxX) / 2;
+            const centerY = (minY + maxY) / 2;
+            const offsetX = width / 2 - centerX * scale;
+            const offsetY = height / 2 - centerY * scale;
+
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', width.toString());
+            svg.setAttribute('height', height.toString());
+            svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+            svg.style.display = 'block';
+
+            const filterId = 'blur-small-' + Date.now();
+            
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            const blurFilter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+            blurFilter.setAttribute('id', filterId);
+            blurFilter.setAttribute('x', '-50%');
+            blurFilter.setAttribute('y', '-50%');
+            blurFilter.setAttribute('width', '200%');
+            blurFilter.setAttribute('height', '200%');
+            const feGaussianBlur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
+            feGaussianBlur.setAttribute('stdDeviation', '1.5');
+            blurFilter.appendChild(feGaussianBlur);
+            defs.appendChild(blurFilter);
+            svg.appendChild(defs);
+
+            let pathData = 'M ';
+            coordinates.forEach(function(coord, index) {
+                const x = (coord[0] - minX) * scale + padding;
+                const y = height - ((coord[1] - minY) * scale + padding);
+                if (index === 0) {
+                    pathData += x.toFixed(2) + ' ' + y.toFixed(2);
+                } else {
+                    pathData += ' L ' + x.toFixed(2) + ' ' + y.toFixed(2);
+                }
+            });
+
+            const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            glowPath.setAttribute('d', pathData);
+            glowPath.setAttribute('fill', 'none');
+            glowPath.setAttribute('stroke', '#ef4444');
+            glowPath.setAttribute('stroke-width', '2.5');
+            glowPath.setAttribute('stroke-opacity', '0.6');
+            glowPath.setAttribute('stroke-linecap', 'round');
+            glowPath.setAttribute('stroke-linejoin', 'round');
+            glowPath.setAttribute('filter', 'url(#' + filterId + ')');
+            svg.appendChild(glowPath);
+
+            const mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            mainPath.setAttribute('d', pathData);
+            mainPath.setAttribute('fill', 'none');
+            mainPath.setAttribute('stroke', '#ffffff');
+            mainPath.setAttribute('stroke-width', '1.2');
+            mainPath.setAttribute('stroke-opacity', '1');
+            mainPath.setAttribute('stroke-linecap', 'round');
+            mainPath.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(mainPath);
+
+            coordinates.forEach(function(coord, index) {
+                const x = (coord[0] - minX) * scale + padding;
+                const y = height - ((coord[1] - minY) * scale + padding);
+
+                const markerGlow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                markerGlow.setAttribute('cx', x.toFixed(2));
+                markerGlow.setAttribute('cy', y.toFixed(2));
+                markerGlow.setAttribute('r', '2.5');
+                markerGlow.setAttribute('fill', '#ef4444');
+                markerGlow.setAttribute('opacity', '0.5');
+                markerGlow.setAttribute('filter', 'url(#' + filterId + ')');
+                svg.appendChild(markerGlow);
+
+                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                marker.setAttribute('cx', x.toFixed(2));
+                marker.setAttribute('cy', y.toFixed(2));
+                marker.setAttribute('r', '1.5');
+                marker.setAttribute('fill', '#ffffff');
+                marker.setAttribute('stroke', '#ffffff');
+                marker.setAttribute('stroke-width', '0.5');
+                svg.appendChild(marker);
+            });
+
+            container.innerHTML = '';
+            container.appendChild(svg);
+
+        } catch (e) {
+            console.error('Error updating feature type visualization:', e);
+        }
+    }
+
+    function createEditFeatureMenuItem(label, id) {
+        const container = document.createElement('div');
+        container.className = 'border-b border-gray-700';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-700 transition-colors group';
+        button.setAttribute('data-menu-item', id);
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'text-sm font-medium text-blue-400 group-hover:text-blue-300 transition-colors';
+        labelSpan.textContent = label;
+
+        button.appendChild(labelSpan);
+
+        const content = document.createElement('div');
+        content.id = 'content-' + id;
+        content.className = 'px-6 py-4';
+        content.setAttribute('data-content', id);
+
+        let isExpanded = true;
+
+        button.addEventListener('click', function() {
+            isExpanded = !isExpanded;
+            if (isExpanded) {
+                content.classList.remove('hidden');
+            } else {
+                content.classList.add('hidden');
+            }
+        });
+
+        container.appendChild(button);
+        container.appendChild(content);
+
+        return container;
+    }
+
     function createIconForLabel(label) {
         const iconContainer = document.createElement('div');
         iconContainer.className = 'flex-shrink-0 w-6 h-6 flex items-center justify-center';
@@ -1058,6 +1570,9 @@
     function populateDropdownMenu(dropdownMenu, options) {
         dropdownMenu.innerHTML = '';
 
+        const dropdownLabel = dropdownMenu.getAttribute('data-dropdown-label');
+        const dropdownContainer = dropdownMenu.parentElement;
+
         options.forEach(function(option) {
             const item = document.createElement('button');
             item.type = 'button';
@@ -1068,9 +1583,31 @@
 
             item.addEventListener('click', function() {
                 const selectedValue = option.label || option;
+                
+                if (!selectedValue) return;
+                
+                currentFeatureLabel = selectedValue;
                 updateCurrentFeatureLabel(selectedValue);
+                
                 dropdownMenu.classList.add('hidden');
                 dropdownMenu.setAttribute('data-selected-value', option.value || option);
+                
+                if (dropdownContainer) {
+                    const dropdownButton = dropdownContainer.querySelector('button');
+                    if (dropdownButton) {
+                        const labelSpan = dropdownButton.querySelector('span');
+                        if (labelSpan && dropdownLabel) {
+                            labelSpan.textContent = dropdownLabel;
+                        }
+                    }
+                }
+                
+                if (currentLineId) {
+                    selectLine(currentLineId);
+                    setTimeout(function() {
+                        showEditFeatureScreen();
+                    }, 10);
+                }
             });
 
             dropdownMenu.appendChild(item);
