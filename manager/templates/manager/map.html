@@ -19,9 +19,167 @@
 <!-- TerraDraw JS -->
 <script src="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.umd.js"></script>
 
+<!-- SVG Icon Sprite Definitions -->
+<svg style="display: none;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <symbol id="iD-icon-point" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3" fill="currentColor" stroke="currentColor" stroke-width="1.5"/>
+    </symbol>
+    <symbol id="iD-icon-line" viewBox="0 0 24 24">
+        <path d="M3 12 L21 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+        <circle cx="6" cy="12" r="2" fill="currentColor"/>
+        <circle cx="18" cy="12" r="2" fill="currentColor"/>
+    </symbol>
+    <symbol id="iD-icon-area" viewBox="0 0 24 24">
+        <path d="M6 6 L18 6 L18 18 L6 18 Z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/>
+        <circle cx="9" cy="9" r="1.5" fill="currentColor"/>
+        <circle cx="15" cy="9" r="1.5" fill="currentColor"/>
+        <circle cx="9" cy="15" r="1.5" fill="currentColor"/>
+        <circle cx="15" cy="15" r="1.5" fill="currentColor"/>
+    </symbol>
+</svg>
+
 <div class="w-full h-full relative">
-    <div id="map" class="w-full h-full"></div>
-    <pre id="info" class="block absolute left-1/2 top-[680px] -translate-x-1/2 min-h-[20px] w-[45%] p-2 border-none rounded-[25px] text-xs text-left text-[#222] bg-white z-10"></pre>
+    <!-- Left Side Panel (Hidden by default) -->
+    <div id="editSidePanel" class="absolute left-0 top-0 bottom-0 w-80 bg-gray-800 text-white z-30 transform -translate-x-full transition-transform duration-300 ease-in-out shadow-2xl">
+        <div class="h-full flex flex-col">
+            <!-- Panel Header -->
+            <div class="px-6 py-4 border-b border-gray-700">
+                <h2 class="text-lg font-semibold text-white">Search features</h2>
+            </div>
+            
+            <!-- Search Bar -->
+            <div class="px-6 py-4 border-b border-gray-700">
+                <div class="relative">
+                    <label for="featureSearch" class="block text-xs font-medium text-gray-400 mb-2">Q Search</label>
+                    <input 
+                        type="text" 
+                        id="featureSearch" 
+                        placeholder="Search features..." 
+                        class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    >
+                    <svg class="absolute right-3 top-9 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+            </div>
+            
+            <!-- Panel Content -->
+            <div class="flex-1 overflow-y-auto px-6 py-4">
+                <!-- Search results will appear here -->
+                <div id="featureSearchResults" class="space-y-2">
+                    <!-- Placeholder for search results -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Map Container -->
+    <div id="mapContainer" class="w-full h-full relative transition-all duration-300 ease-in-out">
+        <div id="map" class="w-full h-full"></div>
+        <pre id="info" class="block absolute left-1/2 top-[680px] -translate-x-1/2 min-h-[20px] w-[45%] p-2 border-none rounded-[25px] text-xs text-left text-[#222] bg-white z-10"></pre>
+        
+        <!-- Top Toolbar (Hidden by default) -->
+        <div id="editToolbar" class="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 hidden">
+            <div class="flex items-center gap-2 bg-white rounded-lg shadow-lg border border-gray-200 px-3 py-2">
+                <!-- Point Button -->
+                <button 
+                    id="pointToolBtn" 
+                    class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 group"
+                    title="Point"
+                >
+                    <svg class="icon w-5 h-5 text-gray-700 group-hover:text-black" fill="currentColor">
+                        <use xlink:href="#iD-icon-point"></use>
+                    </svg>
+                    <span class="text-xs font-medium text-gray-700 group-hover:text-black">Point</span>
+                </button>
+                
+                <!-- Line Button -->
+                <button 
+                    id="lineToolBtn" 
+                    class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 group"
+                    title="Line"
+                >
+                    <svg class="icon w-5 h-5 text-gray-700 group-hover:text-black" fill="currentColor">
+                        <use xlink:href="#iD-icon-line"></use>
+                    </svg>
+                    <span class="text-xs font-medium text-gray-700 group-hover:text-black">Line</span>
+                </button>
+                
+                <!-- Area Button -->
+                <button 
+                    id="areaToolBtn" 
+                    class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 group"
+                    title="Area"
+                >
+                    <svg class="icon w-5 h-5 text-gray-700 group-hover:text-black" fill="currentColor">
+                        <use xlink:href="#iD-icon-area"></use>
+                    </svg>
+                    <span class="text-xs font-medium text-gray-700 group-hover:text-black">Area</span>
+                </button>
+                
+                <!-- Divider -->
+                <div class="w-px h-8 bg-gray-300 mx-1"></div>
+                
+                <!-- Undo Button -->
+                <button 
+                    id="undoBtn" 
+                    class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 group"
+                    title="Undo"
+                >
+                    <svg class="w-5 h-5 text-gray-700 group-hover:text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
+                    </svg>
+                    <span class="text-sm font-medium text-gray-700 group-hover:text-black hidden sm:inline">Undo</span>
+                </button>
+                
+                <!-- Redo Button -->
+                <button 
+                    id="redoBtn" 
+                    class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 group"
+                    title="Redo"
+                >
+                    <svg class="w-5 h-5 text-gray-700 group-hover:text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"></path>
+                    </svg>
+                    <span class="text-sm font-medium text-gray-700 group-hover:text-black hidden sm:inline">Redo</span>
+                </button>
+                
+                <!-- Divider -->
+                <div class="w-px h-8 bg-gray-300 mx-1"></div>
+                
+                <!-- Save Button -->
+                <button 
+                    id="saveBtn" 
+                    class="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 font-medium"
+                    title="Save"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    <span class="text-sm">Save</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Zoom Overlay (Shown when zoom < 16 in edit mode) -->
+        <div id="zoomOverlay" class="absolute inset-0 z-50 hidden flex items-center justify-center pointer-events-none">
+            <div class="bg-white rounded-lg shadow-2xl p-8 max-w-md mx-4 text-center pointer-events-auto border-2 border-gray-200">
+                <div class="mb-6">
+                    <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"></path>
+                    </svg>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-2">ZOOM IN TO EDIT</h3>
+                    <p class="text-gray-600">Zoom in to level 16 or higher to enable editing features.</p>
+                </div>
+                <button 
+                    id="zoomInBtn" 
+                    class="px-6 py-3 bg-black text-white font-semibold rounded-lg hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
+                >
+                    Zoom to Edit Level
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 {% endblock %}
