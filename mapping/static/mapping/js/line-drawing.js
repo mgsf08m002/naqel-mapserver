@@ -1028,6 +1028,9 @@
             if (item.id === 'fields') {
                 const menuItem = createFieldsMenuItem();
                 content.appendChild(menuItem);
+            } else if (item.id === 'tags') {
+                const menuItem = createTagsMenuItem();
+                content.appendChild(menuItem);
             } else {
                 const menuItem = createEditFeatureMenuItem(item.label, item.id);
                 content.appendChild(menuItem);
@@ -1369,8 +1372,11 @@
         const nameField = createFieldItem('Name', false, true, false);
         existingFieldsContainer.appendChild(nameField);
 
-        const commonNameField = createFieldItem('Common name (if any)', false, false, true);
-        existingFieldsContainer.appendChild(commonNameField);
+        const commonNameInput = document.createElement('input');
+        commonNameInput.type = 'text';
+        commonNameInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        commonNameInput.placeholder = '';
+        existingFieldsContainer.appendChild(commonNameInput);
 
         fieldsContainer.appendChild(existingFieldsContainer);
 
@@ -1517,6 +1523,164 @@
         fieldContainer.appendChild(rightSection);
 
         return fieldContainer;
+    }
+
+    function createTagsMenuItem() {
+        const container = document.createElement('div');
+        container.className = 'border-b border-gray-700';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-700 transition-colors group';
+        button.setAttribute('data-menu-item', 'tags');
+
+        const leftSection = document.createElement('div');
+        leftSection.className = 'flex items-center gap-3';
+
+        const chevronDown = document.createElement('svg');
+        chevronDown.className = 'w-4 h-4 text-blue-400 transition-transform duration-200 flex-shrink-0';
+        chevronDown.setAttribute('fill', 'none');
+        chevronDown.setAttribute('stroke', 'currentColor');
+        chevronDown.setAttribute('viewBox', '0 0 24 24');
+        chevronDown.setAttribute('stroke-width', '2');
+        chevronDown.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>';
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'text-sm font-medium text-blue-400 group-hover:text-blue-300 transition-colors';
+        labelSpan.id = 'tags-label-span';
+        labelSpan.textContent = 'Tags (0)';
+        
+        function updateTagsCount(labelElement) {
+            const tagsRowsContainer = document.getElementById('tags-rows-container');
+            if (tagsRowsContainer && labelElement) {
+                const tagRows = tagsRowsContainer.querySelectorAll('.flex.items-center.gap-2');
+                const count = tagRows.length;
+                labelElement.textContent = 'Tags (' + count + ')';
+            }
+        }
+        
+        function addTagRow(container, labelElement) {
+            const tagRow = document.createElement('div');
+            tagRow.className = 'flex items-center gap-2';
+            const tagId = 'tag-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            tagRow.id = tagId;
+
+            const leftDropdown = document.createElement('div');
+            leftDropdown.className = 'relative flex-1 min-w-0';
+
+            const leftInput = document.createElement('input');
+            leftInput.type = 'text';
+            leftInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer';
+            leftInput.placeholder = 'Add new tag';
+            leftInput.readOnly = true;
+
+            const leftChevron = document.createElement('div');
+            leftChevron.className = 'absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none';
+            leftChevron.innerHTML = '<svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+
+            const leftMenu = document.createElement('div');
+            leftMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg z-50 hidden max-h-60 overflow-y-auto';
+
+            const tagOptions = ['building', 'highway', 'source', 'name', 'surface', 'natural', 'addr:housenumber', 'addr:street', 'addr:city', 'addr:postcode'];
+            tagOptions.forEach(function(option) {
+                const menuItem = document.createElement('div');
+                menuItem.className = 'px-3 py-2 text-xs text-white hover:bg-gray-600 cursor-pointer border-b border-gray-600 last:border-b-0';
+                menuItem.textContent = option;
+                menuItem.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    leftInput.value = option;
+                    leftMenu.classList.add('hidden');
+                    updateTagsCount(labelElement);
+                });
+                leftMenu.appendChild(menuItem);
+            });
+
+            leftInput.addEventListener('click', function(e) {
+                e.stopPropagation();
+                leftMenu.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!leftDropdown.contains(e.target)) {
+                    leftMenu.classList.add('hidden');
+                }
+            });
+
+            leftDropdown.appendChild(leftInput);
+            leftDropdown.appendChild(leftChevron);
+            leftDropdown.appendChild(leftMenu);
+
+            const rightInput = document.createElement('input');
+            rightInput.type = 'text';
+            rightInput.className = 'flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+            rightInput.placeholder = '';
+
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-gray-600 transition-colors flex-shrink-0';
+            deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+            deleteButton.addEventListener('click', function() {
+                tagRow.remove();
+                updateTagsCount(labelElement);
+            });
+
+            tagRow.appendChild(leftDropdown);
+            tagRow.appendChild(rightInput);
+            tagRow.appendChild(deleteButton);
+            container.appendChild(tagRow);
+
+            if (typeof window.tagsList === 'undefined') {
+                window.tagsList = [];
+            }
+            window.tagsList.push(tagId);
+            updateTagsCount(labelElement);
+        }
+
+        leftSection.appendChild(chevronDown);
+        leftSection.appendChild(labelSpan);
+        button.appendChild(leftSection);
+
+        const content = document.createElement('div');
+        content.id = 'content-tags';
+        content.className = 'px-6 py-4';
+        content.setAttribute('data-content', 'tags');
+
+        const tagsContainer = document.createElement('div');
+        tagsContainer.className = 'space-y-2';
+        tagsContainer.id = 'tags-rows-container';
+
+        const addTagButton = document.createElement('button');
+        addTagButton.type = 'button';
+        addTagButton.className = 'w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-md text-xs text-white transition-colors';
+        addTagButton.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg><span>Add Tag</span>';
+        addTagButton.addEventListener('click', function() {
+            addTagRow(tagsContainer, labelSpan);
+        });
+
+        content.appendChild(tagsContainer);
+        content.appendChild(addTagButton);
+
+        if (typeof window.tagsList === 'undefined') {
+            window.tagsList = [];
+        }
+
+        let isExpanded = true;
+
+        button.addEventListener('click', function() {
+            isExpanded = !isExpanded;
+            if (isExpanded) {
+                content.classList.remove('hidden');
+                chevronDown.style.transform = 'rotate(180deg)';
+            } else {
+                content.classList.add('hidden');
+                chevronDown.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        container.appendChild(button);
+        container.appendChild(content);
+
+        return container;
     }
 
     if (typeof window.selectedFields === 'undefined') {
