@@ -1025,8 +1025,13 @@
         ];
 
         menuItems.forEach(function(item) {
-            const menuItem = createEditFeatureMenuItem(item.label, item.id);
-            content.appendChild(menuItem);
+            if (item.id === 'fields') {
+                const menuItem = createFieldsMenuItem();
+                content.appendChild(menuItem);
+            } else {
+                const menuItem = createEditFeatureMenuItem(item.label, item.id);
+                content.appendChild(menuItem);
+            }
         });
 
         editScreen.appendChild(content);
@@ -1317,6 +1322,837 @@
 
         } catch (e) {
             console.error('Error updating feature type visualization:', e);
+        }
+    }
+
+    function createFieldsMenuItem() {
+        window.selectedFields = [];
+        const container = document.createElement('div');
+        container.className = 'border-b border-gray-700';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-700 transition-colors group';
+        button.setAttribute('data-menu-item', 'fields');
+
+        const leftSection = document.createElement('div');
+        leftSection.className = 'flex items-center gap-3';
+
+        const chevronDown = document.createElement('svg');
+        chevronDown.className = 'w-4 h-4 text-blue-400 transition-transform duration-200 flex-shrink-0';
+        chevronDown.setAttribute('fill', 'none');
+        chevronDown.setAttribute('stroke', 'currentColor');
+        chevronDown.setAttribute('viewBox', '0 0 24 24');
+        chevronDown.setAttribute('stroke-width', '2');
+        chevronDown.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>';
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'text-sm font-medium text-blue-400 group-hover:text-blue-300 transition-colors';
+        labelSpan.textContent = 'Fields';
+
+        leftSection.appendChild(chevronDown);
+        leftSection.appendChild(labelSpan);
+        button.appendChild(leftSection);
+
+        const content = document.createElement('div');
+        content.id = 'content-fields';
+        content.className = 'px-6 py-4';
+        content.setAttribute('data-content', 'fields');
+
+        const fieldsContainer = document.createElement('div');
+        fieldsContainer.className = 'space-y-3';
+        fieldsContainer.id = 'fields-container';
+
+        const existingFieldsContainer = document.createElement('div');
+        existingFieldsContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-3';
+
+        const nameField = createFieldItem('Name', false, true, false);
+        existingFieldsContainer.appendChild(nameField);
+
+        const commonNameField = createFieldItem('Common name (if any)', false, false, true);
+        existingFieldsContainer.appendChild(commonNameField);
+
+        fieldsContainer.appendChild(existingFieldsContainer);
+
+        const addFieldSection = document.createElement('div');
+        addFieldSection.className = 'space-y-1.5';
+        addFieldSection.id = 'add-field-section';
+
+        const addFieldLabel = document.createElement('label');
+        addFieldLabel.className = 'text-xs text-gray-300';
+        addFieldLabel.textContent = 'Add field:';
+        addFieldSection.appendChild(addFieldLabel);
+
+        const addFieldDropdown = document.createElement('div');
+        addFieldDropdown.className = 'relative';
+        addFieldDropdown.id = 'add-field-dropdown';
+
+        const dropdownInput = document.createElement('input');
+        dropdownInput.type = 'text';
+        dropdownInput.className = 'w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer';
+        dropdownInput.placeholder = 'Description, Fix Me, Image...';
+        dropdownInput.readOnly = true;
+        dropdownInput.id = 'add-field-input';
+
+        const dropdownChevron = document.createElement('div');
+        dropdownChevron.className = 'absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none';
+        dropdownChevron.innerHTML = '<svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+
+        const dropdownMenu = document.createElement('div');
+        dropdownMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg z-50 hidden';
+        dropdownMenu.id = 'add-field-menu';
+
+        const fieldOptions = ['Description', 'Fix Me', 'Image', 'Last Checked Date', 'Mapillary Image ID', 'Note', 'Panoramax Image ID', 'Website'];
+        fieldOptions.forEach(function(option) {
+            const menuItem = document.createElement('div');
+            menuItem.className = 'px-3 py-2 text-sm text-white hover:bg-gray-600 cursor-pointer flex items-center';
+            menuItem.setAttribute('data-field', option.toLowerCase().replace(/\s+/g, '-'));
+            menuItem.textContent = option;
+            menuItem.addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleFieldSelection(option, fieldsContainer);
+            });
+            dropdownMenu.appendChild(menuItem);
+        });
+
+        if (typeof selectedFields === 'undefined') {
+            window.selectedFields = [];
+        }
+
+        dropdownInput.addEventListener('click', function(e) {
+            e.stopPropagation();
+            dropdownMenu.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!addFieldDropdown.contains(e.target)) {
+                dropdownMenu.classList.add('hidden');
+            }
+        });
+
+        addFieldDropdown.appendChild(dropdownInput);
+        addFieldDropdown.appendChild(dropdownChevron);
+        addFieldDropdown.appendChild(dropdownMenu);
+        addFieldSection.appendChild(addFieldDropdown);
+
+        fieldsContainer.appendChild(addFieldSection);
+        content.appendChild(fieldsContainer);
+
+        let isExpanded = true;
+
+        button.addEventListener('click', function() {
+            isExpanded = !isExpanded;
+            if (isExpanded) {
+                content.classList.remove('hidden');
+                chevronDown.style.transform = 'rotate(180deg)';
+            } else {
+                content.classList.add('hidden');
+                chevronDown.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        container.appendChild(button);
+        container.appendChild(content);
+
+        return container;
+    }
+
+    function createFieldItem(label, hasRedDot, hasInfoIcon, hasPlusIcon) {
+        const fieldContainer = document.createElement('div');
+        fieldContainer.className = 'flex items-center justify-between py-1.5';
+
+        const leftSection = document.createElement('div');
+        leftSection.className = 'flex items-center flex-1';
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'text-xs text-white';
+        labelSpan.textContent = label;
+        leftSection.appendChild(labelSpan);
+
+        fieldContainer.appendChild(leftSection);
+
+        const rightSection = document.createElement('div');
+        rightSection.className = 'flex items-center gap-1.5 flex-shrink-0';
+
+        if (hasInfoIcon) {
+            const infoButton = document.createElement('button');
+            infoButton.type = 'button';
+            infoButton.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
+            infoButton.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+            rightSection.appendChild(infoButton);
+        }
+
+        if (hasPlusIcon) {
+            const plusButtonWrapper = document.createElement('div');
+            plusButtonWrapper.className = 'relative group';
+
+            const plusButton = document.createElement('button');
+            plusButton.type = 'button';
+            plusButton.className = 'w-5 h-5 flex items-center justify-center rounded bg-gray-600 hover:bg-gray-500 transition-colors';
+            plusButton.innerHTML = '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>';
+
+            const tooltip = document.createElement('div');
+            tooltip.className = 'absolute right-0 top-full mt-1.5 px-2.5 py-1.5 bg-black text-white text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none shadow-lg';
+            tooltip.textContent = 'Add Multilingual Name';
+            
+            const tooltipArrow = document.createElement('div');
+            tooltipArrow.className = 'absolute bottom-full right-3 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-transparent border-t-black';
+            tooltip.appendChild(tooltipArrow);
+
+            plusButtonWrapper.appendChild(plusButton);
+            plusButtonWrapper.appendChild(tooltip);
+            rightSection.appendChild(plusButtonWrapper);
+
+            plusButton.addEventListener('click', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                const fieldsContainer = document.getElementById('fields-container');
+                if (fieldsContainer) {
+                    addMultilingualNameField(fieldsContainer);
+                }
+            });
+        }
+
+        fieldContainer.appendChild(rightSection);
+
+        return fieldContainer;
+    }
+
+    if (typeof window.selectedFields === 'undefined') {
+        window.selectedFields = [];
+    }
+
+    function toggleFieldSelection(fieldName, fieldsContainer) {
+        const fieldId = fieldName.toLowerCase().replace(/\s+/g, '-');
+        if (!window.selectedFields) {
+            window.selectedFields = [];
+        }
+        const index = window.selectedFields.indexOf(fieldId);
+        
+        if (index > -1) {
+            window.selectedFields.splice(index, 1);
+            removeFieldFromContainer(fieldId, fieldsContainer);
+        } else {
+            window.selectedFields.push(fieldId);
+            addFieldToContainer(fieldName, fieldId, fieldsContainer);
+        }
+        
+        updateAddFieldDisplay();
+        const dropdownMenu = document.getElementById('add-field-menu');
+        if (dropdownMenu) {
+            dropdownMenu.classList.add('hidden');
+        }
+    }
+
+    function updateAddFieldDisplay() {
+        const dropdownInput = document.getElementById('add-field-input');
+        if (dropdownInput) {
+            if (!window.selectedFields || window.selectedFields.length === 0) {
+                dropdownInput.value = '';
+                dropdownInput.placeholder = 'Description, Fix Me, Image...';
+            } else {
+                const displayNames = window.selectedFields.map(function(fieldId) {
+                    if (fieldId === 'description') return 'Description';
+                    if (fieldId === 'fix-me') return 'Fix Me';
+                    if (fieldId === 'image') return 'Image';
+                    if (fieldId === 'last-checked-date') return 'Last Checked Date';
+                    if (fieldId === 'mapillary-image-id') return 'Mapillary Image ID';
+                    if (fieldId === 'note') return 'Note';
+                    if (fieldId === 'panoramax-image-id') return 'Panoramax Image ID';
+                    if (fieldId === 'website') return 'Website';
+                    return fieldId;
+                });
+                dropdownInput.value = displayNames.join(', ');
+                dropdownInput.placeholder = '';
+            }
+        }
+    }
+
+    function addFieldToContainer(fieldName, fieldId, fieldsContainer) {
+        const existingFieldsContainer = fieldsContainer.querySelector('.bg-gray-700.rounded-lg');
+        const addFieldSection = document.getElementById('add-field-section');
+        
+        let fieldElement = null;
+        
+        if (fieldId === 'description') {
+            fieldElement = createDescriptionField(fieldId);
+        } else if (fieldId === 'fix-me') {
+            fieldElement = createFixMeField(fieldId);
+        } else if (fieldId === 'image') {
+            fieldElement = createImageField(fieldId);
+        } else if (fieldId === 'last-checked-date') {
+            fieldElement = createLastCheckedDateField(fieldId);
+        } else if (fieldId === 'mapillary-image-id') {
+            fieldElement = createMapillaryImageIdField(fieldId);
+        } else if (fieldId === 'note') {
+            fieldElement = createNoteField(fieldId);
+        } else if (fieldId === 'panoramax-image-id') {
+            fieldElement = createPanoramaxImageIdField(fieldId);
+        } else if (fieldId === 'website') {
+            fieldElement = createWebsiteField(fieldId);
+        }
+        
+        if (fieldElement && existingFieldsContainer && addFieldSection) {
+            fieldsContainer.insertBefore(fieldElement, addFieldSection);
+        } else if (fieldElement && existingFieldsContainer) {
+            existingFieldsContainer.parentNode.insertBefore(fieldElement, existingFieldsContainer.nextSibling);
+        } else if (fieldElement) {
+            fieldsContainer.appendChild(fieldElement);
+        }
+    }
+
+    function removeFieldFromContainer(fieldId, fieldsContainer) {
+        const fieldElement = document.getElementById('field-' + fieldId);
+        if (fieldElement) {
+            fieldElement.remove();
+        }
+    }
+
+    function createDescriptionField(fieldId) {
+        const fieldContainer = document.createElement('div');
+        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.id = 'field-' + fieldId;
+
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between';
+
+        const labelWrapper = document.createElement('div');
+        labelWrapper.className = 'flex items-center gap-2';
+
+        const label = document.createElement('span');
+        label.className = 'text-xs font-medium text-white';
+        label.textContent = 'Description';
+        labelWrapper.appendChild(label);
+
+        const infoIcon = document.createElement('button');
+        infoIcon.type = 'button';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        labelWrapper.appendChild(infoIcon);
+
+        header.appendChild(labelWrapper);
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.addEventListener('click', function() {
+            if (window.selectedFields) {
+                const index = window.selectedFields.indexOf(fieldId);
+                if (index > -1) {
+                    window.selectedFields.splice(index, 1);
+                }
+            }
+            fieldContainer.remove();
+            updateAddFieldDisplay();
+        });
+        header.appendChild(deleteButton);
+
+        fieldContainer.appendChild(header);
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none';
+        textarea.placeholder = 'Unknown';
+        textarea.rows = 3;
+        fieldContainer.appendChild(textarea);
+
+        return fieldContainer;
+    }
+
+    function createFixMeField(fieldId) {
+        const fieldContainer = document.createElement('div');
+        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.id = 'field-' + fieldId;
+
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between';
+
+        const labelWrapper = document.createElement('div');
+        labelWrapper.className = 'flex items-center gap-2';
+
+        const label = document.createElement('span');
+        label.className = 'text-xs font-medium text-white';
+        label.textContent = 'Fix Me';
+        labelWrapper.appendChild(label);
+
+        const infoIcon = document.createElement('button');
+        infoIcon.type = 'button';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        labelWrapper.appendChild(infoIcon);
+
+        header.appendChild(labelWrapper);
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.addEventListener('click', function() {
+            if (window.selectedFields) {
+                const index = window.selectedFields.indexOf(fieldId);
+                if (index > -1) {
+                    window.selectedFields.splice(index, 1);
+                }
+            }
+            fieldContainer.remove();
+            updateAddFieldDisplay();
+        });
+        header.appendChild(deleteButton);
+
+        fieldContainer.appendChild(header);
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none';
+        textarea.placeholder = 'Unknown';
+        textarea.rows = 3;
+        fieldContainer.appendChild(textarea);
+
+        return fieldContainer;
+    }
+
+    function createImageField(fieldId) {
+        const fieldContainer = document.createElement('div');
+        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.id = 'field-' + fieldId;
+
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between';
+
+        const labelWrapper = document.createElement('div');
+        labelWrapper.className = 'flex items-center gap-2';
+
+        const label = document.createElement('span');
+        label.className = 'text-xs font-medium text-white';
+        label.textContent = 'Image';
+        labelWrapper.appendChild(label);
+
+        const infoIcon = document.createElement('button');
+        infoIcon.type = 'button';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        labelWrapper.appendChild(infoIcon);
+
+        header.appendChild(labelWrapper);
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.addEventListener('click', function() {
+            if (window.selectedFields) {
+                const index = window.selectedFields.indexOf(fieldId);
+                if (index > -1) {
+                    window.selectedFields.splice(index, 1);
+                }
+            }
+            fieldContainer.remove();
+            updateAddFieldDisplay();
+        });
+        header.appendChild(deleteButton);
+
+        fieldContainer.appendChild(header);
+
+        const inputWrapper = document.createElement('div');
+        inputWrapper.className = 'relative';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        input.placeholder = 'https://example.com/photo.jpg';
+        inputWrapper.appendChild(input);
+
+        const externalLinkIcon = document.createElement('button');
+        externalLinkIcon.type = 'button';
+        externalLinkIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-300 transition-colors';
+        externalLinkIcon.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>';
+        inputWrapper.appendChild(externalLinkIcon);
+
+        fieldContainer.appendChild(inputWrapper);
+
+        return fieldContainer;
+    }
+
+    function createLastCheckedDateField(fieldId) {
+        const fieldContainer = document.createElement('div');
+        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.id = 'field-' + fieldId;
+
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between';
+
+        const labelWrapper = document.createElement('div');
+        labelWrapper.className = 'flex items-center gap-2';
+
+        const label = document.createElement('span');
+        label.className = 'text-xs font-medium text-white';
+        label.textContent = 'Last Checked Date';
+        labelWrapper.appendChild(label);
+
+        const infoIcon = document.createElement('button');
+        infoIcon.type = 'button';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        labelWrapper.appendChild(infoIcon);
+
+        header.appendChild(labelWrapper);
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.addEventListener('click', function() {
+            if (window.selectedFields) {
+                const index = window.selectedFields.indexOf(fieldId);
+                if (index > -1) {
+                    window.selectedFields.splice(index, 1);
+                }
+            }
+            fieldContainer.remove();
+            updateAddFieldDisplay();
+        });
+        header.appendChild(deleteButton);
+
+        fieldContainer.appendChild(header);
+
+        const inputWrapper = document.createElement('div');
+        inputWrapper.className = 'relative flex items-center gap-2';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'flex-1 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        input.placeholder = 'YYYY-MM-DD';
+        inputWrapper.appendChild(input);
+
+        const refreshIcon = document.createElement('button');
+        refreshIcon.type = 'button';
+        refreshIcon.className = 'w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-300 transition-colors';
+        refreshIcon.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>';
+        inputWrapper.appendChild(refreshIcon);
+
+        const calendarIcon = document.createElement('button');
+        calendarIcon.type = 'button';
+        calendarIcon.className = 'w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-300 transition-colors';
+        calendarIcon.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+        inputWrapper.appendChild(calendarIcon);
+
+        fieldContainer.appendChild(inputWrapper);
+
+        return fieldContainer;
+    }
+
+    function createMapillaryImageIdField(fieldId) {
+        const fieldContainer = document.createElement('div');
+        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.id = 'field-' + fieldId;
+
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between';
+
+        const labelWrapper = document.createElement('div');
+        labelWrapper.className = 'flex items-center gap-2';
+
+        const label = document.createElement('span');
+        label.className = 'text-xs font-medium text-white';
+        label.textContent = 'Mapillary Image ID';
+        labelWrapper.appendChild(label);
+
+        const infoIcon = document.createElement('button');
+        infoIcon.type = 'button';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        labelWrapper.appendChild(infoIcon);
+
+        header.appendChild(labelWrapper);
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.addEventListener('click', function() {
+            if (window.selectedFields) {
+                const index = window.selectedFields.indexOf(fieldId);
+                if (index > -1) {
+                    window.selectedFields.splice(index, 1);
+                }
+            }
+            fieldContainer.remove();
+            updateAddFieldDisplay();
+        });
+        header.appendChild(deleteButton);
+
+        fieldContainer.appendChild(header);
+
+        const inputWrapper = document.createElement('div');
+        inputWrapper.className = 'relative';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        input.value = 'Unknown';
+        inputWrapper.appendChild(input);
+
+        const externalLinkIcon = document.createElement('button');
+        externalLinkIcon.type = 'button';
+        externalLinkIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-300 transition-colors';
+        externalLinkIcon.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>';
+        inputWrapper.appendChild(externalLinkIcon);
+
+        fieldContainer.appendChild(inputWrapper);
+
+        return fieldContainer;
+    }
+
+    function createNoteField(fieldId) {
+        const fieldContainer = document.createElement('div');
+        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.id = 'field-' + fieldId;
+
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between';
+
+        const labelWrapper = document.createElement('div');
+        labelWrapper.className = 'flex items-center gap-2';
+
+        const label = document.createElement('span');
+        label.className = 'text-xs font-medium text-white';
+        label.textContent = 'Note';
+        labelWrapper.appendChild(label);
+
+        const infoIcon = document.createElement('button');
+        infoIcon.type = 'button';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        labelWrapper.appendChild(infoIcon);
+
+        header.appendChild(labelWrapper);
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.addEventListener('click', function() {
+            if (window.selectedFields) {
+                const index = window.selectedFields.indexOf(fieldId);
+                if (index > -1) {
+                    window.selectedFields.splice(index, 1);
+                }
+            }
+            fieldContainer.remove();
+            updateAddFieldDisplay();
+        });
+        header.appendChild(deleteButton);
+
+        fieldContainer.appendChild(header);
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all resize-y';
+        textarea.value = 'Unknown';
+        textarea.rows = 3;
+        fieldContainer.appendChild(textarea);
+
+        return fieldContainer;
+    }
+
+    function createPanoramaxImageIdField(fieldId) {
+        const fieldContainer = document.createElement('div');
+        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.id = 'field-' + fieldId;
+
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between';
+
+        const labelWrapper = document.createElement('div');
+        labelWrapper.className = 'flex items-center gap-2';
+
+        const label = document.createElement('span');
+        label.className = 'text-xs font-medium text-white';
+        label.textContent = 'Panoramax Image ID';
+        labelWrapper.appendChild(label);
+
+        const infoIcon = document.createElement('button');
+        infoIcon.type = 'button';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        labelWrapper.appendChild(infoIcon);
+
+        header.appendChild(labelWrapper);
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.addEventListener('click', function() {
+            if (window.selectedFields) {
+                const index = window.selectedFields.indexOf(fieldId);
+                if (index > -1) {
+                    window.selectedFields.splice(index, 1);
+                }
+            }
+            fieldContainer.remove();
+            updateAddFieldDisplay();
+        });
+        header.appendChild(deleteButton);
+
+        fieldContainer.appendChild(header);
+
+        const inputWrapper = document.createElement('div');
+        inputWrapper.className = 'relative';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        input.value = 'Unknown';
+        inputWrapper.appendChild(input);
+
+        const externalLinkIcon = document.createElement('button');
+        externalLinkIcon.type = 'button';
+        externalLinkIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-300 transition-colors';
+        externalLinkIcon.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>';
+        inputWrapper.appendChild(externalLinkIcon);
+
+        fieldContainer.appendChild(inputWrapper);
+
+        return fieldContainer;
+    }
+
+    function createWebsiteField(fieldId) {
+        const fieldContainer = document.createElement('div');
+        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.id = 'field-' + fieldId;
+
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between';
+
+        const labelWrapper = document.createElement('div');
+        labelWrapper.className = 'flex items-center gap-2';
+
+        const label = document.createElement('span');
+        label.className = 'text-xs font-medium text-white';
+        label.textContent = 'Website';
+        labelWrapper.appendChild(label);
+
+        const infoIcon = document.createElement('button');
+        infoIcon.type = 'button';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        labelWrapper.appendChild(infoIcon);
+
+        header.appendChild(labelWrapper);
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.addEventListener('click', function() {
+            if (window.selectedFields) {
+                const index = window.selectedFields.indexOf(fieldId);
+                if (index > -1) {
+                    window.selectedFields.splice(index, 1);
+                }
+            }
+            fieldContainer.remove();
+            updateAddFieldDisplay();
+        });
+        header.appendChild(deleteButton);
+
+        fieldContainer.appendChild(header);
+
+        const inputWrapper = document.createElement('div');
+        inputWrapper.className = 'relative';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        input.value = 'https://example.com';
+        inputWrapper.appendChild(input);
+
+        const externalLinkIcon = document.createElement('button');
+        externalLinkIcon.type = 'button';
+        externalLinkIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-300 transition-colors';
+        externalLinkIcon.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>';
+        inputWrapper.appendChild(externalLinkIcon);
+
+        fieldContainer.appendChild(inputWrapper);
+
+        return fieldContainer;
+    }
+
+    function addMultilingualNameField(fieldsContainer) {
+        const multilingualSection = document.createElement('div');
+        multilingualSection.className = 'bg-gray-700 rounded-lg p-3 space-y-2.5';
+
+        const headerRow = document.createElement('div');
+        headerRow.className = 'flex items-center justify-between';
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'text-xs font-medium text-white';
+        labelSpan.textContent = 'Multilingual Name';
+        headerRow.appendChild(labelSpan);
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.addEventListener('click', function() {
+            multilingualSection.remove();
+        });
+        headerRow.appendChild(deleteButton);
+
+        multilingualSection.appendChild(headerRow);
+
+        const languageDropdown = document.createElement('div');
+        languageDropdown.className = 'relative';
+
+        const languageSelect = document.createElement('select');
+        languageSelect.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none cursor-pointer';
+        languageSelect.id = 'language-select-' + Date.now();
+
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Choose language';
+        defaultOption.disabled = true;
+        defaultOption.selected = true;
+        languageSelect.appendChild(defaultOption);
+
+        const englishOption = document.createElement('option');
+        englishOption.value = 'english';
+        englishOption.textContent = 'English';
+        languageSelect.appendChild(englishOption);
+
+        const urduOption = document.createElement('option');
+        urduOption.value = 'urdu';
+        urduOption.textContent = 'Urdu';
+        languageSelect.appendChild(urduOption);
+
+        const arabicOption = document.createElement('option');
+        arabicOption.value = 'arabic';
+        arabicOption.textContent = 'Arabic';
+        languageSelect.appendChild(arabicOption);
+
+        const languageChevron = document.createElement('div');
+        languageChevron.className = 'absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none';
+        languageChevron.innerHTML = '<svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+
+        languageDropdown.appendChild(languageSelect);
+        languageDropdown.appendChild(languageChevron);
+        multilingualSection.appendChild(languageDropdown);
+
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        nameInput.placeholder = 'Name';
+        multilingualSection.appendChild(nameInput);
+
+        const existingFieldsContainer = fieldsContainer.querySelector('.bg-gray-700.rounded-lg');
+        const addFieldSection = document.getElementById('add-field-section');
+        
+        if (existingFieldsContainer && addFieldSection) {
+            fieldsContainer.insertBefore(multilingualSection, addFieldSection);
+        } else if (existingFieldsContainer) {
+            existingFieldsContainer.parentNode.insertBefore(multilingualSection, existingFieldsContainer.nextSibling);
+        } else {
+            fieldsContainer.appendChild(multilingualSection);
         }
     }
 
