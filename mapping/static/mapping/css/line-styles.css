@@ -84,3 +84,20 @@ svg[data-terra-draw] line {
 #lineDropdownsContainer [role="menu"]::-webkit-scrollbar-thumb:hover {
     background: #6b7280;
 }
+
+/* Hide native date picker icon - only show custom white calendar icon */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    display: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+input[type="date"]::-webkit-inner-spin-button,
+input[type="date"]::-webkit-outer-spin-button {
+    display: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+}

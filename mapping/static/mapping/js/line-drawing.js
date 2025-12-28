@@ -1341,24 +1341,11 @@
         button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-700 transition-colors group';
         button.setAttribute('data-menu-item', 'fields');
 
-        const leftSection = document.createElement('div');
-        leftSection.className = 'flex items-center gap-3';
-
-        const chevronDown = document.createElement('svg');
-        chevronDown.className = 'w-4 h-4 text-blue-400 transition-transform duration-200 flex-shrink-0';
-        chevronDown.setAttribute('fill', 'none');
-        chevronDown.setAttribute('stroke', 'currentColor');
-        chevronDown.setAttribute('viewBox', '0 0 24 24');
-        chevronDown.setAttribute('stroke-width', '2');
-        chevronDown.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>';
-
         const labelSpan = document.createElement('span');
         labelSpan.className = 'text-sm font-medium text-blue-400 group-hover:text-blue-300 transition-colors';
         labelSpan.textContent = 'Fields';
 
-        leftSection.appendChild(chevronDown);
-        leftSection.appendChild(labelSpan);
-        button.appendChild(leftSection);
+        button.appendChild(labelSpan);
 
         const content = document.createElement('div');
         content.id = 'content-fields';
@@ -1453,10 +1440,8 @@
             isExpanded = !isExpanded;
             if (isExpanded) {
                 content.classList.remove('hidden');
-                chevronDown.style.transform = 'rotate(180deg)';
             } else {
                 content.classList.add('hidden');
-                chevronDown.style.transform = 'rotate(0deg)';
             }
         });
 
@@ -1537,21 +1522,12 @@
         button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-700 transition-colors group';
         button.setAttribute('data-menu-item', 'tags');
 
-        const leftSection = document.createElement('div');
-        leftSection.className = 'flex items-center gap-3';
-
-        const chevronDown = document.createElement('svg');
-        chevronDown.className = 'w-4 h-4 text-blue-400 transition-transform duration-200 flex-shrink-0';
-        chevronDown.setAttribute('fill', 'none');
-        chevronDown.setAttribute('stroke', 'currentColor');
-        chevronDown.setAttribute('viewBox', '0 0 24 24');
-        chevronDown.setAttribute('stroke-width', '2');
-        chevronDown.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>';
-
         const labelSpan = document.createElement('span');
         labelSpan.className = 'text-sm font-medium text-blue-400 group-hover:text-blue-300 transition-colors';
         labelSpan.id = 'tags-label-span';
         labelSpan.textContent = 'Tags (0)';
+
+        button.appendChild(labelSpan);
         
         function updateTagsCount(labelElement) {
             const tagsRowsContainer = document.getElementById('tags-rows-container');
@@ -1639,10 +1615,6 @@
             updateTagsCount(labelElement);
         }
 
-        leftSection.appendChild(chevronDown);
-        leftSection.appendChild(labelSpan);
-        button.appendChild(leftSection);
-
         const content = document.createElement('div');
         content.id = 'content-tags';
         content.className = 'px-6 py-4';
@@ -1673,10 +1645,8 @@
             isExpanded = !isExpanded;
             if (isExpanded) {
                 content.classList.remove('hidden');
-                chevronDown.style.transform = 'rotate(180deg)';
             } else {
                 content.classList.add('hidden');
-                chevronDown.style.transform = 'rotate(0deg)';
             }
         });
 
@@ -1785,21 +1755,12 @@
         button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-700 transition-colors group';
         button.setAttribute('data-menu-item', 'relations');
 
-        const leftSection = document.createElement('div');
-        leftSection.className = 'flex items-center gap-3';
-
-        const chevronDown = document.createElement('svg');
-        chevronDown.className = 'w-4 h-4 text-blue-400 transition-transform duration-200 flex-shrink-0';
-        chevronDown.setAttribute('fill', 'none');
-        chevronDown.setAttribute('stroke', 'currentColor');
-        chevronDown.setAttribute('viewBox', '0 0 24 24');
-        chevronDown.setAttribute('stroke-width', '2');
-        chevronDown.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>';
-
         const labelSpan = document.createElement('span');
         labelSpan.className = 'text-sm font-medium text-blue-400 group-hover:text-blue-300 transition-colors';
         labelSpan.id = 'relations-label-span';
         labelSpan.textContent = 'Relations (0)';
+
+        button.appendChild(labelSpan);
 
         function updateRelationsCount(labelElement) {
             const relationsRowsContainer = document.getElementById('relations-rows-container');
@@ -1892,10 +1853,6 @@
             updateRelationsCount(labelElement);
         }
 
-        leftSection.appendChild(chevronDown);
-        leftSection.appendChild(labelSpan);
-        button.appendChild(leftSection);
-
         const content = document.createElement('div');
         content.id = 'content-relations';
         content.className = 'px-6 py-4';
@@ -1926,10 +1883,8 @@
             isExpanded = !isExpanded;
             if (isExpanded) {
                 content.classList.remove('hidden');
-                chevronDown.style.transform = 'rotate(180deg)';
             } else {
                 content.classList.add('hidden');
-                chevronDown.style.transform = 'rotate(0deg)';
             }
         });
 
@@ -2149,21 +2104,20 @@
         inputWrapper.className = 'relative flex items-center gap-2';
 
         const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'flex-1 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        input.type = 'date';
+        input.className = 'flex-1 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
         input.placeholder = 'YYYY-MM-DD';
+        input.id = 'date-input-' + fieldId;
         inputWrapper.appendChild(input);
-
-        const refreshIcon = document.createElement('button');
-        refreshIcon.type = 'button';
-        refreshIcon.className = 'w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-300 transition-colors';
-        refreshIcon.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>';
-        inputWrapper.appendChild(refreshIcon);
 
         const calendarIcon = document.createElement('button');
         calendarIcon.type = 'button';
-        calendarIcon.className = 'w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-300 transition-colors';
+        calendarIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-white hover:text-gray-200 transition-colors cursor-pointer';
         calendarIcon.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+        calendarIcon.addEventListener('click', function(e) {
+            e.stopPropagation();
+            input.showPicker();
+        });
         inputWrapper.appendChild(calendarIcon);
 
         fieldContainer.appendChild(inputWrapper);
@@ -2399,8 +2353,20 @@
 
         const externalLinkIcon = document.createElement('button');
         externalLinkIcon.type = 'button';
-        externalLinkIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-300 transition-colors';
+        externalLinkIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-300 transition-colors cursor-pointer';
         externalLinkIcon.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>';
+        externalLinkIcon.addEventListener('click', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            const url = input.value.trim();
+            if (url) {
+                let urlToOpen = url;
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    urlToOpen = 'https://' + url;
+                }
+                window.open(urlToOpen, '_blank', 'noopener,noreferrer');
+            }
+        });
         inputWrapper.appendChild(externalLinkIcon);
 
         fieldContainer.appendChild(inputWrapper);
