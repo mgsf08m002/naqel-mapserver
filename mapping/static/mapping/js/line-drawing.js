@@ -1031,6 +1031,9 @@
             } else if (item.id === 'tags') {
                 const menuItem = createTagsMenuItem();
                 content.appendChild(menuItem);
+            } else if (item.id === 'relations') {
+                const menuItem = createRelationsMenuItem();
+                content.appendChild(menuItem);
             } else {
                 const menuItem = createEditFeatureMenuItem(item.label, item.id);
                 content.appendChild(menuItem);
@@ -1369,7 +1372,7 @@
         const existingFieldsContainer = document.createElement('div');
         existingFieldsContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-3';
 
-        const nameField = createFieldItem('Name', false, true, false);
+        const nameField = createFieldItem('Name', false, true, true);
         existingFieldsContainer.appendChild(nameField);
 
         const commonNameInput = document.createElement('input');
@@ -1771,6 +1774,169 @@
         if (fieldElement) {
             fieldElement.remove();
         }
+    }
+
+    function createRelationsMenuItem() {
+        const container = document.createElement('div');
+        container.className = 'border-b border-gray-700';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-700 transition-colors group';
+        button.setAttribute('data-menu-item', 'relations');
+
+        const leftSection = document.createElement('div');
+        leftSection.className = 'flex items-center gap-3';
+
+        const chevronDown = document.createElement('svg');
+        chevronDown.className = 'w-4 h-4 text-blue-400 transition-transform duration-200 flex-shrink-0';
+        chevronDown.setAttribute('fill', 'none');
+        chevronDown.setAttribute('stroke', 'currentColor');
+        chevronDown.setAttribute('viewBox', '0 0 24 24');
+        chevronDown.setAttribute('stroke-width', '2');
+        chevronDown.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>';
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'text-sm font-medium text-blue-400 group-hover:text-blue-300 transition-colors';
+        labelSpan.id = 'relations-label-span';
+        labelSpan.textContent = 'Relations (0)';
+
+        function updateRelationsCount(labelElement) {
+            const relationsRowsContainer = document.getElementById('relations-rows-container');
+            if (relationsRowsContainer && labelElement) {
+                const relationRows = relationsRowsContainer.querySelectorAll('.space-y-2');
+                const count = relationRows.length;
+                labelElement.textContent = 'Relations (' + count + ')';
+            }
+        }
+
+        function addRelationRow(container, labelElement) {
+            const relationRow = document.createElement('div');
+            relationRow.className = 'space-y-2';
+            const relationId = 'relation-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            relationRow.id = relationId;
+
+            const parentRelationRow = document.createElement('div');
+            parentRelationRow.className = 'flex items-center gap-2';
+
+            const parentDropdown = document.createElement('div');
+            parentDropdown.className = 'relative flex-1 min-w-0';
+
+            const parentInput = document.createElement('input');
+            parentInput.type = 'text';
+            parentInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer';
+            parentInput.placeholder = 'Choose a parent relation';
+            parentInput.value = 'New Relation';
+            parentInput.readOnly = true;
+
+            const parentChevron = document.createElement('div');
+            parentChevron.className = 'absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none';
+            parentChevron.innerHTML = '<svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+
+            const parentMenu = document.createElement('div');
+            parentMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg z-50 hidden max-h-60 overflow-y-auto';
+
+            const relationOptions = ['New Relation'];
+            relationOptions.forEach(function(option) {
+                const menuItem = document.createElement('div');
+                menuItem.className = 'px-3 py-2 text-xs text-white hover:bg-gray-600 cursor-pointer border-b border-gray-600 last:border-b-0';
+                menuItem.textContent = option;
+                menuItem.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    parentInput.value = option;
+                    parentMenu.classList.add('hidden');
+                });
+                parentMenu.appendChild(menuItem);
+            });
+
+            parentInput.addEventListener('click', function(e) {
+                e.stopPropagation();
+                parentMenu.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!parentDropdown.contains(e.target)) {
+                    parentMenu.classList.add('hidden');
+                }
+            });
+
+            parentDropdown.appendChild(parentInput);
+            parentDropdown.appendChild(parentChevron);
+            parentDropdown.appendChild(parentMenu);
+
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-gray-600 transition-colors flex-shrink-0';
+            deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+            deleteButton.addEventListener('click', function() {
+                relationRow.remove();
+                updateRelationsCount(labelElement);
+            });
+
+            parentRelationRow.appendChild(parentDropdown);
+            parentRelationRow.appendChild(deleteButton);
+
+            const roleInput = document.createElement('input');
+            roleInput.type = 'text';
+            roleInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+            roleInput.placeholder = 'Role';
+
+            relationRow.appendChild(parentRelationRow);
+            relationRow.appendChild(roleInput);
+            container.appendChild(relationRow);
+
+            if (typeof window.relationsList === 'undefined') {
+                window.relationsList = [];
+            }
+            window.relationsList.push(relationId);
+            updateRelationsCount(labelElement);
+        }
+
+        leftSection.appendChild(chevronDown);
+        leftSection.appendChild(labelSpan);
+        button.appendChild(leftSection);
+
+        const content = document.createElement('div');
+        content.id = 'content-relations';
+        content.className = 'px-6 py-4';
+        content.setAttribute('data-content', 'relations');
+
+        const relationsContainer = document.createElement('div');
+        relationsContainer.className = 'space-y-2';
+        relationsContainer.id = 'relations-rows-container';
+
+        const addRelationButton = document.createElement('button');
+        addRelationButton.type = 'button';
+        addRelationButton.className = 'w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-md text-xs text-white transition-colors';
+        addRelationButton.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>';
+        addRelationButton.addEventListener('click', function() {
+            addRelationRow(relationsContainer, labelSpan);
+        });
+
+        content.appendChild(relationsContainer);
+        content.appendChild(addRelationButton);
+
+        if (typeof window.relationsList === 'undefined') {
+            window.relationsList = [];
+        }
+
+        let isExpanded = true;
+
+        button.addEventListener('click', function() {
+            isExpanded = !isExpanded;
+            if (isExpanded) {
+                content.classList.remove('hidden');
+                chevronDown.style.transform = 'rotate(180deg)';
+            } else {
+                content.classList.add('hidden');
+                chevronDown.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        container.appendChild(button);
+        container.appendChild(content);
+
+        return container;
     }
 
     function createDescriptionField(fieldId) {
