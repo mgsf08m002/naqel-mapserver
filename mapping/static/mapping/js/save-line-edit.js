@@ -194,7 +194,7 @@
                 try {
                     geometry = JSON.parse(storedGeometry);
                 } catch (e) {
-                    console.error('Error parsing geometry from edit screen:', e);
+                    // Error parsing geometry from edit screen
                 }
             }
             
@@ -231,7 +231,6 @@
                 
                 geometry = feature.geometry;
             } catch (error) {
-                console.error('Error getting geometry from TerraDraw:', error);
                 return null;
             }
             
@@ -353,11 +352,10 @@
                             window.clearVertexMarkers();
                         }
                     } catch (e) {
-                        console.error('[save-line-edit] handleSave: Error clearing visualization', e);
+                        // Error clearing visualization
                     }
                 }
             } else {
-                console.error('[save-line-edit] handleSave: Save failed', data.message);
                 alert('Error: ' + (data.message || 'Failed to save edit request'));
             }
         })

@@ -1990,7 +1990,7 @@
                     return;
                 }
             } catch (e) {
-                console.error('Error parsing request geometry:', e);
+                // Error parsing request geometry
             }
         }
 
@@ -2016,7 +2016,6 @@
 
             renderFeatureTypeVisualization(container, coordinates);
         } catch (error) {
-            console.error('Error rendering visualization:', error);
             if (container) container.innerHTML = '';
         }
     }

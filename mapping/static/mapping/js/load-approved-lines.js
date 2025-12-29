@@ -214,7 +214,7 @@
             }
         })
         .catch(function(error) {
-            console.error('Error loading approved lines:', error);
+            // Error loading approved lines
         });
     }
 
