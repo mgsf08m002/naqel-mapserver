@@ -7,8 +7,14 @@ ENV PYTHONUNBUFFERED=1
 # Set work directory
 WORKDIR /app
 
-# Install curl for downloading Tailwind CLI
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Install system dependencies for GDAL/PostGIS
+RUN apt-get update && apt-get install -y \
+    curl \
+    gdal-bin \
+    libgdal-dev \
+    python3-gdal \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Tailwind CSS CLI
 RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 && \

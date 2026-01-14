@@ -202,6 +202,80 @@ map.on('mousemove', (e) => {
     }
 });
 
+// Function to load Riyadh roads from API
+async function loadRiyadhRoads() {
+    try {
+        // Get current map bounds for efficient loading
+        const bounds = map.getBounds();
+        const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
+        
+        // Fetch roads data with bounding box filter
+        const response = await fetch(`/mapping/api/riyadh-roads/?bbox=${bbox}&limit=10000`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Check if we have features
+        if (data.features && data.features.length > 0) {
+            // Add roads source to map
+            if (map.getSource('riyadh-roads')) {
+                map.getSource('riyadh-roads').setData(data);
+            } else {
+                map.addSource('riyadh-roads', {
+                    'type': 'geojson',
+                    'data': data
+                });
+            }
+            
+            // Add roads layer if it doesn't exist
+            if (!map.getLayer('riyadh-roads-layer')) {
+                map.addLayer({
+                    'id': 'riyadh-roads-layer',
+                    'type': 'line',
+                    'source': 'riyadh-roads',
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-color': [
+                            'match',
+                            ['get', 'fclass'],
+                            'motorway', '#ff6b6b',
+                            'trunk', '#ff8787',
+                            'primary', '#ffa8a8',
+                            'secondary', '#ffc9c9',
+                            'tertiary', '#ffe0e0',
+                            'residential', '#f1f3f5',
+                            '#dee2e6' // default color
+                        ],
+                        'line-width': [
+                            'match',
+                            ['get', 'fclass'],
+                            'motorway', 3,
+                            'trunk', 2.5,
+                            'primary', 2,
+                            'secondary', 1.5,
+                            'tertiary', 1,
+                            'residential', 0.5,
+                            0.5 // default width
+                        ],
+                        'line-opacity': 0.8
+                    }
+                });
+            }
+            
+            console.log(`Loaded ${data.count || data.features.length} Riyadh road segments`);
+        }
+    } catch (error) {
+        console.error('Error loading Riyadh roads:', error);
+        // Don't show error to user, just log it
+    }
+}
+
 // Map load event to add GeoJSON layer
 map.on('load', () => {
     map.addSource('maine', {
@@ -236,6 +310,45 @@ map.on('load', () => {
 
     // Change it back to a pointer when it leaves.
     map.on('mouseleave', 'maine', () => {
+        map.getCanvas().style.cursor = '';
+    });
+    
+    // Load Riyadh roads after map is loaded
+    loadRiyadhRoads();
+    
+    // Reload roads when map moves/zooms (with debouncing)
+    let reloadTimeout;
+    map.on('moveend', () => {
+        clearTimeout(reloadTimeout);
+        reloadTimeout = setTimeout(() => {
+            loadRiyadhRoads();
+        }, 500); // Wait 500ms after map stops moving
+    });
+    
+    // Add click handler for roads to show popup with road info
+    map.on('click', 'riyadh-roads-layer', (e) => {
+        const props = e.features[0].properties;
+        const popupContent = `
+            <div style="padding: 5px;">
+                <strong>${props.name || 'Unnamed Road'}</strong><br>
+                ${props.fclass ? `<small>Type: ${props.fclass}</small><br>` : ''}
+                ${props.ref ? `<small>Ref: ${props.ref}</small><br>` : ''}
+                ${props.maxspeed ? `<small>Speed Limit: ${props.maxspeed} km/h</small><br>` : ''}
+                ${props.oneway === 'Y' ? `<small>One-way</small>` : ''}
+            </div>
+        `;
+        new maplibregl.Popup()
+            .setLngLat(e.lngLat)
+            .setHTML(popupContent)
+            .addTo(map);
+    });
+    
+    // Change cursor on hover for roads
+    map.on('mouseenter', 'riyadh-roads-layer', () => {
+        map.getCanvas().style.cursor = 'pointer';
+    });
+    
+    map.on('mouseleave', 'riyadh-roads-layer', () => {
         map.getCanvas().style.cursor = '';
     });
 });

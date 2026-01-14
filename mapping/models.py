@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.contrib.gis.db import models as gis_models
 import json
 
 
@@ -79,3 +80,37 @@ class LineEditRequest(models.Model):
         self.reviewed_at = timezone.now()
         self.reviewed_by = reviewer
         self.save()
+
+
+class RiyadhRoad(gis_models.Model):
+    """
+    Model for Riyadh road network from OpenStreetMap data.
+    This model maps to the existing 'riyadh_roads' table in the database.
+    """
+    id = gis_models.IntegerField(primary_key=True)
+    geom = gis_models.MultiLineStringField(srid=4326, help_text="Road geometry in WGS84")
+    objectid = gis_models.BigIntegerField(null=True, blank=True)
+    osm_id = gis_models.CharField(max_length=12, null=True, blank=True, help_text="OpenStreetMap ID")
+    code = gis_models.IntegerField(null=True, blank=True, help_text="Road classification code")
+    fclass = gis_models.CharField(max_length=28, null=True, blank=True, help_text="Road feature class (e.g., motorway, primary, secondary)")
+    name = gis_models.CharField(max_length=100, null=True, blank=True, help_text="Road name")
+    ref = gis_models.CharField(max_length=20, null=True, blank=True, help_text="Road reference number")
+    oneway = gis_models.CharField(max_length=1, null=True, blank=True, help_text="One-way indicator (Y/N)")
+    maxspeed = gis_models.IntegerField(null=True, blank=True, help_text="Maximum speed limit")
+    layer = gis_models.FloatField(null=True, blank=True, help_text="Layer/level (for bridges/tunnels)")
+    bridge = gis_models.CharField(max_length=1, null=True, blank=True, help_text="Bridge indicator (Y/N)")
+    tunnel = gis_models.CharField(max_length=1, null=True, blank=True, help_text="Tunnel indicator (Y/N)")
+    shape_length = gis_models.FloatField(null=True, blank=True, help_text="Length of the road segment")
+
+    class Meta:
+        db_table = 'riyadh_roads'
+        managed = False  # Table already exists in database, don't create/migrate it
+        verbose_name = 'Riyadh Road'
+        verbose_name_plural = 'Riyadh Roads'
+        indexes = [
+            gis_models.Index(fields=['name']),
+            gis_models.Index(fields=['fclass']),
+        ]
+
+    def __str__(self):
+        return f"{self.name or 'Unnamed Road'} ({self.fclass or 'Unknown'})"
