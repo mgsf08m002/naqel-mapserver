@@ -159,9 +159,32 @@
         // Update button text
         updateButtonText('Edit');
         
-        // Hide side panel
+        // Hide side panel ONLY if there's no content being viewed
+        // This allows sidebar to remain open for viewing lines/roads even when edit mode is disabled
         if (sidePanel) {
-            sidePanel.classList.add('-translate-x-full');
+            const editScreen = document.getElementById('editFeatureScreen');
+            const sidePanelContent = document.getElementById('sidePanelContent');
+            const hasContent = editScreen || (sidePanelContent && sidePanelContent.children.length > 0);
+            
+            // Only hide sidebar if it's truly empty (no viewing content)
+            if (!hasContent) {
+                sidePanel.classList.add('-translate-x-full');
+                
+                // Reset map container size only if sidebar is being hidden
+                if (mapContainer) {
+                    mapContainer.style.marginLeft = '0';
+                    mapContainer.style.width = '100%';
+                    
+                    // Trigger map resize
+                    setTimeout(() => {
+                        if (map && map.resize) {
+                            map.resize();
+                        }
+                    }, 300);
+                }
+            }
+            // If sidebar has content (viewing mode), keep it visible and map container adjusted
+            // Map container width is already set by showLineSidePanel/showApprovedLineDetails
         }
         
         // Hide toolbar
@@ -181,22 +204,9 @@
             map.getContainer().style.transition = 'opacity 0.3s ease-in-out';
         }
         
-        // Reset map container size
-        if (mapContainer) {
-            mapContainer.style.marginLeft = '0';
-            mapContainer.style.width = '100%';
-        }
-        
         // Reset tool selection
         currentTool = null;
         updateToolButtons();
-        
-        // Trigger map resize
-        setTimeout(() => {
-            if (map && map.resize) {
-                map.resize();
-            }
-        }, 300);
     }
 
     /**

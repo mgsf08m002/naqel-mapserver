@@ -362,22 +362,27 @@
             return;
         }
 
-        // Open side panel if closed
-        if (sidePanel.classList.contains('-translate-x-full')) {
-            sidePanel.classList.remove('-translate-x-full');
+        // Always open side panel (works in both edit mode and view mode)
+        // Remove the translate class to show it, regardless of edit mode state
+        sidePanel.classList.remove('-translate-x-full');
+        sidePanel.style.display = ''; // Ensure it's not hidden
+        sidePanel.style.visibility = 'visible'; // Ensure visibility
+        sidePanel.style.opacity = '1'; // Ensure opacity
+        
+        // Force show with important styles if needed
+        sidePanel.style.setProperty('transform', 'translateX(0)', 'important');
+        
+        const mapContainer = document.getElementById('mapContainer');
+        if (mapContainer) {
+            const SIDE_PANEL_WIDTH = 320;
+            mapContainer.style.marginLeft = SIDE_PANEL_WIDTH + 'px';
+            mapContainer.style.width = `calc(100% - ${SIDE_PANEL_WIDTH}px)`;
             
-            const mapContainer = document.getElementById('mapContainer');
-            if (mapContainer) {
-                const SIDE_PANEL_WIDTH = 320;
-                mapContainer.style.marginLeft = SIDE_PANEL_WIDTH + 'px';
-                mapContainer.style.width = `calc(100% - ${SIDE_PANEL_WIDTH}px)`;
-                
-                setTimeout(function() {
-                    if (map && map.resize) {
-                        map.resize();
-                    }
-                }, 300);
-            }
+            setTimeout(function() {
+                if (map && map.resize) {
+                    map.resize();
+                }
+            }, 300);
         }
 
         // Update feature label
@@ -390,11 +395,16 @@
         }
 
         // Determine if back button should be shown
+        // For Riyadh roads, always show back button (view mode by default)
+        const isRiyadhRoad = lineData && lineData.is_riyadh_road;
         const userRole = getUserRole();
         const editModeEnabled = isEditModeEnabled();
         let shouldHideBackButton = true;
         
-        if (userRole === 'manager') {
+        if (isRiyadhRoad) {
+            // Riyadh roads: always show back button to allow returning to select feature screen
+            shouldHideBackButton = false;
+        } else if (userRole === 'manager') {
             shouldHideBackButton = true;
         } else if (userRole === 'editor' || userRole === 'system_admin') {
             shouldHideBackButton = !editModeEnabled;
@@ -402,8 +412,8 @@
             shouldHideBackButton = !editModeEnabled;
         }
         
-        // Store line data for editing
-        if (lineData && (userRole === 'editor' || userRole === 'system_admin')) {
+        // Store line data for editing (including Riyadh roads)
+        if (lineData && (isRiyadhRoad || userRole === 'editor' || userRole === 'system_admin')) {
             if (!window.approvedLinesBeingEdited) {
                 window.approvedLinesBeingEdited = {};
             }
@@ -520,13 +530,49 @@
         if (!fieldsContainer || !fieldsData) return;
 
         // Populate Name field
+        // The structure: .bg-gray-700.rounded-lg contains:
+        // 1. createFieldItem('Name') - which is just a label div (NOT an input)
+        // 2. commonNameInput - which is an input for common name
+        // The name input is MISSING from the structure! We need to find or create it
         const nameFieldContainer = fieldsContainer.querySelector('.bg-gray-700.rounded-lg');
         if (nameFieldContainer) {
-            const nameInput = nameFieldContainer.querySelector('input[type="text"]');
-            if (nameInput && nameInput.placeholder && nameInput.placeholder.includes('Name')) {
-                if (fieldsData.name) {
-                    nameInput.value = fieldsData.name;
+            const nameFieldLabel = nameFieldContainer.querySelector('.flex.items-center.justify-between');
+            
+            // Try to find existing name input
+            let nameInput = nameFieldContainer.querySelector('input[type="text"][placeholder*="Name"]');
+            
+            // If not found, look for first input (might be name input)
+            if (!nameInput) {
+                const allInputs = nameFieldContainer.querySelectorAll('input[type="text"]');
+                // Check if first input is name (comes before commonNameInput)
+                if (allInputs.length > 0) {
+                    const firstInput = allInputs[0];
+                    // If it doesn't have a specific placeholder and is the first input, assume it's name
+                    if (!firstInput.placeholder || firstInput.placeholder === '') {
+                        nameInput = firstInput;
+                    }
                 }
+            }
+            
+            // If still not found and we need to populate name, create the input
+            if (!nameInput && nameFieldLabel && fieldsData.hasOwnProperty('name')) {
+                // Create name input and insert it right after the Name label
+                nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+                nameInput.placeholder = 'Name';
+                
+                // Insert after nameFieldLabel (before any other inputs)
+                if (nameFieldLabel.nextSibling) {
+                    nameFieldContainer.insertBefore(nameInput, nameFieldLabel.nextSibling);
+                } else {
+                    nameFieldContainer.appendChild(nameInput);
+                }
+            }
+            
+            // Set the value if input exists
+            if (nameInput && fieldsData.hasOwnProperty('name')) {
+                nameInput.value = fieldsData.name || '';
             }
         }
 
@@ -629,6 +675,9 @@
         const tagsLabel = document.getElementById('tags-label-span');
         
         if (!tagsRowsContainer || !tagsLabel) return;
+
+        // Clear existing tags before populating to prevent duplication
+        tagsRowsContainer.innerHTML = '';
 
         tagsData.forEach(function(tag) {
             if (tag.key || tag.value) {
@@ -839,6 +888,9 @@
 
     // Expose reload function
     window.reloadApprovedLines = loadApprovedLines;
+    
+    // Expose showApprovedLineDetails for use by other scripts (e.g., map.js for Riyadh roads)
+    window.showApprovedLineDetails = showApprovedLineDetails;
     
     // Expose populate functions
     window.populateFieldsDataForApprovedLine = populateFieldsDataForApprovedLine;

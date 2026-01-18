@@ -170,11 +170,32 @@ map.addControl(draw, 'top-left');
 const drawInstance = draw.getTerraDrawInstance();
 let selectedFeature = null;
 
+// Track currently selected item (Riyadh road or TerraDraw line)
+window.currentlySelectedItem = null;
+window.currentlySelectedItemType = null; // 'riyadh-road' or 'terradraw-line'
+
 if (drawInstance) {
     drawInstance.on('select', (id) => {
         const snapshot = drawInstance.getSnapshot();
         const features = snapshot?.find((feature) => feature.id === id);
         selectedFeature = JSON.stringify(features);
+        
+        // Clear any previously selected Riyadh road when TerraDraw line is selected
+        if (window.currentlySelectedItemType === 'riyadh-road') {
+            clearSelectedRiyadhRoad();
+        }
+        
+        // Update selection tracking
+        window.currentlySelectedItem = id;
+        window.currentlySelectedItemType = 'terradraw-line';
+    });
+    
+    drawInstance.on('deselect', () => {
+        // Clear selection tracking when TerraDraw deselects
+        if (window.currentlySelectedItemType === 'terradraw-line') {
+            window.currentlySelectedItem = null;
+            window.currentlySelectedItemType = null;
+        }
     });
     
     // Listen for finish event to handle line drawing
@@ -314,9 +335,75 @@ function convertRiyadhRoadToLineFeature(riyadhRoadFeature) {
 }
 
 /**
+ * Clear previously selected Riyadh road visualization
+ */
+function clearSelectedRiyadhRoad() {
+    if (!window.currentlySelectedItem || window.currentlySelectedItemType !== 'riyadh-road') {
+        return;
+    }
+    
+    const previousRoadId = window.currentlySelectedItem;
+    
+    if (typeof map !== 'undefined' && map) {
+        const sourceId = 'riyadh-road-selected-source-' + previousRoadId;
+        const glowLayerId = 'riyadh-road-selected-glow-' + previousRoadId;
+        const layerId = 'riyadh-road-selected-layer-' + previousRoadId;
+        
+        try {
+            // Remove layers
+            if (map.getLayer(layerId)) {
+                map.removeLayer(layerId);
+            }
+            if (map.getLayer(glowLayerId)) {
+                map.removeLayer(glowLayerId);
+            }
+            // Remove source
+            if (map.getSource(sourceId)) {
+                map.removeSource(sourceId);
+            }
+        } catch (e) {
+            // Error removing layers/source
+        }
+    }
+    
+    // Clear vertex markers for Riyadh roads if they exist
+    if (typeof window.clearVertexMarkers === 'function') {
+        window.clearVertexMarkers();
+    }
+}
+
+/**
+ * Clear any previously selected item (Riyadh road or TerraDraw line)
+ */
+function clearPreviousSelection() {
+    // Clear TerraDraw line selection if active
+    if (window.currentlySelectedItemType === 'terradraw-line') {
+        if (typeof drawInstance !== 'undefined' && drawInstance) {
+            try {
+                drawInstance.deselect();
+            } catch (e) {
+                // Could not deselect, continue anyway
+            }
+        }
+        // Also call handleFeatureDeselected if available
+        if (window.lineDrawingHandler && typeof window.lineDrawingHandler.handleFeatureDeselected === 'function') {
+            window.lineDrawingHandler.handleFeatureDeselected();
+        }
+    }
+    
+    // Clear Riyadh road selection if active
+    if (window.currentlySelectedItemType === 'riyadh-road') {
+        clearSelectedRiyadhRoad();
+    }
+}
+
+/**
  * Handle Riyadh road click - show LINE feature sidebar
  */
 function handleRiyadhRoadClick(riyadhRoadFeature) {
+    // Clear any previously selected item (Riyadh road or TerraDraw line)
+    clearPreviousSelection();
+    
     // Convert Riyadh road to LINE feature format
     const lineFeatureData = convertRiyadhRoadToLineFeature(riyadhRoadFeature);
     
@@ -329,6 +416,10 @@ function handleRiyadhRoadClick(riyadhRoadFeature) {
     window.selectedRiyadhRoad = lineFeatureData;
     window.currentRiyadhRoadId = lineFeatureData.id;
     
+    // Update selection tracking
+    window.currentlySelectedItem = lineFeatureData.id;
+    window.currentlySelectedItemType = 'riyadh-road';
+    
     // Check if line-drawing.js functions are available
     if (typeof window.showRiyadhRoadAsLineFeature === 'function') {
         window.showRiyadhRoadAsLineFeature(lineFeatureData);
@@ -339,7 +430,6 @@ function handleRiyadhRoadClick(riyadhRoadFeature) {
         if (window.showApprovedLineDetails && typeof window.showApprovedLineDetails === 'function') {
             window.showApprovedLineDetails(lineFeatureData, true);
         } else {
-            console.error('LINE feature handler not available');
             // Try after a short delay in case scripts are still loading
             setTimeout(function() {
                 handleRiyadhRoadClick(riyadhRoadFeature);
@@ -414,11 +504,10 @@ async function loadRiyadhRoads() {
                 });
             }
             
-            console.log(`Loaded ${data.count || data.features.length} Riyadh road segments`);
+            // Riyadh roads loaded successfully
         }
     } catch (error) {
-        console.error('Error loading Riyadh roads:', error);
-        // Don't show error to user, just log it
+        // Error loading Riyadh roads - silently fail
     }
 }
 
@@ -485,5 +574,51 @@ map.on('load', () => {
     map.on('mouseleave', 'riyadh-roads-layer', () => {
         map.getCanvas().style.cursor = '';
     });
+    
+    // Clear selection when clicking on empty map (not on a feature)
+    map.on('click', (e) => {
+        // Only clear if clicking on map itself, not on any layer
+        // The layer click handlers will prevent this from firing when clicking on features
+        const features = map.queryRenderedFeatures(e.point, {
+            layers: ['riyadh-roads-layer']
+        });
+        
+        // If no features were clicked, clear selection
+        if (features.length === 0) {
+            // Check if we should clear (only if clicking outside all selectable features)
+            // TerraDraw handles its own deselection, so we just clear Riyadh road selection
+            if (window.currentlySelectedItemType === 'riyadh-road') {
+                clearSelectedRiyadhRoad();
+                window.currentlySelectedItem = null;
+                window.currentlySelectedItemType = null;
+                
+                // Close sidebar if it's open for viewing only (not editing)
+                // We don't close it if user is actively editing
+                const sidePanel = document.getElementById('editSidePanel');
+                const editScreen = document.getElementById('editFeatureScreen');
+                if (sidePanel && !editScreen) {
+                    // Only close if not in edit mode (viewing mode)
+                    const editButton = document.getElementById('editButton');
+                    if (editButton && !editButton.classList.contains('active')) {
+                        // Check if edit mode is disabled
+                        sidePanel.classList.add('-translate-x-full');
+                        const mapContainer = document.getElementById('mapContainer');
+                        if (mapContainer) {
+                            mapContainer.style.marginLeft = '0';
+                            mapContainer.style.width = '100%';
+                            setTimeout(function() {
+                                if (map && map.resize) {
+                                    map.resize();
+                                }
+                            }, 300);
+                        }
+                    }
+                }
+            }
+        }
+    });
 });
 
+// Expose clearSelectedRiyadhRoad globally for use by other scripts
+window.clearSelectedRiyadhRoad = clearSelectedRiyadhRoad;
+window.clearPreviousSelection = clearPreviousSelection;
