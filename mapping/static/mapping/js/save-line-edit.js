@@ -188,7 +188,11 @@
         let geometry = null;
         let featureLabelToUse = 'Line';
         
-        if (isApprovedLineEdit && approvedLineId) {
+        // Check if this is a Riyadh road edit (not an approved line edit)
+        const isRiyadhRoad = window.selectedRiyadhRoad || (window.approvedLineBeingEdited && window.approvedLineBeingEdited.is_riyadh_road);
+        
+        if (isApprovedLineEdit && approvedLineId && !isRiyadhRoad) {
+            // This is an approved line edit (not a Riyadh road)
             const storedGeometry = editScreen.getAttribute('data-approved-line-geometry');
             if (storedGeometry) {
                 try {
@@ -213,6 +217,23 @@
                 featureLabelToUse = window.approvedLineBeingEdited.current_feature_label;
             } else if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.feature_type) {
                 featureLabelToUse = window.approvedLineBeingEdited.feature_type;
+            }
+        } else if (isRiyadhRoad || (window.approvedLineBeingEdited && window.approvedLineBeingEdited.geometry)) {
+            // This is a Riyadh road edit - get geometry from stored data
+            const riyadhRoadData = window.selectedRiyadhRoad || window.approvedLineBeingEdited;
+            if (riyadhRoadData && riyadhRoadData.geometry) {
+                geometry = riyadhRoadData.geometry;
+                
+                // Get feature label from stored data or current selection
+                if (typeof window.getCurrentFeatureLabel === 'function') {
+                    featureLabelToUse = window.getCurrentFeatureLabel();
+                } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getCurrentFeatureLabel === 'function') {
+                    featureLabelToUse = window.lineDrawingHandler.getCurrentFeatureLabel();
+                } else if (riyadhRoadData.current_feature_label) {
+                    featureLabelToUse = riyadhRoadData.current_feature_label;
+                } else if (riyadhRoadData.feature_type) {
+                    featureLabelToUse = riyadhRoadData.feature_type;
+                }
             }
         } else {
             getCurrentLineData();
@@ -242,6 +263,10 @@
             return null;
         }
 
+        // Don't set approved_line_id for Riyadh roads (they're from the backup, not approved lines)
+        // isRiyadhRoad is already declared above, so just reuse it
+        const approvedLineIdToUse = (isApprovedLineEdit && approvedLineId && !isRiyadhRoad) ? approvedLineId : null;
+        
         return {
             geometry: geometry,
             feature_type: featureLabelToUse,
@@ -249,7 +274,7 @@
             fields_data: collectFieldsData(),
             tags_data: collectTagsData(),
             relations_data: collectRelationsData(),
-            approved_line_id: isApprovedLineEdit ? approvedLineId : null
+            approved_line_id: approvedLineIdToUse
         };
     }
 

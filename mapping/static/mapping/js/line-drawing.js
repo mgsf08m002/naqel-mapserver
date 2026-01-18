@@ -3783,4 +3783,51 @@
             currentLineId = null;
         }
     };
+
+    /**
+     * Show Riyadh road as LINE feature in sidebar
+     * This integrates Riyadh roads with the LINE feature system
+     */
+    function showRiyadhRoadAsLineFeature(lineFeatureData) {
+        if (!lineFeatureData) {
+            console.error('No line feature data provided');
+            return;
+        }
+
+        // Store the Riyadh road data for editing/saving
+        if (!window.approvedLinesBeingEdited) {
+            window.approvedLinesBeingEdited = {};
+        }
+        
+        // Use a unique ID if the road has an ID, otherwise generate one
+        const roadId = lineFeatureData.id || 'riyadh-road-' + Date.now();
+        window.approvedLinesBeingEdited[roadId] = lineFeatureData;
+        window.approvedLineBeingEdited = lineFeatureData;
+
+        // Use the same mechanism as approved lines since format is compatible
+        // The showApprovedLineDetails function from load-approved-lines.js should handle this
+        if (typeof window.showApprovedLineDetails === 'function') {
+            window.showApprovedLineDetails(lineFeatureData, true);
+        } else {
+            // Fallback: Use showLineSidePanelForApprovedLineEdit
+            const featureLabel = lineFeatureData.current_feature_label || lineFeatureData.feature_type || 'Line';
+            showLineSidePanelForApprovedLineEdit(featureLabel);
+            
+            // Populate fields and tags after sidebar is ready
+            setTimeout(function() {
+                if (lineFeatureData.fields_data && typeof window.populateFieldsDataForApprovedLine === 'function') {
+                    window.populateFieldsDataForApprovedLine(lineFeatureData.fields_data);
+                }
+                if (lineFeatureData.tags_data && typeof window.populateTagsDataForApprovedLine === 'function') {
+                    window.populateTagsDataForApprovedLine(lineFeatureData.tags_data);
+                }
+            }, 400);
+        }
+    }
+
+    // Expose function globally
+    window.showRiyadhRoadAsLineFeature = showRiyadhRoadAsLineFeature;
+    if (window.lineDrawingHandler) {
+        window.lineDrawingHandler.showRiyadhRoadAsLineFeature = showRiyadhRoadAsLineFeature;
+    }
 })();

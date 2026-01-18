@@ -202,6 +202,152 @@ map.on('mousemove', (e) => {
     }
 });
 
+/**
+ * Map Riyadh road fclass to LINE feature label
+ */
+function mapFclassToFeatureLabel(fclass) {
+    if (!fclass) return 'Line';
+    
+    const mapping = {
+        'motorway': 'motorway',
+        'trunk': 'trunk road',
+        'primary': 'primary road',
+        'secondary': 'secondary road',
+        'tertiary': 'tertiary road',
+        'residential': 'residential road',
+        'living_street': 'living street',
+        'service': 'service road',
+        'track': 'track / land-access road',
+        'unclassified': 'minor/unclassified road',
+        'motorway_link': 'motorway link',
+        'trunk_link': 'trunk link',
+        'primary_link': 'primary link',
+        'secondary_link': 'secondary link',
+        'tertiary_link': 'tertiary link'
+    };
+    
+    const normalizedFclass = fclass.toLowerCase().trim();
+    return mapping[normalizedFclass] || 'Line';
+}
+
+/**
+ * Convert MultiLineString to LineString by taking the first line segment
+ */
+function convertMultiLineStringToLineString(geometry) {
+    if (geometry.type === 'LineString') {
+        return geometry;
+    }
+    
+    if (geometry.type === 'MultiLineString') {
+        // Take the first LineString from MultiLineString
+        // If coordinates have 3 dimensions, extract only lat/lon (drop Z)
+        const coordinates = geometry.coordinates[0].map(coord => {
+            // Return [lon, lat] - first two elements only
+            return coord.slice(0, 2);
+        });
+        
+        return {
+            type: 'LineString',
+            coordinates: coordinates
+        };
+    }
+    
+    return null;
+}
+
+/**
+ * Convert Riyadh road feature to LINE feature format
+ */
+function convertRiyadhRoadToLineFeature(riyadhRoadFeature) {
+    const props = riyadhRoadFeature.properties;
+    const geometry = riyadhRoadFeature.geometry;
+    
+    // Convert MultiLineString to LineString if needed
+    const lineGeometry = convertMultiLineStringToLineString(geometry);
+    if (!lineGeometry) {
+        console.error('Unable to convert geometry to LineString');
+        return null;
+    }
+    
+    // Map fclass to feature label
+    const featureLabel = mapFclassToFeatureLabel(props.fclass);
+    
+    // Build fields_data from Riyadh road properties
+    const fieldsData = {
+        name: props.name || '',
+        code: props.code || null,
+        ref: props.ref || '',
+        maxspeed: props.maxspeed || null,
+        oneway: props.oneway || '',
+        bridge: props.bridge || '',
+        tunnel: props.tunnel || '',
+        layer: props.layer || null,
+        shape_length: props.shape_length || null,
+        osm_id: props.osm_id || '',
+        objectid: props.objectid || null
+    };
+    
+    // Build tags_data from Riyadh road properties
+    const tagsData = [];
+    if (props.fclass) tagsData.push({key: 'fclass', value: props.fclass});
+    if (props.code) tagsData.push({key: 'code', value: String(props.code)});
+    if (props.ref) tagsData.push({key: 'ref', value: props.ref});
+    if (props.osm_id) tagsData.push({key: 'osm_id', value: props.osm_id});
+    if (props.maxspeed) tagsData.push({key: 'maxspeed', value: String(props.maxspeed)});
+    if (props.oneway) tagsData.push({key: 'oneway', value: props.oneway});
+    if (props.bridge) tagsData.push({key: 'bridge', value: props.bridge});
+    if (props.tunnel) tagsData.push({key: 'tunnel', value: props.tunnel});
+    if (props.layer !== null && props.layer !== undefined) tagsData.push({key: 'layer', value: String(props.layer)});
+    if (props.shape_length) tagsData.push({key: 'shape_length', value: String(props.shape_length)});
+    if (props.objectid) tagsData.push({key: 'objectid', value: String(props.objectid)});
+    
+    return {
+        id: props.id || null, // Riyadh road ID
+        geometry: lineGeometry,
+        feature_type: featureLabel,
+        current_feature_label: featureLabel,
+        fields_data: fieldsData,
+        tags_data: tagsData,
+        relations_data: [],
+        is_riyadh_road: true // Flag to identify this as a Riyadh road
+    };
+}
+
+/**
+ * Handle Riyadh road click - show LINE feature sidebar
+ */
+function handleRiyadhRoadClick(riyadhRoadFeature) {
+    // Convert Riyadh road to LINE feature format
+    const lineFeatureData = convertRiyadhRoadToLineFeature(riyadhRoadFeature);
+    
+    if (!lineFeatureData) {
+        console.error('Failed to convert Riyadh road to LINE feature');
+        return;
+    }
+    
+    // Store the Riyadh road data for editing
+    window.selectedRiyadhRoad = lineFeatureData;
+    window.currentRiyadhRoadId = lineFeatureData.id;
+    
+    // Check if line-drawing.js functions are available
+    if (typeof window.showRiyadhRoadAsLineFeature === 'function') {
+        window.showRiyadhRoadAsLineFeature(lineFeatureData);
+    } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showRiyadhRoadAsLineFeature === 'function') {
+        window.lineDrawingHandler.showRiyadhRoadAsLineFeature(lineFeatureData);
+    } else {
+        // Fallback: Use approved line display mechanism
+        if (window.showApprovedLineDetails && typeof window.showApprovedLineDetails === 'function') {
+            window.showApprovedLineDetails(lineFeatureData, true);
+        } else {
+            console.error('LINE feature handler not available');
+            // Try after a short delay in case scripts are still loading
+            setTimeout(function() {
+                handleRiyadhRoadClick(riyadhRoadFeature);
+            }, 500);
+        }
+    }
+}
+
 // Function to load Riyadh roads from API
 async function loadRiyadhRoads() {
     try {
@@ -325,22 +471,10 @@ map.on('load', () => {
         }, 500); // Wait 500ms after map stops moving
     });
     
-    // Add click handler for roads to show popup with road info
+    // Add click handler for roads to show LINE feature sidebar (replaces white popup)
     map.on('click', 'riyadh-roads-layer', (e) => {
-        const props = e.features[0].properties;
-        const popupContent = `
-            <div style="padding: 5px;">
-                <strong>${props.name || 'Unnamed Road'}</strong><br>
-                ${props.fclass ? `<small>Type: ${props.fclass}</small><br>` : ''}
-                ${props.ref ? `<small>Ref: ${props.ref}</small><br>` : ''}
-                ${props.maxspeed ? `<small>Speed Limit: ${props.maxspeed} km/h</small><br>` : ''}
-                ${props.oneway === 'Y' ? `<small>One-way</small>` : ''}
-            </div>
-        `;
-        new maplibregl.Popup()
-            .setLngLat(e.lngLat)
-            .setHTML(popupContent)
-            .addTo(map);
+        e.preventDefault();
+        handleRiyadhRoadClick(e.features[0]);
     });
     
     // Change cursor on hover for roads
