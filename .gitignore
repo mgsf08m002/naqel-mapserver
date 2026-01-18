@@ -123,6 +123,8 @@ dmypy.json
 *.bak
 *.backup
 *~
+# But allow database backups in database/ directory
+!database/*.backup
 
 # Temporary files
 *.tmp

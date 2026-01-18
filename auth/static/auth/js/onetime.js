@@ -142,6 +142,70 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
+     * Handle Enter key press for form navigation
+     * Step 0: Trigger "Get Started" button
+     * Steps 1-3: Trigger "Next" button (with validation)
+     * Step 4: Trigger "Create Account" submit button
+     * Step 5: No action (thank you screen)
+     */
+    function handleEnterKeyPress(e) {
+        // Only handle Enter key
+        if (e.key !== 'Enter') {
+            return;
+        }
+
+        // Prevent default form submission behavior
+        e.preventDefault();
+
+        // Handle based on current step
+        switch (currentStep) {
+            case 0:
+                // Welcome screen: Trigger "Get Started" button
+                if (getStartedButton && !getStartedButton.disabled) {
+                    getStartedButton.click();
+                }
+                break;
+
+            case 1:
+            case 2:
+            case 3:
+                // Form input steps: Trigger "Next" button with validation
+                if (nextButton && !nextButton.disabled) {
+                    nextButton.click();
+                }
+                break;
+
+            case 4:
+                // Final step: Trigger submit button
+                if (submitButton && !submitButton.disabled) {
+                    submitButton.click();
+                }
+                break;
+
+            case 5:
+                // Thank you screen: No action
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    // Attach Enter key event listener to document level
+    // This ensures Enter key works throughout the page, including input fields
+    document.addEventListener('keydown', function(e) {
+        // Only handle Enter key when it's relevant to the form
+        // Check if focus is on a form element or button, or on step 0 (welcome screen)
+        const activeElement = document.activeElement;
+        const isFormElement = form && form.contains(activeElement);
+        const isGetStartedButton = activeElement === getStartedButton;
+        
+        if (isFormElement || isGetStartedButton || currentStep === 0) {
+            handleEnterKeyPress(e);
+        }
+    });
+
+    /**
      * Show specific step
      */
     function showStep(step) {

@@ -33,6 +33,36 @@ document.addEventListener('DOMContentLoaded', function() {
         tryShowNotification();
     }
 
+    /**
+     * Handle Enter key press to submit login form
+     * This ensures Enter key works consistently when focus is on email or password fields
+     */
+    function handleEnterKeyPress(e) {
+        // Only handle Enter key
+        if (e.key !== 'Enter') {
+            return;
+        }
+
+        // Only trigger if focus is on form elements
+        const activeElement = document.activeElement;
+        const isFormElement = loginForm && loginForm.contains(activeElement);
+        
+        if (isFormElement && loginForm) {
+            // Prevent default form submission to use our custom handler
+            e.preventDefault();
+            
+            // Trigger form submission by clicking submit button or calling submit
+            const submitBtn = loginForm.querySelector('button[type="submit"]');
+            if (submitBtn && !submitBtn.disabled) {
+                submitBtn.click();
+            }
+        }
+    }
+
+    // Attach Enter key event listener to document level
+    // This ensures Enter key works when focus is on email or password input fields
+    document.addEventListener('keydown', handleEnterKeyPress);
+
     // Handle form submission
     if (loginForm) {
         loginForm.addEventListener('submit', async function(e) {
