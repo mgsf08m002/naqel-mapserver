@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'mapping',
     'home',
     'security',
+    'symbology',
 ]
 
 MIDDLEWARE = [

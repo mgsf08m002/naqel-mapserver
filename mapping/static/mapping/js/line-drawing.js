@@ -18,167 +18,88 @@
     let sidePanelContent = null;
     let currentFeatureLabel = 'Line';
 
+    // Centralized symbology catalog (fetched from backend symbology app)
+    // Shape matches `symbology.feature_catalog.SymbologyCatalog`.
+    let symbologyCatalog = null;
+    let symbologyStylesByLabel = null; // normalized by lower-cased label
+    let symbologyCatalogRequested = false;
+
     function hexToRgb(hex) {
         const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? {
-            r: parseInt(result[1], 16),
-            g: parseInt(result[2], 16),
-            b: parseInt(result[3], 16)
-        } : { r: 239, g: 68, b: 68 };
+        return result
+            ? {
+                  r: parseInt(result[1], 16),
+                  g: parseInt(result[2], 16),
+                  b: parseInt(result[3], 16),
+              }
+            : { r: 239, g: 68, b: 68 };
+    }
+
+    function normalizeFeatureLabel(label) {
+        if (!label) {
+            return 'line';
+        }
+        return label.toString().toLowerCase().trim();
+    }
+
+    function setSymbologyCatalog(catalog) {
+        if (!catalog || !catalog.styles_by_label) {
+            return;
+        }
+
+        symbologyCatalog = catalog;
+        symbologyStylesByLabel = {};
+
+        Object.keys(catalog.styles_by_label).forEach(function (rawLabel) {
+            const normalizedKey = normalizeFeatureLabel(rawLabel);
+            if (!normalizedKey) {
+                return;
+            }
+            symbologyStylesByLabel[normalizedKey] = catalog.styles_by_label[rawLabel];
+        });
+
+        // Expose for other scripts (e.g., manager-requests.js, load-approved-lines.js)
+        window.symbologyCatalog = catalog;
+    }
+
+    function ensureSymbologyCatalogRequested() {
+        if (symbologyCatalogRequested || symbologyCatalog) {
+            return;
+        }
+
+        symbologyCatalogRequested = true;
+
+        fetch('/symbology/api/catalog/', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+            },
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Failed to load symbology catalog');
+                }
+                return response.json();
+            })
+            .then(function (data) {
+                setSymbologyCatalog(data);
+            })
+            .catch(function () {
+                // Fail gracefully; callers will fall back to default style.
+            });
     }
 
     function getVisualizationStyle(featureLabel) {
-        const label = featureLabel ? featureLabel.toLowerCase() : 'line';
-        
-        const styles = {
-            'motorway': {
-                lineColor: '#3b82f6',
-                glowColor: '#3b82f6',
-                lineWidth: 6,
-                glowWidth: 12,
-                glowOpacity: 0.6,
-                markerColor: '#ffffff',
-                markerGlowColor: '#3b82f6'
-            },
-            'trunk road': {
-                lineColor: '#10b981',
-                glowColor: '#10b981',
-                lineWidth: 6,
-                glowWidth: 12,
-                glowOpacity: 0.6,
-                markerColor: '#ffffff',
-                markerGlowColor: '#10b981'
-            },
-            'primary road': {
-                lineColor: '#f97316',
-                glowColor: '#f97316',
-                lineWidth: 5,
-                glowWidth: 10,
-                glowOpacity: 0.5,
-                markerColor: '#ffffff',
-                markerGlowColor: '#f97316'
-            },
-            'secondary road': {
-                lineColor: '#eab308',
-                glowColor: '#eab308',
-                lineWidth: 5,
-                glowWidth: 10,
-                glowOpacity: 0.5,
-                markerColor: '#ffffff',
-                markerGlowColor: '#eab308'
-            },
-            'tertiary road': {
-                lineColor: '#a855f7',
-                glowColor: '#a855f7',
-                lineWidth: 4,
-                glowWidth: 8,
-                glowOpacity: 0.5,
-                markerColor: '#ffffff',
-                markerGlowColor: '#a855f7'
-            },
-            'motorway link': {
-                lineColor: '#60a5fa',
-                glowColor: '#60a5fa',
-                lineWidth: 5,
-                glowWidth: 10,
-                glowOpacity: 0.5,
-                markerColor: '#ffffff',
-                markerGlowColor: '#60a5fa'
-            },
-            'trunk link': {
-                lineColor: '#34d399',
-                glowColor: '#34d399',
-                lineWidth: 5,
-                glowWidth: 10,
-                glowOpacity: 0.5,
-                markerColor: '#ffffff',
-                markerGlowColor: '#34d399'
-            },
-            'primary link': {
-                lineColor: '#fb923c',
-                glowColor: '#fb923c',
-                lineWidth: 4,
-                glowWidth: 8,
-                glowOpacity: 0.5,
-                markerColor: '#ffffff',
-                markerGlowColor: '#fb923c'
-            },
-            'secondary link': {
-                lineColor: '#fde047',
-                glowColor: '#fde047',
-                lineWidth: 4,
-                glowWidth: 8,
-                glowOpacity: 0.5,
-                markerColor: '#ffffff',
-                markerGlowColor: '#fde047'
-            },
-            'tertiary link': {
-                lineColor: '#c084fc',
-                glowColor: '#c084fc',
-                lineWidth: 4,
-                glowWidth: 8,
-                glowOpacity: 0.5,
-                markerColor: '#ffffff',
-                markerGlowColor: '#c084fc'
-            },
-            'minor/unclassified road': {
-                lineColor: '#06b6d4',
-                glowColor: '#06b6d4',
-                lineWidth: 4,
-                glowWidth: 9,
-                glowOpacity: 0.55,
-                markerColor: '#ffffff',
-                markerGlowColor: '#06b6d4'
-            },
-            'residential road': {
-                lineColor: '#ec4899',
-                glowColor: '#ec4899',
-                lineWidth: 4,
-                glowWidth: 8,
-                glowOpacity: 0.6,
-                markerColor: '#ffffff',
-                markerGlowColor: '#ec4899'
-            },
-            'living street': {
-                lineColor: '#84cc16',
-                glowColor: '#84cc16',
-                lineWidth: 3,
-                glowWidth: 7,
-                glowOpacity: 0.5,
-                markerColor: '#ffffff',
-                markerGlowColor: '#84cc16'
-            },
-            'service road': {
-                lineColor: '#f59e0b',
-                glowColor: '#f59e0b',
-                lineWidth: 3,
-                glowWidth: 7,
-                glowOpacity: 0.55,
-                markerColor: '#ffffff',
-                markerGlowColor: '#f59e0b'
-            },
-            'track / land-access road': {
-                lineColor: '#f43f5e',
-                glowColor: '#f43f5e',
-                lineWidth: 4,
-                glowWidth: 9,
-                glowOpacity: 0.6,
-                markerColor: '#ffffff',
-                markerGlowColor: '#f43f5e'
-            }
-        };
-        
-        let normalizedLabel = label.trim();
-        
-        if (styles[normalizedLabel]) {
-            return styles[normalizedLabel];
+        // Ensure the catalog request has been kicked off early.
+        ensureSymbologyCatalogRequested();
+
+        const normalizedLabel = normalizeFeatureLabel(featureLabel || 'Line');
+
+        if (symbologyStylesByLabel && symbologyStylesByLabel[normalizedLabel]) {
+            return symbologyStylesByLabel[normalizedLabel];
         }
-        
-        normalizedLabel = normalizedLabel.replace(/\s+/g, ' ');
-        if (styles[normalizedLabel]) {
-            return styles[normalizedLabel];
-        }
-        
+
+        // Default style when catalog is not yet available or label not defined.
         return {
             lineColor: '#ffffff',
             glowColor: '#ef4444',
@@ -186,7 +107,7 @@
             glowWidth: 10,
             glowOpacity: 0.5,
             markerColor: '#ffffff',
-            markerGlowColor: '#ef4444'
+            markerGlowColor: '#ef4444',
         };
     }
 
@@ -204,6 +125,9 @@
         }
 
         try {
+            // Trigger symbology catalog fetch as early as possible
+            ensureSymbologyCatalogRequested();
+
             if (typeof drawControl.getTerraDrawInstance === 'function') {
                 drawInstance = drawControl.getTerraDrawInstance();
             } else if (typeof drawInstance !== 'undefined' && drawInstance) {

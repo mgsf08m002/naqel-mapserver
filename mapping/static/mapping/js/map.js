@@ -230,21 +230,21 @@ function mapFclassToFeatureLabel(fclass) {
     if (!fclass) return 'Line';
     
     const mapping = {
-        'motorway': 'motorway',
-        'trunk': 'trunk road',
-        'primary': 'primary road',
-        'secondary': 'secondary road',
-        'tertiary': 'tertiary road',
-        'residential': 'residential road',
-        'living_street': 'living street',
-        'service': 'service road',
-        'track': 'track / land-access road',
-        'unclassified': 'minor/unclassified road',
-        'motorway_link': 'motorway link',
-        'trunk_link': 'trunk link',
-        'primary_link': 'primary link',
-        'secondary_link': 'secondary link',
-        'tertiary_link': 'tertiary link'
+        'motorway': 'Motorway',
+        'trunk': 'Trunk Road',
+        'primary': 'Primary Road',
+        'secondary': 'Secondary Road',
+        'tertiary': 'Tertiary Road',
+        'residential': 'Residential Road',
+        'living_street': 'Living Street',
+        'service': 'Service Road',
+        'track': 'Track / Land-Access Road',
+        'unclassified': 'Minor/Unclassified Road',
+        'motorway_link': 'Motorway Link',
+        'trunk_link': 'Trunk Link',
+        'primary_link': 'Primary Link',
+        'secondary_link': 'Secondary Link',
+        'tertiary_link': 'Tertiary Link'
     };
     
     const normalizedFclass = fclass.toLowerCase().trim();
@@ -438,6 +438,71 @@ function handleRiyadhRoadClick(riyadhRoadFeature) {
     }
 }
 
+function applyRiyadhRoadsSymbology() {
+    if (typeof map === 'undefined' || !map) {
+        return;
+    }
+
+    if (!map.getLayer('riyadh-roads-layer')) {
+        return;
+    }
+
+    // We reuse the centralized visualization style function exposed by
+    // line-drawing.js. If it's not available yet, we keep existing styling.
+    const getStyle = window.getVisualizationStyle;
+    if (typeof getStyle !== 'function') {
+        return;
+    }
+
+    const roadTypes = [
+        'motorway',
+        'trunk',
+        'primary',
+        'secondary',
+        'tertiary',
+        'residential',
+        'living_street',
+        'service',
+        'track',
+        'unclassified',
+        'motorway_link',
+        'trunk_link',
+        'primary_link',
+        'secondary_link',
+        'tertiary_link'
+    ];
+
+    const colorExpression = ['match', ['get', 'fclass']];
+    const widthExpression = ['match', ['get', 'fclass']];
+
+    roadTypes.forEach(function (fclass) {
+        const label = mapFclassToFeatureLabel(fclass);
+        const style = getStyle(label);
+
+        // For the base network, we slightly compress the width range to keep
+        // background context subtle relative to selected/edited lines.
+        const baseWidth =
+            style && typeof style.lineWidth === 'number'
+                ? Math.max(0.5, Math.min(style.lineWidth, 6)) * 0.6
+                : 0.5;
+
+        const lineColor = style && style.lineColor ? style.lineColor : '#dee2e6';
+
+        colorExpression.push(fclass, lineColor);
+        widthExpression.push(fclass, baseWidth);
+    });
+
+    colorExpression.push('#dee2e6');
+    widthExpression.push(0.5);
+
+    try {
+        map.setPaintProperty('riyadh-roads-layer', 'line-color', colorExpression);
+        map.setPaintProperty('riyadh-roads-layer', 'line-width', widthExpression);
+    } catch (e) {
+        // If style is not fully ready, fail silently.
+    }
+}
+
 // Function to load Riyadh roads from API
 async function loadRiyadhRoads() {
     try {
@@ -477,32 +542,17 @@ async function loadRiyadhRoads() {
                         'line-cap': 'round'
                     },
                     'paint': {
-                        'line-color': [
-                            'match',
-                            ['get', 'fclass'],
-                            'motorway', '#ff6b6b',
-                            'trunk', '#ff8787',
-                            'primary', '#ffa8a8',
-                            'secondary', '#ffc9c9',
-                            'tertiary', '#ffe0e0',
-                            'residential', '#f1f3f5',
-                            '#dee2e6' // default color
-                        ],
-                        'line-width': [
-                            'match',
-                            ['get', 'fclass'],
-                            'motorway', 3,
-                            'trunk', 2.5,
-                            'primary', 2,
-                            'secondary', 1.5,
-                            'tertiary', 1,
-                            'residential', 0.5,
-                            0.5 // default width
-                        ],
+                        // Initial neutral styling; replaced by
+                        // applyRiyadhRoadsSymbology() once symbology catalog is ready.
+                        'line-color': '#dee2e6',
+                        'line-width': 0.5,
                         'line-opacity': 0.8
                     }
                 });
             }
+
+            // Apply centralized symbology to the Riyadh roads layer
+            applyRiyadhRoadsSymbology();
             
             // Riyadh roads loaded successfully
         }
