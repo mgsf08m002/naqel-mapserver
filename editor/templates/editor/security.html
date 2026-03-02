@@ -79,14 +79,52 @@
         </section>
 
         <!-- Sessions -->
-        <section class="space-y-4 border-t border-gray-200 pt-6">
+        <section 
+            class="space-y-6 border-t border-gray-200 pt-8"
+            id="sessionsSection"
+            data-browser-icon-base="{% static 'images/security/' %}"
+            data-sessions-endpoint="/security/api/sessions/"
+            data-terminate-endpoint="/security/api/sessions/terminate/"
+        >
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div class="space-y-1">
                     <h2 class="text-xl font-semibold text-gray-900">Sessions</h2>
-                    <p class="text-sm text-gray-600 max-w-2xl">Session management is coming soon. You'll be able to review and revoke active sessions to keep your account safe.</p>
+                    <p class="text-sm text-gray-600 max-w-2xl">
+                        Review all active sign-ins on your account and revoke access from browsers you no longer trust.
+                    </p>
                 </div>
-                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Coming soon</span>
+                <button
+                    type="button"
+                    id="refreshSessionsButton"
+                    class="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                >
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0014-7V9M19 5A9 9 0 005 12v3"/>
+                    </svg>
+                    <span>Refresh sessions</span>
+                </button>
             </div>
+
+            <div id="sessionsContainer" class="space-y-3">
+                <div
+                    id="sessionsSkeleton"
+                    class="flex items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 animate-pulse"
+                >
+                    <div class="flex items-center gap-3">
+                        <div class="h-8 w-8 rounded-full bg-gray-200"></div>
+                        <div class="space-y-2">
+                            <div class="h-2.5 w-32 rounded-full bg-gray-200"></div>
+                            <div class="h-2 w-48 rounded-full bg-gray-100"></div>
+                        </div>
+                    </div>
+                    <div class="h-8 w-24 rounded-full bg-gray-200"></div>
+                </div>
+            </div>
+
+            <p id="sessionsEmptyState" class="hidden text-sm text-gray-500">
+                No other active sessions detected. You’re currently signed in on this browser.
+            </p>
         </section>
     </div>
 </div>

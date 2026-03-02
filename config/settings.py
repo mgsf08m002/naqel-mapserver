@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'editor',
     'mapping',
     'home',
+    'security',
 ]
 
 MIDDLEWARE = [
@@ -62,6 +63,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'config.middleware.CSPMiddleware',  # Custom CSP middleware
+    'security.middleware.SessionActivityMiddleware',
 ]
 
 # Content Security Policy (CSP) settings

@@ -26,6 +26,7 @@ urlpatterns = [
     path('manager/', include('manager.urls')),
     path('editor/', include('editor.urls')),
     path('mapping/', include('mapping.urls')),
+    path('security/', include('security.urls')),
 ]
 
 if settings.DEBUG:

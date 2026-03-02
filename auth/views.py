@@ -64,6 +64,20 @@ def login_api(request):
         
         if user is not None:
             login(request, user)
+
+            # Capture basic session metadata for security/session management.
+            from django.utils import timezone
+
+            request.session["client_ip"] = (
+                request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
+                or request.META.get("REMOTE_ADDR", "")
+            )
+            request.session["user_agent"] = request.META.get("HTTP_USER_AGENT", "")[
+                :512
+            ]
+            now_iso = timezone.now().isoformat()
+            request.session.setdefault("session_created_at", now_iso)
+            request.session["last_seen_at"] = now_iso
             # Check if user needs to set up password (first-time login)
             if hasattr(user, 'profile') and user.profile.role and not user.profile.password_setup_completed:
                 # Redirect to password setup page
