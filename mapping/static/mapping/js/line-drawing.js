@@ -1003,32 +1003,6 @@
             mainPath.setAttribute('stroke-linejoin', 'round');
             svg.appendChild(mainPath);
 
-            // Draw markers at vertices - use same coordinate transformation
-            coordinates.forEach(function(coord) {
-                const x = coord[0] * scale + offsetX;
-                const y = -coord[1] * scale + offsetY;
-
-                // Marker glow
-                const markerGlow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                markerGlow.setAttribute('cx', x.toFixed(2));
-                markerGlow.setAttribute('cy', y.toFixed(2));
-                markerGlow.setAttribute('r', '4');
-                markerGlow.setAttribute('fill', style.markerGlowColor);
-                markerGlow.setAttribute('opacity', '0.5');
-                markerGlow.setAttribute('filter', 'url(#blur-approved)');
-                svg.appendChild(markerGlow);
-
-                // Main marker
-                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                marker.setAttribute('cx', x.toFixed(2));
-                marker.setAttribute('cy', y.toFixed(2));
-                marker.setAttribute('r', '2.5');
-                marker.setAttribute('fill', style.markerColor);
-                marker.setAttribute('stroke', style.markerColor);
-                marker.setAttribute('stroke-width', '1');
-                svg.appendChild(marker);
-            });
-
             svgContainer.innerHTML = '';
             svgContainer.appendChild(svg);
         } catch (error) {
@@ -1133,29 +1107,6 @@
             mainPath.setAttribute('stroke-linecap', 'round');
             mainPath.setAttribute('stroke-linejoin', 'round');
             svg.appendChild(mainPath);
-
-            coordinates.forEach(function(coord, index) {
-                const x = coord[0] * scale + offsetX;
-                const y = -coord[1] * scale + offsetY;
-
-                const markerGlow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                markerGlow.setAttribute('cx', x.toString());
-                markerGlow.setAttribute('cy', y.toString());
-                markerGlow.setAttribute('r', '8');
-                markerGlow.setAttribute('fill', style.markerGlowColor);
-                markerGlow.setAttribute('opacity', '0.6');
-                markerGlow.setAttribute('filter', 'url(#blur)');
-                svg.appendChild(markerGlow);
-
-                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                marker.setAttribute('cx', x.toString());
-                marker.setAttribute('cy', y.toString());
-                marker.setAttribute('r', '6');
-                marker.setAttribute('fill', style.markerColor);
-                marker.setAttribute('stroke', style.markerColor);
-                marker.setAttribute('stroke-width', '2');
-                svg.appendChild(marker);
-            });
 
             svgContainer.innerHTML = '';
             svgContainer.appendChild(svg);
@@ -1360,75 +1311,10 @@
     }
 
     function forceMarkersVisibility() {
-        if (typeof map === 'undefined' || !map || !drawInstance || !currentLineId) return;
-        
-        try {
-            const snapshot = drawInstance.getSnapshot();
-            const feature = snapshot?.find(function(f) { return f.id === currentLineId; });
-            
-            if (!feature || !feature.geometry || feature.geometry.type !== 'LineString') {
-                return;
-            }
-
-            const coordinates = feature.geometry.coordinates;
-            if (!coordinates || coordinates.length < 2) return;
-
-            clearVertexMarkers();
-
-            const style = getVisualizationStyle(currentFeatureLabel);
-            const glowColorRgb = hexToRgb(style.markerGlowColor);
-            const glowShadow = '0 0 4px rgba(' + glowColorRgb.r + ', ' + glowColorRgb.g + ', ' + glowColorRgb.b + ', 0.8), 0 0 8px rgba(' + glowColorRgb.r + ', ' + glowColorRgb.g + ', ' + glowColorRgb.b + ', 0.6)';
-
-            coordinates.forEach(function(coord, index) {
-                const el = document.createElement('div');
-                el.className = 'vertex-marker';
-                el.style.width = '12px';
-                el.style.height = '12px';
-                el.style.borderRadius = '50%';
-                el.style.backgroundColor = style.markerColor;
-                el.style.border = '2px solid ' + style.markerColor;
-                el.style.boxShadow = glowShadow;
-                el.style.pointerEvents = 'none';
-                el.style.zIndex = '1000';
-                el.setAttribute('data-vertex-index', index.toString());
-                el.setAttribute('data-line-id', currentLineId);
-
-                const marker = new maplibregl.Marker({
-                    element: el,
-                    anchor: 'center'
-                })
-                .setLngLat([coord[0], coord[1]])
-                .addTo(map);
-
-                vertexMarkers.push(marker);
-            });
-
-            const updateMarkers = function() {
-                const updatedSnapshot = drawInstance.getSnapshot();
-                const updatedFeature = updatedSnapshot?.find(function(f) { return f.id === currentLineId; });
-                if (updatedFeature && updatedFeature.geometry && updatedFeature.geometry.type === 'LineString') {
-                    const updatedCoords = updatedFeature.geometry.coordinates;
-                    if (updatedCoords && updatedCoords.length === vertexMarkers.length) {
-                        vertexMarkers.forEach(function(marker, index) {
-                            if (index < updatedCoords.length) {
-                                marker.setLngLat([updatedCoords[index][0], updatedCoords[index][1]]);
-                            }
-                        });
-                    }
-                }
-            };
-
-            if (map._lineMarkerUpdater) {
-                map.off('move', map._lineMarkerUpdater);
-                map.off('zoom', map._lineMarkerUpdater);
-            }
-
-            map._lineMarkerUpdater = updateMarkers;
-            map.on('move', updateMarkers);
-            map.on('zoom', updateMarkers);
-        } catch (e) {
-            // Error forcing markers visibility
-        }
+        // Vertex markers have been removed to keep the visualization
+        // purely line-based. This function now only ensures that any
+        // previously created markers are cleared.
+        clearVertexMarkers();
     }
 
     function createDropdownBox(label, isLast) {
@@ -2121,29 +2007,6 @@
             mainPath.setAttribute('stroke-linecap', 'round');
             mainPath.setAttribute('stroke-linejoin', 'round');
             svg.appendChild(mainPath);
-
-            coordinates.forEach(function(coord, index) {
-                const x = (coord[0] - minX) * scale + padding;
-                const y = height - ((coord[1] - minY) * scale + padding);
-
-                const markerGlow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                markerGlow.setAttribute('cx', x.toFixed(2));
-                markerGlow.setAttribute('cy', y.toFixed(2));
-                markerGlow.setAttribute('r', '2.5');
-                markerGlow.setAttribute('fill', style.markerGlowColor);
-                markerGlow.setAttribute('opacity', '0.5');
-                markerGlow.setAttribute('filter', 'url(#' + filterId + ')');
-                svg.appendChild(markerGlow);
-
-                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                marker.setAttribute('cx', x.toFixed(2));
-                marker.setAttribute('cy', y.toFixed(2));
-                marker.setAttribute('r', '1.5');
-                marker.setAttribute('fill', style.markerColor);
-                marker.setAttribute('stroke', style.markerColor);
-                marker.setAttribute('stroke-width', '0.5');
-                svg.appendChild(marker);
-            });
 
             container.innerHTML = '';
             container.appendChild(svg);
@@ -3805,27 +3668,9 @@
                 }
             });
             
-            // Recreate markers with new style
-            geometry.coordinates.forEach(function(coord, index) {
-                const markerId = 'approved-marker-' + approvedLineId + '-' + index;
-                
-                const markerEl = document.createElement('div');
-                markerEl.id = markerId;
-                markerEl.className = 'approved-line-vertex-marker';
-                markerEl.style.width = '8px';
-                markerEl.style.height = '8px';
-                markerEl.style.borderRadius = '50%';
-                markerEl.style.backgroundColor = style.markerColor;
-                markerEl.style.border = '2px solid ' + style.markerGlowColor;
-                markerEl.style.boxShadow = '0 0 8px ' + style.markerGlowColor + ', 0 0 12px ' + style.markerGlowColor;
-                
-                const marker = new maplibregl.Marker({
-                    element: markerEl,
-                    anchor: 'center'
-                })
-                .setLngLat(coord)
-                .addTo(map);
-            });
+            // Vertex markers for approved lines have been removed; the
+            // updated symbology is now represented purely by the line
+            // styling on the map layer.
         }
     }
 

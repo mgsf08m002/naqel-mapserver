@@ -477,59 +477,11 @@
                 }
             });
 
-            // Add vertex markers
-            if (request.geometry && request.geometry.coordinates) {
-                addVertexMarkersForRequest(featureId, request.geometry.coordinates, style);
-            }
+        // Vertex markers have been removed to keep the visualization
+        // purely line-based and aligned with the editing module.
         } catch (error) {
             // Error rendering request line on map
         }
-    }
-
-    /**
-     * Add vertex markers for request line
-     */
-    function addVertexMarkersForRequest(featureId, coordinates, style) {
-        if (typeof map === 'undefined' || !map) return;
-        
-        // Clear existing markers for this request
-        if (window.requestMarkers && window.requestMarkers[featureId]) {
-            window.requestMarkers[featureId].forEach(function(marker) {
-                marker.remove();
-            });
-        }
-        
-        if (!window.requestMarkers) {
-            window.requestMarkers = {};
-        }
-        window.requestMarkers[featureId] = [];
-
-        const glowColorRgb = hexToRgb(style.markerGlowColor || '#ef4444');
-        const glowShadow = '0 0 4px rgba(' + glowColorRgb.r + ', ' + glowColorRgb.g + ', ' + glowColorRgb.b + ', 0.8), 0 0 8px rgba(' + glowColorRgb.r + ', ' + glowColorRgb.g + ', ' + glowColorRgb.b + ', 0.6)';
-
-        coordinates.forEach(function(coord, index) {
-            const el = document.createElement('div');
-            el.className = 'vertex-marker';
-            el.style.width = '12px';
-            el.style.height = '12px';
-            el.style.borderRadius = '50%';
-            el.style.backgroundColor = style.markerColor || '#ffffff';
-            el.style.border = '2px solid ' + (style.markerColor || '#ffffff');
-            el.style.boxShadow = glowShadow;
-            el.style.pointerEvents = 'none';
-            el.style.zIndex = '1000';
-            el.setAttribute('data-vertex-index', index.toString());
-            el.setAttribute('data-request-id', featureId);
-
-            const marker = new maplibregl.Marker({
-                element: el,
-                anchor: 'center'
-            })
-            .setLngLat([coord[0], coord[1]])
-            .addTo(map);
-
-            window.requestMarkers[featureId].push(marker);
-        });
     }
 
     /**
