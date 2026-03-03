@@ -14,11 +14,9 @@ import json
 @login_required(login_url='/login/')
 def map_view(request):
     """System Admin Map view - landing page after login."""
-    # Only allow superusers (system admins) to access
     if not request.user.is_superuser:
         logout(request)
         return redirect('auth:login')
-    
     return render(request, 'system_admin/map.html')
 
 

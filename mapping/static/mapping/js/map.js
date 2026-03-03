@@ -1,10 +1,114 @@
 // KSA Map Editing Module - JavaScript
 
-// Set bounds to Riyadh, KSA
+// ─── MapTiler / Basemap Configuration ───────────────────────────────────────
+// API key is read from data-maptiler-api-key on the map container,
+// populated by the Django backend from environment variables only.
+function getMaptilerApiKey() {
+    const mapElement = document.getElementById('map');
+    if (!mapElement) {
+        return null;
+    }
+
+    const value = mapElement.getAttribute('data-maptiler-api-key');
+    if (!value || typeof value !== 'string') {
+        return null;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+}
+
+const MAPTILER_API_KEY = getMaptilerApiKey();
+const HAS_MAPTILER = !!MAPTILER_API_KEY;
+
+/**
+ * Basemap definitions for the application.
+ *
+ * Each definition is mapped to a dedicated raster source and layer in the
+ * MapLibre style. Only MapTiler-backed basemaps are created when an API
+ * key is present.
+ */
+const BASEMAP_DEFINITIONS = (() => {
+    const definitions = [
+        {
+            id: 'esri-satellite',
+            label: 'Satellite',
+            sourceId: 'basemap-esri-satellite-source',
+            layerId: 'basemap-esri-satellite-layer',
+            tileUrl: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            attribution: 'Source: Esri, Maxar, Earthstar Geographics',
+            requiresMaptiler: false,
+        },
+    ];
+
+    if (HAS_MAPTILER) {
+        const maptilerBaseUrl = 'https://api.maptiler.com/maps';
+
+        definitions.push(
+            {
+                id: 'maptiler-streets',
+                label: 'Streets',
+                sourceId: 'basemap-maptiler-streets-source',
+                layerId: 'basemap-maptiler-streets-layer',
+                tileUrl: `${maptilerBaseUrl}/streets-v2/256/{z}/{x}/{y}.png?key=${MAPTILER_API_KEY}`,
+                attribution: '© MapTiler © OpenStreetMap contributors',
+                requiresMaptiler: true,
+            },
+            {
+                id: 'maptiler-outdoor',
+                label: 'Outdoor',
+                sourceId: 'basemap-maptiler-outdoor-source',
+                layerId: 'basemap-maptiler-outdoor-layer',
+                tileUrl: `${maptilerBaseUrl}/outdoor-v2/256/{z}/{x}/{y}.png?key=${MAPTILER_API_KEY}`,
+                attribution: '© MapTiler © OpenStreetMap contributors',
+                requiresMaptiler: true,
+            },
+            {
+                id: 'maptiler-dark',
+                label: 'Dark',
+                sourceId: 'basemap-maptiler-dark-source',
+                layerId: 'basemap-maptiler-dark-layer',
+                tileUrl: `${maptilerBaseUrl}/darkmatter/256/{z}/{x}/{y}.png?key=${MAPTILER_API_KEY}`,
+                attribution: '© MapTiler © OpenStreetMap contributors',
+                requiresMaptiler: true,
+            }
+        );
+    }
+
+    return definitions;
+})();
+
+// Default basemap: Streets when MapTiler is available, otherwise Satellite.
+let currentBasemapId = HAS_MAPTILER ? 'maptiler-streets' : 'esri-satellite';
+
+// Riyadh, KSA bounds [[neLng, neLat], [swLng, swLat]]
 const bounds = [
-    [45.4750000000000014, 23.9810000000000016], // Northeast coordinates
-    [48.7329999999999970, 25.6640000000000015] // Southwest coordinates
+    [45.475, 23.981], // Northeast
+    [48.733, 25.664], // Southwest
 ];
+
+// Build MapLibre style: raster sources and layers for each basemap.
+const baseSources = {};
+const baseLayers = [];
+
+BASEMAP_DEFINITIONS.forEach((def) => {
+    baseSources[def.sourceId] = {
+        type: 'raster',
+        tiles: [def.tileUrl],
+        tileSize: 256,
+        maxzoom: 19,
+        attribution: def.attribution,
+    };
+
+    baseLayers.push({
+        id: def.layerId,
+        type: 'raster',
+        source: def.sourceId,
+        layout: {
+            visibility: def.id === currentBasemapId ? 'visible' : 'none',
+        },
+    });
+});
 
 // Initialize map
 const map = new maplibregl.Map({
@@ -14,27 +118,89 @@ const map = new maplibregl.Map({
     maxZoom: 19,
     maxBounds: bounds,
     style: {
-        "version": 8,
-        "sources": {
-            "satellite": {
-                "type": "raster",
-                "tiles": [
-                    "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                    // "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"
-                ],
-                "tileSize": 256,
-                "maxzoom": 19,
-                "attribution": "Source: Esri, Maxar, Earthstar Geographics"
-                // Original: EOX / ESA Sentinel-2 Cloudless 2020
-            }
-        },
-        "layers": [{
-            "id": "satellite",
-            "type": "raster",
-            "source": "satellite"
-        }]
-    }
+        version: 8,
+        sources: baseSources,
+        layers: baseLayers,
+    },
 });
+
+/**
+ * Set basemap visibility by toggling layers. Only the selected layer is visible.
+ */
+function setBasemapVisibility(targetId) {
+    if (!map || !targetId) return;
+
+    BASEMAP_DEFINITIONS.forEach((def) => {
+        const visibility = def.id === targetId ? 'visible' : 'none';
+        if (map.getLayer(def.layerId)) {
+            map.setLayoutProperty(def.layerId, 'visibility', visibility);
+        }
+    });
+
+    currentBasemapId = targetId;
+}
+
+// Basemap gallery UI state classes
+const BASEMAP_SELECTED_CLASSES = ['ring-2', 'ring-blue-500', 'shadow-lg', 'border-blue-500'];
+const BASEMAP_UNSELECTED_CLASSES = ['border-transparent', 'opacity-80'];
+
+/**
+ * Sync basemap gallery buttons to reflect the current selection.
+ */
+function syncBasemapGallerySelection(options, selectedId) {
+    options.forEach((opt) => {
+        const id = opt.getAttribute('data-basemap-id');
+        const isSelected = id === selectedId;
+
+        opt.classList.remove(...BASEMAP_SELECTED_CLASSES, ...BASEMAP_UNSELECTED_CLASSES);
+        if (isSelected) {
+            opt.classList.add(...BASEMAP_SELECTED_CLASSES);
+        } else {
+            opt.classList.add(...BASEMAP_UNSELECTED_CLASSES);
+        }
+    });
+}
+
+/**
+ * Initialize basemap gallery: click handlers, selection sync, and toggle.
+ */
+function initBasemapGallery() {
+    const galleryElement = document.getElementById('basemapGallery');
+    const toggleButton = document.getElementById('basemapGalleryToggle');
+
+    if (!galleryElement) return;
+
+    const options = galleryElement.querySelectorAll('[data-basemap-id]');
+    if (!options.length) return;
+
+    const availableBasemapIds = new Set(BASEMAP_DEFINITIONS.map((def) => def.id));
+
+    options.forEach((option) => {
+        const basemapId = option.getAttribute('data-basemap-id');
+
+        if (!basemapId || !availableBasemapIds.has(basemapId)) {
+            option.setAttribute('disabled', 'true');
+            option.classList.add('opacity-50', 'cursor-not-allowed');
+            return;
+        }
+
+        option.addEventListener('click', () => {
+            if (basemapId === currentBasemapId) return;
+
+            setBasemapVisibility(basemapId);
+            syncBasemapGallerySelection(options, basemapId);
+        });
+    });
+
+    syncBasemapGallerySelection(options, currentBasemapId);
+
+    if (toggleButton) {
+        toggleButton.addEventListener('click', () => {
+            const isHidden = galleryElement.classList.toggle('hidden');
+            toggleButton.setAttribute('aria-expanded', String(!isHidden));
+        });
+    }
+}
 
 // Add zoom and rotation controls to the map
 map.addControl(new maplibregl.NavigationControl({
@@ -479,6 +645,9 @@ async function loadRiyadhRoads() {
 
 // Map load event
 map.on('load', () => {
+    // Ensure initial basemap visibility is applied
+    setBasemapVisibility(currentBasemapId);
+
     // Load Riyadh roads after map is loaded
     loadRiyadhRoads();
     
@@ -549,6 +718,13 @@ map.on('load', () => {
         }
     });
 });
+
+// Initialize basemap gallery once DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBasemapGallery);
+} else {
+    initBasemapGallery();
+}
 
 // Expose clearSelectedRiyadhRoad globally for use by other scripts
 window.clearSelectedRiyadhRoad = clearSelectedRiyadhRoad;

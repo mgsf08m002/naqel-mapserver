@@ -11,15 +11,11 @@ from system_admin.models import UserProfile
 @login_required(login_url='/login/')
 def map_view(request):
     """Manager Map view - landing page after login."""
-    # Check if user has manager role
     if not hasattr(request.user, 'profile') or request.user.profile.role != 'manager':
         logout(request)
         return redirect('auth:login')
-    
-    # Check if password setup is needed (first-time login)
     if not request.user.profile.password_setup_completed:
         return redirect('auth:password_setup')
-    
     return render(request, 'manager/map.html')
 
 

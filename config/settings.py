@@ -29,6 +29,10 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 if not SECRET_KEY:
     raise ValueError("SECRET_KEY environment variable is not set. Please set it in your .env file.")
 
+# MapTiler API key for basemap integration (optional).
+# This is intentionally loaded only from the environment and never hardcoded.
+MAPTILER_API_KEY = os.getenv('MAPTILER_API_KEY', '').strip()
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
@@ -75,8 +79,23 @@ if DEBUG:
     CSP_SCRIPT_SRC = ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net"]
     CSP_STYLE_SRC = ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"]
     CSP_FONT_SRC = ["'self'", "https://fonts.gstatic.com", "data:"]
-    CSP_IMG_SRC = ["'self'", "data:", "blob:", "https://services.arcgisonline.com", "https://tiles.maps.eox.at"]
-    CSP_CONNECT_SRC = ["'self'", "blob:", "https://services.arcgisonline.com", "https://tiles.maps.eox.at", "https://unpkg.com", "https://cdn.jsdelivr.net"]
+    CSP_IMG_SRC = [
+        "'self'",
+        "data:",
+        "blob:",
+        "https://services.arcgisonline.com",
+        "https://tiles.maps.eox.at",
+        "https://api.maptiler.com",
+    ]
+    CSP_CONNECT_SRC = [
+        "'self'",
+        "blob:",
+        "https://services.arcgisonline.com",
+        "https://tiles.maps.eox.at",
+        "https://api.maptiler.com",
+        "https://unpkg.com",
+        "https://cdn.jsdelivr.net",
+    ]
     CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers
 else:
     # Stricter CSP for production (recommended to use django-csp package)
@@ -84,8 +103,23 @@ else:
     CSP_SCRIPT_SRC = ["'self'", "https://unpkg.com", "https://cdn.jsdelivr.net"]
     CSP_STYLE_SRC = ["'self'", "https://unpkg.com", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"]
     CSP_FONT_SRC = ["'self'", "https://fonts.gstatic.com", "data:"]
-    CSP_IMG_SRC = ["'self'", "data:", "blob:", "https://services.arcgisonline.com", "https://tiles.maps.eox.at"]
-    CSP_CONNECT_SRC = ["'self'", "blob:", "https://services.arcgisonline.com", "https://tiles.maps.eox.at", "https://unpkg.com", "https://cdn.jsdelivr.net"]
+    CSP_IMG_SRC = [
+        "'self'",
+        "data:",
+        "blob:",
+        "https://services.arcgisonline.com",
+        "https://tiles.maps.eox.at",
+        "https://api.maptiler.com",
+    ]
+    CSP_CONNECT_SRC = [
+        "'self'",
+        "blob:",
+        "https://services.arcgisonline.com",
+        "https://tiles.maps.eox.at",
+        "https://api.maptiler.com",
+        "https://unpkg.com",
+        "https://cdn.jsdelivr.net",
+    ]
     CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers
 
 ROOT_URLCONF = 'config.urls'
@@ -101,6 +135,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'system_admin.context_processors.user_profile',
+                'mapping.context_processors.maptiler_api_key',
             ],
         },
     },
