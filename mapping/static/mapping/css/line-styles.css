@@ -101,3 +101,11 @@ input[type="date"]::-webkit-outer-spin-button {
     -webkit-appearance: none !important;
     appearance: none !important;
 }
+
+/* Hide TerraDraw built-in toolbar control (we use a custom toolbar instead) */
+.maplibregl-ctrl-terradraw,
+.mapboxgl-ctrl-terradraw,
+.maplibregl-ctrl-top-left .maplibregl-ctrl,
+.mapboxgl-ctrl-top-left .mapboxgl-ctrl {
+    display: none !important;
+}

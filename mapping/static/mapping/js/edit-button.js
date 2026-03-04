@@ -444,7 +444,7 @@
         }
         
         // Listen for mode changes from TerraDraw (if available)
-        // This ensures button states stay in sync if user clicks left toolbar
+        // This ensures button states stay in sync with any external TerraDraw mode changes
         try {
             if (typeof terraDrawInstance.on === 'function') {
                 // Note: TerraDraw may not expose mode change events directly

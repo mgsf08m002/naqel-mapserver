@@ -292,17 +292,35 @@ if (drawInstance) {
     });
 }
 
-// Mouse move event to display coordinates
-map.on('mousemove', (e) => {
-    const infoElement = document.getElementById('info');
-    if (infoElement) {
-        infoElement.innerHTML = JSON.stringify(
-            "Screen X: " + e.point.x + 
-            ", Screen Y: " + e.point.y + 
-            " Lat: " + e.lngLat.lat + 
-            ", Long: " + e.lngLat.lng
-        );
+const COORDINATE_DECIMALS = 6;
+
+function formatCoordinate(value) {
+    if (typeof value !== 'number' || Number.isNaN(value)) {
+        return null;
     }
+    return value.toFixed(COORDINATE_DECIMALS);
+}
+
+function updateCoordinateDisplay(lngLat) {
+    const el = document.getElementById('coordinatesDisplay');
+    if (!el || !lngLat) {
+        return;
+    }
+
+    const lng = formatCoordinate(lngLat.lng);
+    const lat = formatCoordinate(lngLat.lat);
+    if (!lng || !lat) {
+        return;
+    }
+
+    // Show clearly labelled longitude and latitude
+    el.textContent = `Lon: ${lng}, Lat: ${lat}`;
+    el.classList.remove('hidden');
+}
+
+// Mouse move event to display longitude/latitude at bottom center
+map.on('mousemove', (e) => {
+    updateCoordinateDisplay(e.lngLat);
 });
 
 /**

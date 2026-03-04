@@ -3,7 +3,7 @@
 
 {% block title %}Editor - Map{% endblock %}
 
-{% block main_class %}relative{% endblock %}
+{% block main_class %}relative overflow-hidden{% endblock %}
 
 {% block content_wrapper %}
 {% block content %}
@@ -86,7 +86,11 @@
             class="w-full h-full"
             {% if maptiler_api_key %}data-maptiler-api-key="{{ maptiler_api_key }}"{% endif %}
         ></div>
-        <pre id="info" class="block absolute left-1/2 top-[680px] -translate-x-1/2 min-h-[20px] w-[45%] p-2 border-none rounded-[25px] text-xs text-left text-[#222] bg-white z-10"></pre>
+        <div
+            id="coordinatesDisplay"
+            class="hidden absolute bottom-4 left-1/2 -translate-x-1/2 z-40 pointer-events-none select-none rounded-full border border-gray-200 bg-white/85 backdrop-blur px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm"
+            aria-label="Current longitude and latitude"
+        ></div>
 
         {% include 'mapping/includes/basemap_gallery.html' %}
 
