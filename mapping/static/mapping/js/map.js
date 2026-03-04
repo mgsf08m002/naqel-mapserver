@@ -224,32 +224,40 @@ map.addControl(
 const fullscreenControl = new maplibregl.FullscreenControl();
 map.addControl(fullscreenControl, 'top-right');
 
-// Initialize TerraDraw control
-// By default, all terra-draw drawing modes are enabled.
-// you can disable some of modes in the constructor options if you want.
-const draw = new MaplibreTerradrawControl.MaplibreTerradrawControl({
-    modes: [
-        // 'render', comment this to always show drawing tool
-        'point',
-        'linestring',
-        'polygon',
-        'rectangle',
-        'circle',
-        'freehand',
-        'angled-rectangle',
-        'sensor',
-        'sector',
-        'select',
-        'delete-selection',
-        'delete',
-        'download'
-    ],
-    open: true
-});
-map.addControl(draw, 'top-left');
+// Determine if advanced editing UI is available (non-landing pages)
+const isEditingEnabled = !!document.getElementById('editSidePanel');
 
-// Handle feature selection
-const drawInstance = draw.getTerraDrawInstance();
+// TerraDraw instance (only initialized on editing pages)
+let drawInstance = null;
+
+if (isEditingEnabled) {
+    // Initialize TerraDraw control for editing pages only
+    // By default, all terra-draw drawing modes are enabled.
+    // you can disable some of modes in the constructor options if you want.
+    const draw = new MaplibreTerradrawControl.MaplibreTerradrawControl({
+        modes: [
+            // 'render', comment this to always show drawing tool
+            'point',
+            'linestring',
+            'polygon',
+            'rectangle',
+            'circle',
+            'freehand',
+            'angled-rectangle',
+            'sensor',
+            'sector',
+            'select',
+            'delete-selection',
+            'delete',
+            'download'
+        ],
+        open: true
+    });
+    map.addControl(draw, 'top-left');
+
+    // Handle feature selection
+    drawInstance = draw.getTerraDrawInstance();
+}
 let selectedFeature = null;
 
 // Track currently selected item (Riyadh road or TerraDraw line)
