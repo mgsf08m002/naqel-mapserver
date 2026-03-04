@@ -2116,6 +2116,78 @@
         addFieldSection.appendChild(addFieldDropdown);
 
         fieldsContainer.appendChild(addFieldSection);
+
+        const roadClosureSection = document.createElement('div');
+        roadClosureSection.className = 'mt-4 pt-3 border-t border-gray-700';
+
+        const roadClosureLabel = document.createElement('div');
+        roadClosureLabel.className = 'text-xs text-gray-300 mb-2';
+        roadClosureLabel.textContent = 'Road Closure';
+        roadClosureSection.appendChild(roadClosureLabel);
+
+        const roadClosureToggleRow = document.createElement('div');
+        roadClosureToggleRow.className = 'flex items-center justify-between gap-3';
+
+        const roadClosureNoLabel = document.createElement('span');
+        roadClosureNoLabel.className = 'text-xs font-medium text-gray-300';
+        roadClosureNoLabel.textContent = 'NO';
+
+        const roadClosureYesLabel = document.createElement('span');
+        roadClosureYesLabel.className = 'text-xs font-medium text-gray-500';
+        roadClosureYesLabel.textContent = 'YES';
+
+        const roadClosureToggleButton = document.createElement('button');
+        roadClosureToggleButton.type = 'button';
+        roadClosureToggleButton.className = 'relative inline-flex h-6 w-11 items-center rounded-full bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900';
+        roadClosureToggleButton.setAttribute('aria-pressed', 'false');
+        roadClosureToggleButton.setAttribute('aria-label', 'Toggle road closure');
+
+        const roadClosureToggleKnob = document.createElement('span');
+        roadClosureToggleKnob.className = 'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform translate-x-0';
+
+        roadClosureToggleButton.appendChild(roadClosureToggleKnob);
+
+        let isRoadClosed = false;
+
+        function updateRoadClosureToggleVisualState() {
+            if (isRoadClosed) {
+                roadClosureToggleButton.classList.remove('bg-gray-700');
+                roadClosureToggleButton.classList.add('bg-green-500');
+                roadClosureToggleKnob.classList.remove('translate-x-0');
+                roadClosureToggleKnob.classList.add('translate-x-5');
+                roadClosureToggleButton.setAttribute('aria-pressed', 'true');
+                roadClosureNoLabel.classList.remove('text-gray-300');
+                roadClosureNoLabel.classList.add('text-gray-500');
+                roadClosureYesLabel.classList.remove('text-gray-500');
+                roadClosureYesLabel.classList.add('text-gray-100');
+            } else {
+                roadClosureToggleButton.classList.remove('bg-green-500');
+                roadClosureToggleButton.classList.add('bg-gray-700');
+                roadClosureToggleKnob.classList.remove('translate-x-5');
+                roadClosureToggleKnob.classList.add('translate-x-0');
+                roadClosureToggleButton.setAttribute('aria-pressed', 'false');
+                roadClosureNoLabel.classList.remove('text-gray-500');
+                roadClosureNoLabel.classList.add('text-gray-300');
+                roadClosureYesLabel.classList.remove('text-gray-100');
+                roadClosureYesLabel.classList.add('text-gray-500');
+            }
+        }
+
+        roadClosureToggleButton.addEventListener('click', function (e) {
+            e.preventDefault();
+            isRoadClosed = !isRoadClosed;
+            updateRoadClosureToggleVisualState();
+        });
+
+        roadClosureToggleRow.appendChild(roadClosureNoLabel);
+        roadClosureToggleRow.appendChild(roadClosureToggleButton);
+        roadClosureToggleRow.appendChild(roadClosureYesLabel);
+
+        roadClosureSection.appendChild(roadClosureToggleRow);
+
+        updateRoadClosureToggleVisualState();
+
+        fieldsContainer.appendChild(roadClosureSection);
         content.appendChild(fieldsContainer);
 
         let isExpanded = true;
