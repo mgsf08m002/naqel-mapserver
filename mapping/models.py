@@ -34,7 +34,26 @@ class LineEditRequest(models.Model):
     
     # Relations data (JSON)
     relations_data = models.JSONField(default=list, blank=True, help_text="Relations section data")
-    
+
+    # Road closure flag and source metadata
+    # 0 = open (default), 1 = closed
+    road_closure = models.IntegerField(
+        default=0,
+        help_text="Road closure flag: 0 = open, 1 = closed",
+    )
+
+    # When an edit is associated with a RiyadhRoad feature, these fields capture
+    # the linkage so that approval flows can propagate closure status back to
+    # the base network where appropriate.
+    is_riyadh_road = models.BooleanField(
+        default=False,
+        help_text="True when this edit request targets a RiyadhRoad feature",
+    )
+    riyadh_road_id = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Primary key of the RiyadhRoad feature when applicable",
+    )
     # Parent approved line reference (for tracking edits to existing approved lines)
     parent_approved_line_id = models.IntegerField(blank=True, null=True, help_text='ID of the approved line being edited')
     
@@ -101,6 +120,13 @@ class RiyadhRoad(gis_models.Model):
     bridge = gis_models.CharField(max_length=1, null=True, blank=True, help_text="Bridge indicator (Y/N)")
     tunnel = gis_models.CharField(max_length=1, null=True, blank=True, help_text="Tunnel indicator (Y/N)")
     shape_length = gis_models.FloatField(null=True, blank=True, help_text="Length of the road segment")
+    road_closure = gis_models.IntegerField(
+        null=False,
+        blank=False,
+        default=0,
+        help_text="Road closure flag: 0 = open, 1 = closed",
+        db_column="road_closure",
+    )
 
     class Meta:
         db_table = 'riyadh_roads'

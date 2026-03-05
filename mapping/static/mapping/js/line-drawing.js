@@ -2147,7 +2147,21 @@
 
         roadClosureToggleButton.appendChild(roadClosureToggleKnob);
 
-        let isRoadClosed = false;
+        // Global shared state so other modules (e.g. save-line-edit.js, map.js)
+        // can read and write the current road closure flag for the feature
+        // being viewed/edited in the sidebar.
+        if (typeof window.currentRoadClosureState === 'undefined') {
+            window.currentRoadClosureState = false;
+        }
+
+        let isRoadClosed = !!window.currentRoadClosureState;
+
+        // When the road-closure toggle is first created, capture the initial
+        // value so that the save handler can reliably detect whether the user
+        // has changed the closure state, even for newly created features.
+        if (typeof window.initialRoadClosureState === 'undefined') {
+            window.initialRoadClosureState = isRoadClosed;
+        }
 
         function updateRoadClosureToggleVisualState() {
             if (isRoadClosed) {
@@ -2173,9 +2187,28 @@
             }
         }
 
+        function setRoadClosureFromExternal(value) {
+            isRoadClosed = !!value;
+            window.currentRoadClosureState = isRoadClosed;
+            // Track the initial value loaded from the backend so that the save
+            // handler can distinguish between a real closure change and a no-op.
+            window.initialRoadClosureState = isRoadClosed;
+            updateRoadClosureToggleVisualState();
+        }
+
+        // Expose shared getter/setter so other scripts can synchronize the
+        // toggle with feature data when selection changes or edits are saved.
+        window.setCurrentRoadClosure = setRoadClosureFromExternal;
+        if (typeof window.getCurrentRoadClosure !== 'function') {
+            window.getCurrentRoadClosure = function () {
+                return !!window.currentRoadClosureState;
+            };
+        }
+
         roadClosureToggleButton.addEventListener('click', function (e) {
             e.preventDefault();
             isRoadClosed = !isRoadClosed;
+            window.currentRoadClosureState = isRoadClosed;
             updateRoadClosureToggleVisualState();
         });
 
@@ -2185,6 +2218,10 @@
 
         roadClosureSection.appendChild(roadClosureToggleRow);
 
+        // Initialize visual state from shared global flag so that when the
+        // sidebar is reconstructed (e.g. when switching features) the toggle
+        // always reflects the actual closure value of the currently selected
+        // feature.
         updateRoadClosureToggleVisualState();
 
         fieldsContainer.appendChild(roadClosureSection);

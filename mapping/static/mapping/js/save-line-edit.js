@@ -11,6 +11,44 @@
     let currentFeatureLabel = 'Line';
 
     /**
+     * Lightweight wrapper around the global notification system used across
+     * the application (window.notify). This ensures road-closure feedback
+     * uses the same centralized toast UI/UX as login and account flows.
+     */
+    function showToastNotification(message, type) {
+        if (!message) {
+            return;
+        }
+
+        const normalizedType = type || 'info';
+
+        function tryShowNotification(retries) {
+            const remaining = typeof retries === 'number' ? retries : 10;
+
+            if (window.notify && window.notify.show) {
+                if (normalizedType === 'success') {
+                    window.notify.success(message);
+                } else if (normalizedType === 'error') {
+                    window.notify.error(message);
+                } else if (normalizedType === 'warning') {
+                    window.notify.warning(message);
+                } else {
+                    window.notify.info(message);
+                }
+                return;
+            }
+
+            if (remaining > 0) {
+                setTimeout(function () {
+                    tryShowNotification(remaining - 1);
+                }, 50);
+            }
+        }
+
+        tryShowNotification(10);
+    }
+
+    /**
      * Get current line data from line-drawing.js
      */
     function getCurrentLineData() {
@@ -266,6 +304,38 @@
         // Don't set approved_line_id for Riyadh roads (they're from the backup, not approved lines)
         // isRiyadhRoad is already declared above, so just reuse it
         const approvedLineIdToUse = (isApprovedLineEdit && approvedLineId && !isRiyadhRoad) ? approvedLineId : null;
+
+        // Normalize current road closure flag from shared sidebar state
+        let isRoadClosed = false;
+        if (typeof window.getCurrentRoadClosure === 'function') {
+            try {
+                isRoadClosed = !!window.getCurrentRoadClosure();
+            } catch (e) {
+                isRoadClosed = false;
+            }
+        }
+
+        const initialClosure =
+            typeof window.initialRoadClosureState === 'boolean'
+                ? window.initialRoadClosureState
+                : isRoadClosed;
+        const closureChanged = initialClosure !== isRoadClosed;
+
+        // Resolve Riyadh road linkage metadata when applicable so that the
+        // backend can correctly apply closure changes to the base network on
+        // approval.
+        let isRiyadhRoadFlag = !!isRiyadhRoad;
+        let riyadhRoadId = null;
+        if (isRiyadhRoadFlag) {
+            const riyadhSource = window.selectedRiyadhRoad || window.approvedLineBeingEdited;
+            if (riyadhSource) {
+                if (riyadhSource.riyadh_road_id != null) {
+                    riyadhRoadId = riyadhSource.riyadh_road_id;
+                } else if (riyadhSource.id != null) {
+                    riyadhRoadId = riyadhSource.id;
+                }
+            }
+        }
         
         return {
             geometry: geometry,
@@ -274,22 +344,122 @@
             fields_data: collectFieldsData(),
             tags_data: collectTagsData(),
             relations_data: collectRelationsData(),
-            approved_line_id: approvedLineIdToUse
+            approved_line_id: approvedLineIdToUse,
+            road_closure: isRoadClosed ? 1 : 0,
+            is_riyadh_road: isRiyadhRoadFlag,
+            riyadh_road_id: riyadhRoadId,
+            closure_changed: closureChanged
         };
     }
 
     /**
-     * Show confirmation popup
+     * Immediately synchronize road closure state with the backend so that
+     * symbology updates without waiting for manager approval. This is a
+     * best-effort, non-blocking call – the main save flow proceeds even if
+     * this request fails.
      */
-    function showSaveConfirmationPopup(isAutoApproved) {
+    function syncRoadClosureImmediate(editData) {
+        if (!editData || typeof editData.road_closure !== 'number') {
+            return;
+        }
+
+        let targetType = null;
+        let targetId = null;
+
+        if (editData.is_riyadh_road && editData.riyadh_road_id != null) {
+            targetType = 'riyadh_road';
+            targetId = editData.riyadh_road_id;
+        } else if (editData.approved_line_id) {
+            targetType = 'approved_line';
+            targetId = editData.approved_line_id;
+        } else if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id != null) {
+            targetType = 'approved_line';
+            targetId = window.approvedLineBeingEdited.id;
+        }
+
+        if (!targetType || targetId == null) {
+            return;
+        }
+
+        const payload = {
+            target_type: targetType,
+            target_id: targetId,
+            road_closure: editData.road_closure
+        };
+
+        fetch('/mapping/api/set-road-closure/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                return null;
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            if (!data || !data.success) {
+                return;
+            }
+
+            // Refresh relevant layers so that closure styling and icons are
+            // updated without requiring a full page reload.
+            try {
+                if (data.target_type === 'riyadh_road' && typeof window.loadRiyadhRoads === 'function') {
+                    window.loadRiyadhRoads();
+                }
+                if (data.target_type === 'approved_line' && typeof window.reloadApprovedLines === 'function') {
+                    window.reloadApprovedLines();
+                }
+            } catch (e) {
+                // Non-critical – visual refresh will still happen on next reload.
+            }
+        })
+        .catch(function() {
+            // Non-critical – main save flow continues regardless.
+        });
+    }
+
+    /**
+     * Show confirmation feedback after save. For road closure changes this
+     * uses a non-blocking toast notification instead of a modal popup. For
+     * all other edit flows, the existing modal confirmation is preserved.
+     */
+    function showSaveConfirmationPopup(options) {
+        const isAutoApproved = options && options.isAutoApproved;
+        const closureChanged = options && options.closureChanged;
+        const roadClosureValue = options && typeof options.roadClosure === 'number'
+            ? options.roadClosure
+            : null;
+
+        if (closureChanged && roadClosureValue !== null) {
+            const isClosed = roadClosureValue === 1;
+            const message = isClosed
+                ? 'The road has been marked closed.'
+                : 'The road has been marked opened.';
+
+            showToastNotification(message, 'success');
+            return;
+        }
+
         const popup = document.createElement('div');
         popup.id = 'saveConfirmationPopup';
         popup.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50';
         
-        const title = isAutoApproved ? 'Edit Saved Successfully' : 'Edit Request Sent';
-        const message = isAutoApproved 
-            ? 'Your edit has been saved and will appear on the map after reload.'
-            : 'Your requested edit has been sent to Manager and will be approved/rejected accordingly.';
+        let title;
+        let messageText;
+
+        if (isAutoApproved) {
+            title = 'Edit Saved Successfully';
+            messageText = 'Your edit has been saved and will appear on the map after reload.';
+        } else {
+            title = 'Edit Request Submitted';
+            messageText = 'Your requested edit has been sent and will be reviewed according to your workflow.';
+        }
         
         popup.innerHTML = `
             <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
@@ -300,7 +470,7 @@
                 </div>
                 <h3 class="text-lg font-semibold text-gray-900 text-center mb-2">${title}</h3>
                 <p class="text-sm text-gray-600 text-center mb-6">
-                    ${message}
+                    ${messageText}
                 </p>
                 <button id="closeConfirmationPopup" class="w-full px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium">
                     OK
@@ -339,6 +509,11 @@
             return;
         }
 
+        // Apply road closure immediately and independently of the edit request
+        // approval flow so that status changes are always reflected on the map
+        // without waiting for manager review.
+        syncRoadClosureImmediate(editData);
+
         // Show loading state
         if (saveBtn) {
             saveBtn.disabled = true;
@@ -361,7 +536,12 @@
         .then(function(data) {
             if (data.success) {
                 const isAutoApproved = data.auto_approved || false;
-                showSaveConfirmationPopup(isAutoApproved);
+                const closureChanged = !!editData.closure_changed;
+                showSaveConfirmationPopup({
+                    isAutoApproved: isAutoApproved,
+                    closureChanged: closureChanged,
+                    roadClosure: editData.road_closure
+                });
                 
                 if (isAutoApproved) {
                     setTimeout(function() {
@@ -444,6 +624,7 @@
     // Export functions for use in other scripts
     window.collectLineEditData = collectLineEditData;
     window.handleSaveLineEdit = handleSave;
+    window.showToastNotification = showToastNotification;
 
 })();
 

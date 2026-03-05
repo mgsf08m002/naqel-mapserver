@@ -85,7 +85,12 @@
         try {
             const allLayers = map.getStyle().layers || [];
             allLayers.forEach(function(layer) {
-                if (layer.id && (layer.id.startsWith('approved-line-layer-') || layer.id.startsWith('approved-line-glow-'))) {
+                if (
+                    layer.id &&
+                    (layer.id.startsWith('approved-line-layer-') ||
+                        layer.id.startsWith('approved-line-glow-') ||
+                        layer.id.startsWith('approved-line-closure-symbols-'))
+                ) {
                     layersToRemove.push(layer.id);
                 }
             });
@@ -108,11 +113,12 @@
         // Check stored data for additional layer IDs
         if (window.approvedLinesData) {
             Object.keys(window.approvedLinesData).forEach(function(key) {
-                const match = key.match(/approved-line-(?:layer|glow)-(\d+)/);
+                const match = key.match(/approved-line-(?:layer|glow|closure-symbols)-(\d+)/);
                 if (match) {
                     const lineId = match[1];
                     const layerId = 'approved-line-layer-' + lineId;
                     const glowLayerId = 'approved-line-glow-' + lineId;
+                    const closureLayerId = 'approved-line-closure-symbols-' + lineId;
                     const sourceId = 'approved-line-source-' + lineId;
                     
                     if (layersToRemove.indexOf(layerId) === -1) {
@@ -120,6 +126,9 @@
                     }
                     if (layersToRemove.indexOf(glowLayerId) === -1) {
                         layersToRemove.push(glowLayerId);
+                    }
+                    if (layersToRemove.indexOf(closureLayerId) === -1) {
+                        layersToRemove.push(closureLayerId);
                     }
                     if (sourcesToRemove.indexOf(sourceId) === -1) {
                         sourcesToRemove.push(sourceId);
@@ -132,6 +141,7 @@
         for (let i = 1; i <= 200; i++) {
             const testLayerId = 'approved-line-layer-' + i;
             const testGlowLayerId = 'approved-line-glow-' + i;
+            const testClosureLayerId = 'approved-line-closure-symbols-' + i;
             const testSourceId = 'approved-line-source-' + i;
             
             try {
@@ -145,6 +155,14 @@
             try {
                 if (map.getLayer(testGlowLayerId) && layersToRemove.indexOf(testGlowLayerId) === -1) {
                     layersToRemove.push(testGlowLayerId);
+                }
+            } catch (e) {
+                // Layer doesn't exist
+            }
+
+            try {
+                if (map.getLayer(testClosureLayerId) && layersToRemove.indexOf(testClosureLayerId) === -1) {
+                    layersToRemove.push(testClosureLayerId);
                 }
             } catch (e) {
                 // Layer doesn't exist
@@ -229,6 +247,7 @@
         const lineId = lineData.id;
         const layerId = 'approved-line-layer-' + lineId;
         const glowLayerId = 'approved-line-glow-' + lineId;
+        const closureSymbolsLayerId = 'approved-line-closure-symbols-' + lineId;
         const sourceId = 'approved-line-source-' + lineId;
 
         // Determine feature label for styling
@@ -253,13 +272,19 @@
             };
         }
 
+        const isRoadClosed =
+            lineData.road_closure === 1 ||
+            lineData.road_closure === true ||
+            lineData.road_closure === '1';
+
         // Create GeoJSON feature
         const feature = {
             type: 'Feature',
             geometry: lineData.geometry,
             properties: {
                 id: lineId,
-                feature_type: featureLabel
+                feature_type: featureLabel,
+                road_closure: isRoadClosed ? 1 : 0
             }
         };
 
@@ -275,6 +300,9 @@
             }
             if (map.getLayer(glowLayerId)) {
                 map.removeLayer(glowLayerId);
+            }
+            if (map.getLayer(closureSymbolsLayerId)) {
+                map.removeLayer(closureSymbolsLayerId);
             }
             if (map.getSource(sourceId)) {
                 map.removeSource(sourceId);
@@ -299,7 +327,7 @@
                 'line-cap': 'round'
             },
             paint: {
-                'line-color': style.glowColor,
+                'line-color': isRoadClosed ? '#ff3b30' : style.glowColor,
                 'line-width': style.glowWidth,
                 'line-opacity': style.glowOpacity || 0.5
             }
@@ -315,11 +343,34 @@
                 'line-cap': 'round'
             },
             paint: {
-                'line-color': style.lineColor,
+                'line-color': isRoadClosed ? '#ff3b30' : style.lineColor,
                 'line-width': style.lineWidth,
-                'line-opacity': 1
+                'line-opacity': 1,
+                'line-dasharray': isRoadClosed ? [1.5, 1.5] : [1, 0]
             }
         });
+
+        // Add closure symbols along the approved line when closed and the icon
+        // is loaded. Using symbol-placement: 'line' guarantees the icons are
+        // rendered even when the geometry is complex.
+        if (isRoadClosed && map.hasImage('road-closure')) {
+            try {
+                map.addLayer({
+                    id: closureSymbolsLayerId,
+                    type: 'symbol',
+                    source: sourceId,
+                    layout: {
+                        'symbol-placement': 'line',
+                        'symbol-spacing': 60,
+                        'icon-image': 'road-closure',
+                        'icon-size': 1.0,
+                        'icon-allow-overlap': true
+                    }
+                });
+            } catch (e) {
+                // If we fail to add the symbol layer, keep line rendering intact.
+            }
+        }
 
         // Store line data for reference
         if (!window.approvedLinesData) {
@@ -332,7 +383,10 @@
             current_feature_label: featureLabel,
             fields_data: lineData.fields_data || {},
             tags_data: lineData.tags_data || [],
-            relations_data: lineData.relations_data || []
+            relations_data: lineData.relations_data || [],
+            road_closure: isRoadClosed ? 1 : 0,
+            is_riyadh_road: !!lineData.is_riyadh_road,
+            riyadh_road_id: lineData.riyadh_road_id || null
         };
 
         // Add click and hover handlers
@@ -392,6 +446,16 @@
             window.lineDrawingHandler.updateCurrentFeatureLabel(featureLabelToUse);
         } else if (typeof window.updateCurrentFeatureLabel === 'function') {
             window.updateCurrentFeatureLabel(featureLabelToUse);
+        }
+
+        // Sync road closure toggle with the currently selected feature so that
+        // the sidebar accurately reflects whether the line is open or closed.
+        if (typeof window.setCurrentRoadClosure === 'function') {
+            const closureValue =
+                lineData.road_closure === 1 ||
+                lineData.road_closure === true ||
+                lineData.road_closure === '1';
+            window.setCurrentRoadClosure(closureValue);
         }
 
         // Determine if back button should be shown

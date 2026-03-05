@@ -429,6 +429,15 @@ function convertRiyadhRoadToLineFeature(riyadhRoadFeature) {
     if (props.layer !== null && props.layer !== undefined) tagsData.push({key: 'layer', value: String(props.layer)});
     if (props.shape_length) tagsData.push({key: 'shape_length', value: String(props.shape_length)});
     if (props.objectid) tagsData.push({key: 'objectid', value: String(props.objectid)});
+
+    const rawRoadClosure = props.road_closure;
+    let roadClosureValue = 0;
+    if (typeof rawRoadClosure === 'number') {
+        roadClosureValue = rawRoadClosure;
+    } else if (typeof rawRoadClosure === 'string') {
+        const parsed = parseInt(rawRoadClosure, 10);
+        roadClosureValue = Number.isNaN(parsed) ? 0 : parsed;
+    }
     
     return {
         id: props.id || null, // Riyadh road ID
@@ -438,7 +447,9 @@ function convertRiyadhRoadToLineFeature(riyadhRoadFeature) {
         fields_data: fieldsData,
         tags_data: tagsData,
         relations_data: [],
-        is_riyadh_road: true // Flag to identify this as a Riyadh road
+        road_closure: roadClosureValue === 1,
+        is_riyadh_road: true,
+        riyadh_road_id: props.id || null
     };
 }
 
@@ -603,11 +614,67 @@ function applyRiyadhRoadsSymbology() {
     colorExpression.push('#dee2e6');
     widthExpression.push(0.5);
 
+    // Closed roads are highlighted with a dotted red line, while open roads
+    // continue to use the centralized symbology based on fclass.
+    const closedRoadColor = '#ff3b30';
+    const colorWithClosure = [
+        'case',
+        ['==', ['get', 'road_closure'], 1],
+        closedRoadColor,
+        colorExpression
+    ];
+
+    const dashArrayWithClosure = [
+        'case',
+        ['==', ['get', 'road_closure'], 1],
+        ['literal', [1.5, 1.5]],
+        ['literal', [1, 0]]
+    ];
+
     try {
-        map.setPaintProperty('riyadh-roads-layer', 'line-color', colorExpression);
+        map.setPaintProperty('riyadh-roads-layer', 'line-color', colorWithClosure);
         map.setPaintProperty('riyadh-roads-layer', 'line-width', widthExpression);
+        map.setPaintProperty('riyadh-roads-layer', 'line-dasharray', dashArrayWithClosure);
     } catch (e) {
         // If style is not fully ready, fail silently.
+    }
+}
+
+function ensureRiyadhRoadsClosureSymbolsLayer() {
+    if (typeof map === 'undefined' || !map) {
+        return;
+    }
+
+    if (!map.getSource('riyadh-roads')) {
+        return;
+    }
+
+    if (map.getLayer('riyadh-roads-closure-symbols')) {
+        return;
+    }
+
+    if (!map.hasImage('road-closure')) {
+        return;
+    }
+
+    try {
+        map.addLayer(
+            {
+                id: 'riyadh-roads-closure-symbols',
+                type: 'symbol',
+                source: 'riyadh-roads',
+                layout: {
+                    'symbol-placement': 'line',
+                    'symbol-spacing': 60,
+                    'icon-image': 'road-closure',
+                    'icon-size': 1.0,
+                    'icon-allow-overlap': true
+                },
+                filter: ['==', ['get', 'road_closure'], 1]
+            }
+        );
+    } catch (e) {
+        // If the layer cannot be added, fail silently to avoid impacting map load.
     }
 }
 
@@ -638,7 +705,7 @@ async function loadRiyadhRoads() {
                     'data': data
                 });
             }
-            
+
             // Add roads layer if it doesn't exist
             if (!map.getLayer('riyadh-roads-layer')) {
                 map.addLayer({
@@ -661,7 +728,11 @@ async function loadRiyadhRoads() {
 
             // Apply centralized symbology to the Riyadh roads layer
             applyRiyadhRoadsSymbology();
-            
+
+            // Ensure closure symbols layer is present once symbology and
+            // sources are ready.
+            ensureRiyadhRoadsClosureSymbolsLayer();
+
             // Riyadh roads loaded successfully
         }
     } catch (error) {
@@ -674,8 +745,38 @@ map.on('load', () => {
     // Ensure initial basemap visibility is applied
     setBasemapVisibility(currentBasemapId);
 
-    // Load Riyadh roads after map is loaded
-    loadRiyadhRoads();
+
+    if (!map.hasImage('road-closure')) {
+        map.loadImage('/static/images/icons/road_closure.png', (error, image) => {
+            if (error || !image) {
+       
+                console.error('Failed to load road-closure icon from /static/images/icons/road_closure.png', error);
+            } else if (!map.hasImage('road-closure')) {
+                map.addImage('road-closure', image);
+            }
+
+            loadRiyadhRoads();
+
+            if (typeof window.reloadApprovedLines === 'function') {
+                try {
+                    window.reloadApprovedLines();
+                } catch (e) {
+                    // Non-critical; approved lines will still render without icons.
+                }
+            }
+        });
+    } else {
+        // Icon already registered (e.g. style reinitialization). Safe to load
+        // roads immediately.
+        loadRiyadhRoads();
+        if (typeof window.reloadApprovedLines === 'function') {
+            try {
+                window.reloadApprovedLines();
+            } catch (e) {
+                // Non-critical.
+            }
+        }
+    }
     
     // Reload roads when map moves/zooms (with debouncing)
     let reloadTimeout;
@@ -755,3 +856,6 @@ if (document.readyState === 'loading') {
 // Expose clearSelectedRiyadhRoad globally for use by other scripts
 window.clearSelectedRiyadhRoad = clearSelectedRiyadhRoad;
 window.clearPreviousSelection = clearPreviousSelection;
+// Expose loader so other scripts (e.g. save-line-edit.js) can refresh Riyadh
+// roads when closure status changes.
+window.loadRiyadhRoads = loadRiyadhRoads;
