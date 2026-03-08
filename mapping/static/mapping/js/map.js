@@ -480,6 +480,21 @@ function clearSelectedRiyadhRoad() {
             if (map.getSource(sourceId)) {
                 map.removeSource(sourceId);
             }
+            // Show the road again in the base layer (clear exclude filter)
+            if (map.getLayer('riyadh-roads-layer')) {
+                try {
+                    map.setFilter('riyadh-roads-layer', null);
+                } catch (err) {
+                    // Ignore
+                }
+            }
+            if (map.getLayer('riyadh-roads-closure-symbols')) {
+                try {
+                    map.setFilter('riyadh-roads-closure-symbols', ['==', ['get', 'road_closure'], 1]);
+                } catch (err) {
+                    // Ignore
+                }
+            }
         } catch (e) {
             // Error removing layers/source
         }
@@ -851,6 +866,4 @@ if (document.readyState === 'loading') {
 // Expose clearSelectedRiyadhRoad globally for use by other scripts
 window.clearSelectedRiyadhRoad = clearSelectedRiyadhRoad;
 window.clearPreviousSelection = clearPreviousSelection;
-// Expose loader so other scripts (e.g. save-line-edit.js) can refresh Riyadh
-// roads when closure status changes.
 window.loadRiyadhRoads = loadRiyadhRoads;

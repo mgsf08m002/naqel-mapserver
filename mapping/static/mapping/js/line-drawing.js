@@ -3814,6 +3814,19 @@
             map.setPaintProperty(layerId, 'line-width', style.lineWidth);
             map.setPaintProperty(layerId, 'line-dasharray', isRoadClosed ? roadClosureDash : [1, 0]);
         }
+
+        // Hide this road in the base riyadh-roads layer so only the selected symbology shows
+        if (map.getLayer('riyadh-roads-layer')) {
+            try {
+                var excludeFilter = ['!=', ['get', 'id'], roadId];
+                map.setFilter('riyadh-roads-layer', excludeFilter);
+                if (map.getLayer('riyadh-roads-closure-symbols')) {
+                    map.setFilter('riyadh-roads-closure-symbols', ['all', ['==', ['get', 'road_closure'], 1], excludeFilter]);
+                }
+            } catch (err) {
+                // Ignore
+            }
+        }
     }
 
     /**
