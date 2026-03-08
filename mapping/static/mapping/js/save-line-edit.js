@@ -359,7 +359,11 @@
      * this request fails.
      */
     function syncRoadClosureImmediate(editData) {
-        if (!editData || typeof editData.road_closure !== 'number') {
+        if (
+            !editData ||
+            typeof editData.road_closure !== 'number' ||
+            !editData.closure_changed
+        ) {
             return;
         }
 
@@ -517,8 +521,13 @@
         // Show loading state
         if (saveBtn) {
             saveBtn.disabled = true;
-            const originalText = saveBtn.querySelector('span').textContent;
-            saveBtn.querySelector('span').textContent = 'Saving...';
+            const labelSpan = saveBtn.querySelector('span');
+            if (labelSpan) {
+                if (!saveBtn.dataset.originalLabel) {
+                    saveBtn.dataset.originalLabel = labelSpan.textContent || 'Save';
+                }
+                labelSpan.textContent = 'Saving...';
+            }
         }
 
         // Send to backend
@@ -570,7 +579,11 @@
         .finally(function() {
             if (saveBtn) {
                 saveBtn.disabled = false;
-                saveBtn.querySelector('span').textContent = 'Save';
+                const labelSpan = saveBtn.querySelector('span');
+                if (labelSpan) {
+                    const originalLabel = saveBtn.dataset.originalLabel || 'Save';
+                    labelSpan.textContent = originalLabel;
+                }
             }
         });
     }
