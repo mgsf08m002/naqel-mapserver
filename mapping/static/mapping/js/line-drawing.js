@@ -16,24 +16,11 @@
 
     let sidePanel = null;
     let sidePanelContent = null;
-    let currentFeatureLabel = 'Line';
+    let currentFeatureLabel = "Line";
 
-    // Centralized symbology catalog (fetched from backend symbology app)
-    // Shape matches `symbology.feature_catalog.SymbologyCatalog`.
     let symbologyCatalog = null;
-    let symbologyStylesByLabel = null; // normalized by lower-cased label
+    let symbologyStylesByLabel = null;
     let symbologyCatalogRequested = false;
-
-    function hexToRgb(hex) {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result
-            ? {
-                  r: parseInt(result[1], 16),
-                  g: parseInt(result[2], 16),
-                  b: parseInt(result[3], 16),
-              }
-            : { r: 239, g: 68, b: 68 };
-    }
 
     function normalizeFeatureLabel(label) {
         if (!label) {
@@ -85,30 +72,17 @@
                 setSymbologyCatalog(data);
             })
             .catch(function () {
-                // Fail gracefully; callers will fall back to default style.
+                // Catalog load failed; getVisualizationStyle will return undefined until retry.
             });
     }
 
     function getVisualizationStyle(featureLabel) {
-        // Ensure the catalog request has been kicked off early.
         ensureSymbologyCatalogRequested();
-
-        const normalizedLabel = normalizeFeatureLabel(featureLabel || 'Line');
-
-        if (symbologyStylesByLabel && symbologyStylesByLabel[normalizedLabel]) {
-            return symbologyStylesByLabel[normalizedLabel];
+        const normalizedLabel = normalizeFeatureLabel(featureLabel || "Line");
+        if (!symbologyStylesByLabel) {
+            return undefined;
         }
-
-        // Default style when catalog is not yet available or label not defined.
-        return {
-            lineColor: '#ffffff',
-            glowColor: '#ef4444',
-            lineWidth: 4,
-            glowWidth: 10,
-            glowOpacity: 0.5,
-            markerColor: '#ffffff',
-            markerGlowColor: '#ef4444',
-        };
+        return symbologyStylesByLabel[normalizedLabel] || symbologyStylesByLabel["line"];
     }
 
     function initLineDrawing() {
@@ -143,6 +117,7 @@
             sidePanelContent = document.getElementById('sidePanelContent');
 
             setupLineDrawingListeners();
+            setupFeatureSearch();
             startHidingDefaultRendering();
             
             // Ensure TerraDraw is in select mode for viewing features (works even when edit mode is disabled)
@@ -575,10 +550,15 @@
         // Show default sidepanel elements
         showSidePanelDefaultElements();
 
-        // Hide search results if visible
+        // Hide search results and show line panel
         const searchResults = document.getElementById('featureSearchResults');
         if (searchResults) {
             searchResults.style.display = 'none';
+        }
+        const linePanelContent = document.getElementById('linePanelContent');
+        const linePanel = linePanelContent || sidePanelContent;
+        if (linePanelContent) {
+            linePanelContent.style.display = 'block';
         }
 
         // Ensure content area is visible
@@ -598,18 +578,18 @@
         
         if (!dropdownsContainer) {
             // Create dropdowns container if it doesn't exist
-            if (!sidePanelContent) {
+            if (!linePanel) {
                 setTimeout(function() {
                     showLineSidePanelForApprovedLineEdit(featureLabel);
                 }, 100);
                 return;
             }
 
-            sidePanelContent.innerHTML = '';
+            linePanel.innerHTML = '';
 
             const visualizationContainer = createLineVisualization();
             if (visualizationContainer) {
-                sidePanelContent.appendChild(visualizationContainer);
+                linePanel.appendChild(visualizationContainer);
                 // Ensure the feature name is updated after container is created
                 const featureNameElement = document.getElementById('lineVisualizationFeatureName');
                 if (featureNameElement && labelToUse) {
@@ -640,7 +620,7 @@
             const lineBox = createLineBox();
             dropdownsContainer.appendChild(lineBox);
 
-            sidePanelContent.appendChild(dropdownsContainer);
+            linePanel.appendChild(dropdownsContainer);
             populateDropdowns();
         } else {
             // Ensure dropdowns container is visible
@@ -648,11 +628,11 @@
             
             // Check if visualization container exists, if not create it
             let visualizationContainer = document.getElementById('lineVisualizationContainer');
-            if (!visualizationContainer && sidePanelContent) {
+            if (!visualizationContainer && linePanel) {
                 visualizationContainer = createLineVisualization();
                 if (visualizationContainer) {
                     // Insert before dropdowns container
-                    sidePanelContent.insertBefore(visualizationContainer, dropdownsContainer);
+                    linePanel.insertBefore(visualizationContainer, dropdownsContainer);
                     // Update feature name
                     const featureNameElement = document.getElementById('lineVisualizationFeatureName');
                     if (featureNameElement && labelToUse) {
@@ -703,16 +683,17 @@
             
             if (!svgContainer) {
                 // If SVG container doesn't exist, try to create visualization container
-                if (sidePanelContent) {
+                const linePanelForSvg = document.getElementById('linePanelContent') || sidePanelContent;
+                if (linePanelForSvg) {
                     let visualizationContainer = document.getElementById('lineVisualizationContainer');
                     if (!visualizationContainer) {
                         visualizationContainer = createLineVisualization();
                         if (visualizationContainer) {
                             const dropdownsContainer = document.getElementById('lineDropdownsContainer');
                             if (dropdownsContainer) {
-                                sidePanelContent.insertBefore(visualizationContainer, dropdownsContainer);
+                                linePanelForSvg.insertBefore(visualizationContainer, dropdownsContainer);
                             } else {
-                                sidePanelContent.appendChild(visualizationContainer);
+                                linePanelForSvg.appendChild(visualizationContainer);
                             }
                             // Update feature name
                             const featureNameElement = document.getElementById('lineVisualizationFeatureName');
@@ -800,6 +781,11 @@
         if (searchResults) {
             searchResults.style.display = 'none';
         }
+        const linePanelContent = document.getElementById('linePanelContent');
+        const linePanel = linePanelContent || sidePanelContent;
+        if (linePanelContent) {
+            linePanelContent.style.display = 'block';
+        }
 
         const contentArea = document.querySelector('#editSidePanel .flex-1.overflow-y-auto');
         if (contentArea) {
@@ -809,11 +795,11 @@
         let dropdownsContainer = document.getElementById('lineDropdownsContainer');
         
         if (!dropdownsContainer) {
-            sidePanelContent.innerHTML = '';
+            linePanel.innerHTML = '';
 
             const visualizationContainer = createLineVisualization();
             if (visualizationContainer) {
-                sidePanelContent.appendChild(visualizationContainer);
+                linePanel.appendChild(visualizationContainer);
             }
 
             dropdownsContainer = document.createElement('div');
@@ -839,7 +825,7 @@
             const lineBox = createLineBox();
             dropdownsContainer.appendChild(lineBox);
 
-            sidePanelContent.appendChild(dropdownsContainer);
+            linePanel.appendChild(dropdownsContainer);
             populateDropdowns();
             updateLineVisualization();
         } else {
@@ -976,9 +962,9 @@
                 }
             });
 
-            // Get visualization style based on feature label
             const labelToUse = featureLabel || getCurrentFeatureLabel();
-            const style = getVisualizationStyle(labelToUse);
+            const style = getVisualizationStyle(labelToUse) || getVisualizationStyle("Line");
+            if (!style) { return; }
 
             // Draw glow path
             const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -1085,7 +1071,8 @@
                 }
             });
 
-            const style = getVisualizationStyle(currentFeatureLabel);
+            const style = getVisualizationStyle(currentFeatureLabel) || getVisualizationStyle("Line");
+            if (!style) { return; }
 
             const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             glowPath.setAttribute('d', pathData);
@@ -1116,35 +1103,28 @@
         }
     }
 
+    /**
+     * Set current feature type and update map symbology immediately.
+     * Map display updates without Save; persistence and approval happen on Save.
+     */
     function updateCurrentFeatureLabel(featureType) {
-        if (!featureType) {
-            featureType = 'Line';
-        }
-        
+        featureType = featureType || "Line";
         currentFeatureLabel = featureType;
-        
-        const valueDisplay = document.getElementById('currentFeatureValue');
-        if (valueDisplay) {
-            valueDisplay.textContent = currentFeatureLabel;
-        }
-        
-        const visualizationFeatureName = document.getElementById('lineVisualizationFeatureName');
-        if (visualizationFeatureName) {
-            visualizationFeatureName.textContent = currentFeatureLabel;
-        }
 
-        const selectedFeatureName = document.getElementById('selectedFeatureName');
-        if (selectedFeatureName) {
-            selectedFeatureName.textContent = currentFeatureLabel;
-        }
+        const valueDisplay = document.getElementById("currentFeatureValue");
+        if (valueDisplay) valueDisplay.textContent = currentFeatureLabel;
+
+        const visualizationFeatureName = document.getElementById("lineVisualizationFeatureName");
+        if (visualizationFeatureName) visualizationFeatureName.textContent = currentFeatureLabel;
+
+        const selectedFeatureName = document.getElementById("selectedFeatureName");
+        if (selectedFeatureName) selectedFeatureName.textContent = currentFeatureLabel;
 
         if (currentLineId) {
             renderLineAsMapLibreLayer(currentLineId);
             forceMarkersVisibility();
         }
-        
-        // Only update visualization if we're not editing an approved line
-        // (approved lines use updateLineVisualizationFromGeometry instead)
+
         if (!window.approvedLineBeingEdited) {
             updateLineVisualization();
             updateFeatureTypeVisualization();
@@ -1196,8 +1176,9 @@
                 return;
             }
             
-            const style = getVisualizationStyle(currentFeatureLabel);
-            
+            const style = getVisualizationStyle(currentFeatureLabel) || getVisualizationStyle("Line");
+            if (!style) { return; }
+
             const existingSource = map.getSource(sourceId);
             const existingGlowLayer = map.getLayer(glowLayerId);
             const existingLayer = map.getLayer(layerId);
@@ -1984,7 +1965,8 @@
             });
 
             const featureLabel = getCurrentFeatureLabel();
-            const style = getVisualizationStyle(featureLabel);
+            const style = getVisualizationStyle(featureLabel) || getVisualizationStyle("Line");
+            if (!style) { return; }
             const scaleFactor = 0.25;
 
             const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -3354,21 +3336,182 @@
     }
 
     function hideLineSidePanel() {
-        if (sidePanelContent) {
-            const container = document.getElementById('lineDropdownsContainer');
-            if (container) {
-                container.style.display = 'none';
-            }
-            
-            const searchResults = document.getElementById('featureSearchResults');
-            if (searchResults) {
-                searchResults.style.display = 'block';
-            }
+        const linePanelContent = document.getElementById('linePanelContent');
+        if (linePanelContent) {
+            linePanelContent.style.display = 'none';
+        }
+        const searchResults = document.getElementById('featureSearchResults');
+        if (searchResults) {
+            searchResults.style.display = 'block';
         }
     }
 
     function getCurrentLineId() {
         return currentLineId;
+    }
+
+    /**
+     * Returns a flat list of all feature types with category for search.
+     * Matches the options used in populateDropdowns.
+     */
+    function getFeatureTypesForSearch() {
+        const categories = [
+            { category: 'Major Roads', options: [
+                { label: 'Motorway', value: 'motorway' },
+                { label: 'Trunk Road', value: 'trunk_road' },
+                { label: 'Primary Road', value: 'primary_road' },
+                { label: 'Secondary Road', value: 'secondary_road' },
+                { label: 'Tertiary Road', value: 'tertiary_road' },
+                { label: 'Motorway Link', value: 'motorway_link' },
+                { label: 'Trunk Link', value: 'trunk_link' },
+                { label: 'Primary Link', value: 'primary_link' },
+                { label: 'Secondary Link', value: 'secondary_link' },
+                { label: 'Tertiary Link', value: 'tertiary_link' }
+            ]},
+            { category: 'Minor Roads', options: [
+                { label: 'Minor/Unclassified Road', value: 'minor_unclassified' },
+                { label: 'Residential Road', value: 'residential' },
+                { label: 'Living Street', value: 'living_street' },
+                { label: 'Service Road', value: 'service' },
+                { label: 'Track / Land-Access Road', value: 'track' }
+            ]},
+            { category: 'Rails', options: [
+                { label: 'Train Track', value: 'train_track' },
+                { label: 'Disused Railway', value: 'disused_railway' },
+                { label: 'Tram Track', value: 'tram_track' },
+                { label: 'Underground Railway Track', value: 'underground_railway' },
+                { label: 'Narrow Guage Track', value: 'narrow_gauge' },
+                { label: 'Light Rail Track', value: 'light_rail' },
+                { label: 'Monorail Track', value: 'monorail' },
+                { label: 'Funicular Track', value: 'funicular' }
+            ]},
+            { category: 'Paths', options: [
+                { label: 'Path', value: 'path' },
+                { label: 'Foot Path', value: 'foot_path' },
+                { label: 'Marked Crossing', value: 'marked_crossing' },
+                { label: 'Pavement', value: 'pavement' },
+                { label: 'Informal Path', value: 'informal_path' },
+                { label: 'Steps', value: 'steps' },
+                { label: 'Cycle Path', value: 'cycle_path' },
+                { label: 'Bridle Way', value: 'bridle_way' },
+                { label: 'Pedestrian Street', value: 'pedestrian_street' }
+            ]},
+            { category: 'Waterways', options: [
+                { label: 'Stream', value: 'stream' },
+                { label: 'Drain', value: 'drain' },
+                { label: 'River', value: 'river' },
+                { label: 'Canal', value: 'canal' },
+                { label: 'Ditch', value: 'ditch' }
+            ]},
+            { category: 'Barrier Features', options: [
+                { label: 'Fence', value: 'fence' },
+                { label: 'Guard Rail', value: 'guard_rail' },
+                { label: 'Wall', value: 'wall' },
+                { label: 'Retaining Wall', value: 'retaining_wall' },
+                { label: 'Kerb', value: 'kerb' },
+                { label: 'Gate', value: 'gate' },
+                { label: 'Hedge', value: 'hedge' },
+                { label: 'Trench', value: 'trench' },
+                { label: 'Barrier', value: 'barrier' }
+            ]},
+            { category: 'Natural Features', options: [
+                { label: 'Coast Line', value: 'coast_line' },
+                { label: 'Tree Row', value: 'tree_row' },
+                { label: 'Cliff', value: 'cliff' }
+            ]},
+            { category: 'Utility Features', options: [
+                { label: 'Power Line', value: 'power_line' },
+                { label: 'Minor Power Line', value: 'minor_power_line' },
+                { label: 'Pipeline', value: 'pipeline' },
+                { label: 'Power Cable', value: 'power_cable' }
+            ]}
+        ];
+        const flat = [];
+        categories.forEach(function(cat) {
+            (cat.options || []).forEach(function(opt) {
+                flat.push({ label: opt.label, value: opt.value, category: cat.category });
+            });
+        });
+        return flat;
+    }
+
+    /**
+     * Wire the Search features input and populate featureSearchResults.
+     * Shows placeholder when empty; filters feature types when user types; on select, sets type and shows line panel.
+     */
+    function setupFeatureSearch() {
+        const searchInput = document.getElementById('featureSearch');
+        const searchResults = document.getElementById('featureSearchResults');
+        if (!searchInput || !searchResults) {
+            return;
+        }
+
+        function renderSearchState(query) {
+            const q = (query || '').trim().toLowerCase();
+            const all = getFeatureTypesForSearch();
+
+            if (q.length === 0) {
+                searchResults.innerHTML = '<p class="text-xs text-gray-400 px-2 py-4">Type to search feature types (e.g. Motorway, Path, Fence)</p>';
+                searchResults.style.display = 'block';
+                return;
+            }
+
+            const matches = all.filter(function(item) {
+                return (item.label && item.label.toLowerCase().indexOf(q) >= 0) ||
+                    (item.category && item.category.toLowerCase().indexOf(q) >= 0);
+            });
+
+            searchResults.innerHTML = '';
+            searchResults.style.display = 'block';
+
+            if (matches.length === 0) {
+                const empty = document.createElement('p');
+                empty.className = 'text-xs text-gray-400 px-2 py-4';
+                empty.textContent = 'No feature types match your search.';
+                searchResults.appendChild(empty);
+                return;
+            }
+
+            matches.forEach(function(item) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'w-full text-left px-3 py-2.5 text-sm text-white hover:bg-gray-600 rounded-lg transition-colors flex items-center justify-between gap-2';
+                const labelSpan = document.createElement('span');
+                labelSpan.textContent = item.label;
+                const catSpan = document.createElement('span');
+                catSpan.className = 'text-xs text-gray-400 flex-shrink-0';
+                catSpan.textContent = item.category;
+                btn.appendChild(labelSpan);
+                btn.appendChild(catSpan);
+                btn.addEventListener("click", function() {
+                    const label = item.label;
+                    currentFeatureLabel = label;
+                    updateCurrentFeatureLabel(label);
+                    searchInput.value = "";
+                    renderSearchState("");
+                    const approved = window.approvedLineBeingEdited;
+                    if (approved && approved.id && approved.geometry) {
+                        if (approved.is_riyadh_road) {
+                            updateRiyadhRoadVisualization(approved.id, label, approved.geometry);
+                        } else {
+                            updateApprovedLineVisualization(approved.id, label);
+                        }
+                    }
+                    showLineSidePanel();
+                });
+                searchResults.appendChild(btn);
+            });
+        }
+
+        searchInput.addEventListener('input', function() {
+            renderSearchState(searchInput.value);
+        });
+        searchInput.addEventListener('focus', function() {
+            renderSearchState(searchInput.value);
+        });
+
+        // Initial state: show hint when panel is visible
+        renderSearchState('');
     }
 
     function populateDropdowns() {
@@ -3506,34 +3649,27 @@
             item.setAttribute('role', 'menuitem');
             item.setAttribute('data-value', option.value || option);
 
-            item.addEventListener('click', function() {
+            item.addEventListener("click", function() {
                 const selectedValue = option.label || option;
-                
                 if (!selectedValue) return;
-                
+
                 currentFeatureLabel = selectedValue;
                 updateCurrentFeatureLabel(selectedValue);
-                
-                dropdownMenu.classList.add('hidden');
-                dropdownMenu.setAttribute('data-selected-value', option.value || option);
-                
+
+                dropdownMenu.classList.add("hidden");
+                dropdownMenu.setAttribute("data-selected-value", option.value || option);
+
                 if (dropdownContainer) {
-                    const dropdownButton = dropdownContainer.querySelector('button');
-                    if (dropdownButton) {
-                        const labelSpan = dropdownButton.querySelector('span');
-                        if (labelSpan && dropdownLabel) {
-                            labelSpan.textContent = dropdownLabel;
-                        }
+                    const dropdownButton = dropdownContainer.querySelector("button");
+                    if (dropdownButton && dropdownLabel) {
+                        const labelSpan = dropdownButton.querySelector("span");
+                        if (labelSpan) labelSpan.textContent = dropdownLabel;
                     }
                 }
-                
-                // Check if we're editing an approved line
+
                 const approvedLineData = window.approvedLineBeingEdited || null;
-                
                 if (approvedLineData) {
-                    // Update the approved line visualization on the map
                     if (approvedLineData.id) {
-                        // Check if it's a Riyadh road
                         if (approvedLineData.is_riyadh_road) {
                             updateRiyadhRoadVisualization(approvedLineData.id, selectedValue, approvedLineData.geometry);
                         } else {
@@ -3608,39 +3744,34 @@
         const glowLayerId = 'riyadh-road-selected-glow-' + roadId;
         const layerId = 'riyadh-road-selected-layer-' + roadId;
         
-        // Get visualization style based on new feature label
-        let style;
-        if (typeof getVisualizationStyle === 'function') {
-            style = getVisualizationStyle(newFeatureLabel);
-        } else {
-            style = {
-                lineColor: '#ffffff',
-                glowColor: '#ef4444',
-                lineWidth: 4,
-                glowWidth: 10,
-                glowOpacity: 0.5,
-                markerColor: '#ffffff',
-                markerGlowColor: '#ef4444'
-            };
+        // Road closure: dotted red overrides feature symbology
+        const isRoadClosed = (function() {
+            const data = window.approvedLineBeingEdited || (window.selectedRiyadhRoad && window.selectedRiyadhRoad.id === roadId ? window.selectedRiyadhRoad : null);
+            if (!data) return false;
+            const rc = data.road_closure;
+            return rc === 1 || rc === true || rc === '1';
+        })();
+        const roadClosureRed = '#ff3b30';
+        const roadClosureDash = [1.5, 1.5];
+
+        const style = getVisualizationStyle(newFeatureLabel) || getVisualizationStyle("Line");
+        if (!style) {
+            return;
         }
-        
-        // Create or update source
+
+        const lineColor = isRoadClosed ? roadClosureRed : style.lineColor;
+        const glowColor = isRoadClosed ? roadClosureRed : style.glowColor;
+
         if (!map.getSource(sourceId)) {
             map.addSource(sourceId, {
-                type: 'geojson',
-                data: {
-                    type: 'Feature',
-                    geometry: geometry
-                }
+                type: "geojson",
+                data: { type: "Feature", geometry: geometry }
             });
         } else {
-            map.getSource(sourceId).setData({
-                type: 'Feature',
-                geometry: geometry
-            });
+            map.getSource(sourceId).setData({ type: "Feature", geometry: geometry });
         }
-        
-        // Create or update glow layer
+
+        // Glow layer
         if (!map.getLayer(glowLayerId)) {
             map.addLayer({
                 id: glowLayerId,
@@ -3651,18 +3782,18 @@
                     'line-cap': 'round'
                 },
                 paint: {
-                    'line-color': style.glowColor,
+                    'line-color': glowColor,
                     'line-width': style.glowWidth,
                     'line-opacity': style.glowOpacity
                 }
             }, 'riyadh-roads-layer'); // Insert before riyadh-roads-layer
         } else {
-            map.setPaintProperty(glowLayerId, 'line-color', style.glowColor);
+            map.setPaintProperty(glowLayerId, 'line-color', glowColor);
             map.setPaintProperty(glowLayerId, 'line-width', style.glowWidth);
             map.setPaintProperty(glowLayerId, 'line-opacity', style.glowOpacity);
         }
-        
-        // Create or update main line layer
+
+        // Create or update main line layer (road closure = dotted red)
         if (!map.getLayer(layerId)) {
             map.addLayer({
                 id: layerId,
@@ -3673,13 +3804,15 @@
                     'line-cap': 'round'
                 },
                 paint: {
-                    'line-color': style.lineColor,
-                    'line-width': style.lineWidth
+                    'line-color': lineColor,
+                    'line-width': style.lineWidth,
+                    'line-dasharray': isRoadClosed ? roadClosureDash : [1, 0]
                 }
             }, glowLayerId); // Insert after glow layer
         } else {
-            map.setPaintProperty(layerId, 'line-color', style.lineColor);
+            map.setPaintProperty(layerId, 'line-color', lineColor);
             map.setPaintProperty(layerId, 'line-width', style.lineWidth);
+            map.setPaintProperty(layerId, 'line-dasharray', isRoadClosed ? roadClosureDash : [1, 0]);
         }
     }
 
@@ -3736,34 +3869,39 @@
             }
         }
         
-        // Get new visualization style - use local function
-        let style;
-        if (typeof getVisualizationStyle === 'function') {
-            style = getVisualizationStyle(newFeatureLabel);
-        } else {
-            // Default style
-            style = {
-                lineColor: '#ffffff',
-                glowColor: '#ef4444',
-                lineWidth: 4,
-                glowWidth: 10,
-                glowOpacity: 0.5,
-                markerColor: '#ffffff',
-                markerGlowColor: '#ef4444'
-            };
+        // Road closure: dotted red overrides feature symbology (same as initial render).
+        const isRoadClosed = (function() {
+            const data = (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id === approvedLineId)
+                ? window.approvedLineBeingEdited
+                : (window.approvedLinesData && window.approvedLinesData[layerId])
+                    ? window.approvedLinesData[layerId]
+                    : null;
+            if (!data) return false;
+            const rc = data.road_closure;
+            return rc === 1 || rc === true || rc === '1';
+        })();
+        const roadClosureRed = '#ff3b30';
+        const roadClosureDash = [1.5, 1.5];
+
+        const style = getVisualizationStyle(newFeatureLabel) || getVisualizationStyle("Line");
+        if (!style) {
+            return;
         }
-        
-        // Update glow layer
+
+        const lineColor = isRoadClosed ? roadClosureRed : style.lineColor;
+        const glowColor = isRoadClosed ? roadClosureRed : style.glowColor;
+
         if (map.getLayer(glowLayerId)) {
-            map.setPaintProperty(glowLayerId, 'line-color', style.glowColor);
+            map.setPaintProperty(glowLayerId, 'line-color', glowColor);
             map.setPaintProperty(glowLayerId, 'line-width', style.glowWidth);
             map.setPaintProperty(glowLayerId, 'line-opacity', style.glowOpacity);
         }
-        
-        // Update main line layer
+
+        // Update main line layer (road closure = dotted red)
         if (map.getLayer(layerId)) {
-            map.setPaintProperty(layerId, 'line-color', style.lineColor);
+            map.setPaintProperty(layerId, 'line-color', lineColor);
             map.setPaintProperty(layerId, 'line-width', style.lineWidth);
+            map.setPaintProperty(layerId, 'line-dasharray', isRoadClosed ? roadClosureDash : [1, 0]);
         }
         
         // Update vertex markers - only if we have geometry

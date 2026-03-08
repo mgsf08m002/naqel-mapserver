@@ -117,16 +117,11 @@ def set_road_closure(request):
     """
     Update road_closure immediately for either a RiyadhRoad or an approved line.
 
-    This endpoint is intentionally approval-free so that road closure status
-    changes are reflected on the map as soon as the user saves, regardless of
-    their role.
+    This endpoint is intentionally approval-free: road closure changes apply
+    for all users (editors, managers, system admins) without manager approval.
 
     Expected JSON payload:
-    {
-        "target_type": "riyadh_road" | "approved_line",
-        "target_id": <int>,
-        "road_closure": 0 | 1
-    }
+    {"target_type": "riyadh_road"|"approved_line", "target_id": <int>, "road_closure": 0|1}
     """
     try:
         data = json.loads(request.body.decode("utf-8"))

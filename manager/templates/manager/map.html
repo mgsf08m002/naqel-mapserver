@@ -68,11 +68,13 @@
             
             <!-- Panel Content -->
             <div class="flex-1 overflow-y-auto px-6 py-4">
-                <!-- Dynamic content area for line dropdowns -->
+                <!-- Search results (shown when not editing a line); line panel (dropdowns) shown when drawing/editing -->
                 <div id="sidePanelContent" class="space-y-2">
-                    <!-- Search results will appear here when not in line editing mode -->
                     <div id="featureSearchResults" class="space-y-2">
-                        <!-- Placeholder for search results -->
+                        <!-- Populated by search: feature types and hint -->
+                    </div>
+                    <div id="linePanelContent" class="space-y-2" style="display: none;">
+                        <!-- Line dropdowns and visualization rendered here -->
                     </div>
                 </div>
             </div>
@@ -203,6 +205,7 @@
 {% block extra_js %}
 <script src="{% static 'mapping/js/map.js' %}"></script>
 <script src="{% static 'mapping/js/line-drawing.js' %}"></script>
+<script src="{% static 'mapping/js/save-line-edit.js' %}"></script>
 <script src="{% static 'mapping/js/manager-requests.js' %}"></script>
 <script src="{% static 'mapping/js/load-approved-lines.js' %}"></script>
 {% endblock %}

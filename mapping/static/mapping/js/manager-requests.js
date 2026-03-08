@@ -416,19 +416,12 @@
         const glowLayerId = 'request-line-glow-' + featureId;
         const layerId = 'request-line-layer-' + featureId;
 
-        // Get visualization style
-        let style;
-        if (typeof window.getVisualizationStyle === 'function') {
-            style = window.getVisualizationStyle(request.current_feature_label || 'Line');
-        } else {
-            // Default style
-            style = {
-                lineColor: '#ffffff',
-                glowColor: '#ef4444',
-                lineWidth: 4,
-                glowWidth: 10,
-                glowOpacity: 0.5
-            };
+        const getStyle = window.getVisualizationStyle;
+        const style = typeof getStyle === "function"
+            ? (getStyle(request.current_feature_label || "Line") || getStyle("Line"))
+            : null;
+        if (!style) {
+            return;
         }
 
         try {
@@ -482,18 +475,6 @@
         } catch (error) {
             // Error rendering request line on map
         }
-    }
-
-    /**
-     * Convert hex color to RGB
-     */
-    function hexToRgb(hex) {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? {
-            r: parseInt(result[1], 16),
-            g: parseInt(result[2], 16),
-            b: parseInt(result[3], 16)
-        } : { r: 239, g: 68, b: 68 };
     }
 
     /**

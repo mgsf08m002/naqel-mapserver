@@ -1,5 +1,6 @@
 /**
- * Load and manage approved lines on the map
+ * Load and manage approved lines (and Riyadh roads) on the map.
+ * Renders lines with symbology from the catalog; supports selection and editing.
  */
 
 (function() {
@@ -250,26 +251,11 @@
         const closureSymbolsLayerId = 'approved-line-closure-symbols-' + lineId;
         const sourceId = 'approved-line-source-' + lineId;
 
-        // Determine feature label for styling
-        const featureLabel = lineData.current_feature_label || lineData.feature_type || 'Line';
-
-        // Get visualization style
-        let style = null;
-        if (typeof window.getVisualizationStyle === 'function') {
-            style = window.getVisualizationStyle(featureLabel);
-        } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getVisualizationStyle === 'function') {
-            style = window.lineDrawingHandler.getVisualizationStyle(featureLabel);
-        }
-
+        const featureLabel = lineData.current_feature_label || lineData.feature_type || "Line";
+        const getStyle = window.getVisualizationStyle || (window.lineDrawingHandler && window.lineDrawingHandler.getVisualizationStyle);
+        const style = typeof getStyle === "function" ? (getStyle(featureLabel) || getStyle("Line")) : null;
         if (!style) {
-            // Fallback to default style
-            style = {
-                lineColor: '#ffffff',
-                glowColor: '#ef4444',
-                lineWidth: 4,
-                glowWidth: 10,
-                glowOpacity: 0.5
-            };
+            return;
         }
 
         const isRoadClosed =

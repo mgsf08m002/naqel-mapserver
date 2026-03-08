@@ -1,6 +1,8 @@
 /**
  * Save Line Edit Request Handler
- * Handles saving line edit requests from Editors and System Admins
+ * Persists line geometry, feature type, attributes, and road closure when user presses Save.
+ * Map symbology updates live when feature type changes; this module handles persistence only.
+ * Manager saves are auto-approved; editor/system admin saves create pending requests for manager approval.
  */
 
 (function() {
@@ -462,7 +464,7 @@
             messageText = 'Your edit has been saved and will appear on the map after reload.';
         } else {
             title = 'Edit Request Submitted';
-            messageText = 'Your requested edit has been sent and will be reviewed according to your workflow.';
+            messageText = 'Your edit has been sent to the manager and will be approved or rejected accordingly.';
         }
         
         popup.innerHTML = `
@@ -514,8 +516,7 @@
         }
 
         // Apply road closure immediately and independently of the edit request
-        // approval flow so that status changes are always reflected on the map
-        // without waiting for manager review.
+        // approval flow. Road closure does not require manager approval for any user.
         syncRoadClosureImmediate(editData);
 
         // Show loading state

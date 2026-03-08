@@ -68,11 +68,13 @@
             
             <!-- Panel Content -->
             <div class="flex-1 overflow-y-auto px-6 py-4">
-                <!-- Dynamic content area for line dropdowns -->
+                <!-- Search results (shown when not editing a line); line panel (dropdowns) shown when drawing/editing -->
                 <div id="sidePanelContent" class="space-y-2">
-                    <!-- Search results will appear here when not in line editing mode -->
                     <div id="featureSearchResults" class="space-y-2">
-                        <!-- Placeholder for search results -->
+                        <!-- Populated by search: feature types and hint -->
+                    </div>
+                    <div id="linePanelContent" class="space-y-2" style="display: none;">
+                        <!-- Line dropdowns and visualization rendered here -->
                     </div>
                 </div>
             </div>

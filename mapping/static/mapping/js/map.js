@@ -573,22 +573,14 @@ function applyRiyadhRoadsSymbology() {
         return;
     }
 
+    const lineDefault = getStyle('Line');
+    const defaultColor = (lineDefault && lineDefault.lineColor) ? lineDefault.lineColor : '#dee2e6';
+    const defaultWidth = 0.5;
+
     const roadTypes = [
-        'motorway',
-        'trunk',
-        'primary',
-        'secondary',
-        'tertiary',
-        'residential',
-        'living_street',
-        'service',
-        'track',
-        'unclassified',
-        'motorway_link',
-        'trunk_link',
-        'primary_link',
-        'secondary_link',
-        'tertiary_link'
+        'motorway', 'trunk', 'primary', 'secondary', 'tertiary',
+        'residential', 'living_street', 'service', 'track', 'unclassified',
+        'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link'
     ];
 
     const colorExpression = ['match', ['get', 'fclass']];
@@ -597,22 +589,18 @@ function applyRiyadhRoadsSymbology() {
     roadTypes.forEach(function (fclass) {
         const label = mapFclassToFeatureLabel(fclass);
         const style = getStyle(label);
-
-        // For the base network, we slightly compress the width range to keep
-        // background context subtle relative to selected/edited lines.
-        const baseWidth =
-            style && typeof style.lineWidth === 'number'
-                ? Math.max(0.5, Math.min(style.lineWidth, 6)) * 0.6
-                : 0.5;
-
-        const lineColor = style && style.lineColor ? style.lineColor : '#dee2e6';
-
-        colorExpression.push(fclass, lineColor);
+        if (!style || !style.lineColor) {
+            return;
+        }
+        const baseWidth = typeof style.lineWidth === 'number'
+            ? Math.max(0.5, Math.min(style.lineWidth, 6)) * 0.6
+            : defaultWidth;
+        colorExpression.push(fclass, style.lineColor);
         widthExpression.push(fclass, baseWidth);
     });
 
-    colorExpression.push('#dee2e6');
-    widthExpression.push(0.5);
+    colorExpression.push(defaultColor);
+    widthExpression.push(defaultWidth);
 
     // Closed roads are highlighted with a dotted red line, while open roads
     // continue to use the centralized symbology based on fclass.
@@ -804,12 +792,19 @@ map.on('load', () => {
     
     // Clear selection when clicking on empty map (not on a feature)
     map.on('click', (e) => {
-        // Only clear if clicking on map itself, not on any layer
-        // The layer click handlers will prevent this from firing when clicking on features
-        const features = map.queryRenderedFeatures(e.point, {
-            layers: ['riyadh-roads-layer']
-        });
-        
+        // Only clear if clicking on map itself, not on any layer.
+        // Query riyadh-roads-layer only if it exists (it may not exist before roads are loaded).
+        let features = [];
+        if (map.getLayer('riyadh-roads-layer')) {
+            try {
+                features = map.queryRenderedFeatures(e.point, {
+                    layers: ['riyadh-roads-layer']
+                });
+            } catch (err) {
+                // Layer may not be queryable in some style states; treat as no features
+            }
+        }
+
         // If no features were clicked, clear selection
         if (features.length === 0) {
             // Check if we should clear (only if clicking outside all selectable features)

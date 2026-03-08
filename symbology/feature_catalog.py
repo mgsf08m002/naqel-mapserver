@@ -36,15 +36,27 @@ class SymbologyCatalog(TypedDict):
 
 SYMBOL_VERSION: int = 1
 
+# Default stroke width for all feature types on the map (single place to change).
+SYMBOL_LINE_WIDTH: float = 3.0
+
 # NOTE:
 # - Every feature type gets a distinct base color to preserve visual
 #   differentiation, even across groups (roads, rails, paths, waterways, etc.).
-# - Widths roughly reflect "importance": major roads > minor roads > paths.
+# - lineWidth in STYLES_BY_LABEL is overridden to SYMBOL_LINE_WIDTH in get_catalog().
+# - Road closure uses dotted red line and is applied in the frontend, not here.
 # - Colors are chosen from a high-contrast palette inspired by Tailwind.
-_BASE_LINE_COLOR = "#ffffff"
-_BASE_GLOW_COLOR = "#ef4444"
+# - Every feature type has a distinct lineColor/glowColor so symbology differs.
 
 STYLES_BY_LABEL: Dict[str, LineStyle] = {
+    "Line": {
+        "lineColor": "#94a3b8",
+        "glowColor": "#cbd5e1",
+        "lineWidth": 3,
+        "glowWidth": 8,
+        "glowOpacity": 0.5,
+        "markerColor": "#f8fafc",
+        "markerGlowColor": "#94a3b8",
+    },
     # Major roads
     "Motorway": {
         "lineColor": "#2563eb",
@@ -193,22 +205,22 @@ STYLES_BY_LABEL: Dict[str, LineStyle] = {
         "markerGlowColor": "#9ca3af",
     },
     "Disused Railway": {
-        "lineColor": "#9ca3af",
-        "glowColor": "#9ca3af",
+        "lineColor": "#78716c",
+        "glowColor": "#78716c",
         "lineWidth": 2.5,
         "glowWidth": 6,
         "glowOpacity": 0.4,
         "markerColor": "#f9fafb",
-        "markerGlowColor": "#9ca3af",
+        "markerGlowColor": "#78716c",
     },
     "Tram Track": {
-        "lineColor": "#22c55e",
-        "glowColor": "#22c55e",
+        "lineColor": "#15803d",
+        "glowColor": "#15803d",
         "lineWidth": 3,
         "glowWidth": 7,
         "glowOpacity": 0.5,
         "markerColor": "#dcfce7",
-        "markerGlowColor": "#22c55e",
+        "markerGlowColor": "#15803d",
     },
     "Underground Railway Track": {
         "lineColor": "#0f172a",
@@ -238,13 +250,13 @@ STYLES_BY_LABEL: Dict[str, LineStyle] = {
         "markerGlowColor": "#14b8a6",
     },
     "Monorail Track": {
-        "lineColor": "#a855f7",
-        "glowColor": "#a855f7",
+        "lineColor": "#7c3aed",
+        "glowColor": "#7c3aed",
         "lineWidth": 3,
         "glowWidth": 7,
         "glowOpacity": 0.5,
         "markerColor": "#faf5ff",
-        "markerGlowColor": "#a855f7",
+        "markerGlowColor": "#7c3aed",
     },
     "Funicular Track": {
         "lineColor": "#fb7185",
@@ -284,13 +296,13 @@ STYLES_BY_LABEL: Dict[str, LineStyle] = {
         "markerGlowColor": "#f97316",
     },
     "Pavement": {
-        "lineColor": "#4b5563",
-        "glowColor": "#9ca3af",
+        "lineColor": "#64748b",
+        "glowColor": "#94a3b8",
         "lineWidth": 2.5,
         "glowWidth": 5,
         "glowOpacity": 0.5,
         "markerColor": "#e5e7eb",
-        "markerGlowColor": "#9ca3af",
+        "markerGlowColor": "#94a3b8",
     },
     "Informal Path": {
         "lineColor": "#facc15",
@@ -329,13 +341,13 @@ STYLES_BY_LABEL: Dict[str, LineStyle] = {
         "markerGlowColor": "#7c2d12",
     },
     "Pedestrian Street": {
-        "lineColor": "#f97316",
-        "glowColor": "#f97316",
+        "lineColor": "#ea580c",
+        "glowColor": "#ea580c",
         "lineWidth": 3,
         "glowWidth": 7,
         "glowOpacity": 0.55,
         "markerColor": "#fffbeb",
-        "markerGlowColor": "#f97316",
+        "markerGlowColor": "#ea580c",
     },
     # Waterways
     "Stream": {
@@ -348,13 +360,13 @@ STYLES_BY_LABEL: Dict[str, LineStyle] = {
         "markerGlowColor": "#38bdf8",
     },
     "Drain": {
-        "lineColor": "#0ea5e9",
-        "glowColor": "#0ea5e9",
+        "lineColor": "#0284c7",
+        "glowColor": "#0284c7",
         "lineWidth": 2.25,
         "glowWidth": 5,
         "glowOpacity": 0.5,
         "markerColor": "#e0f2fe",
-        "markerGlowColor": "#0ea5e9",
+        "markerGlowColor": "#0284c7",
     },
     "River": {
         "lineColor": "#1d4ed8",
@@ -375,13 +387,13 @@ STYLES_BY_LABEL: Dict[str, LineStyle] = {
         "markerGlowColor": "#0f766e",
     },
     "Ditch": {
-        "lineColor": "#22c55e",
-        "glowColor": "#22c55e",
+        "lineColor": "#166534",
+        "glowColor": "#166534",
         "lineWidth": 2.25,
         "glowWidth": 5,
         "glowOpacity": 0.5,
         "markerColor": "#dcfce7",
-        "markerGlowColor": "#22c55e",
+        "markerGlowColor": "#166534",
     },
     # Barriers
     "Fence": {
@@ -394,7 +406,7 @@ STYLES_BY_LABEL: Dict[str, LineStyle] = {
         "markerGlowColor": "#111827",
     },
     "Guard Rail": {
-        "lineColor": "#9ca3af",
+        "lineColor": "#57534e",
         "glowColor": "#1f2933",
         "lineWidth": 2.25,
         "glowWidth": 5,
@@ -403,7 +415,7 @@ STYLES_BY_LABEL: Dict[str, LineStyle] = {
         "markerGlowColor": "#1f2933",
     },
     "Wall": {
-        "lineColor": "#6b7280",
+        "lineColor": "#44403c",
         "glowColor": "#020617",
         "lineWidth": 2.5,
         "glowWidth": 5,
@@ -412,7 +424,7 @@ STYLES_BY_LABEL: Dict[str, LineStyle] = {
         "markerGlowColor": "#020617",
     },
     "Retaining Wall": {
-        "lineColor": "#4b5563",
+        "lineColor": "#475569",
         "glowColor": "#f97316",
         "lineWidth": 2.5,
         "glowWidth": 6,
@@ -467,35 +479,35 @@ STYLES_BY_LABEL: Dict[str, LineStyle] = {
     },
     # Natural features
     "Coast Line": {
-        "lineColor": "#0ea5e9",
-        "glowColor": "#0ea5e9",
+        "lineColor": "#0369a1",
+        "glowColor": "#0369a1",
         "lineWidth": 4,
         "glowWidth": 9,
         "glowOpacity": 0.65,
         "markerColor": "#e0f2fe",
-        "markerGlowColor": "#0ea5e9",
+        "markerGlowColor": "#0369a1",
     },
     "Tree Row": {
-        "lineColor": "#16a34a",
-        "glowColor": "#16a34a",
+        "lineColor": "#15803d",
+        "glowColor": "#15803d",
         "lineWidth": 3,
         "glowWidth": 7,
         "glowOpacity": 0.6,
         "markerColor": "#bbf7d0",
-        "markerGlowColor": "#16a34a",
+        "markerGlowColor": "#15803d",
     },
     "Cliff": {
-        "lineColor": "#7f1d1d",
-        "glowColor": "#7f1d1d",
+        "lineColor": "#991b1b",
+        "glowColor": "#991b1b",
         "lineWidth": 3,
         "glowWidth": 7,
         "glowOpacity": 0.65,
         "markerColor": "#fee2e2",
-        "markerGlowColor": "#7f1d1d",
+        "markerGlowColor": "#991b1b",
     },
     # Utility features
     "Power Line": {
-        "lineColor": "#4b5563",
+        "lineColor": "#334155",
         "glowColor": "#38bdf8",
         "lineWidth": 2,
         "glowWidth": 5,
@@ -504,7 +516,7 @@ STYLES_BY_LABEL: Dict[str, LineStyle] = {
         "markerGlowColor": "#38bdf8",
     },
     "Minor Power Line": {
-        "lineColor": "#6b7280",
+        "lineColor": "#526a82",
         "glowColor": "#38bdf8",
         "lineWidth": 1.75,
         "glowWidth": 4.5,
@@ -522,13 +534,13 @@ STYLES_BY_LABEL: Dict[str, LineStyle] = {
         "markerGlowColor": "#15803d",
     },
     "Power Cable": {
-        "lineColor": "#a855f7",
-        "glowColor": "#a855f7",
+        "lineColor": "#9333ea",
+        "glowColor": "#9333ea",
         "lineWidth": 2,
         "glowWidth": 5,
         "glowOpacity": 0.6,
         "markerColor": "#f5f3ff",
-        "markerGlowColor": "#a855f7",
+        "markerGlowColor": "#9333ea",
     },
 }
 
@@ -539,10 +551,14 @@ def get_catalog() -> SymbologyCatalog:
 
     This helper centralizes the shape returned to the frontend and is the
     single place to tweak versioning or add additional top-level metadata.
+    All line symbologies use SYMBOL_LINE_WIDTH for stroke thickness; road
+    closure (dotted red) is handled in the frontend, not in this catalog.
     """
-
+    styles = {}
+    for label, style in STYLES_BY_LABEL.items():
+        styles[label] = {**style, "lineWidth": SYMBOL_LINE_WIDTH}
     return {
         "version": SYMBOL_VERSION,
-        "styles_by_label": STYLES_BY_LABEL,
+        "styles_by_label": styles,
     }
 
