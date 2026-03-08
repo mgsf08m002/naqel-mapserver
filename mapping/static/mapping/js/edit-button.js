@@ -123,6 +123,10 @@
         // Show side panel
         if (sidePanel) {
             sidePanel.classList.remove('-translate-x-full');
+            sidePanel.style.display = '';
+            sidePanel.style.visibility = 'visible';
+            sidePanel.style.opacity = '1';
+            sidePanel.style.setProperty('transform', 'translateX(0)', 'important');
         }
         
         // Show toolbar
@@ -147,9 +151,19 @@
             if (map && map.resize) {
                 map.resize();
             }
-            // Check zoom level after resize
             checkZoomLevel();
+            ensureSidePanelInitialContent();
         }, 350);
+    }
+
+    function ensureSidePanelInitialContent() {
+        const searchResults = document.getElementById('featureSearchResults');
+        if (!searchResults) return;
+        const hasContent = searchResults.innerHTML.trim().length > 0;
+        if (!hasContent) {
+            searchResults.style.display = 'block';
+            searchResults.innerHTML = '<p class="text-xs text-gray-400 px-1 py-4">Type above to search feature types, or draw a line on the map to choose from the list.</p>';
+        }
     }
 
     /**
@@ -367,25 +381,15 @@
     }
 
     /**
-     * Handle undo action
+     * Handle undo action (TerraDraw undo not yet wired).
      */
     function handleUndo() {
-        // TODO: Implement undo logic
-        // Example: You can use TerraDraw undo functionality
-        // if (drawInstance && drawInstance.undo) {
-        //     drawInstance.undo();
-        // }
     }
 
     /**
-     * Handle redo action
+     * Handle redo action (TerraDraw redo not yet wired).
      */
     function handleRedo() {
-        // TODO: Implement redo logic
-        // Example: You can use TerraDraw redo functionality
-        // if (drawInstance && drawInstance.redo) {
-        //     drawInstance.redo();
-        // }
     }
 
     /**
@@ -412,18 +416,9 @@
         }
         
         try {
-            // Get current drawings
-            const snapshot = terraDrawInstance.getSnapshot();
-            
-            // TODO: Send snapshot to server
-            // Example: Send to backend API
-            // fetch('/api/save-drawings/', {
-            //     method: 'POST',
-            //     headers: { 'Content-Type': 'application/json' },
-            //     body: JSON.stringify({ features: snapshot })
-            // });
+            terraDrawInstance.getSnapshot();
         } catch (error) {
-            // Error saving drawings
+            // Save is delegated to save-line-edit.js when available
         }
     }
 
@@ -447,11 +442,10 @@
         // This ensures button states stay in sync with any external TerraDraw mode changes
         try {
             if (typeof terraDrawInstance.on === 'function') {
-                // Note: TerraDraw may not expose mode change events directly
-                // This is a placeholder for potential future integration
+                // TerraDraw mode change events can be wired here if needed
             }
         } catch (error) {
-            // Mode change events may not be available in TerraDraw API
+            // TerraDraw API may not expose mode events
         }
     }
 

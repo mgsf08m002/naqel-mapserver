@@ -562,7 +562,7 @@
         }
 
         // Ensure content area is visible
-        const contentArea = document.querySelector('#editSidePanel .flex-1.overflow-y-auto');
+        const contentArea = document.getElementById('sidePanelScrollArea') || document.querySelector('#editSidePanel .flex-1.overflow-y-auto');
         if (contentArea) {
             contentArea.style.display = 'block';
         }
@@ -779,7 +779,8 @@
 
         const searchResults = document.getElementById('featureSearchResults');
         if (searchResults) {
-            searchResults.style.display = 'none';
+            searchResults.style.display = 'block';
+            searchResults.innerHTML = '<p class="text-xs text-gray-400 px-2 py-4">Type to search feature types (e.g. Motorway, Path, Fence)</p>';
         }
         const linePanelContent = document.getElementById('linePanelContent');
         const linePanel = linePanelContent || sidePanelContent;
@@ -787,7 +788,7 @@
             linePanelContent.style.display = 'block';
         }
 
-        const contentArea = document.querySelector('#editSidePanel .flex-1.overflow-y-auto');
+        const contentArea = document.getElementById('sidePanelScrollArea') || document.querySelector('#editSidePanel .flex-1.overflow-y-auto');
         if (contentArea) {
             contentArea.style.display = 'block';
         }
@@ -3496,8 +3497,12 @@
                         } else {
                             updateApprovedLineVisualization(approved.id, label);
                         }
+                        showLineSidePanel();
+                    } else if (currentLineId) {
+                        showEditFeatureScreen();
+                    } else {
+                        showLineSidePanel();
                     }
-                    showLineSidePanel();
                 });
                 searchResults.appendChild(btn);
             });

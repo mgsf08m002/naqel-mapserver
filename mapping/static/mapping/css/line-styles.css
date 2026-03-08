@@ -19,20 +19,6 @@
     pointer-events: none !important;
 }
 
-#map .maplibregl-canvas-container svg path[d*="L"],
-#map .maplibregl-canvas-container svg path[d*="M"],
-#map .maplibregl-canvas-container svg path[d*="l"],
-#map .maplibregl-canvas-container svg path[d*="m"],
-.maplibregl-map .maplibregl-canvas-container svg path[d*="L"],
-.maplibregl-map .maplibregl-canvas-container svg path[d*="M"],
-.maplibregl-map .maplibregl-canvas-container svg path[d*="l"],
-.maplibregl-map .maplibregl-canvas-container svg path[d*="m"] {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-}
-
 .terra-draw path,
 .terra-draw line,
 [class*="terra-draw"] path,
@@ -52,6 +38,21 @@ svg[data-terra-draw] line {
     box-shadow: 0 0 4px rgba(239, 68, 68, 0.8), 0 0 8px rgba(239, 68, 68, 0.6) !important;
 }
 
+/* Side panel: ensure visible and scrollable content */
+#editSidePanel {
+    will-change: transform;
+}
+#editSidePanel .flex-1.overflow-y-auto,
+#sidePanelScrollArea {
+    -webkit-overflow-scrolling: touch;
+}
+#featureSearchResults {
+    min-height: 120px;
+}
+#linePanelContent:not([style*="display: none"]) {
+    display: block;
+}
+
 /* Sidepanel dropdown styles */
 #lineDropdownsContainer button[data-dropdown-toggle] {
     transition: all 0.2s ease-in-out;
@@ -65,7 +66,6 @@ svg[data-terra-draw] line {
     scrollbar-width: thin;
     scrollbar-color: #4b5563 #374151;
 }
-
 
 #lineDropdownsContainer [role="menu"]::-webkit-scrollbar {
     width: 6px;

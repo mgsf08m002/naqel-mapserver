@@ -3,10 +3,10 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
-from django.contrib import messages
 import json
 
 
@@ -66,8 +66,6 @@ def login_api(request):
             login(request, user)
 
             # Capture basic session metadata for security/session management.
-            from django.utils import timezone
-
             request.session["client_ip"] = (
                 request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
                 or request.META.get("REMOTE_ADDR", "")

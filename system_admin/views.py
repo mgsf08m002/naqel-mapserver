@@ -869,7 +869,6 @@ def update_permissions_api_view(request, user_id):
             }, status=400)
         
         # Parse JSON data
-        import json
         try:
             data = json.loads(request.body.decode('utf-8'))
         except (json.JSONDecodeError, UnicodeDecodeError):
@@ -901,11 +900,6 @@ def update_permissions_api_view(request, user_id):
             'success': False,
             'message': 'User not found'
         }, status=404)
-    except json.JSONDecodeError:
-        return JsonResponse({
-            'success': False,
-            'message': 'Invalid JSON data'
-        }, status=400)
     except Exception as e:
         return JsonResponse({
             'success': False,

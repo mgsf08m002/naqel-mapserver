@@ -1,10 +1,13 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    './templates/**/*.html',
     './auth/templates/**/*.html',
+    './home/templates/**/*.html',
+    './manager/templates/**/*.html',
+    './editor/templates/**/*.html',
+    './system_admin/templates/**/*.html',
+    './mapping/templates/**/*.html',
     './notifications/templates/**/*.html',
-    './config/templates/**/*.html',
     './**/*.html',
     './**/*.py',
   ],

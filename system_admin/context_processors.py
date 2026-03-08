@@ -16,7 +16,7 @@ def user_profile(request):
             try:
                 profile, created = UserProfile.objects.get_or_create(user=request.user)
                 return {'user_profile': profile}
-            except:
+            except Exception:
                 return {'user_profile': None}
     return {'user_profile': None}
 

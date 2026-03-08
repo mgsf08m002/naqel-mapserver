@@ -232,11 +232,8 @@ let drawInstance = null;
 
 if (isEditingEnabled) {
     // Initialize TerraDraw control for editing pages only
-    // By default, all terra-draw drawing modes are enabled.
-    // you can disable some of modes in the constructor options if you want.
     const draw = new MaplibreTerradrawControl.MaplibreTerradrawControl({
         modes: [
-            // 'render', comment this to always show drawing tool
             'point',
             'linestring',
             'polygon',
@@ -254,8 +251,8 @@ if (isEditingEnabled) {
         open: true
     });
     map.addControl(draw, 'top-left');
+    window.draw = draw;
 
-    // Handle feature selection
     drawInstance = draw.getTerraDrawInstance();
 }
 let selectedFeature = null;

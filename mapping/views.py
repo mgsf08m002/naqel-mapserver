@@ -8,7 +8,6 @@ from django.contrib.gis.geos import GEOSGeometry, Polygon
 import json
 
 from .models import LineEditRequest, RiyadhRoad
-from django.middleware.csrf import get_token
 
 
 def map_view(request):
