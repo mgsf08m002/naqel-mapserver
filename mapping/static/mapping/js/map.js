@@ -720,7 +720,7 @@ async function loadRiyadhRoads() {
                         // Initial neutral styling; replaced by
                         // applyRiyadhRoadsSymbology() once symbology catalog is ready.
                         'line-color': '#dee2e6',
-                        'line-width': 0.5,
+                        'line-width': 5,
                         'line-opacity': 0.8
                     }
                 });
