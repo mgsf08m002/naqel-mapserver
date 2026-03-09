@@ -1,8 +1,6 @@
 // KSA Map Editing Module - JavaScript
 
-// ─── MapTiler / Basemap Configuration ───────────────────────────────────────
-// API key is read from data-maptiler-api-key on the map container,
-// populated by the Django backend from environment variables only.
+// Map container helpers
 function getMaptilerApiKey() {
     const mapElement = document.getElementById('map');
     if (!mapElement) {
@@ -18,16 +16,30 @@ function getMaptilerApiKey() {
     return trimmed.length ? trimmed : null;
 }
 
+// Riyadh roads tile service URL from RIYADH_ROADS_TILE_URL (via data attribute).
+function getRiyadhRoadsTileUrl() {
+    const mapElement = document.getElementById('map');
+    if (!mapElement) {
+        return null;
+    }
+
+    const value = mapElement.getAttribute('data-riyadh-roads-tile-url');
+    if (!value || typeof value !== 'string') {
+        return null;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+}
+
 const MAPTILER_API_KEY = getMaptilerApiKey();
 const HAS_MAPTILER = !!MAPTILER_API_KEY;
+const RIYADH_ROADS_TILE_URL = getRiyadhRoadsTileUrl();
+const HAS_RIYADH_ROADS_TILES = !!RIYADH_ROADS_TILE_URL;
 
-/**
- * Basemap definitions for the application.
- *
- * Each definition is mapped to a dedicated raster source and layer in the
- * MapLibre style. Only MapTiler-backed basemaps are created when an API
- * key is present.
- */
+// Basemap definitions for the application.
+// Each definition is mapped to a dedicated raster source and layer in the MapLibre style.
+// Only MapTiler-backed basemaps are created when an API key is present.
 const BASEMAP_DEFINITIONS = (() => {
     const definitions = [
         {
@@ -124,9 +136,7 @@ const map = new maplibregl.Map({
     },
 });
 
-/**
- * Set basemap visibility by toggling layers. Only the selected layer is visible.
- */
+// Toggle basemap layers so only one background is visible.
 function setBasemapVisibility(targetId) {
     if (!map || !targetId) return;
 
@@ -140,13 +150,9 @@ function setBasemapVisibility(targetId) {
     currentBasemapId = targetId;
 }
 
-// Basemap gallery UI state classes
 const BASEMAP_SELECTED_CLASSES = ['ring-2', 'ring-blue-500', 'shadow-lg', 'border-blue-500'];
 const BASEMAP_UNSELECTED_CLASSES = ['border-transparent', 'opacity-80'];
 
-/**
- * Sync basemap gallery buttons to reflect the current selection.
- */
 function syncBasemapGallerySelection(options, selectedId) {
     options.forEach((opt) => {
         const id = opt.getAttribute('data-basemap-id');
@@ -161,9 +167,6 @@ function syncBasemapGallerySelection(options, selectedId) {
     });
 }
 
-/**
- * Initialize basemap gallery: click handlers, selection sync, and toggle.
- */
 function initBasemapGallery() {
     const galleryElement = document.getElementById('basemapGallery');
     const toggleButton = document.getElementById('basemapGalleryToggle');
@@ -202,7 +205,6 @@ function initBasemapGallery() {
     }
 }
 
-// Add zoom and rotation controls to the map
 map.addControl(new maplibregl.NavigationControl({
     visualizePitch: true,
     visualizeRoll: true,
@@ -210,7 +212,6 @@ map.addControl(new maplibregl.NavigationControl({
     showCompass: true
 }));
 
-// Add geolocate control to the map
 map.addControl(
     new maplibregl.GeolocateControl({
         positionOptions: {
@@ -220,14 +221,11 @@ map.addControl(
     })
 );
 
-// Add full Screen Control to the map
 const fullscreenControl = new maplibregl.FullscreenControl();
 map.addControl(fullscreenControl, 'top-right');
 
-// Determine if advanced editing UI is available (non-landing pages)
 const isEditingEnabled = !!document.getElementById('editSidePanel');
 
-// TerraDraw instance (only initialized on editing pages)
 let drawInstance = null;
 
 if (isEditingEnabled) {
@@ -257,21 +255,15 @@ if (isEditingEnabled) {
 }
 let selectedFeature = null;
 
-// Track currently selected item (Riyadh road or TerraDraw line)
+// Track currently selected item (TerraDraw line)
 window.currentlySelectedItem = null;
-window.currentlySelectedItemType = null; // 'riyadh-road' or 'terradraw-line'
+window.currentlySelectedItemType = null; // 'terradraw-line'
 
 if (drawInstance) {
     drawInstance.on('select', (id) => {
         const snapshot = drawInstance.getSnapshot();
         const features = snapshot?.find((feature) => feature.id === id);
         selectedFeature = JSON.stringify(features);
-        
-        // Clear any previously selected Riyadh road when TerraDraw line is selected
-        if (window.currentlySelectedItemType === 'riyadh-road') {
-            clearSelectedRiyadhRoad();
-        }
-        
         // Update selection tracking
         window.currentlySelectedItem = id;
         window.currentlySelectedItemType = 'terradraw-line';
@@ -323,439 +315,54 @@ function updateCoordinateDisplay(lngLat) {
     el.classList.remove('hidden');
 }
 
-// Mouse move event to display longitude/latitude at bottom center
 map.on('mousemove', (e) => {
     updateCoordinateDisplay(e.lngLat);
 });
 
-/**
- * Map Riyadh road fclass to LINE feature label
- */
-function mapFclassToFeatureLabel(fclass) {
-    if (!fclass) return 'Line';
-    
-    const mapping = {
-        'motorway': 'Motorway',
-        'trunk': 'Trunk Road',
-        'primary': 'Primary Road',
-        'secondary': 'Secondary Road',
-        'tertiary': 'Tertiary Road',
-        'residential': 'Residential Road',
-        'living_street': 'Living Street',
-        'service': 'Service Road',
-        'track': 'Track / Land-Access Road',
-        'unclassified': 'Minor/Unclassified Road',
-        'motorway_link': 'Motorway Link',
-        'trunk_link': 'Trunk Link',
-        'primary_link': 'Primary Link',
-        'secondary_link': 'Secondary Link',
-        'tertiary_link': 'Tertiary Link'
-    };
-    
-    const normalizedFclass = fclass.toLowerCase().trim();
-    return mapping[normalizedFclass] || 'Line';
-}
-
-/**
- * Convert MultiLineString to LineString by taking the first line segment
- */
-function convertMultiLineStringToLineString(geometry) {
-    if (geometry.type === 'LineString') {
-        return geometry;
-    }
-    
-    if (geometry.type === 'MultiLineString') {
-        // Take the first LineString from MultiLineString
-        // If coordinates have 3 dimensions, extract only lat/lon (drop Z)
-        const coordinates = geometry.coordinates[0].map(coord => {
-            // Return [lon, lat] - first two elements only
-            return coord.slice(0, 2);
-        });
-        
-        return {
-            type: 'LineString',
-            coordinates: coordinates
-        };
-    }
-    
-    return null;
-}
-
-/**
- * Convert Riyadh road feature to LINE feature format
- */
-function convertRiyadhRoadToLineFeature(riyadhRoadFeature) {
-    const props = riyadhRoadFeature.properties;
-    const geometry = riyadhRoadFeature.geometry;
-    
-    // Convert MultiLineString to LineString if needed
-    const lineGeometry = convertMultiLineStringToLineString(geometry);
-    if (!lineGeometry) {
-        console.error('Unable to convert geometry to LineString');
-        return null;
-    }
-    
-    // Map fclass to feature label
-    const featureLabel = mapFclassToFeatureLabel(props.fclass);
-    
-    // Build fields_data from Riyadh road properties
-    const fieldsData = {
-        name: props.name || '',
-        code: props.code || null,
-        ref: props.ref || '',
-        maxspeed: props.maxspeed || null,
-        oneway: props.oneway || '',
-        bridge: props.bridge || '',
-        tunnel: props.tunnel || '',
-        layer: props.layer || null,
-        shape_length: props.shape_length || null,
-        osm_id: props.osm_id || '',
-        objectid: props.objectid || null
-    };
-    
-    // Build tags_data from Riyadh road properties
-    const tagsData = [];
-    if (props.fclass) tagsData.push({key: 'fclass', value: props.fclass});
-    if (props.code) tagsData.push({key: 'code', value: String(props.code)});
-    if (props.ref) tagsData.push({key: 'ref', value: props.ref});
-    if (props.osm_id) tagsData.push({key: 'osm_id', value: props.osm_id});
-    if (props.maxspeed) tagsData.push({key: 'maxspeed', value: String(props.maxspeed)});
-    if (props.oneway) tagsData.push({key: 'oneway', value: props.oneway});
-    if (props.bridge) tagsData.push({key: 'bridge', value: props.bridge});
-    if (props.tunnel) tagsData.push({key: 'tunnel', value: props.tunnel});
-    if (props.layer !== null && props.layer !== undefined) tagsData.push({key: 'layer', value: String(props.layer)});
-    if (props.shape_length) tagsData.push({key: 'shape_length', value: String(props.shape_length)});
-    if (props.objectid) tagsData.push({key: 'objectid', value: String(props.objectid)});
-
-    const rawRoadClosure = props.road_closure;
-    let roadClosureValue = 0;
-    if (typeof rawRoadClosure === 'number') {
-        roadClosureValue = rawRoadClosure;
-    } else if (typeof rawRoadClosure === 'string') {
-        const parsed = parseInt(rawRoadClosure, 10);
-        roadClosureValue = Number.isNaN(parsed) ? 0 : parsed;
-    }
-    
-    return {
-        id: props.id || null, // Riyadh road ID
-        geometry: lineGeometry,
-        feature_type: featureLabel,
-        current_feature_label: featureLabel,
-        fields_data: fieldsData,
-        tags_data: tagsData,
-        relations_data: [],
-        road_closure: roadClosureValue === 1,
-        is_riyadh_road: true,
-        riyadh_road_id: props.id || null
-    };
-}
-
-/**
- * Clear previously selected Riyadh road visualization
- */
-function clearSelectedRiyadhRoad() {
-    if (!window.currentlySelectedItem || window.currentlySelectedItemType !== 'riyadh-road') {
-        return;
-    }
-    
-    const previousRoadId = window.currentlySelectedItem;
-    
-    if (typeof map !== 'undefined' && map) {
-        const sourceId = 'riyadh-road-selected-source-' + previousRoadId;
-        const glowLayerId = 'riyadh-road-selected-glow-' + previousRoadId;
-        const layerId = 'riyadh-road-selected-layer-' + previousRoadId;
-        
-        try {
-            // Remove layers
-            if (map.getLayer(layerId)) {
-                map.removeLayer(layerId);
-            }
-            if (map.getLayer(glowLayerId)) {
-                map.removeLayer(glowLayerId);
-            }
-            // Remove source
-            if (map.getSource(sourceId)) {
-                map.removeSource(sourceId);
-            }
-            // Show the road again in the base layer (clear exclude filter)
-            if (map.getLayer('riyadh-roads-layer')) {
-                try {
-                    map.setFilter('riyadh-roads-layer', null);
-                } catch (err) {
-                    // Ignore
-                }
-            }
-            if (map.getLayer('riyadh-roads-closure-symbols')) {
-                try {
-                    map.setFilter('riyadh-roads-closure-symbols', ['==', ['get', 'road_closure'], 1]);
-                } catch (err) {
-                    // Ignore
-                }
-            }
-        } catch (e) {
-            // Error removing layers/source
-        }
-    }
-    
-    // Clear vertex markers for Riyadh roads if they exist
-    if (typeof window.clearVertexMarkers === 'function') {
-        window.clearVertexMarkers();
-    }
-}
-
-/**
- * Clear any previously selected item (Riyadh road or TerraDraw line)
- */
-function clearPreviousSelection() {
-    // Clear TerraDraw line selection if active
-    if (window.currentlySelectedItemType === 'terradraw-line') {
-        if (typeof drawInstance !== 'undefined' && drawInstance) {
-            try {
-                drawInstance.deselect();
-            } catch (e) {
-                // Could not deselect, continue anyway
-            }
-        }
-        // Also call handleFeatureDeselected if available
-        if (window.lineDrawingHandler && typeof window.lineDrawingHandler.handleFeatureDeselected === 'function') {
-            window.lineDrawingHandler.handleFeatureDeselected();
-        }
-    }
-    
-    // Clear Riyadh road selection if active
-    if (window.currentlySelectedItemType === 'riyadh-road') {
-        clearSelectedRiyadhRoad();
-    }
-}
-
-/**
- * Handle Riyadh road click - show LINE feature sidebar
- */
-function handleRiyadhRoadClick(riyadhRoadFeature) {
-    // Clear any previously selected item (Riyadh road or TerraDraw line)
-    clearPreviousSelection();
-    
-    // Convert Riyadh road to LINE feature format
-    const lineFeatureData = convertRiyadhRoadToLineFeature(riyadhRoadFeature);
-    
-    if (!lineFeatureData) {
-        console.error('Failed to convert Riyadh road to LINE feature');
-        return;
-    }
-    
-    // Store the Riyadh road data for editing
-    window.selectedRiyadhRoad = lineFeatureData;
-    window.currentRiyadhRoadId = lineFeatureData.id;
-    
-    // Update selection tracking
-    window.currentlySelectedItem = lineFeatureData.id;
-    window.currentlySelectedItemType = 'riyadh-road';
-    
-    // Check if line-drawing.js functions are available
-    if (typeof window.showRiyadhRoadAsLineFeature === 'function') {
-        window.showRiyadhRoadAsLineFeature(lineFeatureData);
-    } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showRiyadhRoadAsLineFeature === 'function') {
-        window.lineDrawingHandler.showRiyadhRoadAsLineFeature(lineFeatureData);
-    } else {
-        // Fallback: Use approved line display mechanism
-        if (window.showApprovedLineDetails && typeof window.showApprovedLineDetails === 'function') {
-            window.showApprovedLineDetails(lineFeatureData, true);
-        } else {
-            // Try after a short delay in case scripts are still loading
-            setTimeout(function() {
-                handleRiyadhRoadClick(riyadhRoadFeature);
-            }, 500);
-        }
-    }
-}
-
-function applyRiyadhRoadsSymbology() {
-    if (typeof map === 'undefined' || !map) {
-        return;
-    }
-
-    if (!map.getLayer('riyadh-roads-layer')) {
-        return;
-    }
-
-    // We reuse the centralized visualization style function exposed by
-    // line-drawing.js. If it's not available yet, we keep existing styling.
-    const getStyle = window.getVisualizationStyle;
-    if (typeof getStyle !== 'function') {
-        return;
-    }
-
-    const lineDefault = getStyle('Line');
-    const defaultColor = (lineDefault && lineDefault.lineColor) ? lineDefault.lineColor : '#dee2e6';
-    const defaultWidth = 0.5;
-
-    const roadTypes = [
-        'motorway', 'trunk', 'primary', 'secondary', 'tertiary',
-        'residential', 'living_street', 'service', 'track', 'unclassified',
-        'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link'
-    ];
-
-    const colorExpression = ['match', ['get', 'fclass']];
-    const widthExpression = ['match', ['get', 'fclass']];
-
-    roadTypes.forEach(function (fclass) {
-        const label = mapFclassToFeatureLabel(fclass);
-        const style = getStyle(label);
-        if (!style || !style.lineColor) {
-            return;
-        }
-        const baseWidth = typeof style.lineWidth === 'number'
-            ? Math.max(0.5, Math.min(style.lineWidth, 6)) * 0.6
-            : defaultWidth;
-        colorExpression.push(fclass, style.lineColor);
-        widthExpression.push(fclass, baseWidth);
-    });
-
-    colorExpression.push(defaultColor);
-    widthExpression.push(defaultWidth);
-
-    // Closed roads are highlighted with a dotted red line, while open roads
-    // continue to use the centralized symbology based on fclass.
-    const closedRoadColor = '#ff3b30';
-    const colorWithClosure = [
-        'case',
-        ['==', ['get', 'road_closure'], 1],
-        closedRoadColor,
-        colorExpression
-    ];
-
-    const dashArrayWithClosure = [
-        'case',
-        ['==', ['get', 'road_closure'], 1],
-        ['literal', [1.5, 1.5]],
-        ['literal', [1, 0]]
-    ];
-
-    try {
-        map.setPaintProperty('riyadh-roads-layer', 'line-color', colorWithClosure);
-        map.setPaintProperty('riyadh-roads-layer', 'line-width', widthExpression);
-        map.setPaintProperty('riyadh-roads-layer', 'line-dasharray', dashArrayWithClosure);
-    } catch (e) {
-        // If style is not fully ready, fail silently.
-    }
-}
-
-function ensureRiyadhRoadsClosureSymbolsLayer() {
-    if (typeof map === 'undefined' || !map) {
-        return;
-    }
-
-    if (!map.getSource('riyadh-roads')) {
-        return;
-    }
-
-    if (map.getLayer('riyadh-roads-closure-symbols')) {
-        return;
-    }
-
-    if (!map.hasImage('road-closure')) {
-        return;
-    }
-
-    try {
-        map.addLayer(
-            {
-                id: 'riyadh-roads-closure-symbols',
-                type: 'symbol',
-                source: 'riyadh-roads',
-                layout: {
-                    'symbol-placement': 'line',
-                    'symbol-spacing': 60,
-                    'icon-image': 'road-closure',
-                    'icon-size': 1.0,
-                    'icon-allow-overlap': true
-                },
-                filter: ['==', ['get', 'road_closure'], 1]
-            }
-        );
-    } catch (e) {
-        // If the layer cannot be added, fail silently to avoid impacting map load.
-    }
-}
-
-// Function to load Riyadh roads from API
-async function loadRiyadhRoads() {
-    try {
-        // Get current map bounds for efficient loading
-        const bounds = map.getBounds();
-        const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
-        
-        // Fetch roads data with bounding box filter
-        const response = await fetch(`/mapping/api/riyadh-roads/?bbox=${bbox}&limit=10000`);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Check if we have features
-        if (data.features && data.features.length > 0) {
-            // Add roads source to map
-            if (map.getSource('riyadh-roads')) {
-                map.getSource('riyadh-roads').setData(data);
-            } else {
-                map.addSource('riyadh-roads', {
-                    'type': 'geojson',
-                    'data': data
-                });
-            }
-
-            // Add roads layer if it doesn't exist
-            if (!map.getLayer('riyadh-roads-layer')) {
-                map.addLayer({
-                    'id': 'riyadh-roads-layer',
-                    'type': 'line',
-                    'source': 'riyadh-roads',
-                    'layout': {
-                        'line-join': 'round',
-                        'line-cap': 'round'
-                    },
-                    'paint': {
-                        // Initial neutral styling; replaced by
-                        // applyRiyadhRoadsSymbology() once symbology catalog is ready.
-                        'line-color': '#dee2e6',
-                        'line-width': 5,
-                        'line-opacity': 0.8
-                    }
-                });
-            }
-
-            // Apply centralized symbology to the Riyadh roads layer
-            applyRiyadhRoadsSymbology();
-
-            // Ensure closure symbols layer is present once symbology and
-            // sources are ready.
-            ensureRiyadhRoadsClosureSymbolsLayer();
-
-            // Riyadh roads loaded successfully
-        }
-    } catch (error) {
-        // Error loading Riyadh roads - silently fail
-    }
-}
 
 // Map load event
 map.on('load', () => {
     // Ensure initial basemap visibility is applied
     setBasemapVisibility(currentBasemapId);
 
+    // Add Riyadh roads vector tile layer as the network visualization.
+    if (HAS_RIYADH_ROADS_TILES && RIYADH_ROADS_TILE_URL) {
+        try {
+            if (!map.getSource('riyadh-roads')) {
+                map.addSource('riyadh-roads', {
+                    type: 'vector',
+                    tiles: [RIYADH_ROADS_TILE_URL],
+                    minzoom: 0,
+                    maxzoom: 14
+                });
+            }
+
+            if (!map.getLayer('riyadh-roads-layer')) {
+                map.addLayer({
+                    id: 'riyadh-roads-layer',
+                    type: 'line',
+                    source: 'riyadh-roads',
+                    'source-layer': 'riyadh_roads',
+                    layout: {
+                        'line-cap': 'round',
+                        'line-join': 'round'
+                    },
+                    paint: {
+                        'line-color': '#ff0000',
+                        'line-width': 2
+                    }
+                });
+            }
+        } catch (e) {}
+    }
 
     if (!map.hasImage('road-closure')) {
         map.loadImage('/static/images/icons/road_closure.png', (error, image) => {
             if (error || !image) {
-       
                 console.error('Failed to load road-closure icon from /static/images/icons/road_closure.png', error);
             } else if (!map.hasImage('road-closure')) {
                 map.addImage('road-closure', image);
             }
-
-            loadRiyadhRoads();
 
             if (typeof window.reloadApprovedLines === 'function') {
                 try {
@@ -767,8 +374,7 @@ map.on('load', () => {
         });
     } else {
         // Icon already registered (e.g. style reinitialization). Safe to load
-        // roads immediately.
-        loadRiyadhRoads();
+        // approved lines immediately.
         if (typeof window.reloadApprovedLines === 'function') {
             try {
                 window.reloadApprovedLines();
@@ -777,80 +383,6 @@ map.on('load', () => {
             }
         }
     }
-    
-    // Reload roads when map moves/zooms (with debouncing)
-    let reloadTimeout;
-    map.on('moveend', () => {
-        clearTimeout(reloadTimeout);
-        reloadTimeout = setTimeout(() => {
-            loadRiyadhRoads();
-        }, 500); // Wait 500ms after map stops moving
-    });
-    
-    // Add click handler for roads to show LINE feature sidebar (replaces white popup)
-    map.on('click', 'riyadh-roads-layer', (e) => {
-        e.preventDefault();
-        handleRiyadhRoadClick(e.features[0]);
-    });
-    
-    // Change cursor on hover for roads
-    map.on('mouseenter', 'riyadh-roads-layer', () => {
-        map.getCanvas().style.cursor = 'pointer';
-    });
-    
-    map.on('mouseleave', 'riyadh-roads-layer', () => {
-        map.getCanvas().style.cursor = '';
-    });
-    
-    // Clear selection when clicking on empty map (not on a feature)
-    map.on('click', (e) => {
-        // Only clear if clicking on map itself, not on any layer.
-        // Query riyadh-roads-layer only if it exists (it may not exist before roads are loaded).
-        let features = [];
-        if (map.getLayer('riyadh-roads-layer')) {
-            try {
-                features = map.queryRenderedFeatures(e.point, {
-                    layers: ['riyadh-roads-layer']
-                });
-            } catch (err) {
-                // Layer may not be queryable in some style states; treat as no features
-            }
-        }
-
-        // If no features were clicked, clear selection
-        if (features.length === 0) {
-            // Check if we should clear (only if clicking outside all selectable features)
-            // TerraDraw handles its own deselection, so we just clear Riyadh road selection
-            if (window.currentlySelectedItemType === 'riyadh-road') {
-                clearSelectedRiyadhRoad();
-                window.currentlySelectedItem = null;
-                window.currentlySelectedItemType = null;
-                
-                // Close sidebar if it's open for viewing only (not editing)
-                // We don't close it if user is actively editing
-                const sidePanel = document.getElementById('editSidePanel');
-                const editScreen = document.getElementById('editFeatureScreen');
-                if (sidePanel && !editScreen) {
-                    // Only close if not in edit mode (viewing mode)
-                    const editButton = document.getElementById('editButton');
-                    if (editButton && !editButton.classList.contains('active')) {
-                        // Check if edit mode is disabled
-                        sidePanel.classList.add('-translate-x-full');
-                        const mapContainer = document.getElementById('mapContainer');
-                        if (mapContainer) {
-                            mapContainer.style.marginLeft = '0';
-                            mapContainer.style.width = '100%';
-                            setTimeout(function() {
-                                if (map && map.resize) {
-                                    map.resize();
-                                }
-                            }, 300);
-                        }
-                    }
-                }
-            }
-        }
-    });
 });
 
 // Initialize basemap gallery once DOM is ready
@@ -859,8 +391,3 @@ if (document.readyState === 'loading') {
 } else {
     initBasemapGallery();
 }
-
-// Expose clearSelectedRiyadhRoad globally for use by other scripts
-window.clearSelectedRiyadhRoad = clearSelectedRiyadhRoad;
-window.clearPreviousSelection = clearPreviousSelection;
-window.loadRiyadhRoads = loadRiyadhRoads;

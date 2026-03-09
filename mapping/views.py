@@ -444,91 +444,14 @@ def get_approved_lines(request):
 @login_required
 def get_riyadh_roads(request):
     """
-    Get Riyadh roads as GeoJSON for map display.
-    Supports optional bounding box filtering for performance.
-    
-    Query parameters:
-    - bbox: Optional bounding box filter (format: "min_lon,min_lat,max_lon,max_lat")
-    - limit: Optional limit on number of features (default: 5000)
-    - fclass: Optional filter by road class (e.g., "motorway", "primary", "secondary")
+    Deprecated: Riyadh roads are now visualized exclusively via the external
+    XYZ tile service configured in RIYADH_ROADS_TILE_URL. This GeoJSON API is
+    no longer used by the frontend.
     """
-    try:
-        # Get optional query parameters
-        bbox = request.GET.get("bbox")
-        limit = int(request.GET.get("limit", 5000))
-        fclass_filter = request.GET.get("fclass")
-
-        # Start with all roads
-        roads = RiyadhRoad.objects.all()
-
-        # Apply bounding box filter if provided
-        if bbox:
-            try:
-                coords = [float(x.strip()) for x in bbox.split(",")]
-                if len(coords) == 4:
-                    bbox_poly = Polygon.from_bbox(coords)
-                    roads = roads.filter(geom__intersects=bbox_poly)
-            except (ValueError, IndexError):
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "message": "Invalid bbox format. Use: min_lon,min_lat,max_lon,max_lat",
-                    },
-                    status=400,
-                )
-
-        # Apply fclass filter if provided
-        if fclass_filter:
-            roads = roads.filter(fclass__iexact=fclass_filter)
-
-        # Apply limit for performance
-        roads = roads[:limit]
-
-        # Convert to GeoJSON FeatureCollection
-        features = []
-        for road in roads:
-            try:
-                geom = GEOSGeometry(road.geom)
-                # Convert MultiLineString to GeoJSON
-                geom_json = json.loads(geom.geojson)
-
-                features.append(
-                    {
-                        "type": "Feature",
-                        "geometry": geom_json,
-                        "properties": {
-                            "id": road.id,
-                            "name": road.name or "",
-                            "fclass": road.fclass or "",
-                            "ref": road.ref or "",
-                            "maxspeed": road.maxspeed,
-                            "oneway": road.oneway or "",
-                            "bridge": road.bridge or "",
-                            "tunnel": road.tunnel or "",
-                            "shape_length": road.shape_length,
-                            "road_closure": int(
-                                getattr(road, "road_closure", 0) or 0
-                            ),
-                        },
-                    }
-                )
-            except Exception:
-                # Skip features with geometry errors
-                continue
-
-        return JsonResponse(
-            {
-                "type": "FeatureCollection",
-                "features": features,
-                "count": len(features),
-            }
-        )
-
-    except Exception as e:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": f"Error fetching Riyadh roads: {str(e)}",
-            },
-            status=500,
-        )
+    return JsonResponse(
+        {
+            "success": False,
+            "message": "GeoJSON Riyadh roads API has been retired. Use the configured tile service instead.",
+        },
+        status=410,
+    )

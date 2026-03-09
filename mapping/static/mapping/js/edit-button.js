@@ -1,7 +1,5 @@
-/**
- * Edit Mode Controller
- * Handles Edit button visibility, edit mode toggle, side panel, toolbar, and zoom overlay.
- */
+// Edit Mode Controller.
+// Handles Edit button visibility, edit mode toggle, side panel, toolbar, and zoom overlay.
 
 (function() {
     'use strict';
@@ -25,9 +23,7 @@
     let zoomOverlay = null;
     let zoomInBtn = null;
 
-    /**
-     * Initialize the edit mode controller
-     */
+    // Initialize the edit mode controller.
     function initEditMode() {
         editButton = document.getElementById(EDIT_BUTTON_ID);
         
@@ -62,9 +58,7 @@
         syncTerraDrawMode();
     }
 
-    /**
-     * Setup all event listeners
-     */
+    // Setup all event listeners.
     function setupEventListeners() {
         // Edit button click
         editButton.addEventListener('click', handleEditButtonClick);
@@ -94,9 +88,7 @@
         if (zoomInBtn) zoomInBtn.addEventListener('click', handleZoomIn);
     }
 
-    /**
-     * Handle edit button click - toggle edit mode
-     */
+    // Handle edit button click; toggle edit mode.
     function handleEditButtonClick(event) {
         event.preventDefault();
         
@@ -113,9 +105,7 @@
         }
     }
 
-    /**
-     * Enter edit mode
-     */
+    // Enter edit mode.
     function enterEditMode() {
         // Update button text
         updateButtonText('Exit Edit Mode');
@@ -166,9 +156,7 @@
         }
     }
 
-    /**
-     * Exit edit mode
-     */
+    // Exit edit mode.
     function exitEditMode() {
         // Update button text
         updateButtonText('Edit');
@@ -223,9 +211,7 @@
         updateToolButtons();
     }
 
-    /**
-     * Update button state based on zoom level
-     */
+    // Update button state based on zoom level.
     function updateButtonState() {
         try {
             const currentZoom = map.getZoom();
@@ -248,9 +234,7 @@
         }
     }
 
-    /**
-     * Handle zoom end event
-     */
+    // Handle zoom end event.
     function handleZoomEnd() {
         updateButtonState();
         
@@ -259,9 +243,7 @@
         }
     }
 
-    /**
-     * Check zoom level and show/hide overlay
-     */
+    // Check zoom level and show or hide overlay.
     function checkZoomLevel() {
         if (!isEditModeActive || !zoomOverlay) {
             return;
@@ -289,9 +271,7 @@
         }
     }
 
-    /**
-     * Handle zoom in button click
-     */
+    // Handle zoom in button click.
     function handleZoomIn() {
         if (!map) return;
         
@@ -303,9 +283,7 @@
         });
     }
 
-    /**
-     * Update button text
-     */
+    // Update button text.
     function updateButtonText(text) {
         const textSpan = editButton.querySelector('span');
         if (textSpan) {
@@ -313,9 +291,7 @@
         }
     }
 
-    /**
-     * Select a tool (Point, Line, Area)
-     */
+    // Select a tool (Point, Line, Area).
     function selectTool(tool) {
         currentTool = tool;
         updateToolButtons();
@@ -352,9 +328,7 @@
         }
     }
 
-    /**
-     * Update tool button states (highlight active tool)
-     */
+    // Update tool button states (highlight active tool).
     function updateToolButtons() {
         const pointBtn = document.getElementById('pointToolBtn');
         const lineBtn = document.getElementById('lineToolBtn');
@@ -380,21 +354,15 @@
         }
     }
 
-    /**
-     * Handle undo action (TerraDraw undo not yet wired).
-     */
+    // Handle undo action (TerraDraw undo not yet wired).
     function handleUndo() {
     }
 
-    /**
-     * Handle redo action (TerraDraw redo not yet wired).
-     */
+    // Handle redo action (TerraDraw redo not yet wired).
     function handleRedo() {
     }
 
-    /**
-     * Handle save action
-     */
+    // Handle save action.
     function handleSave() {
         // Delegate to save-line-edit.js handler if available
         // This prevents duplicate calls - save-line-edit.js handles the actual save
@@ -422,9 +390,7 @@
         }
     }
 
-    /**
-     * Sync toolbar button states with TerraDraw mode
-     */
+    // Sync toolbar button states with TerraDraw mode.
     function syncTerraDrawMode() {
         // Get TerraDraw instance
         let terraDrawInstance = null;

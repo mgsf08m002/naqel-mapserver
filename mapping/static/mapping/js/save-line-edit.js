@@ -1,9 +1,7 @@
-/**
- * Save Line Edit Request Handler
- * Persists line geometry, feature type, attributes, and road closure when user presses Save.
- * Map symbology updates live when feature type changes; this module handles persistence only.
- * Manager saves are auto-approved; editor/system admin saves create pending requests for manager approval.
- */
+// Save Line Edit Request Handler.
+// Persists line geometry, feature type, attributes, and road closure when user presses Save.
+// Map symbology updates live when feature type changes; this module handles persistence only.
+// Manager saves are auto-approved; editor/system admin saves create pending requests for manager approval.
 
 (function() {
     'use strict';
@@ -12,11 +10,8 @@
     let drawInstance = null;
     let currentFeatureLabel = 'Line';
 
-    /**
-     * Lightweight wrapper around the global notification system used across
-     * the application (window.notify). This ensures road-closure feedback
-     * uses the same centralized toast UI/UX as login and account flows.
-     */
+    // Lightweight wrapper around the global notification system (window.notify).
+    // Ensures road-closure feedback uses the same centralized toast UI/UX as login and account flows.
     function showToastNotification(message, type) {
         if (!message) {
             return;
@@ -50,9 +45,7 @@
         tryShowNotification(10);
     }
 
-    /**
-     * Get current line data from line-drawing.js
-     */
+    // Get current line data from line-drawing.js.
     function getCurrentLineData() {
         if (typeof window.getCurrentLineId === 'function') {
             currentLineId = window.getCurrentLineId();
@@ -75,9 +68,7 @@
         }
     }
 
-    /**
-     * Collect fields data from the sidepanel
-     */
+    // Collect fields data from the sidepanel.
     function collectFieldsData() {
         const fieldsData = {};
         const fieldsContainer = document.getElementById('fields-container');
@@ -147,9 +138,7 @@
         return fieldsData;
     }
 
-    /**
-     * Collect tags data from the sidepanel
-     */
+    // Collect tags data from the sidepanel.
     function collectTagsData() {
         const tagsData = [];
         const tagsRowsContainer = document.getElementById('tags-rows-container');
@@ -174,9 +163,7 @@
         return tagsData;
     }
 
-    /**
-     * Collect relations data from the sidepanel
-     */
+    // Collect relations data from the sidepanel.
     function collectRelationsData() {
         const relationsData = [];
         const relationsRowsContainer = document.getElementById('relations-rows-container');
@@ -217,9 +204,7 @@
         return relationsData;
     }
 
-    /**
-     * Collect all line edit data
-     */
+    // Collect all line edit data.
     function collectLineEditData() {
         const editScreen = document.getElementById('editFeatureScreen');
         const isApprovedLineEdit = editScreen && editScreen.getAttribute('data-is-approved-line') === 'true';
@@ -303,8 +288,6 @@
             return null;
         }
 
-        // Don't set approved_line_id for Riyadh roads (they're from the backup, not approved lines)
-        // isRiyadhRoad is already declared above, so just reuse it
         const approvedLineIdToUse = (isApprovedLineEdit && approvedLineId && !isRiyadhRoad) ? approvedLineId : null;
 
         // Normalize current road closure flag from shared sidebar state
@@ -323,9 +306,6 @@
                 : isRoadClosed;
         const closureChanged = initialClosure !== isRoadClosed;
 
-        // Resolve Riyadh road linkage metadata when applicable so that the
-        // backend can correctly apply closure changes to the base network on
-        // approval.
         let isRiyadhRoadFlag = !!isRiyadhRoad;
         let riyadhRoadId = null;
         if (isRiyadhRoadFlag) {
@@ -354,12 +334,8 @@
         };
     }
 
-    /**
-     * Immediately synchronize road closure state with the backend so that
-     * symbology updates without waiting for manager approval. This is a
-     * best-effort, non-blocking call – the main save flow proceeds even if
-     * this request fails.
-     */
+    // Immediately synchronize road closure state with the backend so that symbology updates without waiting for manager approval.
+    // This is a best-effort, non-blocking call; the main save flow proceeds even if this request fails.
     function syncRoadClosureImmediate(editData) {
         if (
             !editData ||
@@ -372,10 +348,7 @@
         let targetType = null;
         let targetId = null;
 
-        if (editData.is_riyadh_road && editData.riyadh_road_id != null) {
-            targetType = 'riyadh_road';
-            targetId = editData.riyadh_road_id;
-        } else if (editData.approved_line_id) {
+        if (editData.approved_line_id) {
             targetType = 'approved_line';
             targetId = editData.approved_line_id;
         } else if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id != null) {
@@ -430,11 +403,9 @@
         });
     }
 
-    /**
-     * Show confirmation feedback after save. For road closure changes this
-     * uses a non-blocking toast notification instead of a modal popup. For
-     * all other edit flows, the existing modal confirmation is preserved.
-     */
+    // Show confirmation feedback after save.
+    // For road closure changes this uses a non-blocking toast notification instead of a modal popup.
+    // For other edit flows, the existing modal confirmation is preserved.
     function showSaveConfirmationPopup(options) {
         const isAutoApproved = options && options.isAutoApproved;
         const closureChanged = options && options.closureChanged;
@@ -498,9 +469,7 @@
         });
     }
 
-    /**
-     * Handle save button click
-     */
+    // Handle save button click.
     function handleSave() {
         // Prevent duplicate calls
         const saveBtn = document.getElementById('saveBtn');
@@ -589,9 +558,7 @@
         });
     }
 
-    /**
-     * Get CSRF token from cookies
-     */
+    // Get CSRF token from cookies.
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -607,9 +574,7 @@
         return cookieValue;
     }
 
-    /**
-     * Initialize save functionality
-     */
+    // Initialize save functionality.
     function initSaveHandler() {
         const saveBtn = document.getElementById('saveBtn');
         if (saveBtn) {

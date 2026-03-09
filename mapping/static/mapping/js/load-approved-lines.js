@@ -1,14 +1,10 @@
-/**
- * Load and manage approved lines (and Riyadh roads) on the map.
- * Renders lines with symbology from the catalog; supports selection and editing.
- */
+// Load and manage approved lines (and Riyadh roads) on the map.
+// Renders lines with symbology from the catalog; supports selection and editing.
 
 (function() {
     'use strict';
 
-    /**
-     * Get cookie value by name
-     */
+    // Get cookie value by name.
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -24,9 +20,7 @@
         return cookieValue;
     }
 
-    /**
-     * Get user role from URL path
-     */
+    // Get user role from URL path.
     function getUserRole() {
         const path = window.location.pathname;
         if (path.includes('/manager/')) {
@@ -39,9 +33,7 @@
         return null;
     }
 
-    /**
-     * Check if edit mode is enabled
-     */
+    // Check if edit mode is enabled.
     function isEditModeEnabled() {
         const editButton = document.getElementById('editButton');
         const editToolbar = document.getElementById('editToolbar');
@@ -71,9 +63,7 @@
         return false;
     }
 
-    /**
-     * Clear all existing approved lines from the map
-     */
+    // Clear all existing approved lines from the map.
     function clearAllApprovedLines() {
         if (typeof map === 'undefined' || !map) {
             return;
@@ -204,9 +194,7 @@
         window.approvedLinesData = {};
     }
 
-    /**
-     * Load approved lines from server
-     */
+    // Load approved lines from server.
     function loadApprovedLines() {
         if (typeof map === 'undefined' || !map) {
             setTimeout(loadApprovedLines, 100);
@@ -237,9 +225,7 @@
         });
     }
 
-    /**
-     * Render a single approved line on the map
-     */
+    // Render a single approved line on the map.
     function renderApprovedLine(lineData) {
         if (!lineData || !lineData.geometry || !lineData.id) {
             return;
@@ -389,9 +375,7 @@
         });
     }
 
-    /**
-     * Show approved line details in side panel
-     */
+    // Show approved line details in side panel.
     function showApprovedLineDetails(lineData, isClick) {
         if (!lineData) {
             return;
@@ -572,9 +556,7 @@
         }, 100);
     }
 
-    /**
-     * Populate fields data for approved line
-     */
+    // Populate fields data for approved line.
     function populateFieldsDataForApprovedLine(fieldsData) {
         const fieldsContainer = document.getElementById('fields-container');
         if (!fieldsContainer || !fieldsData) return;
@@ -715,9 +697,7 @@
         }, 200);
     }
 
-    /**
-     * Populate tags data for approved line
-     */
+    // Populate tags data for approved line.
     function populateTagsDataForApprovedLine(tagsData) {
         if (!Array.isArray(tagsData) || tagsData.length === 0) return;
         
@@ -736,9 +716,7 @@
         });
     }
 
-    /**
-     * Create a tag row for approved line
-     */
+    // Create a tag row for approved line.
     function createTagRowForApprovedLine(container, labelElement, key, value) {
         const tagRow = document.createElement('div');
         tagRow.className = 'flex items-center gap-2';
@@ -813,9 +791,7 @@
         updateTagsCountForApprovedLine(labelElement);
     }
 
-    /**
-     * Update tags count for approved line
-     */
+    // Update tags count for approved line.
     function updateTagsCountForApprovedLine(labelElement) {
         const tagsRowsContainer = document.getElementById('tags-rows-container');
         if (tagsRowsContainer && labelElement) {
@@ -825,9 +801,7 @@
         }
     }
 
-    /**
-     * Populate relations data for approved line
-     */
+    // Populate relations data for approved line.
     function populateRelationsDataForApprovedLine(relationsData) {
         if (!Array.isArray(relationsData) || relationsData.length === 0) return;
         
@@ -843,9 +817,7 @@
         });
     }
 
-    /**
-     * Create a relation row for approved line
-     */
+    // Create a relation row for approved line.
     function createRelationRowForApprovedLine(container, labelElement, parentRelation, role) {
         const relationRow = document.createElement('div');
         relationRow.className = 'space-y-2';
@@ -924,9 +896,7 @@
         updateRelationsCountForApprovedLine(labelElement);
     }
 
-    /**
-     * Update relations count for approved line
-     */
+    // Update relations count for approved line.
     function updateRelationsCountForApprovedLine(labelElement) {
         const relationsRowsContainer = document.getElementById('relations-rows-container');
         if (relationsRowsContainer && labelElement) {

@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
-from .feature_catalog import get_catalog
+from .catalog_service import get_catalog
 
 
 @require_GET

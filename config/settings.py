@@ -6,6 +6,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -26,6 +27,22 @@ if not SECRET_KEY:
 # MapTiler API key for basemap integration (optional).
 # This is intentionally loaded only from the environment and never hardcoded.
 MAPTILER_API_KEY = os.getenv('MAPTILER_API_KEY', '').strip()
+
+# Riyadh roads tile service (XYZ) for high-performance visualization of the
+# Riyadh road network. Default points to the manager-provided endpoint but
+# can be overridden via RIYADH_ROADS_TILE_URL in the environment.
+RIYADH_ROADS_TILE_URL = os.getenv(
+    "RIYADH_ROADS_TILE_URL",
+    "http://139.162.60.105:3000/tiles/riyadh_roads/{z}/{x}/{y}",
+).strip()
+
+# Derive the origin (scheme + host) of the Riyadh roads tile service so CSP
+# can stay in sync even when RIYADH_ROADS_TILE_URL is overridden via .env.
+_riyadh_tile_url = urlparse(RIYADH_ROADS_TILE_URL)
+if _riyadh_tile_url.scheme and _riyadh_tile_url.netloc:
+    RIYADH_ROADS_TILE_ORIGIN = f"{_riyadh_tile_url.scheme}://{_riyadh_tile_url.netloc}"
+else:
+    RIYADH_ROADS_TILE_ORIGIN = "http://139.162.60.105:3000"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
@@ -80,6 +97,7 @@ if DEBUG:
         "https://services.arcgisonline.com",
         "https://tiles.maps.eox.at",
         "https://api.maptiler.com",
+        RIYADH_ROADS_TILE_ORIGIN,
     ]
     CSP_CONNECT_SRC = [
         "'self'",
@@ -89,6 +107,7 @@ if DEBUG:
         "https://api.maptiler.com",
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",
+        RIYADH_ROADS_TILE_ORIGIN,
     ]
     CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers
 else:
@@ -104,6 +123,7 @@ else:
         "https://services.arcgisonline.com",
         "https://tiles.maps.eox.at",
         "https://api.maptiler.com",
+        RIYADH_ROADS_TILE_ORIGIN,
     ]
     CSP_CONNECT_SRC = [
         "'self'",
@@ -113,6 +133,7 @@ else:
         "https://api.maptiler.com",
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",
+        RIYADH_ROADS_TILE_ORIGIN,
     ]
     CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers
 
@@ -130,6 +151,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'system_admin.context_processors.user_profile',
                 'mapping.context_processors.maptiler_api_key',
+                'mapping.context_processors.riyadh_roads_tile_url',
             ],
         },
     },

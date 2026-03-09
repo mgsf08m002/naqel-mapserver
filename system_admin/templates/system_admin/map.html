@@ -78,6 +78,7 @@
             id="map"
             class="w-full h-full"
             {% if maptiler_api_key %}data-maptiler-api-key="{{ maptiler_api_key }}"{% endif %}
+            {% if riyadh_roads_tile_url %}data-riyadh-roads-tile-url="{{ riyadh_roads_tile_url }}"{% endif %}
         ></div>
         <div
             id="coordinatesDisplay"

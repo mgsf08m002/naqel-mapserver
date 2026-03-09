@@ -1,7 +1,5 @@
-/**
- * Line Drawing Handler
- * Manages line drawing, MapLibre layer rendering, and sidepanel UI
- */
+// Line Drawing Handler.
+// Manages line drawing, MapLibre layer rendering, and sidepanel UI.
 
 (function() {
     'use strict';
@@ -402,13 +400,6 @@
         }
 
         try {
-            // Clear any previously selected Riyadh road
-            if (window.currentlySelectedItemType === 'riyadh-road' && typeof clearSelectedRiyadhRoad === 'function') {
-                clearSelectedRiyadhRoad();
-            } else if (window.currentlySelectedItemType === 'riyadh-road' && typeof window.clearSelectedRiyadhRoad === 'function') {
-                window.clearSelectedRiyadhRoad();
-            }
-            
             const snapshot = drawInstance.getSnapshot();
             const feature = snapshot?.find(function(f) { return f.id === id; });
 
@@ -484,9 +475,7 @@
         }
     }
 
-    /**
-     * Show Search Features screen for approved line editing (Editor/System Admin)
-     */
+    // Show Search Features screen for approved line editing (Editor/System Admin).
     function showLineSidePanelForApprovedLineEdit(featureLabel) {
         const sidePanel = document.getElementById('editSidePanel');
         if (!sidePanel) {
@@ -870,9 +859,7 @@
         return container;
     }
 
-    /**
-     * Update line visualization from provided geometry (for approved lines)
-     */
+    // Update line visualization from provided geometry (for approved lines).
     function updateLineVisualizationFromGeometry(geometry, featureLabel) {
         const svgContainer = document.getElementById('lineVisualizationSVG');
         if (!svgContainer) {
@@ -1104,10 +1091,8 @@
         }
     }
 
-    /**
-     * Set current feature type and update map symbology immediately.
-     * Map display updates without Save; persistence and approval happen on Save.
-     */
+    // Set current feature type and update map symbology immediately.
+    // Map display updates without Save; persistence and approval happen on Save.
     function updateCurrentFeatureLabel(featureType) {
         featureType = featureType || "Line";
         currentFeatureLabel = featureType;
@@ -1839,9 +1824,7 @@
         return container;
     }
 
-    /**
-     * Update Feature Type visualization from request geometry (for manager viewing requests)
-     */
+    // Update Feature Type visualization from request geometry (for manager viewing requests).
     function updateFeatureTypeVisualizationFromGeometry(geometry) {
         const container = document.getElementById('featureTypeVisualization');
         if (!container || !geometry || geometry.type !== 'LineString') return;
@@ -1900,9 +1883,7 @@
         }
     }
 
-    /**
-     * Render the Feature Type visualization SVG
-     */
+    // Render the Feature Type visualization SVG.
     function renderFeatureTypeVisualization(container, coordinates) {
         if (!container || !coordinates || coordinates.length < 2) {
             if (container) container.innerHTML = '';
@@ -3351,10 +3332,8 @@
         return currentLineId;
     }
 
-    /**
-     * Returns a flat list of all feature types with category for search.
-     * Matches the options used in populateDropdowns.
-     */
+    // Return a flat list of all feature types with category for search.
+    // Matches the options used in populateDropdowns.
     function getFeatureTypesForSearch() {
         const categories = [
             { category: 'Major Roads', options: [
@@ -3436,10 +3415,8 @@
         return flat;
     }
 
-    /**
-     * Wire the Search features input and populate featureSearchResults.
-     * Shows placeholder when empty; filters feature types when user types; on select, sets type and shows line panel.
-     */
+    // Wire the Search features input and populate featureSearchResults.
+    // Shows placeholder when empty; filters feature types when user types; on select, sets type and shows line panel.
     function setupFeatureSearch() {
         const searchInput = document.getElementById('featureSearch');
         const searchResults = document.getElementById('featureSearchResults');
@@ -3738,9 +3715,7 @@
         });
     }
 
-    /**
-     * Update Riyadh road visualization on the map when feature type changes
-     */
+    // Update Riyadh road visualization on the map when feature type changes.
     function updateRiyadhRoadVisualization(roadId, newFeatureLabel, geometry) {
         if (typeof map === 'undefined' || !map) return;
         if (!geometry) return;
@@ -3791,7 +3766,7 @@
                     'line-width': style.glowWidth,
                     'line-opacity': style.glowOpacity
                 }
-            }, 'riyadh-roads-layer'); // Insert before riyadh-roads-layer
+            });
         } else {
             map.setPaintProperty(glowLayerId, 'line-color', glowColor);
             map.setPaintProperty(glowLayerId, 'line-width', style.glowWidth);
@@ -3820,23 +3795,10 @@
             map.setPaintProperty(layerId, 'line-dasharray', isRoadClosed ? roadClosureDash : [1, 0]);
         }
 
-        // Hide this road in the base riyadh-roads layer so only the selected symbology shows
-        if (map.getLayer('riyadh-roads-layer')) {
-            try {
-                var excludeFilter = ['!=', ['get', 'id'], roadId];
-                map.setFilter('riyadh-roads-layer', excludeFilter);
-                if (map.getLayer('riyadh-roads-closure-symbols')) {
-                    map.setFilter('riyadh-roads-closure-symbols', ['all', ['==', ['get', 'road_closure'], 1], excludeFilter]);
-                }
-            } catch (err) {
-                // Ignore
-            }
-        }
+        // No base Riyadh-roads GeoJSON layer is used; selection styling is drawn entirely via dedicated MapLibre layers for the selected road.
     }
 
-    /**
-     * Update approved line visualization on the map when feature type changes
-     */
+    // Update approved line visualization on the map when feature type changes.
     function updateApprovedLineVisualization(approvedLineId, newFeatureLabel) {
         if (typeof map === 'undefined' || !map) return;
         
@@ -3997,10 +3959,8 @@
         }
     };
 
-    /**
-     * Show Riyadh road as LINE feature in sidebar
-     * This integrates Riyadh roads with the LINE feature system
-     */
+    // Show Riyadh road as LINE feature in sidebar.
+    // This integrates Riyadh roads with the LINE feature system.
     function showRiyadhRoadAsLineFeature(lineFeatureData) {
         if (!lineFeatureData) {
             return;
@@ -4048,9 +4008,7 @@
         }
     }
     
-    /**
-     * Directly open sidebar and show edit feature screen (fallback method)
-     */
+    // Directly open sidebar and show edit feature screen (fallback method).
     function openSidebarDirectly(lineFeatureData) {
         const sidePanel = document.getElementById('editSidePanel');
         if (!sidePanel) {

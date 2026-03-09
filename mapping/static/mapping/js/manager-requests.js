@@ -1,7 +1,5 @@
-/**
- * Manager Edit Requests Handler
- * Handles displaying and managing edit requests for Managers
- */
+// Manager Edit Requests Handler.
+// Handles displaying and managing edit requests for Managers.
 
 (function() {
     'use strict';
@@ -9,9 +7,7 @@
     let pendingRequests = [];
     let currentViewingRequest = null;
 
-    /**
-     * Create the manager requests UI
-     */
+    // Create the manager requests UI.
     function createManagerRequestsUI() {
         const container = document.createElement('div');
         container.id = 'managerRequestsContainer';
@@ -59,9 +55,7 @@
         return container;
     }
 
-    /**
-     * Create a request card
-     */
+    // Create a request card.
     function createRequestCard(request) {
         const card = document.createElement('div');
         card.className = 'bg-white rounded border border-gray-300 p-3 hover:shadow-sm transition-shadow';
@@ -128,9 +122,7 @@
         return card;
     }
 
-    /**
-     * Load and display pending requests
-     */
+    // Load and display pending requests.
     function loadPendingRequests() {
         fetch('/mapping/api/pending-requests/', {
             method: 'GET',
@@ -153,9 +145,7 @@
         });
     }
 
-    /**
-     * Display requests in the UI
-     */
+    // Display requests in the UI.
     function displayRequests() {
         const container = document.getElementById('managerRequestsContainer');
         if (!container) return;
@@ -185,9 +175,7 @@
         });
     }
 
-    /**
-     * Update requests badge count
-     */
+    // Update requests badge count.
     function updateRequestsBadge() {
         const badge = document.getElementById('requestsBadge');
         if (badge) {
@@ -200,9 +188,7 @@
         }
     }
 
-    /**
-     * View edit request - zoom to line and show details
-     */
+    // View edit request; zoom to line and show details.
     function viewEditRequest(requestId) {
         fetch('/mapping/api/request/' + requestId + '/', {
             method: 'GET',
@@ -226,9 +212,7 @@
         });
     }
 
-    /**
-     * Clean up request lines from map
-     */
+    // Clean up request lines from map.
     function cleanupRequestLines() {
         if (typeof map === 'undefined' || !map) return;
         
@@ -269,9 +253,7 @@
         }
     }
 
-    /**
-     * Show edit request on map
-     */
+    // Show edit request on map.
     function showEditRequestOnMap(request) {
         if (typeof map === 'undefined' || !map) {
             alert('Map not initialized');
@@ -328,9 +310,7 @@
         });
     }
 
-    /**
-     * Ensure edit mode is enabled and wait for sidepanel to be fully ready
-     */
+    // Ensure edit mode is enabled and wait for sidepanel to be fully ready.
     function ensureEditModeEnabled(callback) {
         const sidePanel = document.getElementById('editSidePanel');
         const mapContainer = document.getElementById('mapContainer');
@@ -380,9 +360,7 @@
         }, 400);
     }
 
-    /**
-     * Draw the request line on the map
-     */
+    // Draw the request line on the map.
     function drawRequestLineOnMap(request) {
         if (typeof map === 'undefined' || !map) {
             return;
@@ -406,9 +384,7 @@
         window.viewingRequestIds.push(featureId);
     }
 
-    /**
-     * Render request line as MapLibre layer
-     */
+    // Render request line as MapLibre layer.
     function renderRequestLineAsMapLibreLayer(featureId, request) {
         if (typeof map === 'undefined' || !map) return;
 
@@ -477,9 +453,7 @@
         }
     }
 
-    /**
-     * Populate tags data in sidepanel
-     */
+    // Populate tags data in sidepanel.
     function populateTagsData(tagsData) {
         if (!Array.isArray(tagsData) || tagsData.length === 0) return;
         
@@ -495,9 +469,7 @@
         });
     }
 
-    /**
-     * Create a tag row
-     */
+    // Create a tag row.
     function createTagRow(container, labelElement, key, value) {
         const tagRow = document.createElement('div');
         tagRow.className = 'flex items-center gap-2';
@@ -572,9 +544,7 @@
         updateTagsCount(labelElement);
     }
 
-    /**
-     * Update tags count
-     */
+    // Update tags count.
     function updateTagsCount(labelElement) {
         const tagsRowsContainer = document.getElementById('tags-rows-container');
         if (tagsRowsContainer && labelElement) {
@@ -584,9 +554,7 @@
         }
     }
 
-    /**
-     * Populate relations data in sidepanel
-     */
+    // Populate relations data in sidepanel.
     function populateRelationsData(relationsData) {
         if (!Array.isArray(relationsData) || relationsData.length === 0) return;
         
@@ -602,9 +570,7 @@
         });
     }
 
-    /**
-     * Create a relation row
-     */
+    // Create a relation row.
     function createRelationRow(container, labelElement, parentRelation, role) {
         const relationRow = document.createElement('div');
         relationRow.className = 'space-y-2';
@@ -683,9 +649,7 @@
         updateRelationsCount(labelElement);
     }
 
-    /**
-     * Update relations count
-     */
+    // Update relations count.
     function updateRelationsCount(labelElement) {
         const relationsRowsContainer = document.getElementById('relations-rows-container');
         if (relationsRowsContainer && labelElement) {
@@ -695,9 +659,7 @@
         }
     }
 
-    /**
-     * Populate sidepanel with request data
-     */
+    // Populate sidepanel with request data.
     function populateSidepanelWithRequestData(request) {
         const sidePanel = document.getElementById('editSidePanel');
         const editToolbar = document.getElementById('editToolbar');
@@ -807,9 +769,7 @@
         }, 200);
     }
 
-    /**
-     * Populate fields data in sidepanel
-     */
+    // Populate fields data in sidepanel.
     function populateFieldsData(fieldsData) {
         const fieldsContainer = document.getElementById('fields-container');
         if (!fieldsContainer || !fieldsData) return;
@@ -920,9 +880,7 @@
         }, 200);
     }
 
-    /**
-     * Create multilingual name field manually
-     */
+    // Create multilingual name field manually.
     function createMultilingualNameField(fieldsContainer, language, name) {
         const multilingualSection = document.createElement('div');
         multilingualSection.className = 'bg-gray-700 rounded-lg p-3 space-y-2.5';
@@ -985,9 +943,7 @@
         }
     }
 
-    /**
-     * Populate tags data in sidepanel
-     */
+    // Populate tags data in sidepanel.
     function populateTagsData(tagsData) {
         if (!Array.isArray(tagsData) || tagsData.length === 0) return;
         
@@ -1003,9 +959,7 @@
         });
     }
 
-    /**
-     * Create a tag row with key and value
-     */
+    // Create a tag row with key and value.
     function createTagRow(container, labelElement, key, value) {
         const tagRow = document.createElement('div');
         tagRow.className = 'flex items-center gap-2';
@@ -1080,9 +1034,7 @@
         updateTagsCount(labelElement);
     }
 
-    /**
-     * Update tags count
-     */
+    // Update tags count.
     function updateTagsCount(labelElement) {
         const tagsRowsContainer = document.getElementById('tags-rows-container');
         if (tagsRowsContainer && labelElement) {
@@ -1092,9 +1044,7 @@
         }
     }
 
-    /**
-     * Populate relations data in sidepanel
-     */
+    // Populate relations data in sidepanel.
     function populateRelationsData(relationsData) {
         if (!Array.isArray(relationsData) || relationsData.length === 0) return;
         
@@ -1110,9 +1060,7 @@
         });
     }
 
-    /**
-     * Create a relation row with parent relation and role
-     */
+    // Create a relation row with parent relation and role.
     function createRelationRow(container, labelElement, parentRelation, role) {
         const relationRow = document.createElement('div');
         relationRow.className = 'space-y-2';
@@ -1191,9 +1139,7 @@
         updateRelationsCount(labelElement);
     }
 
-    /**
-     * Update relations count
-     */
+    // Update relations count.
     function updateRelationsCount(labelElement) {
         const relationsRowsContainer = document.getElementById('relations-rows-container');
         if (relationsRowsContainer && labelElement) {
@@ -1203,9 +1149,7 @@
         }
     }
 
-    /**
-     * Show request details in sidepanel with approve/reject buttons
-     */
+    // Show request details in sidepanel with approve and reject buttons.
     function showRequestDetailsSidepanel(request) {
         // Wait for sidepanel to be ready, then add approve/reject buttons
         setTimeout(function() {
@@ -1213,9 +1157,7 @@
         }, 1000);
     }
 
-    /**
-     * Create approve/reject buttons on the map
-     */
+    // Create approve and reject buttons on the map.
     function createApproveRejectButtons(request) {
         // Remove existing approve/reject buttons if any
         removeApproveRejectButtons();
@@ -1284,9 +1226,7 @@
         window.currentReviewingRequestId = request.id;
     }
 
-    /**
-     * Remove approve/reject buttons from map
-     */
+    // Remove approve and reject buttons from map.
     function removeApproveRejectButtons() {
         const container = document.getElementById('approveRejectButtonsContainer');
         if (container) {
@@ -1295,9 +1235,7 @@
         window.currentReviewingRequestId = null;
     }
 
-    /**
-     * Approve edit request
-     */
+    // Approve edit request.
     function approveRequest(requestId) {
         fetch('/mapping/api/request/' + requestId + '/approve/', {
             method: 'POST',
@@ -1332,9 +1270,7 @@
         });
     }
 
-    /**
-     * Reject edit request
-     */
+    // Reject edit request.
     function rejectRequest(requestId) {
         fetch('/mapping/api/request/' + requestId + '/reject/', {
             method: 'POST',
@@ -1367,9 +1303,7 @@
         });
     }
 
-    /**
-     * Get CSRF token from cookies
-     */
+    // Get CSRF token from cookies.
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -1385,9 +1319,7 @@
         return cookieValue;
     }
 
-    /**
-     * Create toggle button for manager requests
-     */
+    // Create toggle button for manager requests.
     function createToggleButton() {
         const button = document.createElement('button');
         button.id = 'managerRequestsToggle';
@@ -1418,9 +1350,7 @@
         return button;
     }
 
-    /**
-     * Initialize manager requests UI
-     */
+    // Initialize manager requests UI.
     function initManagerRequests() {
         // Check if user is manager
         // This should be checked server-side, but for UI we'll show it
