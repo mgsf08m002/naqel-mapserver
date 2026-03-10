@@ -6,7 +6,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('loginForm');
     const errorMessage = document.getElementById('errorMessage');
-    const googleSignInBtn = document.getElementById('googleSignIn');
 
     // Helper function to show notification (with fallback to error message)
     function showNotification(message, type = 'info') {
@@ -59,8 +58,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Attach Enter key event listener to document level
-    // This ensures Enter key works when focus is on email or password input fields
     document.addEventListener('keydown', handleEnterKeyPress);
 
     // Handle form submission
