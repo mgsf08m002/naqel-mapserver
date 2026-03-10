@@ -1849,11 +1849,16 @@
             try {
                 const requestGeometry = JSON.parse(editScreen.getAttribute('data-request-geometry'));
                 if (requestGeometry && requestGeometry.coordinates) {
-                    renderFeatureTypeVisualization(container, requestGeometry.coordinates);
-                    return;
+                    let coords = requestGeometry.coordinates;
+                    if (requestGeometry.type === 'MultiLineString' && Array.isArray(coords) && coords.length) {
+                        coords = coords[0] || [];
+                    }
+                    if (coords && coords.length >= 2) {
+                        renderFeatureTypeVisualization(container, coords);
+                        return;
+                    }
                 }
             } catch (e) {
-                // Error parsing request geometry
             }
         }
 

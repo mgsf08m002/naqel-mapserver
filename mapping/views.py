@@ -35,8 +35,6 @@ def save_line_edit_request(request):
                 status=400,
             )
 
-        # Determine whether current user is a manager for auto-approval of
-        # geometry/attribute edits (road closure itself is handled separately).
         profile = getattr(request.user, "profile", None)
         is_manager = profile and profile.role == "manager"
 
@@ -74,6 +72,11 @@ def save_line_edit_request(request):
 
         if is_manager:
             edit_request.approve(request.user)
+            if edit_request.is_riyadh_road:
+                try:
+                    _apply_riyadh_edit_to_base_network(edit_request)
+                except Exception:
+                    pass
             return JsonResponse(
                 {
                     "success": True,
@@ -82,16 +85,15 @@ def save_line_edit_request(request):
                     "auto_approved": True,
                 }
             )
-        else:
-            # Editor or System Admin - requires approval from manager
-            return JsonResponse(
-                {
-                    "success": True,
-                    "message": "Your requested edit has been sent to Manager and will be approved/rejected accordingly.",
-                    "request_id": edit_request.id,
-                    "auto_approved": False,
-                }
-            )
+
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Your requested edit has been sent to Manager and will be approved/rejected accordingly.",
+                "request_id": edit_request.id,
+                "auto_approved": False,
+            }
+        )
 
     except json.JSONDecodeError:
         return JsonResponse(
@@ -111,19 +113,57 @@ def save_line_edit_request(request):
         )
 
 
+def _apply_riyadh_edit_to_base_network(edit_request):
+    geometry_json = edit_request.geometry
+    geom = None
+    if geometry_json:
+        geom = GEOSGeometry(json.dumps(geometry_json), srid=4326)
+        try:
+            geom.transform(3857)
+        except Exception:
+            geom = None
+
+    fields = edit_request.fields_data or {}
+
+    road_kwargs = {
+        "name": fields.get("name") or "",
+        "ref": fields.get("ref") or "",
+        "fclass": fields.get("fclass") or "",
+        "oneway": fields.get("oneway") or "",
+        "maxspeed": fields.get("maxspeed"),
+        "code": fields.get("code"),
+        "bridge": fields.get("bridge") or "",
+        "tunnel": fields.get("tunnel") or "",
+        "layer": fields.get("layer"),
+    }
+
+    road = None
+    if edit_request.riyadh_road_id is not None:
+        try:
+            road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(edit_request.riyadh_road_id))
+        except RiyadhRoad.DoesNotExist:
+            road = None
+
+    if road is None:
+        road = RiyadhRoad.objects.using("riyadh_roads").create(
+            id=float(edit_request.riyadh_road_id) if edit_request.riyadh_road_id is not None else None,
+            **road_kwargs,
+        )
+    else:
+        for key, value in road_kwargs.items():
+            setattr(road, key, value)
+
+    if geom is not None:
+        road.geom = geom
+
+    road.road_closure = edit_request.road_closure or 0
+    road.save(using="riyadh_roads")
+
+
 @login_required
 @require_http_methods(["POST"])
 @csrf_exempt
 def set_road_closure(request):
-    """
-    Update road_closure immediately for an approved line.
-
-    This endpoint is intentionally approval-free: road closure changes apply
-    for all users (editors, managers, system admins) without manager approval.
-
-    Expected JSON payload:
-    {"target_type": "approved_line", "target_id": <int>, "road_closure": 0|1}
-    """
     try:
         data = json.loads(request.body.decode("utf-8"))
     except json.JSONDecodeError:
@@ -148,18 +188,6 @@ def set_road_closure(request):
             status=400,
         )
 
-    # Riyadh road base network closure is not supported unless the source table
-    # includes a `road_closure` column. Keep this endpoint strict to avoid
-    # silent failures/mismatched schemas.
-    if target_type == "riyadh_road":
-        return JsonResponse(
-            {
-                "success": False,
-                "message": "Riyadh road closure is not supported by the current source table schema.",
-            },
-            status=501,
-        )
-
     try:
         target_id_int = int(target_id)
     except (TypeError, ValueError):
@@ -179,13 +207,18 @@ def set_road_closure(request):
     road_closure = 1 if road_closure == 1 else 0
 
     try:
-        # approved_line: update the active approved line request so that
-        # subsequent /approved-lines/ calls return the new closure value.
-        line_request = get_object_or_404(
-            LineEditRequest, pk=target_id_int, status="approved"
-        )
-        line_request.road_closure = road_closure
-        line_request.save(update_fields=["road_closure"])
+        if target_type == "riyadh_road":
+            road = get_object_or_404(
+                RiyadhRoad.objects.using("riyadh_roads"), id=float(target_id_int)
+            )
+            road.road_closure = road_closure
+            road.save(using="riyadh_roads", update_fields=["road_closure"])
+        else:
+            line_request = get_object_or_404(
+                LineEditRequest, pk=target_id_int, status="approved"
+            )
+            line_request.road_closure = road_closure
+            line_request.save(update_fields=["road_closure"])
 
         return JsonResponse(
             {
@@ -332,14 +365,15 @@ def approve_edit_request(request, request_id):
         }, status=403)
     
     try:
-        edit_request = get_object_or_404(
-            LineEditRequest, id=request_id, status="pending"
-        )
+        edit_request = get_object_or_404(LineEditRequest, id=request_id, status="pending")
 
-        # Approve the edit request for geometry/attribute changes. Road closure
-        # has already been applied immediately via set_road_closure and does
-        # not depend on this approval step.
         edit_request.approve(request.user)
+
+        if edit_request.is_riyadh_road:
+            try:
+                _apply_riyadh_edit_to_base_network(edit_request)
+            except Exception:
+                pass
 
         return JsonResponse(
             {
@@ -392,21 +426,17 @@ def reject_edit_request(request, request_id):
 
 @login_required
 def get_approved_lines(request):
-    """Get all approved lines to display on map.
-    Excludes superseded lines (old versions that have been edited).
-    """
     try:
-        approved_requests = LineEditRequest.objects.filter(status="approved").order_by(
-            "-created_at"
+        approved_requests = (
+            LineEditRequest.objects.filter(status="approved", is_riyadh_road=False)
+            .order_by("-created_at")
         )
-        
-        # Collect IDs of lines that have been superseded by newer versions
+
         superseded_ids = set()
         for req in approved_requests:
             if req.parent_approved_line_id:
                 superseded_ids.add(int(req.parent_approved_line_id))
-        
-        # Build response with only non-superseded lines
+
         lines_data = []
         for req in approved_requests:
             if req.id not in superseded_ids:
@@ -488,6 +518,7 @@ def get_riyadh_road_details(request, road_id):
             "tunnel": road.tunnel or "",
             "layer": _sanitize_number(road.layer),
             "shape_length": _sanitize_number(getattr(road, "shape_length", None)),
+            "road_closure": _sanitize_number(getattr(road, "road_closure", 0)),
         }
 
         tags_data = []
@@ -502,7 +533,7 @@ def get_riyadh_road_details(request, road_id):
             "riyadh_road_id": road_identifier,
             "is_riyadh_road": True,
             "geometry": geometry,
-            "road_closure": 0,
+            "road_closure": _sanitize_number(getattr(road, "road_closure", 0)) or 0,
             "feature_type": "Line",
             "current_feature_label": "Line",
             "fields_data": fields_data,

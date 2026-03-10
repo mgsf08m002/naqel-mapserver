@@ -290,7 +290,6 @@
 
         const approvedLineIdToUse = (isApprovedLineEdit && approvedLineId && !isRiyadhRoad) ? approvedLineId : null;
 
-        // Normalize current road closure flag from shared sidebar state
         let isRoadClosed = false;
         if (typeof window.getCurrentRoadClosure === 'function') {
             try {
@@ -334,8 +333,6 @@
         };
     }
 
-    // Immediately synchronize road closure state with the backend so that symbology updates without waiting for manager approval.
-    // This is a best-effort, non-blocking call; the main save flow proceeds even if this request fails.
     function syncRoadClosureImmediate(editData) {
         if (
             !editData ||
@@ -348,10 +345,10 @@
         let targetType = null;
         let targetId = null;
 
-        // Note: base Riyadh-road closure is intentionally not synced here.
-        // The source `riyadh_roads` table may not contain a `road_closure`
-        // column. Approved lines are the only supported immediate-sync target.
-        if (editData.approved_line_id) {
+        if (editData.is_riyadh_road && editData.riyadh_road_id != null) {
+            targetType = 'riyadh_road';
+            targetId = editData.riyadh_road_id;
+        } else if (editData.approved_line_id) {
             targetType = 'approved_line';
             targetId = editData.approved_line_id;
         } else if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id != null) {
@@ -388,8 +385,6 @@
                 return;
             }
 
-            // Refresh relevant layers so that closure styling and icons are
-            // updated without requiring a full page reload.
             try {
                 if (data.target_type === 'approved_line' && typeof window.reloadApprovedLines === 'function') {
                     window.reloadApprovedLines();

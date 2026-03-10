@@ -123,6 +123,7 @@ class RiyadhRoad(gis_models.Model):
         db_column="shape_leng",
     )
     geom = gis_models.MultiLineStringField(srid=3857)
+    road_closure = gis_models.IntegerField(null=False, blank=False, default=0)
 
     class Meta:
         db_table = "riyadh_roads"

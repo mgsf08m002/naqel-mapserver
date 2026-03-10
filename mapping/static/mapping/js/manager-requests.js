@@ -271,8 +271,17 @@
             container.style.display = 'none';
         }
 
-        // Get geometry coordinates
-        const coordinates = request.geometry.coordinates;
+        const geom = request.geometry;
+        if (!geom || !geom.coordinates) {
+            alert('Invalid geometry');
+            return;
+        }
+
+        let coordinates = geom.coordinates;
+        if (geom.type === 'MultiLineString' && Array.isArray(coordinates) && coordinates.length) {
+            coordinates = coordinates[0] || [];
+        }
+
         if (!coordinates || coordinates.length < 2) {
             alert('Invalid geometry');
             return;
@@ -665,7 +674,6 @@
         const editToolbar = document.getElementById('editToolbar');
         
         if (!sidePanel) {
-            if (callback) setTimeout(callback, 100);
             return;
         }
         
