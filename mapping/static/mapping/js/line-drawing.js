@@ -3959,107 +3959,29 @@
         }
     };
 
-    // Show Riyadh road as LINE feature in sidebar.
-    // This integrates Riyadh roads with the LINE feature system.
     function showRiyadhRoadAsLineFeature(lineFeatureData) {
         if (!lineFeatureData) {
             return;
         }
 
-        // Store the Riyadh road data for editing/saving
         if (!window.approvedLinesBeingEdited) {
             window.approvedLinesBeingEdited = {};
         }
         
-        // Use a unique ID if the road has an ID, otherwise generate one
         const roadId = lineFeatureData.id || 'riyadh-road-' + Date.now();
         window.approvedLinesBeingEdited[roadId] = lineFeatureData;
         window.approvedLineBeingEdited = lineFeatureData;
 
-        // Create visualization on map for the selected Riyadh road
         if (lineFeatureData.geometry && typeof map !== 'undefined' && map) {
             const featureLabel = lineFeatureData.current_feature_label || lineFeatureData.feature_type || 'Line';
             updateRiyadhRoadVisualization(roadId, featureLabel, lineFeatureData.geometry);
         }
 
-        // Use the same mechanism as approved lines since format is compatible
-        // The showApprovedLineDetails function from load-approved-lines.js should handle this
         if (typeof window.showApprovedLineDetails === 'function') {
-            try {
-                window.showApprovedLineDetails(lineFeatureData, true);
-            } catch (error) {
-                // Fallback to direct sidebar opening
-                openSidebarDirectly(lineFeatureData);
-            }
-        } else {
-            // Fallback: Use showLineSidePanelForApprovedLineEdit
-            const featureLabel = lineFeatureData.current_feature_label || lineFeatureData.feature_type || 'Line';
-            showLineSidePanelForApprovedLineEdit(featureLabel);
-            
-            // Populate fields and tags after sidebar is ready
-            setTimeout(function() {
-                if (lineFeatureData.fields_data && typeof window.populateFieldsDataForApprovedLine === 'function') {
-                    window.populateFieldsDataForApprovedLine(lineFeatureData.fields_data);
-                }
-                if (lineFeatureData.tags_data && typeof window.populateTagsDataForApprovedLine === 'function') {
-                    window.populateTagsDataForApprovedLine(lineFeatureData.tags_data);
-                }
-            }, 400);
-        }
-    }
-    
-    // Directly open sidebar and show edit feature screen (fallback method).
-    function openSidebarDirectly(lineFeatureData) {
-        const sidePanel = document.getElementById('editSidePanel');
-        if (!sidePanel) {
-            return;
-        }
-        
-        // Force open sidebar
-        sidePanel.classList.remove('-translate-x-full');
-        sidePanel.style.display = '';
-        sidePanel.style.visibility = 'visible';
-        sidePanel.style.opacity = '1';
-        sidePanel.style.setProperty('transform', 'translateX(0)', 'important');
-        
-        // Adjust map container
-        const mapContainer = document.getElementById('mapContainer');
-        if (mapContainer) {
-            const SIDE_PANEL_WIDTH = 320;
-            mapContainer.style.marginLeft = SIDE_PANEL_WIDTH + 'px';
-            mapContainer.style.width = `calc(100% - ${SIDE_PANEL_WIDTH}px)`;
-            
-            setTimeout(function() {
-                if (map && map.resize) {
-                    map.resize();
-                }
-            }, 300);
-        }
-        
-        // Show edit feature screen directly
-        if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showEditFeatureScreen === 'function') {
-            const featureLabel = lineFeatureData.current_feature_label || lineFeatureData.feature_type || 'Line';
-            window.lineDrawingHandler.showEditFeatureScreen({
-                hideBackButton: false,
-                requestGeometry: lineFeatureData.geometry,
-                lineData: lineFeatureData,
-                isApprovedLine: true,
-                approvedLineId: lineFeatureData.id
-            });
-            
-            // Populate data after a delay
-            setTimeout(function() {
-                if (lineFeatureData.fields_data && typeof window.populateFieldsDataForApprovedLine === 'function') {
-                    window.populateFieldsDataForApprovedLine(lineFeatureData.fields_data);
-                }
-                if (lineFeatureData.tags_data && typeof window.populateTagsDataForApprovedLine === 'function') {
-                    window.populateTagsDataForApprovedLine(lineFeatureData.tags_data);
-                }
-            }, 500);
+            window.showApprovedLineDetails(lineFeatureData, true);
         }
     }
 
-    // Expose function globally
     window.showRiyadhRoadAsLineFeature = showRiyadhRoadAsLineFeature;
     if (window.lineDrawingHandler) {
         window.lineDrawingHandler.showRiyadhRoadAsLineFeature = showRiyadhRoadAsLineFeature;

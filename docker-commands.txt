@@ -12,3 +12,7 @@ docker compose up -d
 
 # Start with build and view logs
 docker compose up --build
+
+
+ALTER TABLE public.riyadh_roads
+ADD COLUMN road_closure integer NOT NULL DEFAULT 0;

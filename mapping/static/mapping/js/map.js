@@ -361,44 +361,35 @@ map.on('load', () => {
                 });
             }
 
-            // Clickable Riyadh roads: resolve tile feature -> DB details -> open sidebar.
-            // Only enabled on pages that include the editing sidebar.
             if (isEditingEnabled) {
                 map.on('click', 'riyadh-roads-layer', async (e) => {
-                try {
-                    const features = map.queryRenderedFeatures(e.point, { layers: ['riyadh-roads-layer'] }) || [];
-                    if (!features.length) return;
+                    try {
+                        const features = map.queryRenderedFeatures(e.point, { layers: ['riyadh-roads-layer'] }) || [];
+                        if (!features.length) return;
 
-                    // Prefer the DB primary key that is included in tile properties as `id`.
-                    const props = (features[0] && features[0].properties) ? features[0].properties : {};
-                    const rawId = props && props.id != null ? props.id : null;
-                    const roadId = rawId != null ? parseInt(rawId, 10) : null;
-                    if (!roadId || Number.isNaN(roadId)) return;
+                        const props = features[0] && features[0].properties ? features[0].properties : {};
+                        const rawId = props && props.id != null ? props.id : null;
+                        const roadId = rawId != null ? parseInt(rawId, 10) : null;
+                        if (!roadId || Number.isNaN(roadId)) return;
 
-                    const resp = await fetch(`/mapping/api/riyadh-road/${roadId}/`, {
-                        method: 'GET',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    if (!resp.ok) return;
-                    const data = await resp.json();
-                    if (!data || !data.success || !data.road) return;
+                        const resp = await fetch(`/mapping/api/riyadh-road/${roadId}/`, {
+                            method: 'GET',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        if (!resp.ok) return;
+                        const data = await resp.json();
+                        if (!data || !data.success || !data.road) return;
 
-                    // Shared selection state used by the save/edit modules.
-                    window.selectedRiyadhRoad = data.road;
-                    window.approvedLineBeingEdited = data.road;
+                        window.selectedRiyadhRoad = data.road;
+                        window.approvedLineBeingEdited = data.road;
 
-                    // Draw a highlighted "selected road" overlay using the same
-                    // internal visualization logic as feature-type changes.
-                    if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showRiyadhRoadAsLineFeature === 'function') {
-                        window.lineDrawingHandler.showRiyadhRoadAsLineFeature(data.road);
-                    } else if (typeof window.showRiyadhRoadAsLineFeature === 'function') {
-                        window.showRiyadhRoadAsLineFeature(data.road);
-                    } else if (typeof window.showApprovedLineDetails === 'function') {
-                        window.showApprovedLineDetails(data.road, true);
+                        if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showRiyadhRoadAsLineFeature === 'function') {
+                            window.lineDrawingHandler.showRiyadhRoadAsLineFeature(data.road);
+                        } else if (typeof window.showRiyadhRoadAsLineFeature === 'function') {
+                            window.showRiyadhRoadAsLineFeature(data.road);
+                        }
+                    } catch (err) {
                     }
-                } catch (err) {
-                    // Non-critical: leave tile rendering intact if selection fails.
-                }
                 });
 
                 map.on('mouseenter', 'riyadh-roads-layer', () => {

@@ -164,21 +164,37 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.contrib.gis.db.backends.postgis',  # PostGIS backend for spatial data
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST', 'db'),
-        'PORT': os.getenv('DB_PORT', '5432'),
-    }
+    "default": {
+        "ENGINE": "django.contrib.gis.db.backends.postgis",
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER", "postgres"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST", "db"),
+        "PORT": os.getenv("DB_PORT", "5432"),
+    },
+    "riyadh_roads": {
+        "ENGINE": "django.contrib.gis.db.backends.postgis",
+        "NAME": os.getenv("RIYADH_ROADS_DB_NAME"),
+        "USER": os.getenv("RIYADH_ROADS_DB_USER"),
+        "PASSWORD": os.getenv("RIYADH_ROADS_DB_PASSWORD"),
+        "HOST": os.getenv("RIYADH_ROADS_DB_HOST"),
+        "PORT": os.getenv("RIYADH_ROADS_DB_PORT"),
+    },
 }
 
-# Validate required database settings
-if not DATABASES['default']['NAME']:
+if not DATABASES["default"]["NAME"]:
     raise ValueError("DB_NAME environment variable is not set. Please set it in your .env file.")
-if not DATABASES['default']['PASSWORD']:
+if not DATABASES["default"]["PASSWORD"]:
     raise ValueError("DB_PASSWORD environment variable is not set. Please set it in your .env file.")
+
+if not DATABASES["riyadh_roads"]["NAME"]:
+    raise ValueError("RIYADH_ROADS_DB_NAME environment variable is not set. Please set it in your .env file.")
+if not DATABASES["riyadh_roads"]["PASSWORD"]:
+    raise ValueError("RIYADH_ROADS_DB_PASSWORD environment variable is not set. Please set it in your .env file.")
+
+DATABASE_ROUTERS = [
+    "config.db_routers.RiyadhRoadsRouter",
+]
 
 
 # Password validation

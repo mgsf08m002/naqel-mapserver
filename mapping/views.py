@@ -1,11 +1,13 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.contrib.gis.geos import GEOSGeometry, Polygon
+from decimal import Decimal
 import json
+import math
 
 from .models import LineEditRequest, RiyadhRoad
 
@@ -443,55 +445,64 @@ def get_approved_lines(request):
 @login_required
 @require_http_methods(["GET"])
 def get_riyadh_road_details(request, road_id):
-    """
-    Return DB-backed details for a RiyadhRoad feature so the frontend can
-    support clickable tile roads with a complete, consistent sidebar payload.
+    def _sanitize_number(value):
+        if value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        if isinstance(value, (float, Decimal)):
+            try:
+                if not math.isfinite(float(value)):
+                    return None
+            except (TypeError, ValueError):
+                return None
+            return float(value)
+        return value
 
-    This endpoint is the "source of truth" for:
-    - geometry (GeoJSON)
-    - canonical attributes (name, ref, fclass, oneway, maxspeed, etc.)
-    - road_closure flag
-    """
     try:
-        road = get_object_or_404(RiyadhRoad, pk=int(road_id))
+        road = get_object_or_404(RiyadhRoad, id=float(road_id))
+    except Http404:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Riyadh road not found for the given id.",
+            },
+            status=404,
+        )
 
+    try:
         try:
-            # GeoDjango geometries expose `.json` as a GeoJSON string.
             geometry = json.loads(road.geom.json) if road.geom else None
         except Exception:
             geometry = None
 
-        # Map DB fields into the sidebar's "fields_data" structure.
         fields_data = {
             "name": road.name or "",
             "ref": road.ref or "",
             "fclass": road.fclass or "",
             "oneway": road.oneway or "",
-            "maxspeed": int(road.maxspeed) if road.maxspeed is not None else "",
+            "maxspeed": _sanitize_number(road.maxspeed),
             "osm_id": road.osm_id or "",
-            "code": int(road.code) if road.code is not None else "",
+            "code": _sanitize_number(road.code),
             "bridge": road.bridge or "",
             "tunnel": road.tunnel or "",
-            "layer": float(road.layer) if road.layer is not None else "",
+            "layer": _sanitize_number(road.layer),
+            "shape_length": _sanitize_number(getattr(road, "shape_length", None)),
         }
 
-        # Provide a readable tag list for the sidebar tags UI.
         tags_data = []
         for key, value in fields_data.items():
             if value is None or value == "":
                 continue
             tags_data.append({"key": key, "value": str(value)})
 
-        # The source table does not contain a built-in road_closure column; we
-        # treat closure as 0 (open) at source level. Edits/overlays manage
-        # closure semantics separately.
+        road_identifier = int(road.id) if road.id is not None else int(road.gid)
         payload = {
-            "id": int(road.id),
-            "riyadh_road_id": int(road.id),
+            "id": road_identifier,
+            "riyadh_road_id": road_identifier,
             "is_riyadh_road": True,
             "geometry": geometry,
             "road_closure": 0,
-            # Sidebar expects these keys for consistent rendering/editing.
             "feature_type": "Line",
             "current_feature_label": "Line",
             "fields_data": fields_data,
@@ -502,6 +513,9 @@ def get_riyadh_road_details(request, road_id):
         return JsonResponse({"success": True, "road": payload})
     except Exception as e:
         return JsonResponse(
-            {"success": False, "message": f"Error fetching Riyadh road details: {str(e)}"},
+            {
+                "success": False,
+                "message": f"Error fetching Riyadh road details: {str(e)}",
+            },
             status=500,
         )

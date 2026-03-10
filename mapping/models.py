@@ -102,41 +102,31 @@ class LineEditRequest(models.Model):
 
 
 class RiyadhRoad(gis_models.Model):
-    """
-    Model for Riyadh road network from OpenStreetMap data.
-    This model maps to the existing 'riyadh_roads' table in the database.
-    """
-    id = gis_models.IntegerField(primary_key=True)
-    geom = gis_models.MultiLineStringField(srid=3857, help_text="Road geometry in WebMercator (to match tile source)")
+    gid = gis_models.IntegerField(primary_key=True, db_column="gid")
+    id = gis_models.FloatField(null=True, blank=True, db_column="id")
     objectid = gis_models.DecimalField(max_digits=20, decimal_places=0, null=True, blank=True)
-    osm_id = gis_models.CharField(max_length=12, null=True, blank=True, help_text="OpenStreetMap ID")
-    code = gis_models.FloatField(null=True, blank=True, help_text="Road classification code")
-    fclass = gis_models.CharField(max_length=28, null=True, blank=True, help_text="Road feature class (e.g., motorway, primary, secondary)")
-    name = gis_models.CharField(max_length=100, null=True, blank=True, help_text="Road name")
-    ref = gis_models.CharField(max_length=20, null=True, blank=True, help_text="Road reference number")
-    oneway = gis_models.CharField(max_length=1, null=True, blank=True, help_text="One-way indicator (Y/N)")
-    maxspeed = gis_models.FloatField(null=True, blank=True, help_text="Maximum speed limit")
-    layer = gis_models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Layer/level (for bridges/tunnels)")
-    bridge = gis_models.CharField(max_length=1, null=True, blank=True, help_text="Bridge indicator (Y/N)")
-    tunnel = gis_models.CharField(max_length=1, null=True, blank=True, help_text="Tunnel indicator (Y/N)")
+    osm_id = gis_models.CharField(max_length=12, null=True, blank=True)
+    code = gis_models.FloatField(null=True, blank=True)
+    fclass = gis_models.CharField(max_length=28, null=True, blank=True)
+    name = gis_models.CharField(max_length=100, null=True, blank=True)
+    ref = gis_models.CharField(max_length=20, null=True, blank=True)
+    oneway = gis_models.CharField(max_length=1, null=True, blank=True)
+    maxspeed = gis_models.FloatField(null=True, blank=True)
+    layer = gis_models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    bridge = gis_models.CharField(max_length=1, null=True, blank=True)
+    tunnel = gis_models.CharField(max_length=1, null=True, blank=True)
     shape_length = gis_models.DecimalField(
         max_digits=20,
         decimal_places=6,
         null=True,
         blank=True,
-        help_text="Length of the road segment",
         db_column="shape_leng",
     )
+    geom = gis_models.MultiLineStringField(srid=3857)
 
     class Meta:
-        db_table = 'riyadh_roads'
-        managed = False  # Table already exists in database, don't create/migrate it
-        verbose_name = 'Riyadh Road'
-        verbose_name_plural = 'Riyadh Roads'
-        indexes = [
-            gis_models.Index(fields=['name']),
-            gis_models.Index(fields=['fclass']),
-        ]
+        db_table = "riyadh_roads"
+        managed = False
 
     def __str__(self):
         return f"{self.name or 'Unnamed Road'} ({self.fclass or 'Unknown'})"
