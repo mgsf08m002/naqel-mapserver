@@ -107,25 +107,25 @@ class RiyadhRoad(gis_models.Model):
     This model maps to the existing 'riyadh_roads' table in the database.
     """
     id = gis_models.IntegerField(primary_key=True)
-    geom = gis_models.MultiLineStringField(srid=4326, help_text="Road geometry in WGS84")
-    objectid = gis_models.BigIntegerField(null=True, blank=True)
+    geom = gis_models.MultiLineStringField(srid=3857, help_text="Road geometry in WebMercator (to match tile source)")
+    objectid = gis_models.DecimalField(max_digits=20, decimal_places=0, null=True, blank=True)
     osm_id = gis_models.CharField(max_length=12, null=True, blank=True, help_text="OpenStreetMap ID")
-    code = gis_models.IntegerField(null=True, blank=True, help_text="Road classification code")
+    code = gis_models.FloatField(null=True, blank=True, help_text="Road classification code")
     fclass = gis_models.CharField(max_length=28, null=True, blank=True, help_text="Road feature class (e.g., motorway, primary, secondary)")
     name = gis_models.CharField(max_length=100, null=True, blank=True, help_text="Road name")
     ref = gis_models.CharField(max_length=20, null=True, blank=True, help_text="Road reference number")
     oneway = gis_models.CharField(max_length=1, null=True, blank=True, help_text="One-way indicator (Y/N)")
-    maxspeed = gis_models.IntegerField(null=True, blank=True, help_text="Maximum speed limit")
-    layer = gis_models.FloatField(null=True, blank=True, help_text="Layer/level (for bridges/tunnels)")
+    maxspeed = gis_models.FloatField(null=True, blank=True, help_text="Maximum speed limit")
+    layer = gis_models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Layer/level (for bridges/tunnels)")
     bridge = gis_models.CharField(max_length=1, null=True, blank=True, help_text="Bridge indicator (Y/N)")
     tunnel = gis_models.CharField(max_length=1, null=True, blank=True, help_text="Tunnel indicator (Y/N)")
-    shape_length = gis_models.FloatField(null=True, blank=True, help_text="Length of the road segment")
-    road_closure = gis_models.IntegerField(
-        null=False,
-        blank=False,
-        default=0,
-        help_text="Road closure flag: 0 = open, 1 = closed",
-        db_column="road_closure",
+    shape_length = gis_models.DecimalField(
+        max_digits=20,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Length of the road segment",
+        db_column="shape_leng",
     )
 
     class Meta:

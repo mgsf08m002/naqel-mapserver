@@ -381,6 +381,12 @@
             return;
         }
 
+        // Prevent cross-target saves: if user is viewing/editing a non-Riyadh approved line,
+        // ensure we are not still holding a tile-selected Riyadh road reference.
+        if (!lineData.is_riyadh_road) {
+            window.selectedRiyadhRoad = null;
+        }
+
         const sidePanel = document.getElementById('editSidePanel');
         if (!sidePanel) {
             return;
@@ -909,7 +915,7 @@
     // Expose reload function
     window.reloadApprovedLines = loadApprovedLines;
     
-    // Expose showApprovedLineDetails for use by other scripts (e.g., map.js for Riyadh roads)
+    // Expose showApprovedLineDetails for use by other scripts.
     window.showApprovedLineDetails = showApprovedLineDetails;
     
     // Expose populate functions

@@ -2,8 +2,14 @@
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic.base import RedirectView
 
 urlpatterns = [
+    path(
+        "favicon.ico",
+        RedirectView.as_view(url="/static/auth/images/logo.png", permanent=False),
+        name="favicon",
+    ),
     path('', include('home.urls')),
     path('', include('auth.urls')),
     path('system-admin/', include('system_admin.urls')),

@@ -114,13 +114,13 @@ def save_line_edit_request(request):
 @csrf_exempt
 def set_road_closure(request):
     """
-    Update road_closure immediately for either a RiyadhRoad or an approved line.
+    Update road_closure immediately for an approved line.
 
     This endpoint is intentionally approval-free: road closure changes apply
     for all users (editors, managers, system admins) without manager approval.
 
     Expected JSON payload:
-    {"target_type": "riyadh_road"|"approved_line", "target_id": <int>, "road_closure": 0|1}
+    {"target_type": "approved_line", "target_id": <int>, "road_closure": 0|1}
     """
     try:
         data = json.loads(request.body.decode("utf-8"))
@@ -137,13 +137,25 @@ def set_road_closure(request):
     target_id = data.get("target_id")
     raw_closure = data.get("road_closure", 0)
 
-    if target_type not in ("riyadh_road", "approved_line"):
+    if target_type not in ("approved_line", "riyadh_road"):
         return JsonResponse(
             {
                 "success": False,
-                "message": "Invalid target_type. Use 'riyadh_road' or 'approved_line'.",
+                "message": "Invalid target_type. Use 'approved_line'.",
             },
             status=400,
+        )
+
+    # Riyadh road base network closure is not supported unless the source table
+    # includes a `road_closure` column. Keep this endpoint strict to avoid
+    # silent failures/mismatched schemas.
+    if target_type == "riyadh_road":
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Riyadh road closure is not supported by the current source table schema.",
+            },
+            status=501,
         )
 
     try:
@@ -165,18 +177,13 @@ def set_road_closure(request):
     road_closure = 1 if road_closure == 1 else 0
 
     try:
-        if target_type == "riyadh_road":
-            road = RiyadhRoad.objects.get(pk=target_id_int)
-            road.road_closure = road_closure
-            road.save(update_fields=["road_closure"])
-        else:
-            # approved_line: update the active approved line request so that
-            # subsequent /approved-lines/ calls return the new closure value.
-            line_request = get_object_or_404(
-                LineEditRequest, pk=target_id_int, status="approved"
-            )
-            line_request.road_closure = road_closure
-            line_request.save(update_fields=["road_closure"])
+        # approved_line: update the active approved line request so that
+        # subsequent /approved-lines/ calls return the new closure value.
+        line_request = get_object_or_404(
+            LineEditRequest, pk=target_id_int, status="approved"
+        )
+        line_request.road_closure = road_closure
+        line_request.save(update_fields=["road_closure"])
 
         return JsonResponse(
             {
@@ -185,14 +192,6 @@ def set_road_closure(request):
                 "target_id": target_id_int,
                 "road_closure": road_closure,
             }
-        )
-    except RiyadhRoad.DoesNotExist:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": "RiyadhRoad not found.",
-            },
-            status=404,
         )
     except Exception as e:
         return JsonResponse(
@@ -442,16 +441,67 @@ def get_approved_lines(request):
 
 
 @login_required
-def get_riyadh_roads(request):
+@require_http_methods(["GET"])
+def get_riyadh_road_details(request, road_id):
     """
-    Deprecated: Riyadh roads are now visualized exclusively via the external
-    XYZ tile service configured in RIYADH_ROADS_TILE_URL. This GeoJSON API is
-    no longer used by the frontend.
+    Return DB-backed details for a RiyadhRoad feature so the frontend can
+    support clickable tile roads with a complete, consistent sidebar payload.
+
+    This endpoint is the "source of truth" for:
+    - geometry (GeoJSON)
+    - canonical attributes (name, ref, fclass, oneway, maxspeed, etc.)
+    - road_closure flag
     """
-    return JsonResponse(
-        {
-            "success": False,
-            "message": "GeoJSON Riyadh roads API has been retired. Use the configured tile service instead.",
-        },
-        status=410,
-    )
+    try:
+        road = get_object_or_404(RiyadhRoad, pk=int(road_id))
+
+        try:
+            # GeoDjango geometries expose `.json` as a GeoJSON string.
+            geometry = json.loads(road.geom.json) if road.geom else None
+        except Exception:
+            geometry = None
+
+        # Map DB fields into the sidebar's "fields_data" structure.
+        fields_data = {
+            "name": road.name or "",
+            "ref": road.ref or "",
+            "fclass": road.fclass or "",
+            "oneway": road.oneway or "",
+            "maxspeed": int(road.maxspeed) if road.maxspeed is not None else "",
+            "osm_id": road.osm_id or "",
+            "code": int(road.code) if road.code is not None else "",
+            "bridge": road.bridge or "",
+            "tunnel": road.tunnel or "",
+            "layer": float(road.layer) if road.layer is not None else "",
+        }
+
+        # Provide a readable tag list for the sidebar tags UI.
+        tags_data = []
+        for key, value in fields_data.items():
+            if value is None or value == "":
+                continue
+            tags_data.append({"key": key, "value": str(value)})
+
+        # The source table does not contain a built-in road_closure column; we
+        # treat closure as 0 (open) at source level. Edits/overlays manage
+        # closure semantics separately.
+        payload = {
+            "id": int(road.id),
+            "riyadh_road_id": int(road.id),
+            "is_riyadh_road": True,
+            "geometry": geometry,
+            "road_closure": 0,
+            # Sidebar expects these keys for consistent rendering/editing.
+            "feature_type": "Line",
+            "current_feature_label": "Line",
+            "fields_data": fields_data,
+            "tags_data": tags_data,
+            "relations_data": [],
+        }
+
+        return JsonResponse({"success": True, "road": payload})
+    except Exception as e:
+        return JsonResponse(
+            {"success": False, "message": f"Error fetching Riyadh road details: {str(e)}"},
+            status=500,
+        )

@@ -348,6 +348,9 @@
         let targetType = null;
         let targetId = null;
 
+        // Note: base Riyadh-road closure is intentionally not synced here.
+        // The source `riyadh_roads` table may not contain a `road_closure`
+        // column. Approved lines are the only supported immediate-sync target.
         if (editData.approved_line_id) {
             targetType = 'approved_line';
             targetId = editData.approved_line_id;
@@ -388,12 +391,11 @@
             // Refresh relevant layers so that closure styling and icons are
             // updated without requiring a full page reload.
             try {
-                if (data.target_type === 'riyadh_road' && typeof window.loadRiyadhRoads === 'function') {
-                    window.loadRiyadhRoads();
-                }
                 if (data.target_type === 'approved_line' && typeof window.reloadApprovedLines === 'function') {
                     window.reloadApprovedLines();
                 }
+                // Riyadh roads are rendered via vector tiles; refreshing is best-effort.
+                // If the tile server reflects closure styling, a reload may be needed.
             } catch (e) {
                 // Non-critical – visual refresh will still happen on next reload.
             }
