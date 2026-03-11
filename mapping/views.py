@@ -382,17 +382,14 @@ def list_pending_requests(request):
         requests_data = []
         for req in requests:
             profile = getattr(req.requester, "profile", None)
-            profile_image_url = profile.profile_image.url if profile and profile.profile_image else None
+            profile_image_url = (
+                profile.profile_image.url if profile and profile.profile_image else None
+            )
 
-            # For Riyadh roads, prefer the authoritative geometry from the
-            # base network table so that even legacy edit requests with
-            # incorrect or projected JSON still render correctly.
-            geometry = None
-            if req.is_riyadh_road and req.riyadh_road_id is not None:
-                geometry = _get_riyadh_road_geometry_wgs84(req.riyadh_road_id)
-
-            if geometry is None:
-                geometry = _ensure_wgs84_geometry(req.geometry, source_srid=3857)
+            # Always base the manager review geometry on the actual geometry
+            # stored with the edit request so that the line appears exactly
+            # where it was drawn on the map.
+            geometry = _ensure_wgs84_geometry(req.geometry, source_srid=3857)
 
             requests_data.append(
                 {
@@ -454,17 +451,10 @@ def get_edit_request_details(request, request_id):
             profile.profile_image.url if profile and profile.profile_image else None
         )
 
-        # For Riyadh road requests, prefer the live geometry from the base
-        # RiyadhRoad table, which is kept in sync with the tileserver, and
-        # normalize it to WGS84. This avoids relying on any legacy or
-        # malformed JSON stored in the edit request record.
-        geometry = None
-        if edit_request.is_riyadh_road and edit_request.riyadh_road_id is not None:
-            geometry = _get_riyadh_road_geometry_wgs84(edit_request.riyadh_road_id)
-
-        # Fallback: normalize whatever is stored on the edit request.
-        if geometry is None:
-            geometry = _ensure_wgs84_geometry(edit_request.geometry, source_srid=3857)
+        # For manager review, always use the geometry stored on the edit
+        # request so that the line is rendered exactly where the editor drew
+        # it on the map.
+        geometry = _ensure_wgs84_geometry(edit_request.geometry, source_srid=3857)
 
         return JsonResponse(
             {
