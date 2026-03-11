@@ -122,6 +122,57 @@
         return card;
     }
 
+    // Sanitize a GeoJSON LineString/MultiLineString geometry so that all
+    // coordinates are valid WGS84 LngLat pairs. Returns a LineString with
+    // filtered coordinates, or null if the geometry cannot be made valid.
+    function sanitizeRequestGeometry(geometry) {
+        if (!geometry || !geometry.coordinates) {
+            return null;
+        }
+
+        let coordinates = geometry.coordinates;
+
+        // If this is a MultiLineString, focus on the first segment for review.
+        if (geometry.type === 'MultiLineString' && Array.isArray(coordinates) && coordinates.length) {
+            coordinates = coordinates[0] || [];
+        }
+
+        if (!Array.isArray(coordinates)) {
+            return null;
+        }
+
+        const cleaned = [];
+
+        coordinates.forEach(function(coord) {
+            if (!coord || coord.length < 2) {
+                return;
+            }
+
+            const lng = parseFloat(coord[0]);
+            const lat = parseFloat(coord[1]);
+
+            if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+                return;
+            }
+
+            if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+                // Skip clearly invalid coordinates rather than throwing.
+                return;
+            }
+
+            cleaned.push([lng, lat]);
+        });
+
+        if (cleaned.length < 2) {
+            return null;
+        }
+
+        return {
+            type: 'LineString',
+            coordinates: cleaned
+        };
+    }
+
     // Load and display pending requests.
     function loadPendingRequests() {
         fetch('/mapping/api/pending-requests/', {
@@ -197,18 +248,34 @@
             }
         })
         .then(function(response) {
+            if (!response.ok) {
+                // Try to extract JSON error payload if available
+                return response.text().then(function(text) {
+                    try {
+                        const data = JSON.parse(text);
+                        const message = data && data.message ? data.message : 'Unexpected server response (' + response.status + ')';
+                        throw new Error(message);
+                    } catch (parseError) {
+                        throw new Error('Unexpected server response (' + response.status + ')');
+                    }
+                });
+            }
             return response.json();
         })
         .then(function(data) {
-            if (data.success) {
+            if (data && data.success) {
                 currentViewingRequest = data.request;
                 showEditRequestOnMap(data.request);
+            } else if (data) {
+                const message = data.message || 'Unknown error loading request.';
+                alert('Error loading request: ' + message);
             } else {
-                alert('Error loading request: ' + data.message);
+                alert('Error loading request: Empty response from server.');
             }
         })
         .catch(function(error) {
-            alert('Error loading request details');
+            const message = (error && error.message) ? error.message : 'Please try again.';
+            alert('Error loading request details: ' + message);
         });
     }
 
@@ -270,24 +337,31 @@
         if (container) {
             container.style.display = 'none';
         }
+        
+        // Sanitize geometry to protect MapLibre from invalid coordinates.
+        const sanitizedGeometry = sanitizeRequestGeometry(request.geometry);
+        if (!sanitizedGeometry || !sanitizedGeometry.coordinates || sanitizedGeometry.coordinates.length < 2) {
+            // Geometry is corrupt or unusable for mapping. Still allow the
+            // manager to review attributes and approve/reject the edit.
+            if (window.notify && window.notify.warning) {
+                window.notify.warning('This edit request has invalid geometry and cannot be shown on the map, but its details can still be reviewed.');
+            } else {
+                console.warn('Edit request has invalid geometry and cannot be shown on the map (request id: ' + request.id + ').');
+            }
 
-        const geom = request.geometry;
-        if (!geom || !geom.coordinates) {
-            alert('Invalid geometry');
+            ensureEditModeEnabled(function() {
+                populateSidepanelWithRequestData(request);
+                showRequestDetailsSidepanel(request);
+            });
             return;
         }
 
-        let coordinates = geom.coordinates;
-        if (geom.type === 'MultiLineString' && Array.isArray(coordinates) && coordinates.length) {
-            coordinates = coordinates[0] || [];
-        }
+        // Use the sanitized geometry for all subsequent rendering.
+        request.geometry = sanitizedGeometry;
 
-        if (!coordinates || coordinates.length < 2) {
-            alert('Invalid geometry');
-            return;
-        }
+        const coordinates = sanitizedGeometry.coordinates;
 
-        // Calculate bounds
+        // Calculate bounds from sanitized coordinates
         let minLng = coordinates[0][0];
         let minLat = coordinates[0][1];
         let maxLng = coordinates[0][0];
