@@ -1,9 +1,11 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
+from django.contrib.auth.decorators import login_required
 
 from .catalog_service import get_catalog
 
 
+@login_required
 @require_GET
 def symbology_catalog(request):
     """

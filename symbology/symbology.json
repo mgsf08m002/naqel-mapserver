@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "styles_by_label": {
+    "Line": {
+      "lineColor": "#94a3b8",
+      "glowColor": "#cbd5e1",
+      "lineWidth": 3.0,
+      "glowWidth": 8.0,
+      "glowOpacity": 0.5,
+      "markerColor": "#f8fafc",
+      "markerGlowColor": "#94a3b8"
+    },
+    "Motorway": {
+      "lineColor": "#2563eb",
+      "glowColor": "#2563eb",
+      "lineWidth": 6.0,
+      "glowWidth": 12.0,
+      "glowOpacity": 0.65,
+      "markerColor": "#ffffff",
+      "markerGlowColor": "#2563eb"
+    },
+    "Trunk Road": {
+      "lineColor": "#059669",
+      "glowColor": "#059669",
+      "lineWidth": 6.0,
+      "glowWidth": 12.0,
+      "glowOpacity": 0.65,
+      "markerColor": "#ffffff",
+      "markerGlowColor": "#059669"
+    },
+    "Primary Road": {
+      "lineColor": "#ea580c",
+      "glowColor": "#ea580c",
+      "lineWidth": 5.0,
+      "glowWidth": 10.0,
+      "glowOpacity": 0.55,
+      "markerColor": "#ffffff",
+      "markerGlowColor": "#ea580c"
+    },
+    "Secondary Road": {
+      "lineColor": "#eab308",
+      "glowColor": "#eab308",
+      "lineWidth": 5.0,
+      "glowWidth": 10.0,
+      "glowOpacity": 0.55,
+      "markerColor": "#ffffff",
+      "markerGlowColor": "#eab308"
+    },
+    "Tertiary Road": {
+      "lineColor": "#a855f7",
+      "glowColor": "#a855f7",
+      "lineWidth": 4.0,
+      "glowWidth": 9.0,
+      "glowOpacity": 0.5,
+      "markerColor": "#ffffff",
+      "markerGlowColor": "#a855f7"
+    },
+    "Motorway Link": {
+      "lineColor": "#38bdf8",
+      "glowColor": "#38bdf8",
+      "lineWidth": 5.0,
+      "glowWidth": 10.0,
+      "glowOpacity": 0.55,
+      "markerColor": "#ffffff",
+      "markerGlowColor": "#38bdf8"
+    },
+    "Trunk Link": {
+      "lineColor": "#22c55e",
+      "glowColor": "#22c55e",
+      "lineWidth": 5.0,
+      "glowWidth": 10.0,
+      "glowOpacity": 0.55,
+      "markerColor": "#ffffff",
+      "markerGlowColor": "#22c55e"
+    },
+    "Primary Link": {
+      "lineColor": "#f97316",
+      "glowColor": "#f97316",
+      "lineWidth": 5.0,
+      "glowWidth": 10.0,
+      "glowOpacity": 0.55,
+      "markerColor": "#ffffff",
+      "markerGlowColor": "#f97316"
+    },
+    "Secondary Link": {
+      "lineColor": "#facc15",
+      "glowColor": "#facc15",
+      "lineWidth": 4.0,
+      "glowWidth": 9.0,
+      "glowOpacity": 0.5,
+      "markerColor": "#ffffff",
+      "markerGlowColor": "#facc15"
+    },
+    "Residential Road": {
+      "lineColor": "#3b82f6",
+      "glowColor": "#93c5fd",
+      "lineWidth": 3.0,
+      "glowWidth": 8.0,
+      "glowOpacity": 0.6,
+      "markerColor": "#eff6ff",
+      "markerGlowColor": "#3b82f6"
+    },
+    "Living Street": {
+      "lineColor": "#10b981",
+      "glowColor": "#6ee7b7",
+      "lineWidth": 3.0,
+      "glowWidth": 8.0,
+      "glowOpacity": 0.6,
+      "markerColor": "#ecfdf5",
+      "markerGlowColor": "#10b981"
+    },
+    "Service Road": {
+      "lineColor": "#0ea5e9",
+      "glowColor": "#7dd3fc",
+      "lineWidth": 2.5,
+      "glowWidth": 7.0,
+      "glowOpacity": 0.55,
+      "markerColor": "#e0f2fe",
+      "markerGlowColor": "#0ea5e9"
+    },
+    "Unclassified Road": {
+      "lineColor": "#6b7280",
+      "glowColor": "#9ca3af",
+      "lineWidth": 2.5,
+      "glowWidth": 7.0,
+      "glowOpacity": 0.5,
+      "markerColor": "#f3f4f6",
+      "markerGlowColor": "#6b7280"
+    },
+    "Road Closure": {
+      "lineColor": "#ff3b30",
+      "glowColor": "#ff3b30",
+      "lineWidth": 3.0,
+      "glowWidth": 8.0,
+      "glowOpacity": 0.6,
+      "markerColor": "#ff3b30",
+      "markerGlowColor": "#ff3b30",
+      "lineDasharray": [1.5, 1.5]
+    }
+  }
+}
+

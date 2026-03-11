@@ -1,20 +1,9 @@
-from django.contrib import admin
+"""
+Admin registrations for the symbology app.
 
-from .models import SymbologyStyle
+Live symbology is configured exclusively via symbology/symbology.json.
+The legacy SymbologyStyle model remains only for migration compatibility and is
+intentionally not exposed in the admin to avoid confusion.
+"""
 
-
-@admin.register(SymbologyStyle)
-class SymbologyStyleAdmin(admin.ModelAdmin):
-    list_display = (
-        "label",
-        "line_color",
-        "glow_color",
-        "line_width",
-        "glow_width",
-        "glow_opacity",
-        "is_active",
-    )
-    list_filter = ("is_active",)
-    search_fields = ("label",)
-    ordering = ("label",)
 

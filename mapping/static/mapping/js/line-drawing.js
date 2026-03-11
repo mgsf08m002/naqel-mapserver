@@ -45,6 +45,12 @@
 
         // Expose for other scripts (e.g., manager-requests.js, load-approved-lines.js)
         window.symbologyCatalog = catalog;
+
+        try {
+            window.dispatchEvent(new CustomEvent('symbology:catalogLoaded', { detail: catalog }));
+        } catch (e) {
+            // Non-critical: the catalog is still available via window.symbologyCatalog.
+        }
     }
 
     function ensureSymbologyCatalogRequested() {
@@ -71,6 +77,7 @@
             })
             .catch(function () {
                 // Catalog load failed; getVisualizationStyle will return undefined until retry.
+                symbologyCatalogRequested = false;
             });
     }
 
@@ -951,7 +958,7 @@
             });
 
             const labelToUse = featureLabel || getCurrentFeatureLabel();
-            const style = getVisualizationStyle(labelToUse) || getVisualizationStyle("Line");
+            const style = getVisualizationStyle(labelToUse);
             if (!style) { return; }
 
             // Draw glow path
@@ -1059,7 +1066,7 @@
                 }
             });
 
-            const style = getVisualizationStyle(currentFeatureLabel) || getVisualizationStyle("Line");
+            const style = getVisualizationStyle(currentFeatureLabel);
             if (!style) { return; }
 
             const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -1162,7 +1169,7 @@
                 return;
             }
             
-            const style = getVisualizationStyle(currentFeatureLabel) || getVisualizationStyle("Line");
+            const style = getVisualizationStyle(currentFeatureLabel);
             if (!style) { return; }
 
             const existingSource = map.getSource(sourceId);
@@ -1952,7 +1959,7 @@
             });
 
             const featureLabel = getCurrentFeatureLabel();
-            const style = getVisualizationStyle(featureLabel) || getVisualizationStyle("Line");
+            const style = getVisualizationStyle(featureLabel);
             if (!style) { return; }
             const scaleFactor = 0.25;
 
@@ -3729,23 +3736,23 @@
         const glowLayerId = 'riyadh-road-selected-glow-' + roadId;
         const layerId = 'riyadh-road-selected-layer-' + roadId;
         
-        // Road closure: dotted red overrides feature symbology
+        // Road closure: use "Road Closure" style from catalog when closed
         const isRoadClosed = (function() {
             const data = window.approvedLineBeingEdited || (window.selectedRiyadhRoad && window.selectedRiyadhRoad.id === roadId ? window.selectedRiyadhRoad : null);
             if (!data) return false;
             const rc = data.road_closure;
             return rc === 1 || rc === true || rc === '1';
         })();
-        const roadClosureRed = '#ff3b30';
-        const roadClosureDash = [1.5, 1.5];
-
-        const style = getVisualizationStyle(newFeatureLabel) || getVisualizationStyle("Line");
+        const closureStyle = getVisualizationStyle("Road Closure");
+        const featureStyle = getVisualizationStyle(newFeatureLabel);
+        const style = (isRoadClosed && closureStyle) ? closureStyle : featureStyle;
         if (!style) {
             return;
         }
 
-        const lineColor = isRoadClosed ? roadClosureRed : style.lineColor;
-        const glowColor = isRoadClosed ? roadClosureRed : style.glowColor;
+        const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
+        const lineColor = style.lineColor;
+        const glowColor = style.glowColor;
 
         if (!map.getSource(sourceId)) {
             map.addSource(sourceId, {
@@ -3778,7 +3785,7 @@
             map.setPaintProperty(glowLayerId, 'line-opacity', style.glowOpacity);
         }
 
-        // Create or update main line layer (road closure = dotted red)
+        // Create or update main line layer
         if (!map.getLayer(layerId)) {
             map.addLayer({
                 id: layerId,
@@ -3791,13 +3798,13 @@
                 paint: {
                     'line-color': lineColor,
                     'line-width': style.lineWidth,
-                    'line-dasharray': isRoadClosed ? roadClosureDash : [1, 0]
+                    'line-dasharray': lineDasharray
                 }
             }, glowLayerId); // Insert after glow layer
         } else {
             map.setPaintProperty(layerId, 'line-color', lineColor);
             map.setPaintProperty(layerId, 'line-width', style.lineWidth);
-            map.setPaintProperty(layerId, 'line-dasharray', isRoadClosed ? roadClosureDash : [1, 0]);
+            map.setPaintProperty(layerId, 'line-dasharray', lineDasharray);
         }
 
         // No base Riyadh-roads GeoJSON layer is used; selection styling is drawn entirely via dedicated MapLibre layers for the selected road.
@@ -3854,7 +3861,7 @@
             }
         }
         
-        // Road closure: dotted red overrides feature symbology (same as initial render).
+        // Road closure: use "Road Closure" style from catalog when closed
         const isRoadClosed = (function() {
             const data = (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id === approvedLineId)
                 ? window.approvedLineBeingEdited
@@ -3865,16 +3872,16 @@
             const rc = data.road_closure;
             return rc === 1 || rc === true || rc === '1';
         })();
-        const roadClosureRed = '#ff3b30';
-        const roadClosureDash = [1.5, 1.5];
-
-        const style = getVisualizationStyle(newFeatureLabel) || getVisualizationStyle("Line");
+        const closureStyle = getVisualizationStyle("Road Closure");
+        const featureStyle = getVisualizationStyle(newFeatureLabel);
+        const style = (isRoadClosed && closureStyle) ? closureStyle : featureStyle;
         if (!style) {
             return;
         }
 
-        const lineColor = isRoadClosed ? roadClosureRed : style.lineColor;
-        const glowColor = isRoadClosed ? roadClosureRed : style.glowColor;
+        const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
+        const lineColor = style.lineColor;
+        const glowColor = style.glowColor;
 
         if (map.getLayer(glowLayerId)) {
             map.setPaintProperty(glowLayerId, 'line-color', glowColor);
@@ -3882,11 +3889,10 @@
             map.setPaintProperty(glowLayerId, 'line-opacity', style.glowOpacity);
         }
 
-        // Update main line layer (road closure = dotted red)
         if (map.getLayer(layerId)) {
             map.setPaintProperty(layerId, 'line-color', lineColor);
             map.setPaintProperty(layerId, 'line-width', style.lineWidth);
-            map.setPaintProperty(layerId, 'line-dasharray', isRoadClosed ? roadClosureDash : [1, 0]);
+            map.setPaintProperty(layerId, 'line-dasharray', lineDasharray);
         }
         
         // Update vertex markers - only if we have geometry

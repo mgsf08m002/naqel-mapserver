@@ -354,12 +354,86 @@ map.on('load', () => {
                         'line-cap': 'round',
                         'line-join': 'round'
                     },
+                    // Default paint for unauthenticated users or when the
+                    // symbology catalog is not available. Authenticated users
+                    // with symbology.js loaded will have this overridden based
+                    // on feature types.
                     paint: {
-                        'line-color': '#ff0000',
+                        // Default color for non-authenticated users and for
+                        // cases where the symbology catalog is not available.
+                        'line-color': '#fb9a99',
                         'line-width': 2
                     }
                 });
             }
+
+            function applyRiyadhRoadSymbologyFromCatalog(catalog) {
+                if (!map.getLayer('riyadh-roads-layer')) {
+                    return;
+                }
+                const stylesByLabel =
+                    catalog && catalog.styles_by_label ? catalog.styles_by_label : null;
+                if (!stylesByLabel) {
+                    return;
+                }
+
+                const styles = stylesByLabel || {};
+
+                function getColorForLabel(label) {
+                    const style = styles[label || 'Line'] || styles['Line'];
+                    return style && style.lineColor ? style.lineColor : null;
+                }
+
+                const fclassToLabel = {
+                    motorway: 'Motorway',
+                    motorway_link: 'Motorway Link',
+                    trunk: 'Trunk Road',
+                    trunk_link: 'Trunk Link',
+                    primary: 'Primary Road',
+                    primary_link: 'Primary Link',
+                    secondary: 'Secondary Road',
+                    secondary_link: 'Secondary Link',
+                    tertiary: 'Tertiary Road',
+                    tertiary_link: 'Tertiary Link',
+                    residential: 'Residential Road',
+                    living_street: 'Living Street',
+                    service: 'Service Road',
+                    unclassified: 'Unclassified Road',
+                    track: 'Track / Land-Access Road'
+                };
+
+                const fclassKeys = Object.keys(fclassToLabel);
+                const defaultColor = getColorForLabel('Line');
+                if (fclassKeys.length === 0 || !defaultColor) {
+                    return;
+                }
+
+                const expression = ['match', ['get', 'fclass']];
+                fclassKeys.forEach(function (raw) {
+                    const label = fclassToLabel[raw];
+                    const color = getColorForLabel(label) || defaultColor;
+                    expression.push(raw);
+                    expression.push(color);
+                });
+                expression.push(defaultColor);
+
+                try {
+                    map.setPaintProperty('riyadh-roads-layer', 'line-color', expression);
+                } catch (e) {
+                    // Non-critical: keep default styling if the property update fails.
+                }
+            }
+
+            // Apply immediately if the catalog is already present (authenticated maps).
+            if (window.symbologyCatalog) {
+                applyRiyadhRoadSymbologyFromCatalog(window.symbologyCatalog);
+            }
+
+            // Also apply when the catalog finishes loading (catalog fetch is async).
+            window.addEventListener('symbology:catalogLoaded', function (e) {
+                const catalog = e && e.detail ? e.detail : window.symbologyCatalog;
+                applyRiyadhRoadSymbologyFromCatalog(catalog);
+            });
 
             if (isEditingEnabled) {
                 map.on('click', 'riyadh-roads-layer', async (e) => {

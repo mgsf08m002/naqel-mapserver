@@ -3,12 +3,11 @@ from django.db import models
 
 class SymbologyStyle(models.Model):
     """
-    Persistent definition of a line-based symbology style.
+    Legacy model retained only so existing migrations continue to apply cleanly.
 
-    This is the single source of truth for feature symbology. The JSON catalog
-    exposed at /symbology/api/catalog/ is derived from these rows, so that
-    both the frontend map and any external tile server can share the same
-    configuration.
+    All active symbology is defined exclusively in symbology/symbology.json and
+    exposed via /symbology/api/catalog/. This model is no longer consulted when
+    building the catalog and should not be used for new code.
     """
 
     label = models.CharField(

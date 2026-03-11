@@ -475,13 +475,16 @@
         const glowLayerId = 'request-line-glow-' + featureId;
         const layerId = 'request-line-layer-' + featureId;
 
+        const isRoadClosed = request.road_closure === 1 || request.road_closure === true || request.road_closure === '1';
         const getStyle = window.getVisualizationStyle;
-        const style = typeof getStyle === "function"
-            ? (getStyle(request.current_feature_label || "Line") || getStyle("Line"))
-            : null;
+        const closureStyle = typeof getStyle === "function" ? getStyle("Road Closure") : null;
+        const featureStyle = typeof getStyle === "function" ? getStyle(request.current_feature_label || "Line") : null;
+        const style = (isRoadClosed && closureStyle) ? closureStyle : featureStyle;
         if (!style) {
             return;
         }
+
+        const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
 
         try {
             // Remove existing layers if any
@@ -525,7 +528,8 @@
                 paint: {
                     'line-color': style.lineColor,
                     'line-width': style.lineWidth,
-                    'line-opacity': 1
+                    'line-opacity': 1,
+                    'line-dasharray': lineDasharray
                 }
             });
 

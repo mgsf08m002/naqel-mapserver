@@ -239,15 +239,18 @@
 
         const featureLabel = lineData.current_feature_label || lineData.feature_type || "Line";
         const getStyle = window.getVisualizationStyle || (window.lineDrawingHandler && window.lineDrawingHandler.getVisualizationStyle);
-        const style = typeof getStyle === "function" ? (getStyle(featureLabel) || getStyle("Line")) : null;
-        if (!style) {
-            return;
-        }
-
         const isRoadClosed =
             lineData.road_closure === 1 ||
             lineData.road_closure === true ||
             lineData.road_closure === '1';
+        const closureStyle = typeof getStyle === "function" ? getStyle("Road Closure") : null;
+        const featureStyle = typeof getStyle === "function" ? getStyle(featureLabel) : null;
+        const style = (isRoadClosed && closureStyle) ? closureStyle : featureStyle;
+        if (!style) {
+            return;
+        }
+
+        const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
 
         // Create GeoJSON feature
         const feature = {
@@ -299,7 +302,7 @@
                 'line-cap': 'round'
             },
             paint: {
-                'line-color': isRoadClosed ? '#ff3b30' : style.glowColor,
+                'line-color': style.glowColor,
                 'line-width': style.glowWidth,
                 'line-opacity': style.glowOpacity || 0.5
             }
@@ -315,10 +318,10 @@
                 'line-cap': 'round'
             },
             paint: {
-                'line-color': isRoadClosed ? '#ff3b30' : style.lineColor,
+                'line-color': style.lineColor,
                 'line-width': style.lineWidth,
                 'line-opacity': 1,
-                'line-dasharray': isRoadClosed ? [1.5, 1.5] : [1, 0]
+                'line-dasharray': lineDasharray
             }
         });
 
