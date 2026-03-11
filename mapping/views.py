@@ -133,6 +133,50 @@ def _get_riyadh_road_geometry_wgs84(road_id):
         return None
 
 
+def _derive_feature_label_from_riyadh_road(road):
+    """
+    Derive a human-friendly feature label for a RiyadhRoad instance based on its
+    classification fields. This keeps tileserver-backed roads consistent with the
+    feature type system used by the editing module and symbology catalog.
+    """
+    fclass = (road.fclass or "").strip().lower()
+
+    fclass_to_label = {
+        # Major roads
+        "motorway": "Motorway",
+        "motorway_link": "Motorway Link",
+        "trunk": "Trunk Road",
+        "trunk_link": "Trunk Link",
+        "primary": "Primary Road",
+        "primary_link": "Primary Link",
+        "secondary": "Secondary Road",
+        "secondary_link": "Secondary Link",
+        "tertiary": "Tertiary Road",
+        "tertiary_link": "Tertiary Link",
+        # Local roads
+        "residential": "Residential Road",
+        "living_street": "Living Street",
+        "service": "Service Road",
+        "unclassified": "Unclassified Road",
+        # Access / paths
+        "track": "Track",
+        "footway": "Footway",
+        "steps": "Steps",
+        "path": "Path",
+        "cycleway": "Cycleway",
+    }
+
+    label = fclass_to_label.get(fclass)
+    if label:
+        return label
+
+    # As a fallback, derive a simple label from the raw fclass value when present.
+    if fclass:
+        return fclass.replace("_", " ").title()
+
+    return "Line"
+
+
 @login_required
 @require_http_methods(["POST"])
 @csrf_exempt
@@ -679,14 +723,15 @@ def get_riyadh_road_details(request, road_id):
             tags_data.append({"key": key, "value": str(value)})
 
         road_identifier = int(road.id) if road.id is not None else int(road.gid)
+        feature_label = _derive_feature_label_from_riyadh_road(road)
         payload = {
             "id": road_identifier,
             "riyadh_road_id": road_identifier,
             "is_riyadh_road": True,
             "geometry": geometry,
             "road_closure": _sanitize_number(getattr(road, "road_closure", 0)) or 0,
-            "feature_type": "Line",
-            "current_feature_label": "Line",
+            "feature_type": feature_label,
+            "current_feature_label": feature_label,
             "fields_data": fields_data,
             "tags_data": tags_data,
             "relations_data": [],
