@@ -1,6 +1,4 @@
-// Manager Edit Requests Handler.
-// Handles displaying and managing edit requests for Managers.
-
+// Manager edit requests: display and manage pending edit requests.
 (function() {
     'use strict';
 
@@ -27,7 +25,6 @@
         closeBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
         closeBtn.addEventListener('click', function() {
             container.style.display = 'none';
-            // Clean up approve/reject buttons when closing the panel
             removeApproveRejectButtons();
         });
         header.appendChild(closeBtn);
@@ -100,7 +97,6 @@
 
         const featureType = document.createElement('div');
         featureType.className = 'text-xs text-gray-700 mb-2';
-        // Use current_feature_label if available, otherwise fall back to feature_type
         const displayFeatureType = request.current_feature_label || request.feature_type || 'Line';
         featureType.innerHTML = `<span class="font-medium">Feature:</span> ${displayFeatureType}`;
         card.appendChild(featureType);
@@ -122,9 +118,6 @@
         return card;
     }
 
-    // Sanitize a GeoJSON LineString/MultiLineString geometry so that all
-    // coordinates are valid WGS84 LngLat pairs. Returns a LineString with
-    // filtered coordinates, or null if the geometry cannot be made valid.
     function sanitizeRequestGeometry(geometry) {
         if (!geometry || !geometry.coordinates) {
             return null;
@@ -132,7 +125,6 @@
 
         let coordinates = geometry.coordinates;
 
-        // If this is a MultiLineString, focus on the first segment for review.
         if (geometry.type === 'MultiLineString' && Array.isArray(coordinates) && coordinates.length) {
             coordinates = coordinates[0] || [];
         }
@@ -156,7 +148,6 @@
             }
 
             if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-                // Skip clearly invalid coordinates rather than throwing.
                 return;
             }
 
@@ -191,9 +182,7 @@
                 updateRequestsBadge();
             }
         })
-        .catch(function(error) {
-            // Error loading requests
-        });
+        .catch(function() {});
     }
 
     // Display requests in the UI.
@@ -299,9 +288,7 @@
                     if (map.getSource(sourceId)) {
                         map.removeSource(sourceId);
                     }
-                } catch (e) {
-                    // Error removing request line layers
-                }
+                } catch (e) {}
             });
             
             // Clear markers
@@ -327,9 +314,7 @@
             return;
         }
 
-        // Clean up any previously viewed request lines
         cleanupRequestLines();
-        // Remove any existing approve/reject buttons
         removeApproveRejectButtons();
 
         // Hide manager requests container
@@ -338,11 +323,8 @@
             container.style.display = 'none';
         }
         
-        // Sanitize geometry to protect MapLibre from invalid coordinates.
         const sanitizedGeometry = sanitizeRequestGeometry(request.geometry);
         if (!sanitizedGeometry || !sanitizedGeometry.coordinates || sanitizedGeometry.coordinates.length < 2) {
-            // Geometry is corrupt or unusable for mapping. Still allow the
-            // manager to review attributes and approve/reject the edit.
             if (window.notify && window.notify.warning) {
                 window.notify.warning('This edit request has invalid geometry and cannot be shown on the map, but its details can still be reviewed.');
             } else {
@@ -356,7 +338,6 @@
             return;
         }
 
-        // Use the sanitized geometry for all subsequent rendering.
         request.geometry = sanitizedGeometry;
 
         const coordinates = sanitizedGeometry.coordinates;
@@ -375,25 +356,19 @@
         });
         
         const bounds = [[minLng, minLat], [maxLng, maxLat]];
-
-        // Zoom to line
         map.fitBounds(bounds, {
             padding: 100,
             duration: 1000
         });
-
-        // Step 1: Ensure edit mode is enabled
         ensureEditModeEnabled(function() {
-            // Step 2: Wait for map zoom to complete, then display request
             setTimeout(function() {
                 drawRequestLineOnMap(request);
                 populateSidepanelWithRequestData(request);
                 showRequestDetailsSidepanel(request);
-            }, 1100); // Wait for zoom animation (1000ms) + buffer
+            }, 1100);
         });
     }
 
-    // Ensure edit mode is enabled and wait for sidepanel to be fully ready.
     function ensureEditModeEnabled(callback) {
         const sidePanel = document.getElementById('editSidePanel');
         const mapContainer = document.getElementById('mapContainer');
@@ -404,70 +379,48 @@
             return;
         }
         
-        // Check if edit mode is already active
         const isCurrentlyActive = !sidePanel.classList.contains('-translate-x-full');
-        
         if (isCurrentlyActive) {
-            // Edit mode is already active, proceed immediately
             if (callback) setTimeout(callback, 100);
             return;
         }
-        
-        // Directly enable edit mode by manipulating the sidepanel
-        // This bypasses the button click and zoom level checks
         sidePanel.classList.remove('-translate-x-full');
-        
-        // Show toolbar if it exists
         if (editToolbar) {
             editToolbar.classList.remove('hidden');
         }
-        
-        // Resize map container to accommodate panel
         if (mapContainer) {
             mapContainer.style.marginLeft = '320px';
             mapContainer.style.width = 'calc(100% - 320px)';
         }
-        
-        // Trigger map resize after a short delay
         if (typeof map !== 'undefined' && map && map.resize) {
             setTimeout(function() {
                 map.resize();
             }, 100);
         }
-        
-        // Wait for CSS transition to complete (300ms) + buffer
         setTimeout(function() {
-            // Verify sidepanel is now visible
             const isNowActive = !sidePanel.classList.contains('-translate-x-full');
             if (callback) callback();
         }, 400);
     }
 
-    // Draw the request line on the map.
     function drawRequestLineOnMap(request) {
         if (typeof map === 'undefined' || !map) {
             return;
         }
 
-        // Generate a unique ID for the feature
         const featureId = 'request-' + request.id;
-        
-        // Render directly as MapLibre layer (same as approved lines)
         renderRequestLineAsMapLibreLayer(featureId, request);
         
         // Update feature label
         if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateCurrentFeatureLabel === 'function') {
             window.lineDrawingHandler.updateCurrentFeatureLabel(request.current_feature_label || 'Line');
         }
-        
-        // Store the feature ID for later reference
         if (!window.viewingRequestIds) {
             window.viewingRequestIds = [];
         }
         window.viewingRequestIds.push(featureId);
     }
 
-    // Render request line as MapLibre layer.
     function renderRequestLineAsMapLibreLayer(featureId, request) {
         if (typeof map === 'undefined' || !map) return;
 
@@ -487,7 +440,6 @@
         const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
 
         try {
-            // Remove existing layers if any
             if (map.getLayer(layerId)) {
                 map.removeLayer(layerId);
             }
@@ -497,8 +449,6 @@
             if (map.getSource(sourceId)) {
                 map.removeSource(sourceId);
             }
-
-            // Add source
             map.addSource(sourceId, {
                 type: 'geojson',
                 data: {
@@ -506,8 +456,6 @@
                     geometry: request.geometry
                 }
             });
-
-            // Add glow layer
             map.addLayer({
                 id: glowLayerId,
                 type: 'line',
@@ -519,8 +467,6 @@
                     'line-blur': 6
                 }
             });
-
-            // Add main line layer
             map.addLayer({
                 id: layerId,
                 type: 'line',
@@ -532,15 +478,9 @@
                     'line-dasharray': lineDasharray
                 }
             });
-
-        // Vertex markers have been removed to keep the visualization
-        // purely line-based and aligned with the editing module.
-        } catch (error) {
-            // Error rendering request line on map
-        }
+        } catch (error) {}
     }
 
-    // Populate tags data in sidepanel.
     function populateTagsData(tagsData) {
         if (!Array.isArray(tagsData) || tagsData.length === 0) return;
         
@@ -556,7 +496,6 @@
         });
     }
 
-    // Create a tag row.
     function createTagRow(container, labelElement, key, value) {
         const tagRow = document.createElement('div');
         tagRow.className = 'flex items-center gap-2';
@@ -631,7 +570,6 @@
         updateTagsCount(labelElement);
     }
 
-    // Update tags count.
     function updateTagsCount(labelElement) {
         const tagsRowsContainer = document.getElementById('tags-rows-container');
         if (tagsRowsContainer && labelElement) {
@@ -641,7 +579,6 @@
         }
     }
 
-    // Populate relations data in sidepanel.
     function populateRelationsData(relationsData) {
         if (!Array.isArray(relationsData) || relationsData.length === 0) return;
         
@@ -657,7 +594,6 @@
         });
     }
 
-    // Create a relation row.
     function createRelationRow(container, labelElement, parentRelation, role) {
         const relationRow = document.createElement('div');
         relationRow.className = 'space-y-2';
@@ -736,7 +672,6 @@
         updateRelationsCount(labelElement);
     }
 
-    // Update relations count.
     function updateRelationsCount(labelElement) {
         const relationsRowsContainer = document.getElementById('relations-rows-container');
         if (relationsRowsContainer && labelElement) {
@@ -746,7 +681,6 @@
         }
     }
 
-    // Populate sidepanel with request data.
     function populateSidepanelWithRequestData(request) {
         const sidePanel = document.getElementById('editSidePanel');
         const editToolbar = document.getElementById('editToolbar');
@@ -758,7 +692,6 @@
         // Check if edit mode is already active
         const isCurrentlyActive = !sidePanel.classList.contains('-translate-x-full');
         
-        // Show sidepanel if not visible
         if (!isCurrentlyActive) {
             sidePanel.classList.remove('-translate-x-full');
             
@@ -768,8 +701,6 @@
                 const SIDE_PANEL_WIDTH = 320;
                 mapContainer.style.marginLeft = SIDE_PANEL_WIDTH + 'px';
                 mapContainer.style.width = `calc(100% - ${SIDE_PANEL_WIDTH}px)`;
-                
-                // Resize map after a delay
                 setTimeout(function() {
                     if (map && map.resize) {
                         map.resize();
@@ -777,13 +708,9 @@
                 }, 300);
             }
         }
-        
-        // Show toolbar if not visible
         if (editToolbar && editToolbar.classList.contains('hidden')) {
             editToolbar.classList.remove('hidden');
         }
-        
-        // Wait for sidepanel to be visible, then populate
         let retryCount = window.populateSidepanelRetryCount || 0;
         if (retryCount < 10) {
             if (sidePanel.classList.contains('-translate-x-full')) {
@@ -793,40 +720,28 @@
                 }, 200);
                 return;
             }
-            // Reset retry counter on success
             window.populateSidepanelRetryCount = 0;
         } else {
-            // Reset retry counter on success
             window.populateSidepanelRetryCount = 0;
         }
-        
-        // Update feature label first
         if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateCurrentFeatureLabel === 'function') {
             window.lineDrawingHandler.updateCurrentFeatureLabel(request.current_feature_label || 'Line');
         }
-        
-        // Wait a moment for label update, then show edit feature screen
         setTimeout(function() {
-            // Show edit feature screen with options to hide back button and pass geometry
             if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showEditFeatureScreen === 'function') {
                 window.lineDrawingHandler.showEditFeatureScreen({
                     hideBackButton: true,
                     requestGeometry: request.geometry
                 });
             }
-            
-            // Wait for edit screen to be fully created, then populate data
             setTimeout(function() {
-                // Verify edit screen exists
                 const editScreen = document.getElementById('editFeatureScreen');
                 if (!editScreen) {
-                    // Retry once more if edit screen not found
                     setTimeout(function() {
                         if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showEditFeatureScreen === 'function') {
                             window.lineDrawingHandler.showEditFeatureScreen();
                         }
                         setTimeout(function() {
-                            // Populate data even if edit screen check fails
                             if (request.fields_data) {
                                 populateFieldsData(request.fields_data);
                             }
@@ -840,8 +755,6 @@
                     }, 200);
                     return;
                 }
-                
-                // Populate data
                 if (request.fields_data) {
                     populateFieldsData(request.fields_data);
                 }
@@ -855,12 +768,9 @@
         }, 200);
     }
 
-    // Populate fields data in sidepanel.
     function populateFieldsData(fieldsData) {
         const fieldsContainer = document.getElementById('fields-container');
         if (!fieldsContainer || !fieldsData) return;
-
-        // Populate Name field
         const nameFieldContainer = fieldsContainer.querySelector('.bg-gray-700.rounded-lg');
         if (nameFieldContainer) {
             const nameInput = nameFieldContainer.querySelector('input[type="text"]');
@@ -870,22 +780,16 @@
                 }
             }
         }
-
-        // Populate Common name field (second input in the first container)
         const commonNameInput = fieldsContainer.querySelector('.bg-gray-700.rounded-lg input[type="text"]:not([placeholder*="Name"])');
         if (commonNameInput && fieldsData.common_name) {
             commonNameInput.value = fieldsData.common_name;
         }
-
-        // Populate Multilingual names
         if (fieldsData.multilingual_names && Array.isArray(fieldsData.multilingual_names)) {
             fieldsData.multilingual_names.forEach(function(multilingual) {
                 if (multilingual.language && multilingual.name) {
-                    // Use addMultilingualNameField if available
                     let multilingualSection = null;
                     if (typeof window.addMultilingualNameField === 'function') {
                         window.addMultilingualNameField(fieldsContainer);
-                        // Get the last created multilingual section
                         setTimeout(function() {
                             const multilingualSections = fieldsContainer.querySelectorAll('[id^="multilingual-"]');
                             if (multilingualSections.length > 0) {
@@ -897,14 +801,11 @@
                             }
                         }, 50);
                     } else {
-                        // Fallback: create multilingual field manually
                         createMultilingualNameField(fieldsContainer, multilingual.language, multilingual.name);
                     }
                 }
             });
         }
-
-        // Populate other fields (Description, Fix Me, Image, etc.)
         const fieldMappings = {
             'description': { id: 'description', name: 'Description' },
             'fix_me': { id: 'fix-me', name: 'Fix Me' },
@@ -921,21 +822,15 @@
                 const fieldInfo = fieldMappings[fieldKey];
                 const fieldId = fieldInfo.id;
                 const existingField = document.getElementById('field-' + fieldId);
-                
                 if (!existingField) {
-                    // Field doesn't exist, create it using addFieldToContainer if available
                     if (typeof window.addFieldToContainer === 'function') {
                         window.addFieldToContainer(fieldInfo.name, fieldId, fieldsContainer);
-                        
-                        // Add to selectedFields array
                         if (typeof window.selectedFields === 'undefined') {
                             window.selectedFields = [];
                         }
                         if (window.selectedFields.indexOf(fieldId) === -1) {
                             window.selectedFields.push(fieldId);
                         }
-                        
-                        // Wait a bit then populate the value
                         setTimeout(function() {
                             const fieldElement = document.getElementById('field-' + fieldId);
                             if (fieldElement) {
@@ -945,11 +840,8 @@
                                 }
                             }
                         }, 150);
-                    } else {
-                        // Fallback: create field manually (would need to import create functions)
                     }
                 } else {
-                    // Field exists, just populate the value
                     const input = existingField.querySelector('input, textarea');
                     if (input) {
                         input.value = fieldsData[fieldKey];
@@ -957,8 +849,6 @@
                 }
             }
         });
-        
-        // Update the "Add field" display to show selected fields
         setTimeout(function() {
             if (typeof window.updateAddFieldDisplay === 'function') {
                 window.updateAddFieldDisplay();
@@ -966,7 +856,6 @@
         }, 200);
     }
 
-    // Create multilingual name field manually.
     function createMultilingualNameField(fieldsContainer, language, name) {
         const multilingualSection = document.createElement('div');
         multilingualSection.className = 'bg-gray-700 rounded-lg p-3 space-y-2.5';
@@ -1029,249 +918,31 @@
         }
     }
 
-    // Populate tags data in sidepanel.
-    function populateTagsData(tagsData) {
-        if (!Array.isArray(tagsData) || tagsData.length === 0) return;
-        
-        const tagsRowsContainer = document.getElementById('tags-rows-container');
-        const tagsLabel = document.getElementById('tags-label-span');
-        
-        if (!tagsRowsContainer || !tagsLabel) return;
-
-        tagsData.forEach(function(tag) {
-            if (tag.key || tag.value) {
-                createTagRow(tagsRowsContainer, tagsLabel, tag.key || '', tag.value || '');
-            }
-        });
-    }
-
-    // Create a tag row with key and value.
-    function createTagRow(container, labelElement, key, value) {
-        const tagRow = document.createElement('div');
-        tagRow.className = 'flex items-center gap-2';
-        const tagId = 'tag-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-        tagRow.id = tagId;
-
-        const leftDropdown = document.createElement('div');
-        leftDropdown.className = 'relative flex-1 min-w-0';
-
-        const leftInput = document.createElement('input');
-        leftInput.type = 'text';
-        leftInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer';
-        leftInput.placeholder = 'Add new tag';
-        leftInput.readOnly = true;
-        leftInput.value = key;
-
-        const leftChevron = document.createElement('div');
-        leftChevron.className = 'absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none';
-        leftChevron.innerHTML = '<svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
-
-        const leftMenu = document.createElement('div');
-        leftMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg z-50 hidden max-h-60 overflow-y-auto';
-
-        const tagOptions = ['building', 'highway', 'source', 'name', 'surface', 'natural', 'addr:housenumber', 'addr:street', 'addr:city', 'addr:postcode'];
-        tagOptions.forEach(function(option) {
-            const menuItem = document.createElement('div');
-            menuItem.className = 'px-3 py-2 text-xs text-white hover:bg-gray-600 cursor-pointer border-b border-gray-600 last:border-b-0';
-            menuItem.textContent = option;
-            menuItem.addEventListener('click', function(e) {
-                e.stopPropagation();
-                leftInput.value = option;
-                leftMenu.classList.add('hidden');
-                updateTagsCount(labelElement);
-            });
-            leftMenu.appendChild(menuItem);
-        });
-
-        leftInput.addEventListener('click', function(e) {
-            e.stopPropagation();
-            leftMenu.classList.toggle('hidden');
-        });
-
-        document.addEventListener('click', function(e) {
-            if (!leftDropdown.contains(e.target)) {
-                leftMenu.classList.add('hidden');
-            }
-        });
-
-        leftDropdown.appendChild(leftInput);
-        leftDropdown.appendChild(leftChevron);
-        leftDropdown.appendChild(leftMenu);
-
-        const rightInput = document.createElement('input');
-        rightInput.type = 'text';
-        rightInput.className = 'flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
-        rightInput.placeholder = '';
-        rightInput.value = value;
-
-        const deleteButton = document.createElement('button');
-        deleteButton.type = 'button';
-        deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-gray-600 transition-colors flex-shrink-0';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
-        deleteButton.addEventListener('click', function() {
-            tagRow.remove();
-            updateTagsCount(labelElement);
-        });
-
-        tagRow.appendChild(leftDropdown);
-        tagRow.appendChild(rightInput);
-        tagRow.appendChild(deleteButton);
-        container.appendChild(tagRow);
-        updateTagsCount(labelElement);
-    }
-
-    // Update tags count.
-    function updateTagsCount(labelElement) {
-        const tagsRowsContainer = document.getElementById('tags-rows-container');
-        if (tagsRowsContainer && labelElement) {
-            const tagRows = tagsRowsContainer.querySelectorAll('.flex.items-center.gap-2');
-            const count = tagRows.length;
-            labelElement.textContent = 'Tags (' + count + ')';
-        }
-    }
-
-    // Populate relations data in sidepanel.
-    function populateRelationsData(relationsData) {
-        if (!Array.isArray(relationsData) || relationsData.length === 0) return;
-        
-        const relationsRowsContainer = document.getElementById('relations-rows-container');
-        const relationsLabel = document.getElementById('relations-label-span');
-        
-        if (!relationsRowsContainer || !relationsLabel) return;
-
-        relationsData.forEach(function(relation) {
-            if (relation.parent_relation || relation.role) {
-                createRelationRow(relationsRowsContainer, relationsLabel, relation.parent_relation || 'New Relation', relation.role || '');
-            }
-        });
-    }
-
-    // Create a relation row with parent relation and role.
-    function createRelationRow(container, labelElement, parentRelation, role) {
-        const relationRow = document.createElement('div');
-        relationRow.className = 'space-y-2';
-        const relationId = 'relation-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-        relationRow.id = relationId;
-
-        const parentRelationRow = document.createElement('div');
-        parentRelationRow.className = 'flex items-center gap-2';
-
-        const parentDropdown = document.createElement('div');
-        parentDropdown.className = 'relative flex-1 min-w-0';
-
-        const parentInput = document.createElement('input');
-        parentInput.type = 'text';
-        parentInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer';
-        parentInput.placeholder = 'Choose a parent relation';
-        parentInput.value = parentRelation;
-        parentInput.readOnly = true;
-
-        const parentChevron = document.createElement('div');
-        parentChevron.className = 'absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none';
-        parentChevron.innerHTML = '<svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
-
-        const parentMenu = document.createElement('div');
-        parentMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg z-50 hidden max-h-60 overflow-y-auto';
-
-        const relationOptions = ['New Relation'];
-        relationOptions.forEach(function(option) {
-            const menuItem = document.createElement('div');
-            menuItem.className = 'px-3 py-2 text-xs text-white hover:bg-gray-600 cursor-pointer border-b border-gray-600 last:border-b-0';
-            menuItem.textContent = option;
-            menuItem.addEventListener('click', function(e) {
-                e.stopPropagation();
-                parentInput.value = option;
-                parentMenu.classList.add('hidden');
-            });
-            parentMenu.appendChild(menuItem);
-        });
-
-        parentInput.addEventListener('click', function(e) {
-            e.stopPropagation();
-            parentMenu.classList.toggle('hidden');
-        });
-
-        document.addEventListener('click', function(e) {
-            if (!parentDropdown.contains(e.target)) {
-                parentMenu.classList.add('hidden');
-            }
-        });
-
-        parentDropdown.appendChild(parentInput);
-        parentDropdown.appendChild(parentChevron);
-        parentDropdown.appendChild(parentMenu);
-
-        const deleteButton = document.createElement('button');
-        deleteButton.type = 'button';
-        deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-gray-600 transition-colors flex-shrink-0';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
-        deleteButton.addEventListener('click', function() {
-            relationRow.remove();
-            updateRelationsCount(labelElement);
-        });
-
-        parentRelationRow.appendChild(parentDropdown);
-        parentRelationRow.appendChild(deleteButton);
-
-        const roleInput = document.createElement('input');
-        roleInput.type = 'text';
-        roleInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
-        roleInput.placeholder = 'Role';
-        roleInput.value = role;
-
-        relationRow.appendChild(parentRelationRow);
-        relationRow.appendChild(roleInput);
-        container.appendChild(relationRow);
-        updateRelationsCount(labelElement);
-    }
-
-    // Update relations count.
-    function updateRelationsCount(labelElement) {
-        const relationsRowsContainer = document.getElementById('relations-rows-container');
-        if (relationsRowsContainer && labelElement) {
-            const relationRows = relationsRowsContainer.querySelectorAll('.space-y-2');
-            const count = relationRows.length;
-            labelElement.textContent = 'Relations (' + count + ')';
-        }
-    }
-
-    // Show request details in sidepanel with approve and reject buttons.
     function showRequestDetailsSidepanel(request) {
-        // Wait for sidepanel to be ready, then add approve/reject buttons
         setTimeout(function() {
             createApproveRejectButtons(request);
         }, 1000);
     }
 
-    // Create approve and reject buttons on the map.
     function createApproveRejectButtons(request) {
         // Remove existing approve/reject buttons if any
         removeApproveRejectButtons();
 
-        // Get map container
         const mapContainer = document.getElementById('mapContainer') || document.querySelector('.mapboxgl-map');
         if (!mapContainer) {
             return;
         }
-
-        // Create floating button container
         const buttonContainer = document.createElement('div');
         buttonContainer.id = 'approveRejectButtonsContainer';
         buttonContainer.className = 'fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 flex gap-3 items-center';
         buttonContainer.style.pointerEvents = 'auto';
-
-        // Create card container for better visibility
         const card = document.createElement('div');
         card.className = 'bg-white rounded-lg shadow-2xl border border-gray-300 px-4 py-3 flex gap-3 items-center';
         card.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.2)';
-
-        // Title/Info text
         const infoText = document.createElement('span');
         infoText.className = 'text-sm font-medium text-gray-800 mr-2';
         infoText.textContent = 'Review Edit Request';
         card.appendChild(infoText);
-
-        // Approve button - Black theme
         const approveBtn = document.createElement('button');
         approveBtn.id = 'approveRequestBtn';
         approveBtn.className = 'px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-colors text-sm font-medium flex items-center justify-center gap-2 shadow-md';
@@ -1286,8 +957,6 @@
             approveRequest(request.id);
         });
         card.appendChild(approveBtn);
-
-        // Reject button - White with black text theme
         const rejectBtn = document.createElement('button');
         rejectBtn.id = 'rejectRequestBtn';
         rejectBtn.className = 'px-4 py-2 bg-white text-black border border-gray-300 rounded-md hover:bg-gray-100 transition-colors text-sm font-medium flex items-center justify-center gap-2 shadow-md';
@@ -1307,12 +976,9 @@
 
         buttonContainer.appendChild(card);
         document.body.appendChild(buttonContainer);
-
-        // Store current request ID for cleanup
         window.currentReviewingRequestId = request.id;
     }
 
-    // Remove approve and reject buttons from map.
     function removeApproveRejectButtons() {
         const container = document.getElementById('approveRejectButtonsContainer');
         if (container) {
@@ -1321,7 +987,6 @@
         window.currentReviewingRequestId = null;
     }
 
-    // Approve edit request.
     function approveRequest(requestId) {
         fetch('/mapping/api/request/' + requestId + '/approve/', {
             method: 'POST',
@@ -1335,17 +1000,13 @@
         .then(function(data) {
             if (data.success) {
                 alert('Edit request approved successfully!');
-                // Clean up request lines
                 cleanupRequestLines();
-                // Remove approve/reject buttons from map
                 removeApproveRejectButtons();
-                // Remove from pending list
                 pendingRequests = pendingRequests.filter(function(req) {
                     return req.id !== requestId;
                 });
                 displayRequests();
                 updateRequestsBadge();
-                // Reload page to show approved line
                 window.location.reload();
             } else {
                 alert('Error: ' + data.message);
@@ -1356,7 +1017,6 @@
         });
     }
 
-    // Reject edit request.
     function rejectRequest(requestId) {
         fetch('/mapping/api/request/' + requestId + '/reject/', {
             method: 'POST',
@@ -1370,11 +1030,8 @@
         .then(function(data) {
             if (data.success) {
                 alert('Edit request rejected');
-                // Clean up request lines
                 cleanupRequestLines();
-                // Remove approve/reject buttons from map
                 removeApproveRejectButtons();
-                // Remove from pending list
                 pendingRequests = pendingRequests.filter(function(req) {
                     return req.id !== requestId;
                 });
@@ -1389,7 +1046,6 @@
         });
     }
 
-    // Get CSRF token from cookies.
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -1405,7 +1061,6 @@
         return cookieValue;
     }
 
-    // Create toggle button for manager requests.
     function createToggleButton() {
         const button = document.createElement('button');
         button.id = 'managerRequestsToggle';
@@ -1426,7 +1081,6 @@
                 if (!isVisible) {
                     loadPendingRequests();
                 } else {
-                    // Clean up approve/reject buttons when closing the panel
                     removeApproveRejectButtons();
                 }
             }
@@ -1436,17 +1090,10 @@
         return button;
     }
 
-    // Initialize manager requests UI.
     function initManagerRequests() {
-        // Check if user is manager
-        // This should be checked server-side, but for UI we'll show it
         createManagerRequestsUI();
         createToggleButton();
-        
-        // Load requests initially
         loadPendingRequests();
-        
-        // Refresh requests every 30 seconds
         setInterval(loadPendingRequests, 30000);
     }
 
@@ -1457,7 +1104,6 @@
         initManagerRequests();
     }
 
-    // Export functions
     window.loadPendingRequests = loadPendingRequests;
     window.populateFieldsData = populateFieldsData;
     window.populateTagsData = populateTagsData;

@@ -1,10 +1,7 @@
-// Load and manage approved lines (and Riyadh roads) on the map.
-// Renders lines with symbology from the catalog; supports selection and editing.
-
+// Load and manage approved lines and Riyadh roads; render with symbology catalog; support selection and editing.
 (function() {
     'use strict';
 
-    // Get cookie value by name.
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -20,7 +17,6 @@
         return cookieValue;
     }
 
-    // Get user role from URL path.
     function getUserRole() {
         const path = window.location.pathname;
         if (path.includes('/manager/')) {
@@ -33,25 +29,18 @@
         return null;
     }
 
-    // Check if edit mode is enabled.
     function isEditModeEnabled() {
         const editButton = document.getElementById('editButton');
         const editToolbar = document.getElementById('editToolbar');
-        
-        // Check if edit button is active (not disabled and possibly has active state)
         if (editButton && !editButton.disabled) {
-            // Check if toolbar is visible (indicates edit mode is active)
             if (editToolbar && editToolbar.style.display !== 'none') {
                 return true;
             }
-            // Check if edit button text indicates active state
             const buttonText = editButton.querySelector('span');
             if (buttonText && buttonText.textContent.toLowerCase().includes('exit')) {
                 return true;
             }
         }
-        
-        // Fallback: check if side panel has edit-related content visible
         const sidePanel = document.getElementById('editSidePanel');
         if (sidePanel && !sidePanel.classList.contains('-translate-x-full')) {
             const editScreen = document.getElementById('editFeatureScreen');
@@ -63,7 +52,6 @@
         return false;
     }
 
-    // Clear all existing approved lines from the map.
     function clearAllApprovedLines() {
         if (typeof map === 'undefined' || !map) {
             return;
@@ -71,8 +59,6 @@
         
         const layersToRemove = [];
         const sourcesToRemove = [];
-        
-        // Get layers from style
         try {
             const allLayers = map.getStyle().layers || [];
             allLayers.forEach(function(layer) {
@@ -85,11 +71,7 @@
                     layersToRemove.push(layer.id);
                 }
             });
-        } catch (e) {
-            // Style not loaded yet
-        }
-        
-        // Get sources from style
+        } catch (e) {}
         try {
             const allSources = Object.keys(map.getStyle().sources || {});
             allSources.forEach(function(sourceId) {
@@ -97,11 +79,7 @@
                     sourcesToRemove.push(sourceId);
                 }
             });
-        } catch (e) {
-            // Style not loaded yet
-        }
-        
-        // Check stored data for additional layer IDs
+        } catch (e) {}
         if (window.approvedLinesData) {
             Object.keys(window.approvedLinesData).forEach(function(key) {
                 const match = key.match(/approved-line-(?:layer|glow|closure-symbols)-(\d+)/);
@@ -127,8 +105,6 @@
                 }
             });
         }
-        
-        // Direct check for layers that might exist but aren't in style
         for (let i = 1; i <= 200; i++) {
             const testLayerId = 'approved-line-layer-' + i;
             const testGlowLayerId = 'approved-line-glow-' + i;
@@ -139,62 +115,40 @@
                 if (map.getLayer(testLayerId) && layersToRemove.indexOf(testLayerId) === -1) {
                     layersToRemove.push(testLayerId);
                 }
-            } catch (e) {
-                // Layer doesn't exist
-            }
-            
+            } catch (e) {}
             try {
                 if (map.getLayer(testGlowLayerId) && layersToRemove.indexOf(testGlowLayerId) === -1) {
                     layersToRemove.push(testGlowLayerId);
                 }
-            } catch (e) {
-                // Layer doesn't exist
-            }
-
+            } catch (e) {}
             try {
                 if (map.getLayer(testClosureLayerId) && layersToRemove.indexOf(testClosureLayerId) === -1) {
                     layersToRemove.push(testClosureLayerId);
                 }
-            } catch (e) {
-                // Layer doesn't exist
-            }
-            
+            } catch (e) {}
             try {
                 if (map.getSource(testSourceId) && sourcesToRemove.indexOf(testSourceId) === -1) {
                     sourcesToRemove.push(testSourceId);
                 }
-            } catch (e) {
-                // Source doesn't exist
-            }
+            } catch (e) {}
         }
-        
-        // Remove layers
         layersToRemove.forEach(function(layerId) {
             try {
                 if (map.getLayer(layerId)) {
                     map.removeLayer(layerId);
                 }
-            } catch (e) {
-                // Layer might not exist
-            }
+            } catch (e) {}
         });
-        
-        // Remove sources
         sourcesToRemove.forEach(function(sourceId) {
             try {
                 if (map.getSource(sourceId)) {
                     map.removeSource(sourceId);
                 }
-            } catch (e) {
-                // Source might not exist
-            }
+            } catch (e) {}
         });
-        
-        // Clear stored data
         window.approvedLinesData = {};
     }
 
-    // Load approved lines from server.
     function loadApprovedLines() {
         if (typeof map === 'undefined' || !map) {
             setTimeout(loadApprovedLines, 100);
@@ -220,12 +174,9 @@
                 });
             }
         })
-        .catch(function(error) {
-            // Error loading approved lines
-        });
+        .catch(function() {});
     }
 
-    // Render a single approved line on the map.
     function renderApprovedLine(lineData) {
         if (!lineData || !lineData.geometry || !lineData.id) {
             return;
@@ -282,17 +233,12 @@
             if (map.getSource(sourceId)) {
                 map.removeSource(sourceId);
             }
-        } catch (e) {
-            // Layers/sources don't exist yet
-        }
+        } catch (e) {}
 
-        // Add source
         map.addSource(sourceId, {
             type: 'geojson',
             data: featureCollection
         });
-
-        // Add glow layer
         map.addLayer({
             id: glowLayerId,
             type: 'line',
@@ -307,8 +253,6 @@
                 'line-opacity': style.glowOpacity || 0.5
             }
         });
-
-        // Add main line layer
         map.addLayer({
             id: layerId,
             type: 'line',
@@ -324,10 +268,6 @@
                 'line-dasharray': lineDasharray
             }
         });
-
-        // Add closure symbols along the approved line when closed and the icon
-        // is loaded. Using symbol-placement: 'line' guarantees the icons are
-        // rendered even when the geometry is complex.
         if (isRoadClosed && map.hasImage('road-closure')) {
             try {
                 map.addLayer({
@@ -342,12 +282,8 @@
                         'icon-allow-overlap': true
                     }
                 });
-            } catch (e) {
-                // If we fail to add the symbol layer, keep line rendering intact.
-            }
+            } catch (e) {}
         }
-
-        // Store line data for reference
         if (!window.approvedLinesData) {
             window.approvedLinesData = {};
         }
@@ -363,8 +299,6 @@
             is_riyadh_road: !!lineData.is_riyadh_road,
             riyadh_road_id: lineData.riyadh_road_id || null
         };
-
-        // Add click and hover handlers
         map.on('click', layerId, function(e) {
             showApprovedLineDetails(lineData, true);
         });
@@ -378,31 +312,38 @@
         });
     }
 
-    // Show approved line details in side panel.
     function showApprovedLineDetails(lineData, isClick) {
         if (!lineData) {
             return;
         }
-
-        // Prevent cross-target saves: if user is viewing/editing a non-Riyadh approved line,
-        // ensure we are not still holding a tile-selected Riyadh road reference.
         if (!lineData.is_riyadh_road) {
             window.selectedRiyadhRoad = null;
         }
+
+        // Highlight selection on the map.
+        try {
+            // For non-Riyadh approved lines, use the GeoJSON overlay + dimming.
+            if (!lineData.is_riyadh_road) {
+                if (typeof window.setSelectedOverlayGeometry === 'function') {
+                    window.setSelectedOverlayGeometry(lineData.geometry);
+                } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.setSelectedOverlayGeometry === 'function') {
+                    window.lineDrawingHandler.setSelectedOverlayGeometry(lineData.geometry);
+                }
+            }
+
+            if (typeof window.setApprovedLinesDimmed === 'function') {
+                window.setApprovedLinesDimmed(lineData.id);
+            }
+        } catch (e) {}
 
         const sidePanel = document.getElementById('editSidePanel');
         if (!sidePanel) {
             return;
         }
-
-        // Always open side panel (works in both edit mode and view mode)
-        // Remove the translate class to show it, regardless of edit mode state
         sidePanel.classList.remove('-translate-x-full');
-        sidePanel.style.display = ''; // Ensure it's not hidden
-        sidePanel.style.visibility = 'visible'; // Ensure visibility
-        sidePanel.style.opacity = '1'; // Ensure opacity
-        
-        // Force show with important styles if needed
+        sidePanel.style.display = '';
+        sidePanel.style.visibility = 'visible';
+        sidePanel.style.opacity = '1';
         sidePanel.style.setProperty('transform', 'translateX(0)', 'important');
         
         const mapContainer = document.getElementById('mapContainer');
@@ -418,17 +359,26 @@
             }, 300);
         }
 
-        // Update feature label
         const featureLabelToUse = lineData.current_feature_label || lineData.feature_type || 'Line';
+        try {
+            if (!window.approvedLinesOriginalState) {
+                window.approvedLinesOriginalState = {};
+            }
+            if (lineData && lineData.id != null) {
+                window.approvedLinesOriginalState[String(lineData.id)] = {
+                    feature_label: featureLabelToUse
+                };
+            }
+            if (lineData && !lineData._original_feature_label) {
+                lineData._original_feature_label = featureLabelToUse;
+            }
+        } catch (e) {}
         
         if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateCurrentFeatureLabel === 'function') {
             window.lineDrawingHandler.updateCurrentFeatureLabel(featureLabelToUse);
         } else if (typeof window.updateCurrentFeatureLabel === 'function') {
             window.updateCurrentFeatureLabel(featureLabelToUse);
         }
-
-        // Sync road closure toggle with the currently selected feature so that
-        // the sidebar accurately reflects whether the line is open or closed.
         if (typeof window.setCurrentRoadClosure === 'function') {
             const closureValue =
                 lineData.road_closure === 1 ||
@@ -436,16 +386,11 @@
                 lineData.road_closure === '1';
             window.setCurrentRoadClosure(closureValue);
         }
-
-        // Determine if back button should be shown
-        // For Riyadh roads, always show back button (view mode by default)
         const isRiyadhRoad = lineData && lineData.is_riyadh_road;
         const userRole = getUserRole();
         const editModeEnabled = isEditModeEnabled();
         let shouldHideBackButton = true;
-        
         if (isRiyadhRoad) {
-            // Riyadh roads: always show back button to allow returning to select feature screen
             shouldHideBackButton = false;
         } else if (userRole === 'manager') {
             shouldHideBackButton = true;
@@ -454,8 +399,6 @@
         } else {
             shouldHideBackButton = !editModeEnabled;
         }
-        
-        // Store line data for editing (including Riyadh roads)
         if (lineData && (isRiyadhRoad || userRole === 'editor' || userRole === 'system_admin')) {
             if (!window.approvedLinesBeingEdited) {
                 window.approvedLinesBeingEdited = {};
@@ -463,8 +406,6 @@
             window.approvedLinesBeingEdited[lineData.id] = lineData;
             window.approvedLineBeingEdited = lineData;
         }
-        
-        // Show edit feature screen
         if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showEditFeatureScreen === 'function') {
             window.lineDrawingHandler.showEditFeatureScreen({
                 hideBackButton: shouldHideBackButton,
@@ -474,15 +415,11 @@
                 approvedLineId: lineData.id
             });
         }
-
-        // Wait for edit screen to be created, then populate data
         setTimeout(function() {
             const editScreen = document.getElementById('editFeatureScreen');
             if (editScreen && lineData) {
                 editScreen.setAttribute('data-request-geometry', JSON.stringify(lineData.geometry));
                 editScreen.setAttribute('data-line-id', lineData.id.toString());
-
-                // Update visualization
                 setTimeout(function() {
                     const featureLabel = lineData.current_feature_label || lineData.feature_type || 'Line';
                     
@@ -502,17 +439,11 @@
                         }
                     }, 50);
                 }, 100);
-
-                // Populate fields, tags, and relations
-                // Try using manager-requests.js functions first (if available for managers),
-                // otherwise use our local functions (for editors/system admins)
                 if (lineData.fields_data) {
                     setTimeout(function() {
                         if (typeof window.populateFieldsData === 'function') {
-                            // Use manager-requests.js function if available
                             window.populateFieldsData(lineData.fields_data);
                         } else if (typeof window.populateFieldsDataForApprovedLine === 'function') {
-                            // Use our local function for editors/system admins
                             window.populateFieldsDataForApprovedLine(lineData.fields_data);
                         }
                     }, 300);
@@ -521,10 +452,8 @@
                 if (lineData.tags_data) {
                     setTimeout(function() {
                         if (typeof window.populateTagsData === 'function') {
-                            // Use manager-requests.js function if available
                             window.populateTagsData(lineData.tags_data);
                         } else if (typeof window.populateTagsDataForApprovedLine === 'function') {
-                            // Use our local function for editors/system admins
                             window.populateTagsDataForApprovedLine(lineData.tags_data);
                         }
                     }, 350);
@@ -533,10 +462,8 @@
                 if (lineData.relations_data) {
                     setTimeout(function() {
                         if (typeof window.populateRelationsData === 'function') {
-                            // Use manager-requests.js function if available
                             window.populateRelationsData(lineData.relations_data);
                         } else if (typeof window.populateRelationsDataForApprovedLine === 'function') {
-                            // Use our local function for editors/system admins
                             window.populateRelationsDataForApprovedLine(lineData.relations_data);
                         }
                     }, 400);
@@ -545,13 +472,11 @@
         }, 200);
     }
 
-    // Initialize when map is ready
     if (typeof map !== 'undefined' && map) {
         map.on('load', function() {
             loadApprovedLines();
         });
     } else {
-        // Wait for map to be available
         const checkMap = setInterval(function() {
             if (typeof map !== 'undefined' && map) {
                 clearInterval(checkMap);
@@ -565,72 +490,46 @@
         }, 100);
     }
 
-    // Populate fields data for approved line.
     function populateFieldsDataForApprovedLine(fieldsData) {
         const fieldsContainer = document.getElementById('fields-container');
         if (!fieldsContainer || !fieldsData) return;
-
-        // Populate Name field
-        // The structure: .bg-gray-700.rounded-lg contains:
-        // 1. createFieldItem('Name') - which is just a label div (NOT an input)
-        // 2. commonNameInput - which is an input for common name
-        // The name input is MISSING from the structure! We need to find or create it
         const nameFieldContainer = fieldsContainer.querySelector('.bg-gray-700.rounded-lg');
         if (nameFieldContainer) {
             const nameFieldLabel = nameFieldContainer.querySelector('.flex.items-center.justify-between');
-            
-            // Try to find existing name input
             let nameInput = nameFieldContainer.querySelector('input[type="text"][placeholder*="Name"]');
-            
-            // If not found, look for first input (might be name input)
             if (!nameInput) {
                 const allInputs = nameFieldContainer.querySelectorAll('input[type="text"]');
-                // Check if first input is name (comes before commonNameInput)
                 if (allInputs.length > 0) {
                     const firstInput = allInputs[0];
-                    // If it doesn't have a specific placeholder and is the first input, assume it's name
                     if (!firstInput.placeholder || firstInput.placeholder === '') {
                         nameInput = firstInput;
                     }
                 }
             }
-            
-            // If still not found and we need to populate name, create the input
             if (!nameInput && nameFieldLabel && fieldsData.hasOwnProperty('name')) {
-                // Create name input and insert it right after the Name label
                 nameInput = document.createElement('input');
                 nameInput.type = 'text';
                 nameInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
                 nameInput.placeholder = 'Name';
-                
-                // Insert after nameFieldLabel (before any other inputs)
                 if (nameFieldLabel.nextSibling) {
                     nameFieldContainer.insertBefore(nameInput, nameFieldLabel.nextSibling);
                 } else {
                     nameFieldContainer.appendChild(nameInput);
                 }
             }
-            
-            // Set the value if input exists
             if (nameInput && fieldsData.hasOwnProperty('name')) {
                 nameInput.value = fieldsData.name || '';
             }
         }
-
-        // Populate Common name field (second input in the first container)
         const commonNameInput = fieldsContainer.querySelector('.bg-gray-700.rounded-lg input[type="text"]:not([placeholder*="Name"])');
         if (commonNameInput && fieldsData.common_name) {
             commonNameInput.value = fieldsData.common_name;
         }
-
-        // Populate Multilingual names
         if (fieldsData.multilingual_names && Array.isArray(fieldsData.multilingual_names)) {
             fieldsData.multilingual_names.forEach(function(multilingual) {
                 if (multilingual.language && multilingual.name) {
-                    // Use addMultilingualNameField if available
                     if (typeof window.addMultilingualNameField === 'function') {
                         window.addMultilingualNameField(fieldsContainer);
-                        // Get the last created multilingual section
                         setTimeout(function() {
                             const multilingualSections = fieldsContainer.querySelectorAll('[id^="multilingual-"]');
                             if (multilingualSections.length > 0) {
@@ -645,8 +544,6 @@
                 }
             });
         }
-
-        // Populate other fields (Description, Fix Me, Image, etc.)
         const fieldMappings = {
             'description': { id: 'description', name: 'Description' },
             'fix_me': { id: 'fix-me', name: 'Fix Me' },
@@ -663,21 +560,15 @@
                 const fieldInfo = fieldMappings[fieldKey];
                 const fieldId = fieldInfo.id;
                 const existingField = document.getElementById('field-' + fieldId);
-                
                 if (!existingField) {
-                    // Field doesn't exist, create it using addFieldToContainer if available
                     if (typeof window.addFieldToContainer === 'function') {
                         window.addFieldToContainer(fieldInfo.name, fieldId, fieldsContainer);
-                        
-                        // Add to selectedFields array
                         if (typeof window.selectedFields === 'undefined') {
                             window.selectedFields = [];
                         }
                         if (window.selectedFields.indexOf(fieldId) === -1) {
                             window.selectedFields.push(fieldId);
                         }
-                        
-                        // Wait a bit then populate the value
                         setTimeout(function() {
                             const fieldElement = document.getElementById('field-' + fieldId);
                             if (fieldElement) {
@@ -689,7 +580,6 @@
                         }, 150);
                     }
                 } else {
-                    // Field exists, just populate the value
                     const input = existingField.querySelector('input, textarea');
                     if (input) {
                         input.value = fieldsData[fieldKey];
@@ -697,8 +587,6 @@
                 }
             }
         });
-        
-        // Update the "Add field" display to show selected fields
         setTimeout(function() {
             if (typeof window.updateAddFieldDisplay === 'function') {
                 window.updateAddFieldDisplay();
@@ -706,7 +594,6 @@
         }, 200);
     }
 
-    // Populate tags data for approved line.
     function populateTagsDataForApprovedLine(tagsData) {
         if (!Array.isArray(tagsData) || tagsData.length === 0) return;
         
@@ -714,8 +601,6 @@
         const tagsLabel = document.getElementById('tags-label-span');
         
         if (!tagsRowsContainer || !tagsLabel) return;
-
-        // Clear existing tags before populating to prevent duplication
         tagsRowsContainer.innerHTML = '';
 
         tagsData.forEach(function(tag) {
@@ -725,7 +610,6 @@
         });
     }
 
-    // Create a tag row for approved line.
     function createTagRowForApprovedLine(container, labelElement, key, value) {
         const tagRow = document.createElement('div');
         tagRow.className = 'flex items-center gap-2';
@@ -800,7 +684,6 @@
         updateTagsCountForApprovedLine(labelElement);
     }
 
-    // Update tags count for approved line.
     function updateTagsCountForApprovedLine(labelElement) {
         const tagsRowsContainer = document.getElementById('tags-rows-container');
         if (tagsRowsContainer && labelElement) {
@@ -810,7 +693,6 @@
         }
     }
 
-    // Populate relations data for approved line.
     function populateRelationsDataForApprovedLine(relationsData) {
         if (!Array.isArray(relationsData) || relationsData.length === 0) return;
         
@@ -826,7 +708,6 @@
         });
     }
 
-    // Create a relation row for approved line.
     function createRelationRowForApprovedLine(container, labelElement, parentRelation, role) {
         const relationRow = document.createElement('div');
         relationRow.className = 'space-y-2';
@@ -905,7 +786,6 @@
         updateRelationsCountForApprovedLine(labelElement);
     }
 
-    // Update relations count for approved line.
     function updateRelationsCountForApprovedLine(labelElement) {
         const relationsRowsContainer = document.getElementById('relations-rows-container');
         if (relationsRowsContainer && labelElement) {
@@ -915,13 +795,8 @@
         }
     }
 
-    // Expose reload function
     window.reloadApprovedLines = loadApprovedLines;
-    
-    // Expose showApprovedLineDetails for use by other scripts.
     window.showApprovedLineDetails = showApprovedLineDetails;
-    
-    // Expose populate functions
     window.populateFieldsDataForApprovedLine = populateFieldsDataForApprovedLine;
     window.populateTagsDataForApprovedLine = populateTagsDataForApprovedLine;
     window.populateRelationsDataForApprovedLine = populateRelationsDataForApprovedLine;

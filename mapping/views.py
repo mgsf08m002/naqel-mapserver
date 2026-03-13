@@ -404,8 +404,7 @@ def set_road_closure(request):
 
 @login_required
 def list_pending_requests(request):
-    """List all pending line edit requests for Manager."""
-    # Check if user is manager
+    """List pending line edit requests for Manager."""
     profile = getattr(request.user, 'profile', None)
     is_manager = profile and profile.role == 'manager'
     is_superuser = request.user.is_superuser
@@ -467,7 +466,6 @@ def list_pending_requests(request):
 @login_required
 def get_edit_request_details(request, request_id):
     """Get full details of an edit request."""
-    # Check if user is manager
     profile = getattr(request.user, 'profile', None)
     is_manager = profile and profile.role == 'manager'
     is_superuser = request.user.is_superuser
@@ -541,7 +539,6 @@ def get_edit_request_details(request, request_id):
 @csrf_exempt
 def approve_edit_request(request, request_id):
     """Approve an edit request."""
-    # Check if user is manager
     profile = getattr(request.user, 'profile', None)
     is_manager = profile and profile.role == 'manager'
     is_superuser = request.user.is_superuser
@@ -585,7 +582,6 @@ def approve_edit_request(request, request_id):
 @csrf_exempt
 def reject_edit_request(request, request_id):
     """Reject an edit request."""
-    # Check if user is manager
     profile = getattr(request.user, 'profile', None)
     is_manager = profile and profile.role == 'manager'
     is_superuser = request.user.is_superuser

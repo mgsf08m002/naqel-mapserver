@@ -1,6 +1,4 @@
-// Line Drawing Handler.
-// Manages line drawing, MapLibre layer rendering, and sidepanel UI.
-
+// Line drawing, MapLibre layer rendering, and sidepanel UI.
 (function() {
     'use strict';
 
@@ -19,6 +17,164 @@
     let symbologyCatalog = null;
     let symbologyStylesByLabel = null;
     let symbologyCatalogRequested = false;
+
+    // Selected feature highlight overlay (for approved lines + tile roads).
+    const SELECTED_OVERLAY_SOURCE_ID = 'selected-road-overlay-source';
+    const SELECTED_OVERLAY_GLOW_LAYER_ID = 'selected-road-overlay-glow';
+    const SELECTED_OVERLAY_LINE_LAYER_ID = 'selected-road-overlay-line';
+    const SELECTED_OVERLAY_OUTLINE_COLOR = '#22d3ee';
+
+    function setApprovedLinesDimmed(selectedApprovedLineId) {
+        if (typeof map === 'undefined' || !map) {
+            return;
+        }
+
+        const hasSelection = selectedApprovedLineId != null;
+        const selectedLayerId = hasSelection
+            ? 'approved-line-layer-' + String(selectedApprovedLineId)
+            : null;
+
+        const all = window.approvedLinesData || {};
+        const layerIds = Object.keys(all);
+
+        layerIds.forEach(function(layerId) {
+            const isSelectedLayer = hasSelection && layerId === selectedLayerId;
+            const baseOpacity = !hasSelection ? 1 : isSelectedLayer ? 1 : 0.15;
+            const glowOpacity = !hasSelection ? 0.5 : isSelectedLayer ? 0.5 : 0.15;
+
+            try {
+                if (map.getLayer(layerId)) {
+                    map.setPaintProperty(layerId, 'line-opacity', baseOpacity);
+                }
+            } catch (e) {}
+
+            const glowId = layerId.replace('approved-line-layer-', 'approved-line-glow-');
+            try {
+                if (map.getLayer(glowId)) {
+                    map.setPaintProperty(glowId, 'line-opacity', glowOpacity);
+                }
+            } catch (e) {}
+
+            const closureId = layerId.replace('approved-line-layer-', 'approved-line-closure-symbols-');
+            try {
+                if (map.getLayer(closureId)) {
+                    map.setLayoutProperty(
+                        closureId,
+                        'visibility',
+                        baseOpacity < 0.2 ? 'none' : 'visible'
+                    );
+                }
+            } catch (e) {}
+        });
+    }
+
+    function ensureSelectedOverlayLayers() {
+        if (typeof map === 'undefined' || !map) {
+            return;
+        }
+
+        if (!map.loaded() || !map.isStyleLoaded()) {
+            map.once('load', ensureSelectedOverlayLayers);
+            map.once('style.load', ensureSelectedOverlayLayers);
+            return;
+        }
+
+        try {
+            if (!map.getSource(SELECTED_OVERLAY_SOURCE_ID)) {
+                map.addSource(SELECTED_OVERLAY_SOURCE_ID, {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] },
+                });
+            }
+        } catch (e) {
+            return;
+        }
+
+        try {
+            if (!map.getLayer(SELECTED_OVERLAY_GLOW_LAYER_ID)) {
+                map.addLayer({
+                    id: SELECTED_OVERLAY_GLOW_LAYER_ID,
+                    type: 'line',
+                    source: SELECTED_OVERLAY_SOURCE_ID,
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: {
+                        'line-color': SELECTED_OVERLAY_OUTLINE_COLOR,
+                        'line-width': 14,
+                        'line-opacity': 0.45,
+                        'line-blur': 8,
+                    },
+                });
+            }
+            if (!map.getLayer(SELECTED_OVERLAY_LINE_LAYER_ID)) {
+                map.addLayer({
+                    id: SELECTED_OVERLAY_LINE_LAYER_ID,
+                    type: 'line',
+                    source: SELECTED_OVERLAY_SOURCE_ID,
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: {
+                        'line-color': '#ffffff',
+                        'line-width': 6,
+                        'line-opacity': 1,
+                    },
+                });
+            }
+
+            // Always keep overlay layers on top so they can't be hidden
+            // beneath approved line or Riyadh network layers.
+            const style = map.getStyle && map.getStyle();
+            if (style && Array.isArray(style.layers) && style.layers.length) {
+                const lastId = style.layers[style.layers.length - 1].id;
+                if (lastId) {
+                    try {
+                        if (map.getLayer(SELECTED_OVERLAY_GLOW_LAYER_ID)) {
+                            map.moveLayer(SELECTED_OVERLAY_GLOW_LAYER_ID, lastId);
+                        }
+                    } catch (e2) {}
+                    try {
+                        if (map.getLayer(SELECTED_OVERLAY_LINE_LAYER_ID)) {
+                            map.moveLayer(SELECTED_OVERLAY_LINE_LAYER_ID, lastId);
+                        }
+                    } catch (e3) {}
+                }
+            }
+        } catch (e) {
+            // Non-critical
+        }
+    }
+
+    function setSelectedOverlayGeometry(geometry) {
+        if (typeof map === 'undefined' || !map) {
+            return;
+        }
+        ensureSelectedOverlayLayers();
+        try {
+            const src = map.getSource(SELECTED_OVERLAY_SOURCE_ID);
+            if (!src || typeof src.setData !== 'function') {
+                return;
+            }
+            if (!geometry) {
+                src.setData({ type: 'FeatureCollection', features: [] });
+                return;
+            }
+            src.setData({
+                type: 'FeatureCollection',
+                features: [{ type: 'Feature', geometry: geometry, properties: {} }],
+            });
+        } catch (e) {
+            // Non-critical
+        }
+    }
+
+    function getBestAvailableSelectedGeometry() {
+        const external = window.selectedRiyadhRoad || window.approvedLineBeingEdited || null;
+        if (external && external.geometry) {
+            return external.geometry;
+        }
+        if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.geometry) {
+            return window.approvedLineBeingEdited.geometry;
+        }
+        return null;
+    }
 
     function normalizeFeatureLabel(label) {
         if (!label) {
@@ -88,6 +244,117 @@
             return undefined;
         }
         return symbologyStylesByLabel[normalizedLabel] || symbologyStylesByLabel["line"];
+    }
+
+    function isRoadClosedForCurrentContext() {
+        if (typeof window.getCurrentRoadClosure === 'function') {
+            try {
+                return !!window.getCurrentRoadClosure();
+            } catch (e) {
+                // fall through
+            }
+        }
+
+        const data = window.approvedLineBeingEdited || window.selectedRiyadhRoad || null;
+        if (!data) {
+            return false;
+        }
+        const rc = data.road_closure;
+        return rc === 1 || rc === true || rc === '1';
+    }
+
+    function getEffectiveVisualizationStyle(featureLabel) {
+        const isClosed = isRoadClosedForCurrentContext();
+        if (isClosed) {
+            const closureStyle = getVisualizationStyle('Road Closure');
+            if (closureStyle) {
+                return closureStyle;
+            }
+        }
+        return getVisualizationStyle(featureLabel);
+    }
+
+    function dasharrayToSvg(style) {
+        if (!style || !style.lineDasharray || !Array.isArray(style.lineDasharray)) {
+            return null;
+        }
+        return style.lineDasharray.map(function(x) { return String(x); }).join(',');
+    }
+
+    function renderPreviewPlaceholder(container, message) {
+        if (!container) {
+            return;
+        }
+        const text = message || 'Loading style…';
+        container.innerHTML = '';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'w-full h-full flex items-center justify-center text-xs text-gray-400';
+        wrapper.textContent = text;
+        container.appendChild(wrapper);
+    }
+
+    function rerenderOnCatalogLoaded(rerenderFn) {
+        if (!rerenderFn) {
+            return;
+        }
+        window.addEventListener('symbology:catalogLoaded', rerenderFn, { once: true });
+    }
+
+    function normalizeToLineStringGeometry(input) {
+        // Accept GeoJSON Geometry, Feature, or FeatureCollection; return a LineString geometry.
+        if (!input) {
+            return null;
+        }
+
+        let geom = input;
+
+        // Feature / FeatureCollection wrappers
+        if (geom.type === 'Feature' && geom.geometry) {
+            geom = geom.geometry;
+        } else if (geom.type === 'FeatureCollection' && Array.isArray(geom.features) && geom.features.length) {
+            const first = geom.features[0];
+            if (first && first.geometry) {
+                geom = first.geometry;
+            }
+        }
+
+        if (!geom || !geom.type) {
+            return null;
+        }
+
+        if (geom.type === 'LineString') {
+            if (Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) {
+                return geom;
+            }
+            return null;
+        }
+
+        if (geom.type === 'MultiLineString') {
+            const coords = geom.coordinates;
+            if (!Array.isArray(coords) || !coords.length) {
+                return null;
+            }
+            // Use the first non-trivial line for preview.
+            for (let i = 0; i < coords.length; i++) {
+                const line = coords[i];
+                if (Array.isArray(line) && line.length >= 2) {
+                    return { type: 'LineString', coordinates: line };
+                }
+            }
+            return null;
+        }
+
+        if (geom.type === 'GeometryCollection' && Array.isArray(geom.geometries)) {
+            for (let i = 0; i < geom.geometries.length; i++) {
+                const normalized = normalizeToLineStringGeometry(geom.geometries[i]);
+                if (normalized) {
+                    return normalized;
+                }
+            }
+        }
+
+        return null;
     }
 
     function initLineDrawing() {
@@ -401,6 +668,53 @@
         hideDefaultRendering();
     }
 
+    function selectDrawnLineForViewing(id) {
+        // Single-path selection handler for TerraDraw LineString features:
+        // - updates selection state
+        // - ensures select mode
+        // - applies MapLibre rendering + glow
+        // - opens side panel and renders preview
+        if (!drawInstance || !id) {
+            return;
+        }
+
+        selectedLineId = id;
+        currentLineId = id;
+
+        // Update selection tracking
+        window.currentlySelectedItem = id;
+        window.currentlySelectedItemType = 'terradraw-line';
+
+        try {
+            const currentMode = drawInstance.getMode();
+            if (currentMode !== 'select') {
+                drawInstance.setMode('select');
+            }
+        } catch (e) {
+            // Non-critical
+        }
+
+        if (!currentFeatureLabel) {
+            updateCurrentFeatureLabel('Line');
+        }
+
+        hideDefaultRendering();
+        renderLineAsMapLibreLayer(id);
+        applyGlowingEffect(id);
+        forceMarkersVisibility();
+
+        // Open the side panel with a consistent rendering path.
+        showLineSidePanel();
+
+        // Ensure the default feature label is visible for new drawn lines.
+        updateCurrentFeatureLabel('Line');
+
+        // Defensive: allow MapLibre style updates to settle.
+        setTimeout(function() {
+            hideDefaultRendering();
+        }, 50);
+    }
+
     function handleFeatureSelected(id) {
         if (!drawInstance) {
             return;
@@ -412,38 +726,7 @@
 
             if (feature && feature.geometry) {
                 if (feature.geometry.type === 'LineString') {
-                    selectedLineId = id;
-                    currentLineId = id;
-                    
-                    // Update selection tracking
-                    window.currentlySelectedItem = id;
-                    window.currentlySelectedItemType = 'terradraw-line';
-                    
-                    hideDefaultRendering();
-                    renderLineAsMapLibreLayer(id);
-                    applyGlowingEffect(id);
-                    
-                    // Ensure select mode is active for future clicks
-                    try {
-                        const currentMode = drawInstance.getMode();
-                        if (currentMode !== 'select') {
-                            drawInstance.setMode('select');
-                        }
-                    } catch (e) {
-                        // Could not set select mode, continue anyway
-                    }
-                    
-                    showLineSidePanel();
-                    updateCurrentFeatureLabel('Line');
-                    forceMarkersVisibility();
-                    updateLineVisualization();
-                    
-                    setTimeout(function() {
-                        hideDefaultRendering();
-                    }, 50);
-                    setTimeout(function() {
-                        hideDefaultRendering();
-                    }, 200);
+                    selectDrawnLineForViewing(id);
                 } else {
                     hideLineSidePanel();
                 }
@@ -480,6 +763,14 @@
                 map._lineMarkerUpdater = null;
             }
         }
+
+        // If nothing external is selected, clear the selection overlay.
+        try {
+            if (!window.selectedRiyadhRoad && !window.approvedLineBeingEdited) {
+                setSelectedOverlayGeometry(null);
+                setApprovedLinesDimmed(null);
+            }
+        } catch (e) {}
     }
 
     // Show Search Features screen for approved line editing (Editor/System Admin).
@@ -571,9 +862,8 @@
 
         // Ensure dropdowns container exists and is visible
         let dropdownsContainer = document.getElementById('lineDropdownsContainer');
-        
+
         if (!dropdownsContainer) {
-            // Create dropdowns container if it doesn't exist
             if (!linePanel) {
                 setTimeout(function() {
                     showLineSidePanelForApprovedLineEdit(featureLabel);
@@ -586,11 +876,6 @@
             const visualizationContainer = createLineVisualization();
             if (visualizationContainer) {
                 linePanel.appendChild(visualizationContainer);
-                // Ensure the feature name is updated after container is created
-                const featureNameElement = document.getElementById('lineVisualizationFeatureName');
-                if (featureNameElement && labelToUse) {
-                    featureNameElement.textContent = labelToUse;
-                }
             }
 
             dropdownsContainer = document.createElement('div');
@@ -619,119 +904,47 @@
             linePanel.appendChild(dropdownsContainer);
             populateDropdowns();
         } else {
-            // Ensure dropdowns container is visible
             dropdownsContainer.style.display = 'block';
-            
-            // Check if visualization container exists, if not create it
+
+            // Ensure visualization exists above dropdowns
             let visualizationContainer = document.getElementById('lineVisualizationContainer');
             if (!visualizationContainer && linePanel) {
                 visualizationContainer = createLineVisualization();
                 if (visualizationContainer) {
-                    // Insert before dropdowns container
                     linePanel.insertBefore(visualizationContainer, dropdownsContainer);
-                    // Update feature name
-                    const featureNameElement = document.getElementById('lineVisualizationFeatureName');
-                    if (featureNameElement && labelToUse) {
-                        featureNameElement.textContent = labelToUse;
-                    }
-                }
-            } else if (visualizationContainer) {
-                // Ensure visualization container is visible
-                visualizationContainer.style.display = 'block';
-                // Update feature name if it exists
-                const featureNameElement = document.getElementById('lineVisualizationFeatureName');
-                if (featureNameElement && labelToUse) {
-                    featureNameElement.textContent = labelToUse;
-                }
-                // Ensure SVG container is also visible
-                const svgContainer = document.getElementById('lineVisualizationSVG');
-                if (svgContainer) {
-                    svgContainer.style.display = 'block';
                 }
             }
         }
-        
-        // Update visualization - do this for both new and existing containers
-        setTimeout(function() {
-            updateSearchFeatureScreenSelection();
-            
-            // Get the latest feature label from stored data (in case it was updated)
-            let finalFeatureLabel = labelToUse;
-            if (approvedLineData) {
-                const latestLabel = approvedLineData.current_feature_label || approvedLineData.feature_type;
-                if (latestLabel && latestLabel !== finalFeatureLabel) {
-                    finalFeatureLabel = latestLabel;
-                    updateCurrentFeatureLabel(finalFeatureLabel);
-                }
+
+        // Sync current feature label (and UI) to the latest known value.
+        let finalFeatureLabel = labelToUse;
+        if (approvedLineData) {
+            const latestLabel = approvedLineData.current_feature_label || approvedLineData.feature_type;
+            if (latestLabel) {
+                finalFeatureLabel = latestLabel;
             }
-            
-            // Ensure we have geometry - try multiple sources
-            let geometryToUse = approvedLineGeometry;
-            if (!geometryToUse && approvedLineData && approvedLineData.geometry) {
-                geometryToUse = approvedLineData.geometry;
+        }
+        if (finalFeatureLabel) {
+            updateCurrentFeatureLabel(finalFeatureLabel);
+        }
+
+        updateSearchFeatureScreenSelection();
+
+        // Render preview from the best-available geometry source.
+        const geometryToUse =
+            approvedLineGeometry ||
+            (approvedLineData && approvedLineData.geometry) ||
+            (window.approvedLineBeingEdited && window.approvedLineBeingEdited.geometry) ||
+            null;
+
+        if (geometryToUse) {
+            updateLineVisualizationFromGeometry(geometryToUse, finalFeatureLabel);
+        } else {
+            const svgContainer = document.getElementById('lineVisualizationSVG');
+            if (svgContainer) {
+                renderPreviewPlaceholder(svgContainer, 'No preview available');
             }
-            if (!geometryToUse && window.approvedLineBeingEdited && window.approvedLineBeingEdited.geometry) {
-                geometryToUse = window.approvedLineBeingEdited.geometry;
-            }
-            
-            // Check if SVG container exists before updating
-            let svgContainer = document.getElementById('lineVisualizationSVG');
-            
-            if (!svgContainer) {
-                // If SVG container doesn't exist, try to create visualization container
-                const linePanelForSvg = document.getElementById('linePanelContent') || sidePanelContent;
-                if (linePanelForSvg) {
-                    let visualizationContainer = document.getElementById('lineVisualizationContainer');
-                    if (!visualizationContainer) {
-                        visualizationContainer = createLineVisualization();
-                        if (visualizationContainer) {
-                            const dropdownsContainer = document.getElementById('lineDropdownsContainer');
-                            if (dropdownsContainer) {
-                                linePanelForSvg.insertBefore(visualizationContainer, dropdownsContainer);
-                            } else {
-                                linePanelForSvg.appendChild(visualizationContainer);
-                            }
-                            // Update feature name
-                            const featureNameElement = document.getElementById('lineVisualizationFeatureName');
-                            if (featureNameElement && finalFeatureLabel) {
-                                featureNameElement.textContent = finalFeatureLabel;
-                            }
-                        }
-                    }
-                }
-                // Retry after a short delay if container was just created
-                setTimeout(function() {
-                    const retrySvgContainer = document.getElementById('lineVisualizationSVG');
-                    if (retrySvgContainer && geometryToUse) {
-                        updateLineVisualizationFromGeometry(geometryToUse, finalFeatureLabel);
-                    }
-                }, 100);
-                return;
-            }
-            
-            // Ensure SVG container is visible
-            svgContainer.style.display = 'block';
-            
-            // Update visualization using approved line geometry if available
-            if (geometryToUse) {
-                updateLineVisualizationFromGeometry(geometryToUse, finalFeatureLabel);
-                
-                // Verify visualization after a short delay to catch any clearing
-                setTimeout(function() {
-                    const verifySvg = document.getElementById('lineVisualizationSVG');
-                    if (verifySvg) {
-                        const svg = verifySvg.querySelector('svg');
-                        // If SVG was cleared, recreate it
-                        if (!svg && geometryToUse) {
-                            updateLineVisualizationFromGeometry(geometryToUse, finalFeatureLabel);
-                        }
-                    }
-                }, 200);
-            } else {
-                // Fallback message
-                svgContainer.innerHTML = '<div class="text-gray-400 text-xs p-4 text-center">No visualization available</div>';
-            }
-        }, 150);
+        }
     }
 
     function showLineSidePanel() {
@@ -789,46 +1002,80 @@
             contentArea.style.display = 'block';
         }
 
-        let dropdownsContainer = document.getElementById('lineDropdownsContainer');
-        
-        if (!dropdownsContainer) {
-            linePanel.innerHTML = '';
+        function ensureLinePanelStructure() {
+            let dropdownsContainer = document.getElementById('lineDropdownsContainer');
+            const visualizationContainer = document.getElementById('lineVisualizationContainer');
 
-            const visualizationContainer = createLineVisualization();
-            if (visualizationContainer) {
-                linePanel.appendChild(visualizationContainer);
+            if (!dropdownsContainer) {
+                linePanel.innerHTML = '';
             }
 
-            dropdownsContainer = document.createElement('div');
-            dropdownsContainer.className = 'space-y-3';
-            dropdownsContainer.id = 'lineDropdownsContainer';
+            if (!visualizationContainer) {
+                const viz = createLineVisualization();
+                if (viz) {
+                    linePanel.appendChild(viz);
+                }
+            }
 
-            const dropdownLabels = [
-                'Major Roads...',
-                'Minor Roads...',
-                'Rails...',
-                'Paths...',
-                'Waterways...',
-                'Barrier Features...',
-                'Natural Features...',
-                'Utility Features...'
-            ];
+            if (!dropdownsContainer) {
+                dropdownsContainer = document.createElement('div');
+                dropdownsContainer.className = 'space-y-3';
+                dropdownsContainer.id = 'lineDropdownsContainer';
 
-            dropdownLabels.forEach(function(label) {
-                const dropdownBox = createDropdownBox(label, false);
-                dropdownsContainer.appendChild(dropdownBox);
-            });
+                const dropdownLabels = [
+                    'Major Roads...',
+                    'Minor Roads...',
+                    'Rails...',
+                    'Paths...',
+                    'Waterways...',
+                    'Barrier Features...',
+                    'Natural Features...',
+                    'Utility Features...'
+                ];
 
-            const lineBox = createLineBox();
-            dropdownsContainer.appendChild(lineBox);
+                dropdownLabels.forEach(function(label) {
+                    const dropdownBox = createDropdownBox(label, false);
+                    dropdownsContainer.appendChild(dropdownBox);
+                });
 
-            linePanel.appendChild(dropdownsContainer);
-            populateDropdowns();
-            updateLineVisualization();
-        } else {
-            dropdownsContainer.style.display = 'block';
-            updateLineVisualization();
+                const lineBox = createLineBox();
+                dropdownsContainer.appendChild(lineBox);
+
+                linePanel.appendChild(dropdownsContainer);
+                populateDropdowns();
+            } else {
+                dropdownsContainer.style.display = 'block';
+            }
+
+            return dropdownsContainer;
         }
+
+        function renderCurrentFeaturePreview() {
+            const featureLabel = getCurrentFeatureLabel();
+            const geometry =
+                window.approvedLineBeingEdited && window.approvedLineBeingEdited.geometry
+                    ? window.approvedLineBeingEdited.geometry
+                    : null;
+
+            if (geometry) {
+                updateLineVisualizationFromGeometry(geometry, featureLabel);
+                return;
+            }
+
+            // Drawn line preview (TerraDraw) — will no-op if no line is selected.
+            updateLineVisualization();
+
+            // If nothing is selected, show a placeholder instead of an empty card.
+            if (!currentLineId) {
+                const svgContainer = document.getElementById('lineVisualizationSVG');
+                if (svgContainer) {
+                    renderPreviewPlaceholder(svgContainer, 'Select a line to preview');
+                }
+            }
+        }
+
+        ensureLinePanelStructure();
+        renderCurrentFeaturePreview();
     }
 
     function createLineVisualization() {
@@ -873,18 +1120,16 @@
             return;
         }
         
-        if (!geometry) {
+        const normalizedGeometry = normalizeToLineStringGeometry(geometry);
+        if (!normalizedGeometry) {
+            renderPreviewPlaceholder(svgContainer, 'No preview available');
             return;
         }
 
         try {
-            if (geometry.type !== 'LineString') {
-                return;
-            }
-
-            const coordinates = geometry.coordinates;
+            const coordinates = normalizedGeometry.coordinates;
             if (!coordinates || coordinates.length < 2) {
-                svgContainer.innerHTML = '';
+                renderPreviewPlaceholder(svgContainer, 'No preview available');
                 return;
             }
 
@@ -958,8 +1203,15 @@
             });
 
             const labelToUse = featureLabel || getCurrentFeatureLabel();
-            const style = getVisualizationStyle(labelToUse);
-            if (!style) { return; }
+            const style = getEffectiveVisualizationStyle(labelToUse);
+            if (!style) {
+                renderPreviewPlaceholder(svgContainer, 'Loading symbology…');
+                rerenderOnCatalogLoaded(function() {
+                    updateLineVisualizationFromGeometry(geometry, featureLabel);
+                });
+                return;
+            }
+            const svgDasharray = dasharrayToSvg(style);
 
             // Draw glow path
             const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -982,6 +1234,9 @@
             mainPath.setAttribute('stroke-opacity', '1');
             mainPath.setAttribute('stroke-linecap', 'round');
             mainPath.setAttribute('stroke-linejoin', 'round');
+            if (svgDasharray) {
+                mainPath.setAttribute('stroke-dasharray', svgDasharray);
+            }
             svg.appendChild(mainPath);
 
             svgContainer.innerHTML = '';
@@ -1066,8 +1321,15 @@
                 }
             });
 
-            const style = getVisualizationStyle(currentFeatureLabel);
-            if (!style) { return; }
+            const style = getEffectiveVisualizationStyle(currentFeatureLabel);
+            if (!style) {
+                renderPreviewPlaceholder(svgContainer, 'Loading symbology…');
+                rerenderOnCatalogLoaded(function() {
+                    updateLineVisualization();
+                });
+                return;
+            }
+            const svgDasharray = dasharrayToSvg(style);
 
             const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             glowPath.setAttribute('d', pathData);
@@ -1088,6 +1350,9 @@
             mainPath.setAttribute('stroke-opacity', '1');
             mainPath.setAttribute('stroke-linecap', 'round');
             mainPath.setAttribute('stroke-linejoin', 'round');
+            if (svgDasharray) {
+                mainPath.setAttribute('stroke-dasharray', svgDasharray);
+            }
             svg.appendChild(mainPath);
 
             svgContainer.innerHTML = '';
@@ -1118,10 +1383,41 @@
             forceMarkersVisibility();
         }
 
-        if (!window.approvedLineBeingEdited) {
-            updateLineVisualization();
-            updateFeatureTypeVisualization();
+        // Always keep the sidepanel previews in sync, regardless of whether
+        // the user is editing a drawn line, an approved line, or a tile road.
+        try {
+            const external = window.selectedRiyadhRoad || window.approvedLineBeingEdited || null;
+            if (external && external.geometry) {
+                updateLineVisualizationFromGeometry(external.geometry, currentFeatureLabel);
+            } else {
+                updateLineVisualization();
+            }
+        } catch (e) {
+            // Non-critical
         }
+
+        // Update map symbology for approved lines / tile roads being edited.
+        try {
+            const external = window.selectedRiyadhRoad || window.approvedLineBeingEdited || null;
+            if (external && external.is_riyadh_road) {
+                const roadId = external.riyadh_road_id != null ? external.riyadh_road_id : external.id;
+                if (roadId != null && external.geometry) {
+                    updateRiyadhRoadVisualization(roadId, currentFeatureLabel, external.geometry);
+                    setSelectedOverlayGeometry(external.geometry);
+                }
+            } else if (external && external.id != null && external.geometry && external.is_riyadh_road === false) {
+                updateApprovedLineVisualization(external.id, currentFeatureLabel);
+                setSelectedOverlayGeometry(external.geometry);
+            } else if (external && external.id != null && external.geometry && window.approvedLineBeingEdited && window.approvedLineBeingEdited.id != null) {
+                // Defensive: treat as approved line if it looks like one.
+                updateApprovedLineVisualization(window.approvedLineBeingEdited.id, currentFeatureLabel);
+                setSelectedOverlayGeometry(external.geometry);
+            }
+        } catch (e) {
+            // Non-critical
+        }
+
+        updateFeatureTypeVisualization();
     }
 
     function getCurrentFeatureLabel() {
@@ -1169,8 +1465,9 @@
                 return;
             }
             
-            const style = getVisualizationStyle(currentFeatureLabel);
+            const style = getEffectiveVisualizationStyle(currentFeatureLabel);
             if (!style) { return; }
+            const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
 
             const existingSource = map.getSource(sourceId);
             const existingGlowLayer = map.getLayer(glowLayerId);
@@ -1189,6 +1486,7 @@
                     
                     map.setPaintProperty(layerId, 'line-color', style.lineColor);
                     map.setPaintProperty(layerId, 'line-width', style.lineWidth);
+                    map.setPaintProperty(layerId, 'line-dasharray', lineDasharray);
                     
                     hideDefaultRendering();
                     return;
@@ -1238,7 +1536,8 @@
                 paint: {
                     'line-color': style.lineColor,
                     'line-width': style.lineWidth,
-                    'line-opacity': 1
+                    'line-opacity': 1,
+                    'line-dasharray': lineDasharray
                 }
             });
             
@@ -1781,11 +2080,14 @@
         container.className = 'w-full';
 
         const selectorContainer = document.createElement('div');
-        selectorContainer.className = 'flex items-center gap-3';
+        selectorContainer.className = 'flex items-center gap-3 justify-between';
+
+        const leftGroup = document.createElement('div');
+        leftGroup.className = 'flex items-center gap-3 min-w-0';
 
         const visualizationContainer = document.createElement('div');
         visualizationContainer.id = 'featureTypeVisualization';
-        visualizationContainer.className = 'flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity';
+        visualizationContainer.className = 'flex-shrink-0 transition-opacity';
         visualizationContainer.style.width = '60px';
         visualizationContainer.style.height = '30px';
         visualizationContainer.style.backgroundColor = '#1f2937';
@@ -1797,34 +2099,37 @@
         const isViewOnly = editScreen && editScreen.getAttribute('data-request-geometry');
         
         if (!isViewOnly) {
-            visualizationContainer.setAttribute('title', 'Click to change feature type');
-            visualizationContainer.addEventListener('click', function() {
-                updateSearchFeatureScreenSelection();
-                showLineSidePanel();
-            });
+            visualizationContainer.setAttribute('title', 'Feature type preview');
         } else {
             visualizationContainer.style.cursor = 'default';
-            visualizationContainer.classList.remove('cursor-pointer', 'hover:opacity-80');
         }
 
         const selectedFeatureName = document.createElement('div');
         selectedFeatureName.id = 'selectedFeatureName';
-        selectedFeatureName.className = 'text-sm font-semibold text-white cursor-pointer hover:text-blue-300 transition-colors';
+        selectedFeatureName.className = 'text-sm font-semibold text-white truncate';
         selectedFeatureName.textContent = labelToSet;
         
         if (!isViewOnly) {
-            selectedFeatureName.setAttribute('title', 'Click to change feature type');
-            selectedFeatureName.addEventListener('click', function() {
+            selectedFeatureName.setAttribute('title', labelToSet);
+        } else {
+            selectedFeatureName.style.cursor = 'default';
+        }
+
+        leftGroup.appendChild(visualizationContainer);
+        leftGroup.appendChild(selectedFeatureName);
+        selectorContainer.appendChild(leftGroup);
+
+        if (!isViewOnly) {
+            const changeBtn = document.createElement('button');
+            changeBtn.type = 'button';
+            changeBtn.className = 'flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-gray-700 text-white hover:bg-gray-600 transition-colors';
+            changeBtn.textContent = 'Change';
+            changeBtn.addEventListener('click', function() {
                 updateSearchFeatureScreenSelection();
                 showLineSidePanel();
             });
-        } else {
-            selectedFeatureName.style.cursor = 'default';
-            selectedFeatureName.classList.remove('cursor-pointer', 'hover:text-blue-300');
+            selectorContainer.appendChild(changeBtn);
         }
-
-        selectorContainer.appendChild(visualizationContainer);
-        selectorContainer.appendChild(selectedFeatureName);
 
         container.appendChild(selectorContainer);
 
@@ -1866,6 +2171,16 @@
                     }
                 }
             } catch (e) {
+            }
+        }
+
+        // Approved line / tile road editing: use their geometry even when no TerraDraw selection exists.
+        const externalGeometry = getBestAvailableSelectedGeometry();
+        if (externalGeometry) {
+            const normalized = normalizeToLineStringGeometry(externalGeometry);
+            if (normalized && normalized.coordinates && normalized.coordinates.length >= 2) {
+                renderFeatureTypeVisualization(container, normalized.coordinates);
+                return;
             }
         }
 
@@ -1959,7 +2274,7 @@
             });
 
             const featureLabel = getCurrentFeatureLabel();
-            const style = getVisualizationStyle(featureLabel);
+            const style = getEffectiveVisualizationStyle(featureLabel);
             if (!style) { return; }
             const scaleFactor = 0.25;
 
@@ -3729,85 +4044,17 @@
 
     // Update Riyadh road visualization on the map when feature type changes.
     function updateRiyadhRoadVisualization(roadId, newFeatureLabel, geometry) {
-        if (typeof map === 'undefined' || !map) return;
-        if (!geometry) return;
-        
-        const sourceId = 'riyadh-road-selected-source-' + roadId;
-        const glowLayerId = 'riyadh-road-selected-glow-' + roadId;
-        const layerId = 'riyadh-road-selected-layer-' + roadId;
-        
-        // Road closure: use "Road Closure" style from catalog when closed
-        const isRoadClosed = (function() {
-            const data = window.approvedLineBeingEdited || (window.selectedRiyadhRoad && window.selectedRiyadhRoad.id === roadId ? window.selectedRiyadhRoad : null);
-            if (!data) return false;
-            const rc = data.road_closure;
-            return rc === 1 || rc === true || rc === '1';
-        })();
-        const closureStyle = getVisualizationStyle("Road Closure");
-        const featureStyle = getVisualizationStyle(newFeatureLabel);
-        const style = (isRoadClosed && closureStyle) ? closureStyle : featureStyle;
-        if (!style) {
-            return;
+        // For Riyadh roads we now use a dedicated vector highlight layer
+        // managed in map.js (setRiyadhRoadSelectedId). The goal here is only
+        // to keep the selection in sync; the base tileserver styling already
+        // reflects the underlying classification.
+        if (typeof window.setRiyadhRoadSelectedId === 'function') {
+            if (!geometry) {
+                window.setRiyadhRoadSelectedId(null);
+            } else {
+                window.setRiyadhRoadSelectedId(roadId);
+            }
         }
-
-        const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
-        const lineColor = style.lineColor;
-        const glowColor = style.glowColor;
-
-        if (!map.getSource(sourceId)) {
-            map.addSource(sourceId, {
-                type: "geojson",
-                data: { type: "Feature", geometry: geometry }
-            });
-        } else {
-            map.getSource(sourceId).setData({ type: "Feature", geometry: geometry });
-        }
-
-        // Glow layer
-        if (!map.getLayer(glowLayerId)) {
-            map.addLayer({
-                id: glowLayerId,
-                type: 'line',
-                source: sourceId,
-                layout: {
-                    'line-join': 'round',
-                    'line-cap': 'round'
-                },
-                paint: {
-                    'line-color': glowColor,
-                    'line-width': style.glowWidth,
-                    'line-opacity': style.glowOpacity
-                }
-            });
-        } else {
-            map.setPaintProperty(glowLayerId, 'line-color', glowColor);
-            map.setPaintProperty(glowLayerId, 'line-width', style.glowWidth);
-            map.setPaintProperty(glowLayerId, 'line-opacity', style.glowOpacity);
-        }
-
-        // Create or update main line layer
-        if (!map.getLayer(layerId)) {
-            map.addLayer({
-                id: layerId,
-                type: 'line',
-                source: sourceId,
-                layout: {
-                    'line-join': 'round',
-                    'line-cap': 'round'
-                },
-                paint: {
-                    'line-color': lineColor,
-                    'line-width': style.lineWidth,
-                    'line-dasharray': lineDasharray
-                }
-            }, glowLayerId); // Insert after glow layer
-        } else {
-            map.setPaintProperty(layerId, 'line-color', lineColor);
-            map.setPaintProperty(layerId, 'line-width', style.lineWidth);
-            map.setPaintProperty(layerId, 'line-dasharray', lineDasharray);
-        }
-
-        // No base Riyadh-roads GeoJSON layer is used; selection styling is drawn entirely via dedicated MapLibre layers for the selected road.
     }
 
     // Update approved line visualization on the map when feature type changes.
@@ -3941,7 +4188,9 @@
         showEditFeatureScreen: showEditFeatureScreen,
         addFieldToContainer: addFieldToContainer,
         updateAddFieldDisplay: updateAddFieldDisplay,
-        addMultilingualNameField: addMultilingualNameField
+        addMultilingualNameField: addMultilingualNameField,
+        updateApprovedLineVisualization: updateApprovedLineVisualization,
+        updateRiyadhRoadVisualization: updateRiyadhRoadVisualization
     };
     
     window.addFieldToContainer = addFieldToContainer;
@@ -3952,6 +4201,8 @@
     window.getCurrentFeatureLabel = getCurrentFeatureLabel;
     window.getDrawInstance = function() { return drawInstance; };
     window.getVisualizationStyle = getVisualizationStyle;
+    window.updateApprovedLineVisualization = updateApprovedLineVisualization;
+    window.updateRiyadhRoadVisualization = updateRiyadhRoadVisualization;
     window.updateFeatureTypeVisualization = updateFeatureTypeVisualization;
     window.removeMapLibreLineLayer = removeMapLibreLineLayer;
     window.clearVertexMarkers = clearVertexMarkers;
@@ -3997,4 +4248,8 @@
     if (window.lineDrawingHandler) {
         window.lineDrawingHandler.showRiyadhRoadAsLineFeature = showRiyadhRoadAsLineFeature;
     }
+
+    // Expose selection utilities for other scripts (approved lines / tile roads).
+    window.setSelectedOverlayGeometry = setSelectedOverlayGeometry;
+    window.setApprovedLinesDimmed = setApprovedLinesDimmed;
 })();

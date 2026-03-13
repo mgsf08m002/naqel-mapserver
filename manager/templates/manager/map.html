@@ -7,22 +7,11 @@
 
 {% block content_wrapper %}
 {% block content %}
-<!-- MapLibre GL CSS -->
 <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css' />
-
-<!-- MapLibre GL JS -->
 <script src='https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js'></script>
-
-<!-- TerraDraw CSS -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.css"/>
-
-<!-- Line Drawing Styles -->
 <link rel="stylesheet" href="{% static 'mapping/css/line-styles.css' %}"/>
-
-<!-- TerraDraw JS -->
 <script src="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.umd.js"></script>
-
-<!-- SVG Icon Sprite Definitions -->
 <svg style="display: none;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
     <symbol id="iD-icon-point" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="3" fill="currentColor" stroke="currentColor" stroke-width="1.5"/>
@@ -42,7 +31,6 @@
 </svg>
 
 <div class="w-full h-full relative">
-    <!-- Left Side Panel: Edit / Feature type & attributes (hidden until Edit is clicked) -->
     <div id="editSidePanel" class="absolute left-0 top-0 bottom-0 w-80 bg-gray-800 text-white z-30 transform -translate-x-full transition-transform duration-300 ease-in-out shadow-2xl flex flex-col min-w-0" role="complementary" aria-label="Edit panel">
         <div class="h-full flex flex-col min-h-0">
             <div class="px-6 py-4 border-b border-gray-700 flex-shrink-0">
@@ -71,8 +59,6 @@
             </div>
         </div>
     </div>
-    
-    <!-- Map Container -->
     <div id="mapContainer" class="w-full h-full relative transition-all duration-300 ease-in-out">
         <div
             id="map"
@@ -87,8 +73,6 @@
         ></div>
 
         {% include 'mapping/includes/basemap_gallery.html' %}
-
-        <!-- Top Toolbar (Hidden by default) -->
         <div id="editToolbar" class="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 hidden">
             <div class="flex items-center gap-2 bg-white rounded-lg shadow-lg border border-gray-200 px-3 py-2">
                 <!-- Point Button -->
@@ -170,8 +154,6 @@
                 </button>
             </div>
         </div>
-        
-        <!-- Zoom Overlay (Shown when zoom < 16 in edit mode) -->
         <div id="zoomOverlay" class="absolute inset-0 z-50 hidden flex items-center justify-center pointer-events-none">
             <div class="bg-white rounded-lg shadow-2xl p-8 max-w-md mx-4 text-center pointer-events-auto border-2 border-gray-200">
                 <div class="mb-6">

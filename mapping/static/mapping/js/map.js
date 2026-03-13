@@ -1,6 +1,4 @@
-// KSA Map Editing Module - JavaScript
-
-// Map container helpers
+// KSA Map Editing Module
 function getMaptilerApiKey() {
     const mapElement = document.getElementById('map');
     if (!mapElement) {
@@ -16,7 +14,6 @@ function getMaptilerApiKey() {
     return trimmed.length ? trimmed : null;
 }
 
-// Riyadh roads tile service URL from RIYADH_ROADS_TILE_URL (via data attribute).
 function getRiyadhRoadsTileUrl() {
     const mapElement = document.getElementById('map');
     if (!mapElement) {
@@ -37,9 +34,7 @@ const HAS_MAPTILER = !!MAPTILER_API_KEY;
 const RIYADH_ROADS_TILE_URL = getRiyadhRoadsTileUrl();
 const HAS_RIYADH_ROADS_TILES = !!RIYADH_ROADS_TILE_URL;
 
-// Basemap definitions for the application.
-// Each definition is mapped to a dedicated raster source and layer in the MapLibre style.
-// Only MapTiler-backed basemaps are created when an API key is present.
+// Basemap definitions: raster sources/layers for MapLibre; MapTiler basemaps added when API key present.
 const BASEMAP_DEFINITIONS = (() => {
     const definitions = [
         {
@@ -90,16 +85,12 @@ const BASEMAP_DEFINITIONS = (() => {
     return definitions;
 })();
 
-// Default basemap: Streets when MapTiler is available, otherwise Satellite.
 let currentBasemapId = HAS_MAPTILER ? 'maptiler-streets' : 'esri-satellite';
-
-// Riyadh, KSA bounds [[neLng, neLat], [swLng, swLat]]
 const bounds = [
     [45.475, 23.981], // Northeast
     [48.733, 25.664], // Southwest
 ];
 
-// Build MapLibre style: raster sources and layers for each basemap.
 const baseSources = {};
 const baseLayers = [];
 
@@ -122,7 +113,6 @@ BASEMAP_DEFINITIONS.forEach((def) => {
     });
 });
 
-// Initialize map
 const map = new maplibregl.Map({
     container: 'map',
     center: [46.727866, 24.723580],
@@ -136,7 +126,6 @@ const map = new maplibregl.Map({
     },
 });
 
-// Toggle basemap layers so only one background is visible.
 function setBasemapVisibility(targetId) {
     if (!map || !targetId) return;
 
@@ -229,7 +218,6 @@ const isEditingEnabled = !!document.getElementById('editSidePanel');
 let drawInstance = null;
 
 if (isEditingEnabled) {
-    // Initialize TerraDraw control for editing pages only
     const draw = new MaplibreTerradrawControl.MaplibreTerradrawControl({
         modes: [
             'point',
@@ -254,8 +242,6 @@ if (isEditingEnabled) {
     drawInstance = draw.getTerraDrawInstance();
 }
 let selectedFeature = null;
-
-// Track currently selected item (TerraDraw line)
 window.currentlySelectedItem = null;
 window.currentlySelectedItemType = null; // 'terradraw-line'
 
@@ -264,34 +250,20 @@ if (drawInstance) {
         const snapshot = drawInstance.getSnapshot();
         const features = snapshot?.find((feature) => feature.id === id);
         selectedFeature = JSON.stringify(features);
-        // Update selection tracking
         window.currentlySelectedItem = id;
         window.currentlySelectedItemType = 'terradraw-line';
 
-        // Switching back to user-drawn editing: clear tile-selected Riyadh road state
-        // so save/edit flows don't accidentally target the road network.
         window.selectedRiyadhRoad = null;
     });
     
     drawInstance.on('deselect', () => {
-        // Clear selection tracking when TerraDraw deselects
         if (window.currentlySelectedItemType === 'terradraw-line') {
             window.currentlySelectedItem = null;
             window.currentlySelectedItemType = null;
         }
     });
     
-    // Listen for finish event to handle line drawing
     drawInstance.on('finish', (id) => {
-        const snapshot = drawInstance.getSnapshot();
-        const feature = snapshot?.find(f => f.id === id);
-        
-        // If it's a line, trigger line drawing handler
-        if (feature && feature.geometry && feature.geometry.type === 'LineString') {
-            // The line-drawing.js will handle this, but we ensure the event is captured
-        }
-
-        // New geometry creation should never be treated as a Riyadh road edit.
         window.selectedRiyadhRoad = null;
     });
 }
@@ -317,7 +289,6 @@ function updateCoordinateDisplay(lngLat) {
         return;
     }
 
-    // Show clearly labelled longitude and latitude
     el.textContent = `Lon: ${lng}, Lat: ${lat}`;
     el.classList.remove('hidden');
 }
@@ -327,12 +298,8 @@ map.on('mousemove', (e) => {
 });
 
 
-// Map load event
 map.on('load', () => {
-    // Ensure initial basemap visibility is applied
     setBasemapVisibility(currentBasemapId);
-
-    // Add Riyadh roads vector tile layer as the network visualization.
     if (HAS_RIYADH_ROADS_TILES && RIYADH_ROADS_TILE_URL) {
         try {
             if (!map.getSource('riyadh-roads')) {
@@ -344,135 +311,212 @@ map.on('load', () => {
                 });
             }
 
-            if (!map.getLayer('riyadh-roads-layer')) {
-                map.addLayer({
-                    id: 'riyadh-roads-layer',
-                    type: 'line',
-                    source: 'riyadh-roads',
-                    'source-layer': 'riyadh_roads',
-                    layout: {
-                        'line-cap': 'round',
-                        'line-join': 'round'
-                    },
-                    // Default paint for unauthenticated users or when the
-                    // symbology catalog is not available. Authenticated users
-                    // with symbology.js loaded will have this overridden based
-                    // on feature types.
-                    paint: {
-                        // Default color for non-authenticated users and for
-                        // cases where the symbology catalog is not available.
-                        'line-color': '#fb9a99',
-                        'line-width': 2
-                    }
-                });
-            }
+            const fclassToLabel = {
+                motorway: 'Motorway',
+                motorway_link: 'Motorway Link',
+                trunk: 'Trunk Road',
+                trunk_link: 'Trunk Link',
+                primary: 'Primary Road',
+                primary_link: 'Primary Link',
+                secondary: 'Secondary Road',
+                secondary_link: 'Secondary Link',
+                tertiary: 'Tertiary Road',
+                tertiary_link: 'Tertiary Link',
+                residential: 'Residential Road',
+                living_street: 'Living Street',
+                service: 'Service Road',
+                unclassified: 'Unclassified Road',
+                track: 'Track / Land-Access Road'
+            };
 
-            function applyRiyadhRoadSymbologyFromCatalog(catalog) {
-                if (!map.getLayer('riyadh-roads-layer')) {
-                    return;
-                }
-                const stylesByLabel =
-                    catalog && catalog.styles_by_label ? catalog.styles_by_label : null;
-                if (!stylesByLabel) {
-                    return;
-                }
-
-                const styles = stylesByLabel || {};
-
-                function getColorForLabel(label) {
-                    const style = styles[label || 'Line'] || styles['Line'];
-                    return style && style.lineColor ? style.lineColor : null;
-                }
-
-                const fclassToLabel = {
-                    motorway: 'Motorway',
-                    motorway_link: 'Motorway Link',
-                    trunk: 'Trunk Road',
-                    trunk_link: 'Trunk Link',
-                    primary: 'Primary Road',
-                    primary_link: 'Primary Link',
-                    secondary: 'Secondary Road',
-                    secondary_link: 'Secondary Link',
-                    tertiary: 'Tertiary Road',
-                    tertiary_link: 'Tertiary Link',
-                    residential: 'Residential Road',
-                    living_street: 'Living Street',
-                    service: 'Service Road',
-                    unclassified: 'Unclassified Road',
-                    track: 'Track / Land-Access Road'
-                };
-
-                const fclassKeys = Object.keys(fclassToLabel);
-                const defaultColor = getColorForLabel('Line');
-                if (fclassKeys.length === 0 || !defaultColor) {
-                    return;
-                }
-
+            function buildMatchExpressionForStyle(stylesByLabel, propName, defaultValue, transform) {
+                const keys = Object.keys(fclassToLabel);
                 const expression = ['match', ['get', 'fclass']];
-                fclassKeys.forEach(function (raw) {
-                    const label = fclassToLabel[raw];
-                    const color = getColorForLabel(label) || defaultColor;
+                keys.forEach(function(raw) {
+                    const label = fclassToLabel[raw] || 'Line';
+                    const style = stylesByLabel[label] || stylesByLabel['Line'] || null;
+                    const rawValue = style && style[propName] != null ? style[propName] : defaultValue;
+                    const value = typeof transform === 'function' ? transform(rawValue) : rawValue;
                     expression.push(raw);
-                    expression.push(color);
+                    expression.push(value);
                 });
-                expression.push(defaultColor);
+                expression.push(typeof transform === 'function' ? transform(defaultValue) : defaultValue);
+                return expression;
+            }
 
-                try {
-                    map.setPaintProperty('riyadh-roads-layer', 'line-color', expression);
-                } catch (e) {
-                    // Non-critical: keep default styling if the property update fails.
+            function ensureRiyadhRoadLayerFromCatalog(catalog) {
+                const stylesByLabel = catalog && catalog.styles_by_label ? catalog.styles_by_label : null;
+                if (!stylesByLabel || !stylesByLabel['Line']) {
+                    return;
+                }
+
+                const defaultStyle = stylesByLabel['Line'];
+                const defaultColor = defaultStyle.lineColor;
+                const defaultWidth = defaultStyle.lineWidth;
+
+                const colorExpression = buildMatchExpressionForStyle(
+                    stylesByLabel,
+                    'lineColor',
+                    defaultColor
+                );
+                const widthExpression = buildMatchExpressionForStyle(
+                    stylesByLabel,
+                    'lineWidth',
+                    defaultWidth,
+                    function(v) { return Number(v) || defaultWidth; }
+                );
+
+                if (!map.getLayer('riyadh-roads-layer')) {
+                    map.addLayer({
+                        id: 'riyadh-roads-layer',
+                        type: 'line',
+                        source: 'riyadh-roads',
+                        'source-layer': 'riyadh_roads',
+                        layout: {
+                            'line-cap': 'round',
+                            'line-join': 'round'
+                        },
+                        paint: {
+                            'line-color': colorExpression,
+                            'line-width': widthExpression,
+                            'line-opacity': 1
+                        }
+                    });
+
+                    // Dedicated highlight layer for the currently selected Riyadh
+                    // road, rendered above the base network so selection is
+                    // always visually obvious.
+                    if (!map.getLayer('riyadh-roads-selected-layer')) {
+                        map.addLayer({
+                            id: 'riyadh-roads-selected-layer',
+                            type: 'line',
+                            source: 'riyadh-roads',
+                            'source-layer': 'riyadh_roads',
+                            filter: ['==', ['get', 'id'], -1],
+                            layout: {
+                                'line-cap': 'round',
+                                'line-join': 'round'
+                            },
+                            paint: {
+                                // Use the same fclass-based color as the base
+                                // layer, but slightly thicker so it stands out
+                                // while preserving the symbology.
+                                'line-color': colorExpression,
+                                'line-width': ['+', widthExpression, 2],
+                                'line-opacity': 1
+                            }
+                        });
+
+                        // Simple helper to update the current selection filter.
+                        window.setRiyadhRoadSelectedId = function(selectedId) {
+                            try {
+                                if (!map.getLayer('riyadh-roads-selected-layer')) {
+                                    return;
+                                }
+                                if (!selectedId && selectedId !== 0) {
+                                    map.setFilter('riyadh-roads-selected-layer', ['==', ['get', 'id'], -1]);
+                                    return;
+                                }
+                                map.setFilter('riyadh-roads-selected-layer', ['==', ['get', 'id'], selectedId]);
+                            } catch (e) {
+                                // Non-critical
+                            }
+                        };
+                    }
+
+                    if (isEditingEnabled) {
+                        map.on('click', 'riyadh-roads-layer', async (e) => {
+                            try {
+                                const features = map.queryRenderedFeatures(e.point, { layers: ['riyadh-roads-layer'] }) || [];
+                                if (!features.length) return;
+
+                                const props = features[0] && features[0].properties ? features[0].properties : {};
+                                const rawId = props && props.id != null ? props.id : null;
+                                const roadId = rawId != null ? parseInt(rawId, 10) : null;
+                                if (!roadId || Number.isNaN(roadId)) return;
+
+                                // Update the highlight layer immediately so the
+                                // user sees which road is selected even before
+                                // the details API responds.
+                                if (typeof window.setRiyadhRoadSelectedId === 'function') {
+                                    window.setRiyadhRoadSelectedId(roadId);
+                                }
+
+                                const resp = await fetch(`/mapping/api/riyadh-road/${roadId}/`, {
+                                    method: 'GET',
+                                    headers: { 'Content-Type': 'application/json' }
+                                });
+                                if (!resp.ok) return;
+                                const data = await resp.json();
+                                if (!data || !data.success || !data.road) return;
+
+                                try {
+                                    if (!window.riyadhRoadOriginalState) {
+                                        window.riyadhRoadOriginalState = {};
+                                    }
+                                    const originalLabel = data.road.current_feature_label || data.road.feature_type || 'Line';
+                                    window.riyadhRoadOriginalState[String(roadId)] = { feature_label: originalLabel };
+                                    data.road._original_feature_label = originalLabel;
+                                } catch (e2) {}
+
+                                window.selectedRiyadhRoad = data.road;
+                                window.approvedLineBeingEdited = data.road;
+
+                                if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showRiyadhRoadAsLineFeature === 'function') {
+                                    window.lineDrawingHandler.showRiyadhRoadAsLineFeature(data.road);
+                                } else if (typeof window.showRiyadhRoadAsLineFeature === 'function') {
+                                    window.showRiyadhRoadAsLineFeature(data.road);
+                                }
+                            } catch (err) {
+                            }
+                        });
+
+                        map.on('mouseenter', 'riyadh-roads-layer', () => {
+                            map.getCanvas().style.cursor = 'pointer';
+                        });
+                        map.on('mouseleave', 'riyadh-roads-layer', () => {
+                            map.getCanvas().style.cursor = '';
+                        });
+                    }
+                } else {
+                    try {
+                        map.setPaintProperty('riyadh-roads-layer', 'line-color', colorExpression);
+                        map.setPaintProperty('riyadh-roads-layer', 'line-width', widthExpression);
+                    } catch (e) {}
                 }
             }
 
-            // Apply immediately if the catalog is already present (authenticated maps).
-            if (window.symbologyCatalog) {
-                applyRiyadhRoadSymbologyFromCatalog(window.symbologyCatalog);
-            }
+            function requestCatalog() {
+                if (window.symbologyCatalog) {
+                    ensureRiyadhRoadLayerFromCatalog(window.symbologyCatalog);
+                    return;
+                }
 
-            // Also apply when the catalog finishes loading (catalog fetch is async).
-            window.addEventListener('symbology:catalogLoaded', function (e) {
-                const catalog = e && e.detail ? e.detail : window.symbologyCatalog;
-                applyRiyadhRoadSymbologyFromCatalog(catalog);
-            });
-
-            if (isEditingEnabled) {
-                map.on('click', 'riyadh-roads-layer', async (e) => {
-                    try {
-                        const features = map.queryRenderedFeatures(e.point, { layers: ['riyadh-roads-layer'] }) || [];
-                        if (!features.length) return;
-
-                        const props = features[0] && features[0].properties ? features[0].properties : {};
-                        const rawId = props && props.id != null ? props.id : null;
-                        const roadId = rawId != null ? parseInt(rawId, 10) : null;
-                        if (!roadId || Number.isNaN(roadId)) return;
-
-                        const resp = await fetch(`/mapping/api/riyadh-road/${roadId}/`, {
-                            method: 'GET',
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                        if (!resp.ok) return;
-                        const data = await resp.json();
-                        if (!data || !data.success || !data.road) return;
-
-                        window.selectedRiyadhRoad = data.road;
-                        window.approvedLineBeingEdited = data.road;
-
-                        if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showRiyadhRoadAsLineFeature === 'function') {
-                            window.lineDrawingHandler.showRiyadhRoadAsLineFeature(data.road);
-                        } else if (typeof window.showRiyadhRoadAsLineFeature === 'function') {
-                            window.showRiyadhRoadAsLineFeature(data.road);
+                fetch('/symbology/api/catalog/', {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                })
+                    .then(function(resp) {
+                        if (!resp.ok) {
+                            throw new Error('Failed to load symbology catalog');
                         }
-                    } catch (err) {
-                    }
-                });
-
-                map.on('mouseenter', 'riyadh-roads-layer', () => {
-                    map.getCanvas().style.cursor = 'pointer';
-                });
-                map.on('mouseleave', 'riyadh-roads-layer', () => {
-                    map.getCanvas().style.cursor = '';
-                });
+                        return resp.json();
+                    })
+                    .then(function(catalog) {
+                        window.symbologyCatalog = catalog;
+                        try {
+                            window.dispatchEvent(new CustomEvent('symbology:catalogLoaded', { detail: catalog }));
+                        } catch (e) {}
+                        ensureRiyadhRoadLayerFromCatalog(catalog);
+                    })
+                    .catch(function() {});
             }
+
+            window.addEventListener('symbology:catalogLoaded', function(e) {
+                const catalog = e && e.detail ? e.detail : window.symbologyCatalog;
+                ensureRiyadhRoadLayerFromCatalog(catalog);
+            });
+            requestCatalog();
         } catch (e) {}
     }
 
@@ -485,27 +529,16 @@ map.on('load', () => {
             }
 
             if (typeof window.reloadApprovedLines === 'function') {
-                try {
-                    window.reloadApprovedLines();
-                } catch (e) {
-                    // Non-critical; approved lines will still render without icons.
-                }
+                try { window.reloadApprovedLines(); } catch (e) {}
             }
         });
     } else {
-        // Icon already registered (e.g. style reinitialization). Safe to load
-        // approved lines immediately.
         if (typeof window.reloadApprovedLines === 'function') {
-            try {
-                window.reloadApprovedLines();
-            } catch (e) {
-                // Non-critical.
-            }
+            try { window.reloadApprovedLines(); } catch (e) {}
         }
     }
 });
 
-// Initialize basemap gallery once DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initBasemapGallery);
 } else {

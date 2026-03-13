@@ -1,8 +1,4 @@
-// Save Line Edit Request Handler.
-// Persists line geometry, feature type, attributes, and road closure when user presses Save.
-// Map symbology updates live when feature type changes; this module handles persistence only.
-// Manager saves are auto-approved; editor/system admin saves create pending requests for manager approval.
-
+// Save line edit: persists geometry, feature type, attributes, road closure. Manager saves auto-approve; others create pending requests.
 (function() {
     'use strict';
 
@@ -10,8 +6,93 @@
     let drawInstance = null;
     let currentFeatureLabel = 'Line';
 
-    // Lightweight wrapper around the global notification system (window.notify).
-    // Ensures road-closure feedback uses the same centralized toast UI/UX as login and account flows.
+    function getOriginalFeatureLabelForTarget(editData) {
+        if (!editData) {
+            return null;
+        }
+
+        if (editData.approved_line_id != null && window.approvedLinesOriginalState) {
+            const key = String(editData.approved_line_id);
+            const state = window.approvedLinesOriginalState[key] || window.approvedLinesOriginalState[editData.approved_line_id];
+            if (state && state.feature_label) {
+                return state.feature_label;
+            }
+        }
+
+        if (editData.is_riyadh_road && editData.riyadh_road_id != null && window.riyadhRoadOriginalState) {
+            const key = String(editData.riyadh_road_id);
+            const state = window.riyadhRoadOriginalState[key] || window.riyadhRoadOriginalState[editData.riyadh_road_id];
+            if (state && state.feature_label) {
+                return state.feature_label;
+            }
+        }
+
+        if (window.approvedLineBeingEdited) {
+            const original = window.approvedLineBeingEdited._original_feature_label;
+            if (original) {
+                return original;
+            }
+        }
+
+        return null;
+    }
+
+    function revertPendingApprovalVisualization(editData) {
+        if (!editData) {
+            return;
+        }
+
+        const originalLabel = getOriginalFeatureLabelForTarget(editData);
+        if (!originalLabel) {
+            return;
+        }
+
+        try {
+            if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateCurrentFeatureLabel === 'function') {
+                window.lineDrawingHandler.updateCurrentFeatureLabel(originalLabel);
+            } else if (typeof window.updateCurrentFeatureLabel === 'function') {
+                window.updateCurrentFeatureLabel(originalLabel);
+            }
+
+            const editScreen = document.getElementById('editFeatureScreen');
+            const isApprovedLineEdit = editScreen && editScreen.getAttribute('data-is-approved-line') === 'true';
+            const approvedLineId = editScreen ? editScreen.getAttribute('data-approved-line-id') : null;
+
+            const isRiyadhRoad = !!editData.is_riyadh_road;
+            if (isRiyadhRoad && window.approvedLineBeingEdited && window.approvedLineBeingEdited.geometry) {
+                const roadId = (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id) || editData.riyadh_road_id;
+                if (roadId != null && typeof window.updateRiyadhRoadVisualization === 'function') {
+                    window.updateRiyadhRoadVisualization(roadId, originalLabel, window.approvedLineBeingEdited.geometry);
+                } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateRiyadhRoadVisualization === 'function') {
+                    window.lineDrawingHandler.updateRiyadhRoadVisualization(roadId, originalLabel, window.approvedLineBeingEdited.geometry);
+                }
+            } else if (isApprovedLineEdit && approvedLineId != null) {
+                const idInt = parseInt(approvedLineId, 10);
+                if (!Number.isNaN(idInt)) {
+                    if (typeof window.updateApprovedLineVisualization === 'function') {
+                        window.updateApprovedLineVisualization(idInt, originalLabel);
+                    } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateApprovedLineVisualization === 'function') {
+                        window.lineDrawingHandler.updateApprovedLineVisualization(idInt, originalLabel);
+                    }
+
+                    if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id === idInt) {
+                        window.approvedLineBeingEdited.current_feature_label = originalLabel;
+                        window.approvedLineBeingEdited.feature_type = originalLabel;
+                    }
+                    if (window.approvedLinesBeingEdited && window.approvedLinesBeingEdited[idInt]) {
+                        window.approvedLinesBeingEdited[idInt].current_feature_label = originalLabel;
+                        window.approvedLinesBeingEdited[idInt].feature_type = originalLabel;
+                    }
+                }
+            }
+            if (typeof window.updateFeatureTypeVisualization === 'function') {
+                window.updateFeatureTypeVisualization();
+            } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateFeatureTypeVisualization === 'function') {
+                window.lineDrawingHandler.updateFeatureTypeVisualization();
+            }
+        } catch (e) {}
+    }
+
     function showToastNotification(message, type) {
         if (!message) {
             return;
@@ -45,7 +126,6 @@
         tryShowNotification(10);
     }
 
-    // Get current line data from line-drawing.js.
     function getCurrentLineData() {
         if (typeof window.getCurrentLineId === 'function') {
             currentLineId = window.getCurrentLineId();
@@ -68,7 +148,6 @@
         }
     }
 
-    // Collect fields data from the sidepanel.
     function collectFieldsData() {
         const fieldsData = {};
         const fieldsContainer = document.getElementById('fields-container');
@@ -77,7 +156,6 @@
             return fieldsData;
         }
 
-        // Get Name field - it's in the first field item
         const nameFieldContainer = fieldsContainer.querySelector('.bg-gray-700.rounded-lg');
         if (nameFieldContainer) {
             const nameInput = nameFieldContainer.querySelector('input[type="text"]');
@@ -86,13 +164,11 @@
             }
         }
 
-        // Get Common name field - it's the second input in the existing fields container
         const commonNameInput = fieldsContainer.querySelector('.bg-gray-700.rounded-lg input[type="text"]:not([placeholder*="Name"])');
         if (commonNameInput) {
             fieldsData.common_name = commonNameInput.value || '';
         }
 
-        // Get Multilingual names
         const multilingualSections = fieldsContainer.querySelectorAll('[id^="multilingual-"]');
         fieldsData.multilingual_names = [];
         multilingualSections.forEach(function(section) {
@@ -106,7 +182,6 @@
             }
         });
 
-        // Get all other fields by finding all elements with id starting with "field-"
         const allFieldContainers = fieldsContainer.querySelectorAll('[id^="field-"]');
         allFieldContainers.forEach(function(fieldContainer) {
             const fieldId = fieldContainer.id.replace('field-', '');
@@ -114,8 +189,6 @@
             
             if (input) {
                 let fieldKey = fieldId.replace(/-/g, '_');
-                
-                // Map field IDs to proper names
                 const fieldNameMap = {
                     'description': 'description',
                     'fix-me': 'fix_me',
@@ -138,7 +211,6 @@
         return fieldsData;
     }
 
-    // Collect tags data from the sidepanel.
     function collectTagsData() {
         const tagsData = [];
         const tagsRowsContainer = document.getElementById('tags-rows-container');
@@ -163,7 +235,6 @@
         return tagsData;
     }
 
-    // Collect relations data from the sidepanel.
     function collectRelationsData() {
         const relationsData = [];
         const relationsRowsContainer = document.getElementById('relations-rows-container');
@@ -172,10 +243,8 @@
             return relationsData;
         }
 
-        // Relation rows have class 'space-y-2'
         const relationRows = relationsRowsContainer.querySelectorAll('.space-y-2');
         relationRows.forEach(function(row) {
-            // Parent relation is in the first child (div with class 'flex items-center gap-2')
             const parentRow = row.querySelector('.flex.items-center.gap-2');
             const roleInput = row.querySelector('input[type="text"]:not([readonly])');
             
@@ -193,7 +262,6 @@
                     role: roleInput.value
                 });
             } else if (parentRelation !== 'New Relation') {
-                // Include even if role is empty, as long as parent_relation is set
                 relationsData.push({
                     parent_relation: parentRelation,
                     role: ''
@@ -204,7 +272,6 @@
         return relationsData;
     }
 
-    // Collect all line edit data.
     function collectLineEditData() {
         const editScreen = document.getElementById('editFeatureScreen');
         const isApprovedLineEdit = editScreen && editScreen.getAttribute('data-is-approved-line') === 'true';
@@ -213,18 +280,14 @@
         let geometry = null;
         let featureLabelToUse = 'Line';
         
-        // Check if this is a Riyadh road edit (not an approved line edit)
         const isRiyadhRoad = window.selectedRiyadhRoad || (window.approvedLineBeingEdited && window.approvedLineBeingEdited.is_riyadh_road);
         
         if (isApprovedLineEdit && approvedLineId && !isRiyadhRoad) {
-            // This is an approved line edit (not a Riyadh road)
             const storedGeometry = editScreen.getAttribute('data-approved-line-geometry');
             if (storedGeometry) {
                 try {
                     geometry = JSON.parse(storedGeometry);
-                } catch (e) {
-                    // Error parsing geometry from edit screen
-                }
+                } catch (e) {}
             }
             
             if (!geometry && window.approvedLinesData) {
@@ -244,12 +307,9 @@
                 featureLabelToUse = window.approvedLineBeingEdited.feature_type;
             }
         } else if (isRiyadhRoad || (window.approvedLineBeingEdited && window.approvedLineBeingEdited.geometry)) {
-            // This is a Riyadh road edit - get geometry from stored data
             const riyadhRoadData = window.selectedRiyadhRoad || window.approvedLineBeingEdited;
             if (riyadhRoadData && riyadhRoadData.geometry) {
                 geometry = riyadhRoadData.geometry;
-                
-                // Get feature label from stored data or current selection
                 if (typeof window.getCurrentFeatureLabel === 'function') {
                     featureLabelToUse = window.getCurrentFeatureLabel();
                 } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getCurrentFeatureLabel === 'function') {
@@ -389,20 +449,11 @@
                 if (data.target_type === 'approved_line' && typeof window.reloadApprovedLines === 'function') {
                     window.reloadApprovedLines();
                 }
-                // Riyadh roads are rendered via vector tiles; refreshing is best-effort.
-                // If the tile server reflects closure styling, a reload may be needed.
-            } catch (e) {
-                // Non-critical – visual refresh will still happen on next reload.
-            }
+            } catch (e) {}
         })
-        .catch(function() {
-            // Non-critical – main save flow continues regardless.
-        });
+        .catch(function() {});
     }
 
-    // Show confirmation feedback after save.
-    // For road closure changes this uses a non-blocking toast notification instead of a modal popup.
-    // For other edit flows, the existing modal confirmation is preserved.
     function showSaveConfirmationPopup(options) {
         const isAutoApproved = options && options.isAutoApproved;
         const closureChanged = options && options.closureChanged;
@@ -481,11 +532,8 @@
             return;
         }
 
-        // Apply road closure immediately and independently of the edit request
-        // approval flow. Road closure does not require manager approval for any user.
         syncRoadClosureImmediate(editData);
 
-        // Show loading state
         if (saveBtn) {
             saveBtn.disabled = true;
             const labelSpan = saveBtn.querySelector('span');
@@ -497,7 +545,6 @@
             }
         }
 
-        // Send to backend
         fetch('/mapping/api/save-line-edit/', {
             method: 'POST',
             headers: {
@@ -524,7 +571,8 @@
                         window.location.reload();
                     }, 1500);
                 } else {
-                    // For editors/system admins, clear the visual representation
+                    revertPendingApprovalVisualization(editData);
+
                     try {
                         if (currentLineId && typeof window.removeMapLibreLineLayer === 'function') {
                             window.removeMapLibreLineLayer(currentLineId);
@@ -532,9 +580,7 @@
                         if (typeof window.clearVertexMarkers === 'function') {
                             window.clearVertexMarkers();
                         }
-                    } catch (e) {
-                        // Error clearing visualization
-                    }
+                    } catch (e) {}
                 }
             } else {
                 alert('Error: ' + (data.message || 'Failed to save edit request'));
@@ -555,7 +601,6 @@
         });
     }
 
-    // Get CSRF token from cookies.
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -571,11 +616,9 @@
         return cookieValue;
     }
 
-    // Initialize save functionality.
     function initSaveHandler() {
         const saveBtn = document.getElementById('saveBtn');
         if (saveBtn) {
-            // Remove any existing listeners to prevent duplicates
             const newSaveBtn = saveBtn.cloneNode(true);
             saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
             
@@ -590,14 +633,12 @@
         }
     }
 
-    // Initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initSaveHandler);
     } else {
         initSaveHandler();
     }
 
-    // Export functions for use in other scripts
     window.collectLineEditData = collectLineEditData;
     window.handleSaveLineEdit = handleSave;
     window.showToastNotification = showToastNotification;

@@ -1,6 +1,4 @@
-// Edit Mode Controller.
-// Handles Edit button visibility, edit mode toggle, side panel, toolbar, and zoom overlay.
-
+// Edit mode: button visibility, toggle, side panel, toolbar, zoom overlay.
 (function() {
     'use strict';
 
@@ -27,12 +25,10 @@
     function initEditMode() {
         editButton = document.getElementById(EDIT_BUTTON_ID);
         
-        // If button doesn't exist, user doesn't have permission or it's not a map page
         if (!editButton) {
             return;
         }
 
-        // Wait for map to be initialized
         if (typeof map === 'undefined' || !map) {
             retryCount++;
             if (retryCount < MAX_RETRY_ATTEMPTS) {
@@ -41,29 +37,19 @@
             return;
         }
 
-        // Get DOM elements
         sidePanel = document.getElementById('editSidePanel');
         mapContainer = document.getElementById('mapContainer');
         editToolbar = document.getElementById('editToolbar');
         zoomOverlay = document.getElementById('zoomOverlay');
         zoomInBtn = document.getElementById('zoomInBtn');
 
-        // Initialize event listeners
         setupEventListeners();
-        
-        // Set initial button state
         updateButtonState();
-        
-        // Listen for TerraDraw mode changes to sync button states
         syncTerraDrawMode();
     }
 
-    // Setup all event listeners.
     function setupEventListeners() {
-        // Edit button click
         editButton.addEventListener('click', handleEditButtonClick);
-        
-        // Zoom events for button state
         map.on('zoom', updateButtonState);
         map.on('zoomend', handleZoomEnd);
         map.on('load', function() {
@@ -83,12 +69,9 @@
         if (areaBtn) areaBtn.addEventListener('click', () => selectTool('area'));
         if (undoBtn) undoBtn.addEventListener('click', handleUndo);
         if (redoBtn) redoBtn.addEventListener('click', handleRedo);
-        // Save button is handled by save-line-edit.js to avoid duplicate calls
-        // if (saveBtn) saveBtn.addEventListener('click', handleSave);
         if (zoomInBtn) zoomInBtn.addEventListener('click', handleZoomIn);
     }
 
-    // Handle edit button click; toggle edit mode.
     function handleEditButtonClick(event) {
         event.preventDefault();
         
@@ -105,12 +88,8 @@
         }
     }
 
-    // Enter edit mode.
     function enterEditMode() {
-        // Update button text
         updateButtonText('Exit Edit Mode');
-        
-        // Show side panel
         if (sidePanel) {
             sidePanel.classList.remove('-translate-x-full');
             sidePanel.style.display = '';
@@ -118,25 +97,17 @@
             sidePanel.style.opacity = '1';
             sidePanel.style.setProperty('transform', 'translateX(0)', 'important');
         }
-        
-        // Show toolbar
         if (editToolbar) {
             editToolbar.classList.remove('hidden');
         }
-        
-        // Resize map container to accommodate panel
         if (mapContainer) {
             mapContainer.style.marginLeft = SIDE_PANEL_WIDTH + 'px';
             mapContainer.style.width = `calc(100% - ${SIDE_PANEL_WIDTH}px)`;
         }
-        
-        // Ensure map starts with full opacity
         if (map && map.getContainer()) {
             map.getContainer().style.opacity = '1';
             map.getContainer().style.transition = 'opacity 0.3s ease-in-out';
         }
-        
-        // Trigger map resize after a short delay to ensure panel is visible
         setTimeout(() => {
             if (map && map.resize) {
                 map.resize();
@@ -156,28 +127,17 @@
         }
     }
 
-    // Exit edit mode.
     function exitEditMode() {
-        // Update button text
         updateButtonText('Edit');
-        
-        // Hide side panel ONLY if there's no content being viewed
-        // This allows sidebar to remain open for viewing lines/roads even when edit mode is disabled
         if (sidePanel) {
             const editScreen = document.getElementById('editFeatureScreen');
             const sidePanelContent = document.getElementById('sidePanelContent');
             const hasContent = editScreen || (sidePanelContent && sidePanelContent.children.length > 0);
-            
-            // Only hide sidebar if it's truly empty (no viewing content)
             if (!hasContent) {
                 sidePanel.classList.add('-translate-x-full');
-                
-                // Reset map container size only if sidebar is being hidden
                 if (mapContainer) {
                     mapContainer.style.marginLeft = '0';
                     mapContainer.style.width = '100%';
-                    
-                    // Trigger map resize
                     setTimeout(() => {
                         if (map && map.resize) {
                             map.resize();
@@ -185,33 +145,22 @@
                     }, 300);
                 }
             }
-            // If sidebar has content (viewing mode), keep it visible and map container adjusted
-            // Map container width is already set by showLineSidePanel/showApprovedLineDetails
         }
-        
-        // Hide toolbar
         if (editToolbar) {
             editToolbar.classList.add('hidden');
         }
-        
-        // Hide zoom overlay
         if (zoomOverlay) {
             zoomOverlay.classList.add('hidden');
         }
-        
-        // Restore map opacity and interactions
         if (map && map.getContainer()) {
             map.getContainer().style.opacity = '1';
             map.getContainer().style.pointerEvents = 'auto';
             map.getContainer().style.transition = 'opacity 0.3s ease-in-out';
         }
-        
-        // Reset tool selection
         currentTool = null;
         updateToolButtons();
     }
 
-    // Update button state based on zoom level.
     function updateButtonState() {
         try {
             const currentZoom = map.getZoom();
@@ -223,18 +172,13 @@
             } else {
                 editButton.disabled = true;
                 editButton.setAttribute('aria-disabled', 'true');
-                
-                // If in edit mode and zoomed out, show overlay
                 if (isEditModeActive) {
                     checkZoomLevel();
                 }
             }
-        } catch (error) {
-            // Error updating button state
-        }
+        } catch (error) {}
     }
 
-    // Handle zoom end event.
     function handleZoomEnd() {
         updateButtonState();
         
@@ -243,7 +187,6 @@
         }
     }
 
-    // Check zoom level and show or hide overlay.
     function checkZoomLevel() {
         if (!isEditModeActive || !zoomOverlay) {
             return;
@@ -254,7 +197,6 @@
 
         if (isZoomSufficient) {
             zoomOverlay.classList.add('hidden');
-            // Restore map opacity
             if (map.getContainer()) {
                 map.getContainer().style.opacity = '1';
                 map.getContainer().style.pointerEvents = 'auto';
@@ -262,7 +204,6 @@
             }
         } else {
             zoomOverlay.classList.remove('hidden');
-            // Make map slightly dimmed but still clearly visible, and disable interactions
             if (map.getContainer()) {
                 map.getContainer().style.opacity = '0.85';
                 map.getContainer().style.pointerEvents = 'none';
@@ -271,7 +212,6 @@
         }
     }
 
-    // Handle zoom in button click.
     function handleZoomIn() {
         if (!map) return;
         
@@ -283,7 +223,6 @@
         });
     }
 
-    // Update button text.
     function updateButtonText(text) {
         const textSpan = editButton.querySelector('span');
         if (textSpan) {
@@ -291,12 +230,9 @@
         }
     }
 
-    // Select a tool (Point, Line, Area).
     function selectTool(tool) {
         currentTool = tool;
         updateToolButtons();
-        
-        // Get TerraDraw instance - check multiple possible variable names
         let terraDrawInstance = null;
         if (typeof drawInstance !== 'undefined' && drawInstance) {
             terraDrawInstance = drawInstance;
@@ -307,8 +243,6 @@
         if (!terraDrawInstance) {
             return;
         }
-        
-        // Map tool names to TerraDraw mode names
         const modeMap = {
             'point': 'point',
             'line': 'linestring',
@@ -321,28 +255,20 @@
         }
         
         try {
-            // Set the TerraDraw mode
             terraDrawInstance.setMode(terraDrawMode);
-        } catch (error) {
-            // Error setting TerraDraw mode
-        }
+        } catch (error) {}
     }
 
-    // Update tool button states (highlight active tool).
     function updateToolButtons() {
         const pointBtn = document.getElementById('pointToolBtn');
         const lineBtn = document.getElementById('lineToolBtn');
         const areaBtn = document.getElementById('areaToolBtn');
-
-        // Reset all buttons
         [pointBtn, lineBtn, areaBtn].forEach(btn => {
             if (btn) {
                 btn.classList.remove('bg-gray-200', 'ring-2', 'ring-black');
                 btn.classList.add('hover:bg-gray-100');
             }
         });
-
-        // Highlight active tool
         const activeBtn = 
             currentTool === 'point' ? pointBtn :
             currentTool === 'line' ? lineBtn :
@@ -354,24 +280,14 @@
         }
     }
 
-    // Handle undo action (TerraDraw undo not yet wired).
-    function handleUndo() {
-    }
+    function handleUndo() {}
+    function handleRedo() {}
 
-    // Handle redo action (TerraDraw redo not yet wired).
-    function handleRedo() {
-    }
-
-    // Handle save action.
     function handleSave() {
-        // Delegate to save-line-edit.js handler if available
-        // This prevents duplicate calls - save-line-edit.js handles the actual save
         if (typeof window.handleSaveLineEdit === 'function') {
             window.handleSaveLineEdit();
             return;
         }
-        
-        // Fallback: Get TerraDraw instance
         let terraDrawInstance = null;
         if (typeof drawInstance !== 'undefined' && drawInstance) {
             terraDrawInstance = drawInstance;
@@ -385,14 +301,10 @@
         
         try {
             terraDrawInstance.getSnapshot();
-        } catch (error) {
-            // Save is delegated to save-line-edit.js when available
-        }
+        } catch (error) {}
     }
 
-    // Sync toolbar button states with TerraDraw mode.
     function syncTerraDrawMode() {
-        // Get TerraDraw instance
         let terraDrawInstance = null;
         if (typeof drawInstance !== 'undefined' && drawInstance) {
             terraDrawInstance = drawInstance;
@@ -403,26 +315,17 @@
         if (!terraDrawInstance) {
             return;
         }
-        
-        // Listen for mode changes from TerraDraw (if available)
-        // This ensures button states stay in sync with any external TerraDraw mode changes
         try {
-            if (typeof terraDrawInstance.on === 'function') {
-                // TerraDraw mode change events can be wired here if needed
-            }
-        } catch (error) {
-            // TerraDraw API may not expose mode events
-        }
+            if (typeof terraDrawInstance.on === 'function') {}
+        } catch (error) {}
     }
 
-    // Initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initEditMode);
     } else {
         initEditMode();
     }
 
-    // Export cleanup function
     window.editModeCleanup = function() {
         if (map) {
             map.off('zoom', updateButtonState);
