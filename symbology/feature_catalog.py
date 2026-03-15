@@ -6,14 +6,7 @@ import json
 
 
 class LineStyle(TypedDict, total=False):
-    """
-    Symbology style definition for a linear feature type.
-
-    This is intentionally minimal and frontend-agnostic: it maps cleanly to
-    MapLibre `line-*` paint properties and the existing vertex-marker styling
-    used in the editing module. The optional `lineDasharray` is used for
-    dashed lines (e.g. Road Closure); when absent, lines render solid.
-    """
+    """Style definition for a linear feature type used by the frontend."""
 
     lineColor: str
     glowColor: str
@@ -26,26 +19,14 @@ class LineStyle(TypedDict, total=False):
 
 
 class SymbologyCatalog(TypedDict):
-    """
-    Top-level catalog structure returned to the frontend.
-
-    The `styles_by_label` keys are human-readable feature labels such as
-    "Motorway" or "Minor/Unclassified Road". The frontend normalizes lookups
-    to be case-insensitive, so producers may use any consistent capitalization.
-   """
+    """Top-level catalog structure returned to the frontend."""
 
     version: int
     styles_by_label: Dict[str, LineStyle]
 
 
 def get_catalog() -> SymbologyCatalog:
-    """
-    Build the current symbology catalog structure.
-
-    This implementation loads the catalog from the JSON file located at
-    symbology/symbology.json so that non-technical users can manage all
-    symbology from a single, human-readable source.
-    """
+    """Return the current symbology catalog loaded from symbology.json."""
     module_dir = Path(__file__).resolve().parent
     json_path = module_dir / "symbology.json"
 

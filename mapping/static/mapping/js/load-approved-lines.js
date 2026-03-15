@@ -1,4 +1,4 @@
-// Load and manage approved lines and Riyadh roads; render with symbology catalog; support selection and editing.
+// Load approved lines and Riyadh roads, apply symbology, and support selection/editing.
 (function() {
     'use strict';
 
@@ -203,7 +203,7 @@
 
         const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
 
-        // Create GeoJSON feature
+        // Wrap the line as a single GeoJSON feature and collection.
         const feature = {
             type: 'Feature',
             geometry: lineData.geometry,
@@ -219,7 +219,7 @@
             features: [feature]
         };
 
-        // Remove existing layers and source if they exist
+        // Remove any existing layers and source for this line before re-adding them.
         try {
             if (map.getLayer(layerId)) {
                 map.removeLayer(layerId);
@@ -320,9 +320,9 @@
             window.selectedRiyadhRoad = null;
         }
 
-        // Highlight selection on the map.
+        // Highlight the selected line on the map and sync the side panel.
         try {
-            // For non-Riyadh approved lines, use the GeoJSON overlay + dimming.
+            // Non-Riyadh lines use the GeoJSON overlay plus dimming of other lines.
             if (!lineData.is_riyadh_road) {
                 if (typeof window.setSelectedOverlayGeometry === 'function') {
                     window.setSelectedOverlayGeometry(lineData.geometry);

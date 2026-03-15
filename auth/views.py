@@ -22,7 +22,7 @@ def login_view(request):
 
 def onetime_view(request):
     """Render the one-time system admin registration page."""
-    # Block access if System Admin already exists
+    # Redirect to login once a System Admin already exists.
     if has_system_admin():
         return redirect('auth:login')
     
@@ -131,7 +131,7 @@ def login_api(request):
 @require_http_methods(["POST"])
 def onetime_api(request):
     """Handle System Admin registration API request."""
-    # Block access if System Admin already exists
+    # Reject attempts once a System Admin already exists.
     if has_system_admin():
         return JsonResponse({
             'success': False,
@@ -225,14 +225,14 @@ def onetime_api(request):
 @login_required(login_url='/login/')
 def password_setup_view(request):
     """First-time password setup view for Manager/Editor users."""
-    # Only allow Manager and Editor roles
+    # Only Manager and Editor roles can use this view.
     if not hasattr(request.user, 'profile') or not request.user.profile.role:
         return redirect('auth:login')
     
     if request.user.profile.role not in ['manager', 'editor']:
         return redirect('auth:login')
     
-    # If already completed, redirect to map
+    # If setup is already complete, send the user to the map.
     if request.user.profile.password_setup_completed:
         if request.user.profile.role == 'manager':
             return redirect('manager:map')
@@ -246,11 +246,11 @@ def password_setup_view(request):
     if request.method == 'POST':
         intent = request.POST.get('intent')
         if intent == 'skip_password_setup':
-            # Mark password setup as completed (skipped)
+            # Mark password setup as completed even when skipped.
             request.user.profile.password_setup_completed = True
             request.user.profile.save()
             
-            # Redirect to appropriate map
+            # Redirect to the appropriate map after skipping.
             if request.user.profile.role == 'manager':
                 return redirect('manager:map')
             elif request.user.profile.role == 'editor':
@@ -270,22 +270,22 @@ def password_setup_view(request):
                 errors.append('Passwords do not match.')
             
             if not errors:
-                # Set new password
+                # Persist the new password.
                 request.user.set_password(new_password)
                 request.user.save()
                 
-                # Mark password setup as completed
+                # Record that setup has been completed.
                 request.user.profile.password_setup_completed = True
                 request.user.profile.save()
                 
-                # Re-login user with new password
+                # Log the user back in with the new password.
                 from django.contrib.auth import login
                 login(request, request.user)
                 
                 context['password_set'] = True
                 context['success_message'] = 'Password has been set successfully!'
                 
-                # Redirect after a moment
+                # Finally redirect to the relevant map view.
                 if request.user.profile.role == 'manager':
                     return redirect('manager:map')
                 elif request.user.profile.role == 'editor':

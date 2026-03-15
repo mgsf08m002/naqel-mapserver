@@ -19,20 +19,20 @@ def map_view(request):
 @login_required(login_url='/login/')
 def account_information_view(request):
     """Account Information view."""
-    # Check if user has manager role
+    # Require a manager profile.
     if not hasattr(request.user, 'profile') or request.user.profile.role != 'manager':
         logout(request)
         return redirect('auth:login')
     
-    # Check permission
+    # Require account-information permission.
     if not request.user.profile.can_access_account_information:
         logout(request)
         return redirect('auth:login?no_permission=1&permission_type=account_information')
     
-    # Get or create user profile
+    # Ensure a profile record exists for the current manager.
     profile, created = UserProfile.objects.get_or_create(user=request.user)
     
-    # Set account creation date/time if not already set
+    # Backfill account creation timestamp when missing.
     if not profile.account_creation_date:
         profile.set_account_creation_datetime()
     
@@ -48,7 +48,7 @@ def account_information_view(request):
                 errors.append('Full name is required.')
 
             if not errors:
-                # Managers cannot change email - only update full name
+                # Managers can update only their display name here.
                 user = request.user
                 user.first_name = full_name
                 user.last_name = ''
@@ -64,12 +64,12 @@ def account_information_view(request):
 @login_required(login_url='/login/')
 def security_view(request):
     """Security view."""
-    # Check if user has manager role
+    # Require a manager profile.
     if not hasattr(request.user, 'profile') or request.user.profile.role != 'manager':
         logout(request)
         return redirect('auth:login')
     
-    # Check permission
+    # Require security permission.
     if not request.user.profile.can_access_security:
         logout(request)
         return redirect('auth:login?no_permission=1&permission_type=security')
@@ -112,7 +112,7 @@ def security_view(request):
 @login_required(login_url='/login/')
 def upload_profile_image_view(request):
     """Handle profile image upload."""
-    # Check if user has manager role
+    # Only managers can upload a profile image from this view.
     if not hasattr(request.user, 'profile') or request.user.profile.role != 'manager':
         return JsonResponse({
             'success': False,
@@ -122,7 +122,7 @@ def upload_profile_image_view(request):
     
     if request.method == 'POST' and request.FILES.get('profile_image'):
         profile, created = UserProfile.objects.get_or_create(user=request.user)
-        # Delete old image if exists
+        # Remove any previous image before saving the new one.
         if profile.profile_image:
             profile.profile_image.delete()
         profile.profile_image = request.FILES['profile_image']
@@ -144,7 +144,7 @@ def upload_profile_image_view(request):
 @login_required(login_url='/login/')
 def remove_profile_image_view(request):
     """Handle profile image removal."""
-    # Check if user has manager role
+    # Only managers can remove a profile image from this view.
     if not hasattr(request.user, 'profile') or request.user.profile.role != 'manager':
         return JsonResponse({
             'success': False,

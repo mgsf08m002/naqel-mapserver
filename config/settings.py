@@ -9,42 +9,37 @@ import os
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from the .env file.
 load_dotenv()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# Base project path, e.g. BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
+# Quick-start development settings; review Django’s deployment checklist before going live.
 
-# SECURITY WARNING: keep the secret key used in production secret!
+# SECURITY WARNING: keep the production secret key in the environment only.
 SECRET_KEY = os.getenv('SECRET_KEY')
 if not SECRET_KEY:
     raise ValueError("SECRET_KEY environment variable is not set. Please set it in your .env file.")
 
-# MapTiler API key for basemap integration (optional).
-# This is intentionally loaded only from the environment and never hardcoded.
+# Optional MapTiler API key for basemap integration, kept in the environment only.
 MAPTILER_API_KEY = os.getenv('MAPTILER_API_KEY', '').strip()
 
-# Riyadh roads tile service (XYZ) for high-performance visualization of the
-# Riyadh road network. Default points to the manager-provided endpoint but
-# can be overridden via RIYADH_ROADS_TILE_URL in the environment.
+# Riyadh roads XYZ tile service for visualizing the road network; overridable via RIYADH_ROADS_TILE_URL.
 RIYADH_ROADS_TILE_URL = os.getenv(
     "RIYADH_ROADS_TILE_URL",
     "http://139.162.60.105:3000/tiles/riyadh_roads/{z}/{x}/{y}",
 ).strip()
 
-# Derive the origin (scheme + host) of the Riyadh roads tile service so CSP
-# can stay in sync even when RIYADH_ROADS_TILE_URL is overridden via .env.
+# Derive the tile service origin (scheme + host) so CSP stays aligned with RIYADH_ROADS_TILE_URL.
 _riyadh_tile_url = urlparse(RIYADH_ROADS_TILE_URL)
 if _riyadh_tile_url.scheme and _riyadh_tile_url.netloc:
     RIYADH_ROADS_TILE_ORIGIN = f"{_riyadh_tile_url.scheme}://{_riyadh_tile_url.netloc}"
 else:
     RIYADH_ROADS_TILE_ORIGIN = "http://139.162.60.105:3000"
 
-# SECURITY WARNING: don't run with debug turned on in production!
+# SECURITY WARNING: DEBUG must be False in production.
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
@@ -53,7 +48,7 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.gis',  # Must be before other apps for PostGIS support
+    'django.contrib.gis',  # Must appear before other apps for PostGIS support.
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -78,14 +73,13 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'config.middleware.CSPMiddleware',  # Custom CSP middleware
+    'config.middleware.CSPMiddleware',  # Project CSP middleware.
     'security.middleware.SessionActivityMiddleware',
 ]
 
-# Content Security Policy (CSP) settings
-# Note: In production, you should use django-csp package for better CSP management
+# Content Security Policy (CSP) settings; consider django-csp for richer production management.
 if DEBUG:
-    # More permissive CSP for development
+    # Development CSP: relaxed to simplify local debugging.
     CSP_DEFAULT_SRC = ["'self'"]
     CSP_SCRIPT_SRC = ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net"]
     CSP_STYLE_SRC = ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"]
@@ -109,9 +103,9 @@ if DEBUG:
         "https://cdn.jsdelivr.net",
         RIYADH_ROADS_TILE_ORIGIN,
     ]
-    CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers
+    CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers.
 else:
-    # Stricter CSP for production (recommended to use django-csp package)
+    # Production CSP: stricter defaults; django-csp is still recommended.
     CSP_DEFAULT_SRC = ["'self'"]
     CSP_SCRIPT_SRC = ["'self'", "https://unpkg.com", "https://cdn.jsdelivr.net"]
     CSP_STYLE_SRC = ["'self'", "https://unpkg.com", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"]
@@ -135,7 +129,7 @@ else:
         "https://cdn.jsdelivr.net",
         RIYADH_ROADS_TILE_ORIGIN,
     ]
-    CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers
+    CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers.
 
 ROOT_URLCONF = 'config.urls'
 
@@ -160,8 +154,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+# Database configuration; see Django docs for full options.
 
 DATABASES = {
     "default": {
@@ -197,8 +190,7 @@ DATABASE_ROUTERS = [
 ]
 
 
-# Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
+# Password validation; reuse Django’s built-in validators.
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -217,7 +209,6 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 # Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
 
@@ -228,17 +219,16 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
+# Static files (CSS, JavaScript, images)
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
-# Media files (User uploaded content)
+# Media files (user uploads)
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# GDAL Library Path (required for PostGIS)
+# GDAL library path required by PostGIS; falls back to a common Linux location.
 GDAL_LIBRARY_PATH = os.environ.get('GDAL_LIBRARY_PATH', '/usr/lib/x86_64-linux-gnu/libgdal.so')

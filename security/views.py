@@ -16,12 +16,7 @@ def _get_client_ip(request):
 
 
 def _detect_browser(user_agent: str) -> str:
-    """
-    Map the user agent string to a simple browser identifier.
-
-    These identifiers are used on the frontend to select the appropriate
-    icon from static/images/security/<identifier>.png.
-    """
+    """Map a user agent string to a simple browser identifier."""
     ua = (user_agent or "").lower()
 
     if "edg" in ua:

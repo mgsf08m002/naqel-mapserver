@@ -13,16 +13,12 @@ from .models import LineEditRequest, RiyadhRoad
 
 
 def map_view(request):
-    """KSA Map Editing Module view."""
+    """Render the main KSA map editing view."""
     return render(request, 'mapping/map.html')
 
 
 def _geometry_looks_like_wgs84(geometry):
-    """
-    Heuristic check to determine if a GeoJSON geometry already appears to be in WGS84.
-
-    Returns True when coordinates fall within the typical longitude/latitude ranges.
-    """
+    """Return True when a GeoJSON geometry already appears to be in WGS84."""
     try:
         if not geometry:
             return True
@@ -33,15 +29,10 @@ def _geometry_looks_like_wgs84(geometry):
             return True
 
         def _iter_points(values):
-            """
-            Recursively yield coordinate pairs from a nested coordinates array.
-            Supports LineString, MultiLineString and similar geometries.
-            """
             if not isinstance(values, (list, tuple)):
                 return
 
             if values and isinstance(values[0], (int, float, str)):
-                # Treat this as a single coordinate pair
                 yield values
                 return
 
@@ -59,33 +50,23 @@ def _geometry_looks_like_wgs84(geometry):
             except (TypeError, ValueError):
                 continue
 
-            # Any coordinate outside WGS84 bounds means this is almost certainly
-            # a projected geometry (e.g. WebMercator) rather than lon/lat.
             if not (-180.0 <= lng <= 180.0 and -90.0 <= lat <= 90.0):
                 return False
 
             seen += 1
-            # We don't need to inspect every point; a representative sample is enough
             if seen >= 1000:
                 break
 
-        # If we saw no valid points, assume WGS84 to avoid accidental re-projection.
-        # Otherwise, all inspected points were in-range so this looks like WGS84.
         return True
     except Exception:
-        # On any parsing error, assume WGS84 to avoid corrupting data
         return True
 
 
 def _ensure_wgs84_geometry(geometry, source_srid=3857):
-    """
-    Normalize a GeoJSON geometry to WGS84 (EPSG:4326) when it appears to be in a
-    projected coordinate system such as WebMercator (EPSG:3857).
-    """
+    """Normalize a GeoJSON geometry to WGS84 when it looks projected."""
     if not geometry:
         return geometry
 
-    # Fast path: geometry already looks like WGS84
     if _geometry_looks_like_wgs84(geometry):
         return geometry
 
@@ -94,23 +75,15 @@ def _ensure_wgs84_geometry(geometry, source_srid=3857):
         geom.transform(4326)
         return json.loads(geom.json)
     except Exception:
-        # If transformation fails, return the original geometry so that callers
-        # can still decide how to handle it.
         return geometry
 
 
 def _get_riyadh_road_geometry_wgs84(road_id):
-    """
-    Fetch RiyadhRoad.geom from the base network and normalize it to WGS84.
-    This uses the road geometry as the single source of truth for Riyadh
-    road shapes, independent of what may have been stored in edit requests.
-    """
+    """Fetch a RiyadhRoad geometry and return it in WGS84."""
     if road_id is None:
         return None
 
     try:
-        # RiyadhRoad is configured to use the "riyadh_roads" database alias
-        # when present; fall back to the default connection otherwise.
         try:
             road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(road_id))
         except Exception:
@@ -121,28 +94,20 @@ def _get_riyadh_road_geometry_wgs84(road_id):
             return None
 
         try:
-            # geom is a GEOS geometry with SRID 3857; transform in-place.
             geom.transform(4326)
         except Exception:
-            # If transform fails, fall back to raw JSON
             return json.loads(geom.json)
 
         return json.loads(geom.json)
     except Exception:
-        # If anything goes wrong (e.g. road missing), caller can decide how to fall back.
         return None
 
 
 def _derive_feature_label_from_riyadh_road(road):
-    """
-    Derive a human-friendly feature label for a RiyadhRoad instance based on its
-    classification fields. This keeps tileserver-backed roads consistent with the
-    feature type system used by the editing module and symbology catalog.
-    """
+    """Derive a human‑readable feature label from a RiyadhRoad instance."""
     fclass = (road.fclass or "").strip().lower()
 
     fclass_to_label = {
-        # Major roads
         "motorway": "Motorway",
         "motorway_link": "Motorway Link",
         "trunk": "Trunk Road",
@@ -153,12 +118,10 @@ def _derive_feature_label_from_riyadh_road(road):
         "secondary_link": "Secondary Link",
         "tertiary": "Tertiary Road",
         "tertiary_link": "Tertiary Link",
-        # Local roads
         "residential": "Residential Road",
         "living_street": "Living Street",
         "service": "Service Road",
         "unclassified": "Unclassified Road",
-        # Access / paths
         "track": "Track",
         "footway": "Footway",
         "steps": "Steps",
@@ -170,7 +133,6 @@ def _derive_feature_label_from_riyadh_road(road):
     if label:
         return label
 
-    # As a fallback, derive a simple label from the raw fclass value when present.
     if fclass:
         return fclass.replace("_", " ").title()
 
@@ -181,11 +143,10 @@ def _derive_feature_label_from_riyadh_road(road):
 @require_http_methods(["POST"])
 @csrf_exempt
 def save_line_edit_request(request):
-    """Save a line edit request from Editor, System Admin, or Manager."""
+    """Save a line edit request and handle auto‑approval rules."""
     try:
         data = json.loads(request.body.decode("utf-8"))
 
-        # Validate required fields
         if "geometry" not in data:
             return JsonResponse(
                 {
@@ -214,7 +175,8 @@ def save_line_edit_request(request):
         except (TypeError, ValueError):
             riyadh_road_id_int = None
 
-        # Normalize incoming geometry so that all stored edit requests use WGS84.
+        closure_changed = bool(data.get("closure_changed"))
+
         raw_geometry = data.get("geometry")
         normalized_geometry = _ensure_wgs84_geometry(raw_geometry, source_srid=3857)
 
@@ -234,13 +196,27 @@ def save_line_edit_request(request):
             riyadh_road_id=riyadh_road_id_int,
         )
 
-        if is_manager:
+        auto_approved = False
+
+        if closure_changed:
             edit_request.approve(request.user)
+            auto_approved = True
             if edit_request.is_riyadh_road:
                 try:
                     _apply_riyadh_edit_to_base_network(edit_request)
                 except Exception:
                     pass
+
+        elif is_manager:
+            edit_request.approve(request.user)
+            auto_approved = True
+            if edit_request.is_riyadh_road:
+                try:
+                    _apply_riyadh_edit_to_base_network(edit_request)
+                except Exception:
+                    pass
+
+        if auto_approved:
             return JsonResponse(
                 {
                     "success": True,
@@ -404,7 +380,7 @@ def set_road_closure(request):
 
 @login_required
 def list_pending_requests(request):
-    """List pending line edit requests for Manager."""
+    """Return all pending line edit requests for manager review."""
     profile = getattr(request.user, 'profile', None)
     is_manager = profile and profile.role == 'manager'
     is_superuser = request.user.is_superuser
@@ -416,11 +392,9 @@ def list_pending_requests(request):
         }, status=403)
     
     try:
-        requests = (
-            LineEditRequest.objects.filter(status="pending")
-            .select_related("requester", "requester__profile")
-            .order_by("-created_at")
-        )
+        requests = LineEditRequest.objects.filter(status="pending").select_related(
+            "requester", "requester__profile"
+        ).order_by("-created_at")
         
         requests_data = []
         for req in requests:
@@ -429,9 +403,6 @@ def list_pending_requests(request):
                 profile.profile_image.url if profile and profile.profile_image else None
             )
 
-            # Always base the manager review geometry on the actual geometry
-            # stored with the edit request so that the line appears exactly
-            # where it was drawn on the map.
             geometry = _ensure_wgs84_geometry(req.geometry, source_srid=3857)
 
             requests_data.append(
@@ -465,7 +436,7 @@ def list_pending_requests(request):
 
 @login_required
 def get_edit_request_details(request, request_id):
-    """Get full details of an edit request."""
+    """Return full details of a single edit request for manager review."""
     profile = getattr(request.user, 'profile', None)
     is_manager = profile and profile.role == 'manager'
     is_superuser = request.user.is_superuser
@@ -493,9 +464,6 @@ def get_edit_request_details(request, request_id):
             profile.profile_image.url if profile and profile.profile_image else None
         )
 
-        # For manager review, always use the geometry stored on the edit
-        # request so that the line is rendered exactly where the editor drew
-        # it on the map.
         geometry = _ensure_wgs84_geometry(edit_request.geometry, source_srid=3857)
 
         return JsonResponse(
@@ -610,6 +578,7 @@ def reject_edit_request(request, request_id):
 
 @login_required
 def get_approved_lines(request):
+    """Return all non‑superseded, approved line edits for map rendering."""
     try:
         approved_requests = (
             LineEditRequest.objects.filter(status="approved", is_riyadh_road=False)
@@ -660,6 +629,7 @@ def get_approved_lines(request):
 @login_required
 @require_http_methods(["GET"])
 def get_riyadh_road_details(request, road_id):
+    """Return geometry and metadata for a single Riyadh road."""
     def _sanitize_number(value):
         if value is None:
             return None
@@ -691,10 +661,6 @@ def get_riyadh_road_details(request, road_id):
         except Exception:
             raw_geometry = None
 
-        # RiyadhRoad geometries are stored in WebMercator (EPSG:3857); convert
-        # them to WGS84 before sending to the frontend so that MapLibre can
-        # safely consume them and so that any subsequent edit requests store a
-        # consistent coordinate reference system.
         geometry = _ensure_wgs84_geometry(raw_geometry, source_srid=3857)
 
         fields_data = {

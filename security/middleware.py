@@ -2,13 +2,7 @@ from django.utils import timezone
 
 
 class SessionActivityMiddleware:
-    """
-    Lightweight middleware to keep basic per-session activity metadata.
-
-    Stores the following keys on the authenticated user's session:
-    - session_created_at: ISO timestamp when the session was first seen
-    - last_seen_at: ISO timestamp for the most recent request
-    """
+    """Track basic per-session activity timestamps for authenticated users."""
 
     def __init__(self, get_response):
         self.get_response = get_response

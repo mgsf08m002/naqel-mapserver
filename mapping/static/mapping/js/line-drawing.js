@@ -1,4 +1,4 @@
-// Line drawing, MapLibre layer rendering, and sidepanel UI.
+// Line drawing, MapLibre rendering, and sidepanel UI behavior.
 (function() {
     'use strict';
 
@@ -18,7 +18,7 @@
     let symbologyStylesByLabel = null;
     let symbologyCatalogRequested = false;
 
-    // Selected feature highlight overlay (for approved lines + tile roads).
+    // Selected-feature overlay used to highlight approved lines and tile roads.
     const SELECTED_OVERLAY_SOURCE_ID = 'selected-road-overlay-source';
     const SELECTED_OVERLAY_GLOW_LAYER_ID = 'selected-road-overlay-glow';
     const SELECTED_OVERLAY_LINE_LAYER_ID = 'selected-road-overlay-line';
@@ -119,8 +119,7 @@
                 });
             }
 
-            // Always keep overlay layers on top so they can't be hidden
-            // beneath approved line or Riyadh network layers.
+            // Keep overlay layers above approved lines and the Riyadh network.
             const style = map.getStyle && map.getStyle();
             if (style && Array.isArray(style.layers) && style.layers.length) {
                 const lastId = style.layers[style.layers.length - 1].id;
@@ -199,14 +198,12 @@
             symbologyStylesByLabel[normalizedKey] = catalog.styles_by_label[rawLabel];
         });
 
-        // Expose for other scripts (e.g., manager-requests.js, load-approved-lines.js)
+        // Expose catalog so other scripts (manager-requests, approved-lines, etc.) can reuse it.
         window.symbologyCatalog = catalog;
 
         try {
             window.dispatchEvent(new CustomEvent('symbology:catalogLoaded', { detail: catalog }));
-        } catch (e) {
-            // Non-critical: the catalog is still available via window.symbologyCatalog.
-        }
+        } catch (e) {}
 
     }
 
@@ -233,7 +230,6 @@
                 setSymbologyCatalog(data);
             })
             .catch(function () {
-                // Catalog load failed; getVisualizationStyle will return undefined until retry.
                 symbologyCatalogRequested = false;
             });
     }

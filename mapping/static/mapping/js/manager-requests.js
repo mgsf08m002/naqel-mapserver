@@ -1,11 +1,11 @@
-// Manager edit requests: display and manage pending edit requests.
+// Manager pending edit requests: UI, loading, map rendering and approval flow.
 (function() {
     'use strict';
 
     let pendingRequests = [];
     let currentViewingRequest = null;
 
-    // Create the manager requests UI.
+    // Build the floating panel that lists all pending edit requests.
     function createManagerRequestsUI() {
         const container = document.createElement('div');
         container.id = 'managerRequestsContainer';
@@ -52,7 +52,7 @@
         return container;
     }
 
-    // Create a request card.
+    // Build a single card row for one pending edit request.
     function createRequestCard(request) {
         const card = document.createElement('div');
         card.className = 'bg-white rounded border border-gray-300 p-3 hover:shadow-sm transition-shadow';
@@ -118,14 +118,27 @@
         return card;
     }
 
-    function sanitizeRequestGeometry(geometry) {
+    // Convert WebMercator (EPSG:3857) coordinates to WGS84 lon/lat.
+    function webMercatorToWgs84(x, y) {
+        const R = 6378137.0;
+        const lng = (x / R) * (180 / Math.PI);
+        const lat = (2 * Math.atan(Math.exp(y / R)) - Math.PI / 2) * (180 / Math.PI);
+        return [lng, lat];
+    }
+
+    // Normalize request.geometry into a clean LineString in WGS84.
+    function normalizeRequestGeometry(geometry) {
         if (!geometry || !geometry.coordinates) {
             return null;
         }
 
         let coordinates = geometry.coordinates;
 
-        if (geometry.type === 'MultiLineString' && Array.isArray(coordinates) && coordinates.length) {
+        // For MultiLineString, use the first line as the representative geometry.
+        if (geometry.type === 'MultiLineString') {
+            if (!Array.isArray(coordinates) || !coordinates.length) {
+                return null;
+            }
             coordinates = coordinates[0] || [];
         }
 
@@ -140,15 +153,28 @@
                 return;
             }
 
-            const lng = parseFloat(coord[0]);
-            const lat = parseFloat(coord[1]);
+            let lng = Number(coord[0]);
+            let lat = Number(coord[1]);
 
             if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
                 return;
             }
 
-            if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-                return;
+            // If coordinates are clearly outside WGS84 bounds, assume they are
+            // WebMercator and convert them on the fly so MapLibre never sees
+            // invalid latitudes.
+            if (Math.abs(lng) > 180 || Math.abs(lat) > 90) {
+                const converted = webMercatorToWgs84(lng, lat);
+                lng = converted[0];
+                lat = converted[1];
+
+                if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+                    return;
+                }
+
+                if (lat < -90 || lat > 90) {
+                    return;
+                }
             }
 
             cleaned.push([lng, lat]);
@@ -164,7 +190,7 @@
         };
     }
 
-    // Load and display pending requests.
+    // Fetch all pending edit requests for the current manager.
     function loadPendingRequests() {
         fetch('/mapping/api/pending-requests/', {
             method: 'GET',
@@ -185,7 +211,7 @@
         .catch(function() {});
     }
 
-    // Display requests in the UI.
+    // Render the pending requests list in the side panel.
     function displayRequests() {
         const container = document.getElementById('managerRequestsContainer');
         if (!container) return;
@@ -215,7 +241,7 @@
         });
     }
 
-    // Update requests badge count.
+    // Update the small badge count shown on the toggle button.
     function updateRequestsBadge() {
         const badge = document.getElementById('requestsBadge');
         if (badge) {
@@ -228,7 +254,7 @@
         }
     }
 
-    // View edit request; zoom to line and show details.
+    // Load one specific edit request and hand it off to the map.
     function viewEditRequest(requestId) {
         fetch('/mapping/api/request/' + requestId + '/', {
             method: 'GET',
@@ -237,18 +263,6 @@
             }
         })
         .then(function(response) {
-            if (!response.ok) {
-                // Try to extract JSON error payload if available
-                return response.text().then(function(text) {
-                    try {
-                        const data = JSON.parse(text);
-                        const message = data && data.message ? data.message : 'Unexpected server response (' + response.status + ')';
-                        throw new Error(message);
-                    } catch (parseError) {
-                        throw new Error('Unexpected server response (' + response.status + ')');
-                    }
-                });
-            }
             return response.json();
         })
         .then(function(data) {
@@ -268,7 +282,7 @@
         });
     }
 
-    // Clean up request lines from map.
+    // Remove any previously drawn request features and markers from the map.
     function cleanupRequestLines() {
         if (typeof map === 'undefined' || !map) return;
         
@@ -291,7 +305,6 @@
                 } catch (e) {}
             });
             
-            // Clear markers
             if (window.requestMarkers) {
                 window.viewingRequestIds.forEach(function(featureId) {
                     if (window.requestMarkers[featureId]) {
@@ -307,7 +320,7 @@
         }
     }
 
-    // Show edit request on map.
+    // Zoom the map to the request geometry, draw it, and open the details UI.
     function showEditRequestOnMap(request) {
         if (typeof map === 'undefined' || !map) {
             alert('Map not initialized');
@@ -317,14 +330,13 @@
         cleanupRequestLines();
         removeApproveRejectButtons();
 
-        // Hide manager requests container
         const container = document.getElementById('managerRequestsContainer');
         if (container) {
             container.style.display = 'none';
         }
         
-        const sanitizedGeometry = sanitizeRequestGeometry(request.geometry);
-        if (!sanitizedGeometry || !sanitizedGeometry.coordinates || sanitizedGeometry.coordinates.length < 2) {
+        const normalizedGeometry = normalizeRequestGeometry(request.geometry);
+        if (!normalizedGeometry || !normalizedGeometry.coordinates || normalizedGeometry.coordinates.length < 2) {
             if (window.notify && window.notify.warning) {
                 window.notify.warning('This edit request has invalid geometry and cannot be shown on the map, but its details can still be reviewed.');
             } else {
@@ -338,11 +350,10 @@
             return;
         }
 
-        request.geometry = sanitizedGeometry;
+        const requestForMap = Object.assign({}, request, { geometry: normalizedGeometry });
 
-        const coordinates = sanitizedGeometry.coordinates;
+        const coordinates = normalizedGeometry.coordinates;
 
-        // Calculate bounds from sanitized coordinates
         let minLng = coordinates[0][0];
         let minLat = coordinates[0][1];
         let maxLng = coordinates[0][0];
@@ -356,19 +367,21 @@
         });
         
         const bounds = [[minLng, minLat], [maxLng, maxLat]];
+
         map.fitBounds(bounds, {
             padding: 100,
             duration: 1000
         });
         ensureEditModeEnabled(function() {
             setTimeout(function() {
-                drawRequestLineOnMap(request);
-                populateSidepanelWithRequestData(request);
+                drawRequestLineOnMap(requestForMap);
+                populateSidepanelWithRequestData(requestForMap);
                 showRequestDetailsSidepanel(request);
             }, 1100);
         });
     }
 
+    // Ensure the left edit side panel and toolbar are visible before populating.
     function ensureEditModeEnabled(callback) {
         const sidePanel = document.getElementById('editSidePanel');
         const mapContainer = document.getElementById('mapContainer');
@@ -403,6 +416,7 @@
         }, 400);
     }
 
+    // Draw the request line on the map as a MapLibre layer.
     function drawRequestLineOnMap(request) {
         if (typeof map === 'undefined' || !map) {
             return;
@@ -421,6 +435,7 @@
         window.viewingRequestIds.push(featureId);
     }
 
+    // Add the GeoJSON source and styled line layers for the current request.
     function renderRequestLineAsMapLibreLayer(featureId, request) {
         if (typeof map === 'undefined' || !map) return;
 
@@ -481,6 +496,7 @@
         } catch (error) {}
     }
 
+    // Fill the tags section of the side panel from request.tags_data.
     function populateTagsData(tagsData) {
         if (!Array.isArray(tagsData) || tagsData.length === 0) return;
         
@@ -496,6 +512,7 @@
         });
     }
 
+    // Create a single editable tag row (key/value) in the tags section.
     function createTagRow(container, labelElement, key, value) {
         const tagRow = document.createElement('div');
         tagRow.className = 'flex items-center gap-2';
@@ -570,6 +587,7 @@
         updateTagsCount(labelElement);
     }
 
+    // Update "Tags (N)" label based on the number of tag rows.
     function updateTagsCount(labelElement) {
         const tagsRowsContainer = document.getElementById('tags-rows-container');
         if (tagsRowsContainer && labelElement) {
@@ -579,6 +597,7 @@
         }
     }
 
+    // Fill the relations section of the side panel from request.relations_data.
     function populateRelationsData(relationsData) {
         if (!Array.isArray(relationsData) || relationsData.length === 0) return;
         
@@ -594,6 +613,7 @@
         });
     }
 
+    // Create a single editable relation row (parent + role).
     function createRelationRow(container, labelElement, parentRelation, role) {
         const relationRow = document.createElement('div');
         relationRow.className = 'space-y-2';
@@ -672,6 +692,7 @@
         updateRelationsCount(labelElement);
     }
 
+    // Update "Relations (N)" label based on the number of relation rows.
     function updateRelationsCount(labelElement) {
         const relationsRowsContainer = document.getElementById('relations-rows-container');
         if (relationsRowsContainer && labelElement) {
@@ -681,6 +702,7 @@
         }
     }
 
+    // Open the edit side panel and populate it with request metadata.
     function populateSidepanelWithRequestData(request) {
         const sidePanel = document.getElementById('editSidePanel');
         const editToolbar = document.getElementById('editToolbar');
@@ -768,6 +790,7 @@
         }, 200);
     }
 
+    // Fill the main fields section of the side panel from request.fields_data.
     function populateFieldsData(fieldsData) {
         const fieldsContainer = document.getElementById('fields-container');
         if (!fieldsContainer || !fieldsData) return;
@@ -856,6 +879,7 @@
         }, 200);
     }
 
+    // Add a multilingual-name block under the fields section.
     function createMultilingualNameField(fieldsContainer, language, name) {
         const multilingualSection = document.createElement('div');
         multilingualSection.className = 'bg-gray-700 rounded-lg p-3 space-y-2.5';
@@ -918,14 +942,15 @@
         }
     }
 
+    // Show the bottom-center review card (Approve / Reject) after map focus.
     function showRequestDetailsSidepanel(request) {
         setTimeout(function() {
             createApproveRejectButtons(request);
         }, 1000);
     }
 
+    // Create the Approve / Reject floating buttons for the active request.
     function createApproveRejectButtons(request) {
-        // Remove existing approve/reject buttons if any
         removeApproveRejectButtons();
 
         const mapContainer = document.getElementById('mapContainer') || document.querySelector('.mapboxgl-map');

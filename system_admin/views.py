@@ -23,15 +23,15 @@ def map_view(request):
 @login_required(login_url='/login/')
 def account_information_view(request):
     """Account Information view."""
-    # Only allow superusers (system admins) to access
+    # Only superusers (system admins) can access this view.
     if not request.user.is_superuser:
         logout(request)
         return redirect('auth:login')
 
-    # Get or create user profile
+    # Ensure a profile record exists for the current admin.
     profile, created = UserProfile.objects.get_or_create(user=request.user)
     
-    # Set account creation date/time if not already set (for existing system admins)
+    # Backfill account creation date/time for existing admins that predate this field.
     if not profile.account_creation_date:
         profile.set_account_creation_datetime()
     
@@ -82,7 +82,7 @@ def account_information_view(request):
 @login_required(login_url='/login/')
 def security_view(request):
     """Security view."""
-    # Only allow superusers (system admins) to access
+    # Only superusers (system admins) can access this view.
     if not request.user.is_superuser:
         logout(request)
         return redirect('auth:login')
@@ -125,18 +125,18 @@ def security_view(request):
 @login_required(login_url='/login/')
 def users_view(request):
     """Users view."""
-    # Only allow superusers (system admins) to access
+    # Only superusers (system admins) can access this view.
     if not request.user.is_superuser:
         logout(request)
         return redirect('auth:login')
     
     from django.utils import timezone
     
-    # Calculate statistics
+    # High-level user statistics.
     all_users_count = User.objects.count()
     active_users_count = User.objects.filter(is_active=True).count()
     
-    # Users created this month
+    # Count users created in the current calendar month.
     now = timezone.now()
     start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     users_this_month = User.objects.filter(date_joined__gte=start_of_month).count()
@@ -153,7 +153,7 @@ def users_view(request):
 @login_required(login_url='/login/')
 def add_user_view(request):
     """Add User view."""
-    # Only allow superusers (system admins) to access
+    # Only superusers (system admins) can create new users.
     if not request.user.is_superuser:
         logout(request)
         return redirect('auth:login')
@@ -198,14 +198,14 @@ def add_user_view(request):
                 errors.append('Invalid role selected.')
             
             if not errors:
-                # For managers, check if permissions are provided
+                # For managers, read the selected permission flags.
                 if role == 'manager':
                     can_access_dashboard = request.POST.get('can_access_dashboard') == 'on'
                     can_access_security = request.POST.get('can_access_security') == 'on'
                     can_access_account_information = request.POST.get('can_access_account_information') == 'on'
-                # For editors, check if permissions are provided
+                # For editors, read the selected permission flags.
                 elif role == 'editor':
-                    can_access_dashboard = False  # Editors don't have dashboard permission
+                    can_access_dashboard = False  # Editors never receive dashboard access.
                     can_access_security = request.POST.get('can_access_security') == 'on'
                     can_access_account_information = request.POST.get('can_access_account_information') == 'on'
                 else:
@@ -213,7 +213,7 @@ def add_user_view(request):
                     can_access_security = False
                     can_access_account_information = False
                 
-                # Create user
+                # Create the base Django user.
                 user = User.objects.create_user(
                     username=email,
                     email=email,
@@ -223,7 +223,7 @@ def add_user_view(request):
                     is_active=True
                 )
                 
-                # Create user profile with role, permissions, and account creation date/time
+                # Attach a profile capturing role, permissions, and creation timestamp.
                 profile = UserProfile.objects.create(
                     user=user,
                     role=role,
@@ -244,7 +244,7 @@ def add_user_view(request):
 @login_required(login_url='/login/')
 def edit_user_view(request):
     """Edit User view."""
-    # Only allow superusers (system admins) to access
+    # Only superusers (system admins) can edit user accounts.
     if not request.user.is_superuser:
         logout(request)
         return redirect('auth:login')
@@ -262,12 +262,12 @@ def edit_user_view(request):
             else:
                 try:
                     user_to_edit = User.objects.get(username=email)
-                    # Don't allow editing system admins
+                    # System Admin accounts are immutable via this view.
                     if user_to_edit.is_superuser:
                         context['search_errors'] = ['System Admin accounts cannot be edited through this page.']
                         user_to_edit = None
                     else:
-                        # Get or create profile
+                        # Ensure the user has an associated profile.
                         profile, created = UserProfile.objects.get_or_create(user=user_to_edit)
                         context['user_to_edit'] = user_to_edit
                         context['user_profile'] = profile
@@ -275,7 +275,7 @@ def edit_user_view(request):
                     context['search_errors'] = ['User with this email does not exist.']
         
         elif intent == 'update_user':
-            # Get user from form
+            # Look up the selected user by id.
             user_id = request.POST.get('user_id')
             if not user_id:
                 context['update_errors'] = ['User ID is required.']
@@ -301,7 +301,7 @@ def edit_user_view(request):
                             except ValidationError:
                                 errors.append('Please provide a valid email.')
                             else:
-                                # Check if email is already taken by another user
+                                # Prevent duplicate email addresses across users.
                                 if User.objects.filter(username=email).exclude(pk=user_to_edit.pk).exists():
                                     errors.append('A user with this email already exists.')
                         
@@ -309,7 +309,7 @@ def edit_user_view(request):
                             errors.append('Invalid account status selected.')
                         
                         if not errors:
-                            # Update user
+                            # Persist basic user changes.
                             user_to_edit.first_name = full_name.split()[0] if full_name.split() else ''
                             user_to_edit.last_name = ' '.join(full_name.split()[1:]) if len(full_name.split()) > 1 else ''
                             user_to_edit.email = email
@@ -336,7 +336,7 @@ def edit_user_view(request):
 @login_required(login_url='/login/')
 def delete_user_view(request):
     """Delete User view."""
-    # Only allow superusers (system admins) to access
+    # Only superusers (system admins) can delete user accounts.
     if not request.user.is_superuser:
         logout(request)
         return redirect('auth:login')
@@ -354,12 +354,12 @@ def delete_user_view(request):
             else:
                 try:
                     user_to_delete = User.objects.get(username=email)
-                    # Don't allow deleting system admins
+                    # System Admin accounts cannot be deleted from this screen.
                     if user_to_delete.is_superuser:
                         context['search_errors'] = ['System Admin accounts cannot be deleted through this page.']
                         user_to_delete = None
                     else:
-                        # Get profile if exists
+                        # Include profile details when present.
                         if hasattr(user_to_delete, 'profile'):
                             context['user_profile'] = user_to_delete.profile
                         context['user_to_delete'] = user_to_delete
@@ -374,11 +374,11 @@ def delete_user_view(request):
                     if user_to_delete.is_superuser:
                         context['delete_errors'] = ['System Admin accounts cannot be deleted.']
                     else:
-                        # Store user info for success message
+                        # Capture details for the success notification.
                         user_full_name = user_to_delete.get_full_name() or user_to_delete.username
                         user_email = user_to_delete.email
                         
-                        # Delete user (this will cascade delete profile due to CASCADE relationship)
+                        # Delete the user; related profile is removed via CASCADE.
                         user_to_delete.delete()
                         
                         context['user_deleted'] = True
@@ -392,18 +392,15 @@ def delete_user_view(request):
 @login_required(login_url='/login/')
 def manage_passwords_view(request):
     """Manage Passwords view."""
-    # Only allow superusers (system admins) to access
+    # Only superusers (system admins) can access password statistics.
     if not request.user.is_superuser:
         logout(request)
         return redirect('auth:login')
     
-    # Calculate statistics
-    # Pending forgot password requests (placeholder - will be implemented when forgot password model is created)
-    # For now, we'll use 0 as a placeholder
+    # Placeholder statistics until password-management models are introduced.
     pending_requests = 0
     
-    # Password changes this month (placeholder - will track when password change model is created)
-    # For now, we'll use 0 as a placeholder
+    # Track password changes per month once the backing model exists.
     password_changes_this_month = 0
     
     context = {
@@ -484,7 +481,7 @@ def remove_profile_image_view(request):
 @login_required(login_url='/login/')
 def all_users_view(request):
     """All Users view."""
-    # Only allow superusers (system admins) to access
+    # Only superusers (system admins) can access this overview.
     if not request.user.is_superuser:
         logout(request)
         return redirect('auth:login')
@@ -495,7 +492,7 @@ def all_users_view(request):
 @login_required(login_url='/login/')
 def view_user_view(request, user_id):
     """View User detail view."""
-    # Only allow superusers (system admins) to access
+    # Only superusers (system admins) can view detailed user information.
     if not request.user.is_superuser:
         logout(request)
         return redirect('auth:login')
@@ -658,7 +655,7 @@ def user_detail_api_view(request, user_id):
 @login_required(login_url='/login/')
 def permissions_view(request):
     """Permissions management view."""
-    # Only allow superusers (system admins) to access
+    # Only superusers (system admins) can manage permissions.
     if not request.user.is_superuser:
         logout(request)
         return redirect('auth:login')
@@ -669,7 +666,7 @@ def permissions_view(request):
 @login_required(login_url='/login/')
 def grant_permission_view(request, user_id):
     """Grant permissions view for users without permissions."""
-    # Only allow superusers (system admins) to access
+    # Only superusers (system admins) can grant permissions.
     if not request.user.is_superuser:
         logout(request)
         return redirect('auth:login')
@@ -678,14 +675,14 @@ def grant_permission_view(request, user_id):
         user = User.objects.select_related('profile').get(pk=user_id)
         profile, created = UserProfile.objects.get_or_create(user=user)
         
-        # Get role
+        # Resolve the user’s effective role.
         role = None
         if user.is_superuser:
             role = 'system_admin'
         elif profile.role:
             role = profile.role
         
-        # Only allow granting permissions for managers and editors
+        # Only managers and editors are eligible for explicit permissions.
         if role not in ['manager', 'editor']:
             return redirect('system_admin:permissions')
         
@@ -699,7 +696,7 @@ def grant_permission_view(request, user_id):
         if request.method == 'POST':
             intent = request.POST.get('intent')
             if intent == 'grant_permissions':
-                # Update permissions based on role
+                # Update permission flags according to the current role.
                 if role == 'manager':
                     profile.can_access_dashboard = request.POST.get('can_access_dashboard') == 'on'
                     profile.can_access_security = request.POST.get('can_access_security') == 'on'
@@ -721,7 +718,7 @@ def grant_permission_view(request, user_id):
 @login_required(login_url='/login/')
 def check_permission_view(request, user_id):
     """Check/Edit permissions view for users with existing permissions."""
-    # Only allow superusers (system admins) to access
+    # Only superusers (system admins) can review or edit permissions.
     if not request.user.is_superuser:
         logout(request)
         return redirect('auth:login')
@@ -730,14 +727,14 @@ def check_permission_view(request, user_id):
         user = User.objects.select_related('profile').get(pk=user_id)
         profile, created = UserProfile.objects.get_or_create(user=user)
         
-        # Get role
+        # Resolve the user’s effective role.
         role = None
         if user.is_superuser:
             role = 'system_admin'
         elif profile.role:
             role = profile.role
         
-        # Only allow checking permissions for managers and editors
+        # Only managers and editors have configurable permissions here.
         if role not in ['manager', 'editor']:
             return redirect('system_admin:permissions')
         
@@ -751,7 +748,7 @@ def check_permission_view(request, user_id):
         if request.method == 'POST':
             intent = request.POST.get('intent')
             if intent == 'update_permissions':
-                # Update permissions based on role
+            # Update permission flags based on role.
                 if role == 'manager':
                     profile.can_access_dashboard = request.POST.get('can_access_dashboard') == 'on'
                     profile.can_access_security = request.POST.get('can_access_security') == 'on'

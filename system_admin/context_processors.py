@@ -2,17 +2,17 @@ from .models import UserProfile
 
 
 def user_profile(request):
-    """Context processor to ensure user profile exists for system admin and managers."""
+    """Ensure a user profile is available in templates for admins, managers, and editors."""
     if request.user.is_authenticated:
-        # For system admins
+        # System admins always use a profile record.
         if request.user.is_superuser:
             profile, created = UserProfile.objects.get_or_create(user=request.user)
             return {'user_profile': profile}
-        # For managers and editors
+        # Managers and editors use their attached profile when present.
         elif hasattr(request.user, 'profile'):
             return {'user_profile': request.user.profile}
         else:
-            # Try to get or create profile for managers/editors
+            # Fallback: create a profile for managers/editors when missing.
             try:
                 profile, created = UserProfile.objects.get_or_create(user=request.user)
                 return {'user_profile': profile}

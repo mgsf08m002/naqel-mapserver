@@ -6,7 +6,7 @@ import json
 
 
 class LineEditRequest(models.Model):
-    """Model to store line edit requests from Editors and System Admins."""
+    """Stores line edit requests from editors and system admins."""
     
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -14,7 +14,7 @@ class LineEditRequest(models.Model):
         ('rejected', 'Rejected'),
     ]
     
-    # Request information
+    # Request metadata
     requester = models.ForeignKey(User, on_delete=models.CASCADE, related_name='line_edit_requests')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     edit_type = models.CharField(max_length=50, default='LINE EDIT')
@@ -35,16 +35,13 @@ class LineEditRequest(models.Model):
     # Relations data (JSON)
     relations_data = models.JSONField(default=list, blank=True, help_text="Relations section data")
 
-    # Road closure flag and source metadata
-    # 0 = open (default), 1 = closed
+    # Road closure flag and source metadata: 0 = open (default), 1 = closed.
     road_closure = models.IntegerField(
         default=0,
         help_text="Road closure flag: 0 = open, 1 = closed",
     )
 
-    # When an edit is associated with a RiyadhRoad feature, these fields capture
-    # the linkage so that approval flows can propagate closure status back to
-    # the base network where appropriate.
+    # Link to a RiyadhRoad feature so approval flows can update the base network when needed.
     is_riyadh_road = models.BooleanField(
         default=False,
         help_text="True when this edit request targets a RiyadhRoad feature",
@@ -54,7 +51,7 @@ class LineEditRequest(models.Model):
         blank=True,
         help_text="Primary key of the RiyadhRoad feature when applicable",
     )
-    # Parent approved line reference (for tracking edits to existing approved lines)
+    # Parent approved line reference for tracking edits to existing approved lines.
     parent_approved_line_id = models.IntegerField(blank=True, null=True, help_text='ID of the approved line being edited')
     
     # Timestamps
