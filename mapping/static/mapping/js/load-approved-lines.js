@@ -422,7 +422,6 @@
                 editScreen.setAttribute('data-line-id', lineData.id.toString());
                 setTimeout(function() {
                     const featureLabel = lineData.current_feature_label || lineData.feature_type || 'Line';
-                    
                     if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateCurrentFeatureLabel === 'function') {
                         window.lineDrawingHandler.updateCurrentFeatureLabel(featureLabel);
                     }

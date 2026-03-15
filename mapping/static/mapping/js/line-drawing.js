@@ -207,6 +207,7 @@
         } catch (e) {
             // Non-critical: the catalog is still available via window.symbologyCatalog.
         }
+
     }
 
     function ensureSymbologyCatalogRequested() {
@@ -1418,6 +1419,15 @@
         }
 
         updateFeatureTypeVisualization();
+
+        // Ensure all Feature Type label displays (selector + header) stay in sync.
+        if (typeof updateFeatureTypeLabelDisplay === 'function') {
+            try {
+                updateFeatureTypeLabelDisplay();
+            } catch (e) {
+                // Non-critical UI sync failure.
+            }
+        }
     }
 
     function getCurrentFeatureLabel() {
@@ -1729,7 +1739,7 @@
         const lineData = options.lineData || null;
         const isApprovedLine = options.isApprovedLine || false;
         const approvedLineId = options.approvedLineId || null;
-        
+
         const sidePanel = document.getElementById('editSidePanel');
         if (!sidePanel) return;
         
@@ -1913,6 +1923,19 @@
 
         editScreen.appendChild(content);
         flexContainer.appendChild(editScreen);
+
+        // Sync Feature Type label immediately so the sidebar never shows empty.
+        (function syncFeatureTypeLabelNow() {
+            const label = getCurrentFeatureLabel();
+            const sel = document.getElementById('selectedFeatureName');
+            const viz = document.getElementById('lineVisualizationFeatureName');
+            if (sel) {
+                sel.textContent = label;
+            }
+            if (viz) {
+                viz.textContent = label;
+            }
+        })();
 
         setTimeout(function() {
             updateFeatureTypeLabelDisplay();
@@ -2139,11 +2162,15 @@
     // Update Feature Type visualization from request geometry (for manager viewing requests).
     function updateFeatureTypeVisualizationFromGeometry(geometry) {
         const container = document.getElementById('featureTypeVisualization');
-        if (!container || !geometry || geometry.type !== 'LineString') return;
+        if (!container || !geometry) return;
 
-        const coordinates = geometry.coordinates;
+        // Normalize any GeoJSON geometry (LineString, MultiLineString, GeometryCollection, etc.)
+        // to a simple LineString so Riyadh roads and other multi-part geometries still render.
+        const normalized = normalizeToLineStringGeometry(geometry);
+        const coordinates = normalized && normalized.coordinates ? normalized.coordinates : null;
+
         if (!coordinates || coordinates.length < 2) {
-            if (container) container.innerHTML = '';
+            container.innerHTML = '';
             return;
         }
 
@@ -3961,7 +3988,6 @@
             item.addEventListener("click", function() {
                 const selectedValue = option.label || option;
                 if (!selectedValue) return;
-
                 currentFeatureLabel = selectedValue;
                 updateCurrentFeatureLabel(selectedValue);
 
@@ -4044,16 +4070,45 @@
 
     // Update Riyadh road visualization on the map when feature type changes.
     function updateRiyadhRoadVisualization(roadId, newFeatureLabel, geometry) {
-        // For Riyadh roads we now use a dedicated vector highlight layer
-        // managed in map.js (setRiyadhRoadSelectedId). The goal here is only
-        // to keep the selection in sync; the base tileserver styling already
-        // reflects the underlying classification.
+        // Keep the highlight selection in sync with the chosen road id.
         if (typeof window.setRiyadhRoadSelectedId === 'function') {
             if (!geometry) {
                 window.setRiyadhRoadSelectedId(null);
             } else {
                 window.setRiyadhRoadSelectedId(roadId);
             }
+        }
+
+        // Also restyle the dedicated highlight layer so that, during editing,
+        // the visible symbology reflects the *edited* feature type rather than
+        // the original fclass from the tileserver.
+        try {
+            if (typeof map !== 'undefined' && map && geometry) {
+                const layerId = 'riyadh-roads-selected-layer';
+                if (map.getLayer(layerId)) {
+                    // Respect road-closure override when applicable.
+                    let style = null;
+                    const isClosed = isRoadClosedForCurrentContext();
+                    if (isClosed) {
+                        style = getVisualizationStyle('Road Closure') || getVisualizationStyle(newFeatureLabel);
+                    } else {
+                        style = getVisualizationStyle(newFeatureLabel);
+                    }
+
+                    if (style) {
+                        const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray))
+                            ? style.lineDasharray
+                            : [1, 0];
+
+                        map.setPaintProperty(layerId, 'line-color', style.lineColor);
+                        map.setPaintProperty(layerId, 'line-width', style.lineWidth + 2);
+                        map.setPaintProperty(layerId, 'line-opacity', 1);
+                        map.setPaintProperty(layerId, 'line-dasharray', lineDasharray);
+                    }
+                }
+            }
+        } catch (e) {
+            // Non-critical styling failure; base tiles still show underlying road.
         }
     }
 
