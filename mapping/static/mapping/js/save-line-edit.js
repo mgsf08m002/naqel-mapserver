@@ -11,14 +11,6 @@
             return null;
         }
 
-        if (editData.approved_line_id != null && window.approvedLinesOriginalState) {
-            const key = String(editData.approved_line_id);
-            const state = window.approvedLinesOriginalState[key] || window.approvedLinesOriginalState[editData.approved_line_id];
-            if (state && state.feature_label) {
-                return state.feature_label;
-            }
-        }
-
         if (editData.is_riyadh_road && editData.riyadh_road_id != null && window.riyadhRoadOriginalState) {
             const key = String(editData.riyadh_road_id);
             const state = window.riyadhRoadOriginalState[key] || window.riyadhRoadOriginalState[editData.riyadh_road_id];
@@ -55,8 +47,6 @@
             }
 
             const editScreen = document.getElementById('editFeatureScreen');
-            const isApprovedLineEdit = editScreen && editScreen.getAttribute('data-is-approved-line') === 'true';
-            const approvedLineId = editScreen ? editScreen.getAttribute('data-approved-line-id') : null;
 
             const isRiyadhRoad = !!editData.is_riyadh_road;
             if (isRiyadhRoad && window.approvedLineBeingEdited && window.approvedLineBeingEdited.geometry) {
@@ -65,24 +55,6 @@
                     window.updateRiyadhRoadVisualization(roadId, originalLabel, window.approvedLineBeingEdited.geometry);
                 } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateRiyadhRoadVisualization === 'function') {
                     window.lineDrawingHandler.updateRiyadhRoadVisualization(roadId, originalLabel, window.approvedLineBeingEdited.geometry);
-                }
-            } else if (isApprovedLineEdit && approvedLineId != null) {
-                const idInt = parseInt(approvedLineId, 10);
-                if (!Number.isNaN(idInt)) {
-                    if (typeof window.updateApprovedLineVisualization === 'function') {
-                        window.updateApprovedLineVisualization(idInt, originalLabel);
-                    } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateApprovedLineVisualization === 'function') {
-                        window.lineDrawingHandler.updateApprovedLineVisualization(idInt, originalLabel);
-                    }
-
-                    if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id === idInt) {
-                        window.approvedLineBeingEdited.current_feature_label = originalLabel;
-                        window.approvedLineBeingEdited.feature_type = originalLabel;
-                    }
-                    if (window.approvedLinesBeingEdited && window.approvedLinesBeingEdited[idInt]) {
-                        window.approvedLinesBeingEdited[idInt].current_feature_label = originalLabel;
-                        window.approvedLinesBeingEdited[idInt].feature_type = originalLabel;
-                    }
                 }
             }
             if (typeof window.updateFeatureTypeVisualization === 'function') {
@@ -273,40 +245,12 @@
     }
 
     function collectLineEditData() {
-        const editScreen = document.getElementById('editFeatureScreen');
-        const isApprovedLineEdit = editScreen && editScreen.getAttribute('data-is-approved-line') === 'true';
-        const approvedLineId = editScreen ? editScreen.getAttribute('data-approved-line-id') : null;
-        
         let geometry = null;
         let featureLabelToUse = 'Line';
         
         const isRiyadhRoad = window.selectedRiyadhRoad || (window.approvedLineBeingEdited && window.approvedLineBeingEdited.is_riyadh_road);
         
-        if (isApprovedLineEdit && approvedLineId && !isRiyadhRoad) {
-            const storedGeometry = editScreen.getAttribute('data-approved-line-geometry');
-            if (storedGeometry) {
-                try {
-                    geometry = JSON.parse(storedGeometry);
-                } catch (e) {}
-            }
-            
-            if (!geometry && window.approvedLinesData) {
-                const approvedLineData = window.approvedLinesData['approved-line-layer-' + approvedLineId];
-                if (approvedLineData && approvedLineData.geometry) {
-                    geometry = approvedLineData.geometry;
-                }
-            }
-            
-            if (typeof window.getCurrentFeatureLabel === 'function') {
-                featureLabelToUse = window.getCurrentFeatureLabel();
-            } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getCurrentFeatureLabel === 'function') {
-                featureLabelToUse = window.lineDrawingHandler.getCurrentFeatureLabel();
-            } else if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.current_feature_label) {
-                featureLabelToUse = window.approvedLineBeingEdited.current_feature_label;
-            } else if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.feature_type) {
-                featureLabelToUse = window.approvedLineBeingEdited.feature_type;
-            }
-        } else if (isRiyadhRoad || (window.approvedLineBeingEdited && window.approvedLineBeingEdited.geometry)) {
+        if (isRiyadhRoad || (window.approvedLineBeingEdited && window.approvedLineBeingEdited.geometry)) {
             const riyadhRoadData = window.selectedRiyadhRoad || window.approvedLineBeingEdited;
             if (riyadhRoadData && riyadhRoadData.geometry) {
                 geometry = riyadhRoadData.geometry;
@@ -348,8 +292,6 @@
             return null;
         }
 
-        const approvedLineIdToUse = (isApprovedLineEdit && approvedLineId && !isRiyadhRoad) ? approvedLineId : null;
-
         let isRoadClosed = false;
         if (typeof window.getCurrentRoadClosure === 'function') {
             try {
@@ -385,7 +327,6 @@
             fields_data: collectFieldsData(),
             tags_data: collectTagsData(),
             relations_data: collectRelationsData(),
-            approved_line_id: approvedLineIdToUse,
             road_closure: isRoadClosed ? 1 : 0,
             is_riyadh_road: isRiyadhRoadFlag,
             riyadh_road_id: riyadhRoadId,
@@ -408,12 +349,6 @@
         if (editData.is_riyadh_road && editData.riyadh_road_id != null) {
             targetType = 'riyadh_road';
             targetId = editData.riyadh_road_id;
-        } else if (editData.approved_line_id) {
-            targetType = 'approved_line';
-            targetId = editData.approved_line_id;
-        } else if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id != null) {
-            targetType = 'approved_line';
-            targetId = window.approvedLineBeingEdited.id;
         }
 
         if (!targetType || targetId == null) {
@@ -444,12 +379,6 @@
             if (!data || !data.success) {
                 return;
             }
-
-            try {
-                if (data.target_type === 'approved_line' && typeof window.reloadApprovedLines === 'function') {
-                    window.reloadApprovedLines();
-                }
-            } catch (e) {}
         })
         .catch(function() {});
     }
@@ -567,6 +496,11 @@
                 });
                 
                 if (isAutoApproved) {
+                    try {
+                        if (window.sessionStorage) {
+                            window.sessionStorage.setItem('riyadh_tiles_bust', '1');
+                        }
+                    } catch (e) {}
                     setTimeout(function() {
                         window.location.reload();
                     }, 1500);

@@ -187,6 +187,35 @@
             return null;
         }
 
+        function bboxCenter(coords) {
+            let minLng = coords[0][0];
+            let minLat = coords[0][1];
+            let maxLng = coords[0][0];
+            let maxLat = coords[0][1];
+
+            coords.forEach(function (pt) {
+                minLng = Math.min(minLng, pt[0]);
+                minLat = Math.min(minLat, pt[1]);
+                maxLng = Math.max(maxLng, pt[0]);
+                maxLat = Math.max(maxLat, pt[1]);
+            });
+
+            return { lng: (minLng + maxLng) / 2, lat: (minLat + maxLat) / 2 };
+        }
+
+        function inRiyadhViewport(lng, lat) {
+            // Keep in sync with the app’s configured map bounds (Riyadh area).
+            return lng >= 45.475 && lng <= 48.733 && lat >= 23.981 && lat <= 25.664;
+        }
+
+        const center = bboxCenter(cleaned);
+        if (!inRiyadhViewport(center.lng, center.lat) && inRiyadhViewport(center.lat, center.lng)) {
+            for (let i = 0; i < cleaned.length; i++) {
+                const pt = cleaned[i];
+                cleaned[i] = [pt[1], pt[0]];
+            }
+        }
+
         return {
             type: 'LineString',
             coordinates: cleaned
@@ -1035,6 +1064,11 @@
                 });
                 displayRequests();
                 updateRequestsBadge();
+                try {
+                    if (window.sessionStorage) {
+                        window.sessionStorage.setItem('riyadh_tiles_bust', '1');
+                    }
+                } catch (e) {}
                 window.location.reload();
             } else {
                 alert('Error: ' + data.message);

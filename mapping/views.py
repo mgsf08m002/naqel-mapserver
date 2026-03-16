@@ -89,10 +89,7 @@ def _get_riyadh_road_geometry_wgs84(road_id):
         try:
             road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(road_id))
         except Exception:
-            try:
-                road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(road_id))
-            except Exception:
-                road = RiyadhRoad.objects.get(gid=int(road_id))
+            road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(road_id))
 
         geom = getattr(road, "geom", None)
         if not geom:
@@ -193,9 +190,6 @@ def save_line_edit_request(request):
             fields_data=data.get("fields_data", {}),
             tags_data=data.get("tags_data", []),
             relations_data=data.get("relations_data", []),
-            parent_approved_line_id=int(data.get("approved_line_id"))
-            if data.get("approved_line_id")
-            else None,
             road_closure=road_closure,
             is_riyadh_road=is_riyadh_road,
             riyadh_road_id=riyadh_road_id_int,
@@ -383,47 +377,29 @@ def _get_user_is_manager(user):
 
 
 def _apply_delete_to_base_network(edit_request):
-    """Apply a delete request to the underlying dataset (hard delete)."""
+    """Apply a delete request to the remote base network (hard delete)."""
     if not edit_request:
         return
 
     if (edit_request.edit_type or "").upper() != "DELETE":
         return
 
-    if edit_request.is_riyadh_road:
-        if edit_request.riyadh_road_id is None:
-            return
-        try:
-            road = RiyadhRoad.objects.using("riyadh_roads").get(
-                id=float(edit_request.riyadh_road_id)
-            )
-            road.delete(using="riyadh_roads")
-        except RiyadhRoad.DoesNotExist:
-            return
-        except Exception:
-            return
+    if not edit_request.is_riyadh_road or edit_request.riyadh_road_id is None:
+        raise ValueError("Delete requests must target a Riyadh road id.")
 
-    else:
-        if not edit_request.parent_approved_line_id:
-            return
-        try:
-            target = LineEditRequest.objects.get(
-                pk=int(edit_request.parent_approved_line_id),
-                status="approved",
-                is_riyadh_road=False,
-            )
-            target.delete()
-        except LineEditRequest.DoesNotExist:
-            return
-        except Exception:
-            return
+    identifier = edit_request.riyadh_road_id
+    try:
+        road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(identifier))
+    except RiyadhRoad.DoesNotExist:
+        road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(identifier))
+    road.delete(using="riyadh_roads")
 
 
 @login_required
 @require_http_methods(["POST"])
 @csrf_exempt
 def create_delete_request(request):
-    """Create a delete request for a RiyadhRoad or an approved manual line."""
+    """Create a delete request for a RiyadhRoad (remote base network)."""
     try:
         data = json.loads(request.body.decode("utf-8"))
     except json.JSONDecodeError:
@@ -438,11 +414,11 @@ def create_delete_request(request):
     target_type = data.get("target_type")
     target_id = data.get("target_id")
 
-    if target_type not in ("riyadh_road", "approved_line"):
+    if target_type != "riyadh_road":
         return JsonResponse(
             {
                 "success": False,
-                "message": "Invalid target_type. Use 'riyadh_road' or 'approved_line'.",
+                "message": "Invalid target_type. Use 'riyadh_road'.",
             },
             status=400,
         )
@@ -463,7 +439,6 @@ def create_delete_request(request):
     # Resolve target and capture a geometry snapshot for review.
     is_riyadh_road = False
     riyadh_road_id_int = None
-    approved_line_id_int = None
     geometry = None
     current_feature_label = None
     feature_type = None
@@ -472,39 +447,22 @@ def create_delete_request(request):
     relations_data = []
 
     try:
-        if target_type == "riyadh_road":
-            is_riyadh_road = True
-            riyadh_road_id_int = target_id_int
+        is_riyadh_road = True
+        riyadh_road_id_int = target_id_int
 
-            try:
-                road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(target_id_int))
-            except Exception:
-                road = get_object_or_404(RiyadhRoad, id=float(target_id_int))
+        try:
+            road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(target_id_int))
+        except RiyadhRoad.DoesNotExist:
+            road = get_object_or_404(RiyadhRoad.objects.using("riyadh_roads"), gid=int(target_id_int))
+        geometry = _get_riyadh_road_geometry_wgs84(target_id_int)
+        feature_label = _derive_feature_label_from_riyadh_road(road)
+        current_feature_label = feature_label
+        feature_type = feature_label
 
-            geometry = _get_riyadh_road_geometry_wgs84(target_id_int)
-            feature_label = _derive_feature_label_from_riyadh_road(road)
-            current_feature_label = feature_label
-            feature_type = feature_label
-
-            # Optional client snapshots, used only for display convenience.
-            fields_data = data.get("fields_data") or {}
-            tags_data = data.get("tags_data") or []
-            relations_data = data.get("relations_data") or []
-
-        else:
-            approved_line_id_int = target_id_int
-            approved_line = get_object_or_404(
-                LineEditRequest,
-                pk=approved_line_id_int,
-                status="approved",
-                is_riyadh_road=False,
-            )
-            geometry = _ensure_wgs84_geometry(approved_line.geometry, source_srid=3857)
-            current_feature_label = approved_line.current_feature_label or "Line"
-            feature_type = approved_line.feature_type or ""
-            fields_data = approved_line.fields_data or {}
-            tags_data = approved_line.tags_data or []
-            relations_data = approved_line.relations_data or []
+        # Optional client snapshots, used only for display convenience.
+        fields_data = data.get("fields_data") or {}
+        tags_data = data.get("tags_data") or []
+        relations_data = data.get("relations_data") or []
 
     except Http404:
         return JsonResponse(
@@ -536,7 +494,6 @@ def create_delete_request(request):
         relations_data=relations_data,
         is_riyadh_road=is_riyadh_road,
         riyadh_road_id=riyadh_road_id_int,
-        parent_approved_line_id=approved_line_id_int,
     )
 
     auto_approved = False
@@ -545,8 +502,12 @@ def create_delete_request(request):
         auto_approved = True
         try:
             _apply_delete_to_base_network(delete_request)
-        except Exception:
-            pass
+        finally:
+            # Requirement: no traces in local DB once approved & applied.
+            try:
+                delete_request.delete()
+            except Exception:
+                pass
 
     return JsonResponse(
         {
@@ -577,11 +538,11 @@ def set_road_closure(request):
     target_id = data.get("target_id")
     raw_closure = data.get("road_closure", 0)
 
-    if target_type not in ("approved_line", "riyadh_road"):
+    if target_type != "riyadh_road":
         return JsonResponse(
             {
                 "success": False,
-                "message": "Invalid target_type. Use 'approved_line'.",
+                "message": "Invalid target_type. Use 'riyadh_road'.",
             },
             status=400,
         )
@@ -605,18 +566,11 @@ def set_road_closure(request):
     road_closure = 1 if road_closure == 1 else 0
 
     try:
-        if target_type == "riyadh_road":
-            road = get_object_or_404(
-                RiyadhRoad.objects.using("riyadh_roads"), id=float(target_id_int)
-            )
-            road.road_closure = road_closure
-            road.save(using="riyadh_roads", update_fields=["road_closure"])
-        else:
-            line_request = get_object_or_404(
-                LineEditRequest, pk=target_id_int, status="approved"
-            )
-            line_request.road_closure = road_closure
-            line_request.save(update_fields=["road_closure"])
+        road = get_object_or_404(
+            RiyadhRoad.objects.using("riyadh_roads"), id=float(target_id_int)
+        )
+        road.road_closure = road_closure
+        road.save(using="riyadh_roads", update_fields=["road_closure"])
 
         return JsonResponse(
             {
@@ -782,26 +736,17 @@ def approve_edit_request(request, request_id):
         remote_road_id = None
 
         if (edit_request.edit_type or "").upper() == "DELETE":
-            try:
-                _apply_delete_to_base_network(edit_request)
-            except Exception:
-                pass
+            _apply_delete_to_base_network(edit_request)
         else:
-            try:
-                if edit_request.is_riyadh_road:
-                    _apply_riyadh_edit_to_base_network(edit_request)
-                    remote_road_id = edit_request.riyadh_road_id
-                else:
-                    # Approved manual line: migrate to remote base network and remove local trace.
-                    remote_road_id = _apply_manual_approval_to_remote_network(edit_request)
-            except Exception:
-                pass
+            if edit_request.is_riyadh_road:
+                _apply_riyadh_edit_to_base_network(edit_request)
+                remote_road_id = edit_request.riyadh_road_id
+            else:
+                # Approved manual line: migrate to remote base network and remove local trace.
+                remote_road_id = _apply_manual_approval_to_remote_network(edit_request)
 
         # Requirement: no traces in local DB once approved & applied.
-        try:
-            edit_request.delete()
-        except Exception:
-            pass
+        edit_request.delete()
 
         return JsonResponse(
             {
@@ -853,8 +798,7 @@ def reject_edit_request(request, request_id):
 
 
 def get_approved_lines(request):
-    """Deprecated endpoint: approved roads are served via the remote base network tiles."""
-    return JsonResponse({"success": True, "lines": []})
+    raise Http404
 
 
 
@@ -883,10 +827,7 @@ def get_riyadh_road_details(request, road_id):
         try:
             road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(road_id))
         except Exception:
-            try:
-                road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(road_id))
-            except Exception:
-                road = get_object_or_404(RiyadhRoad, gid=int(road_id))
+            road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(road_id))
     except Http404:
         return JsonResponse(
             {

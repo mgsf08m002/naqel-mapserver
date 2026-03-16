@@ -26,7 +26,22 @@ function getRiyadhRoadsTileUrl() {
     }
 
     const trimmed = value.trim();
-    return trimmed.length ? trimmed : null;
+    if (!trimmed.length) {
+        return null;
+    }
+
+    // Bust cached vector tiles once after an approve/delete so the user sees the
+    // updated base network immediately after reload.
+    try {
+        const shouldBust = window.sessionStorage && window.sessionStorage.getItem('riyadh_tiles_bust') === '1';
+        if (shouldBust) {
+            window.sessionStorage.removeItem('riyadh_tiles_bust');
+            const sep = trimmed.indexOf('?') >= 0 ? '&' : '?';
+            return `${trimmed}${sep}v=${Date.now()}`;
+        }
+    } catch (e) {}
+
+    return trimmed;
 }
 
 function getIsAuthenticated() {
@@ -568,15 +583,9 @@ map.on('load', () => {
             } else if (!map.hasImage('road-closure')) {
                 map.addImage('road-closure', image);
             }
-
-            if (typeof window.reloadApprovedLines === 'function') {
-                try { window.reloadApprovedLines(); } catch (e) {}
-            }
         });
     } else {
-        if (typeof window.reloadApprovedLines === 'function') {
-            try { window.reloadApprovedLines(); } catch (e) {}
-        }
+        // No-op: approved roads are served via the Riyadh road tiles.
     }
 });
 

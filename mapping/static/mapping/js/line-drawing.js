@@ -59,65 +59,12 @@
             }
         }
 
-        const approved = window.approvedLineBeingEdited || null;
-        if (approved && approved.id != null && approved.is_riyadh_road === false) {
-            return { target_type: 'approved_line', target_id: approved.id, snapshot: approved };
-        }
-
-        // Fallback: derive approved-line context from the current edit screen when globals are missing.
-        const editScreen = document.getElementById('editFeatureScreen');
-        if (editScreen) {
-            const approvedLineIdAttr = editScreen.getAttribute('data-approved-line-id');
-            const isApprovedLineAttr = editScreen.getAttribute('data-is-approved-line');
-            const isApprovedLine = isApprovedLineAttr === 'true';
-            if (isApprovedLine && approvedLineIdAttr) {
-                const idInt = parseInt(approvedLineIdAttr, 10);
-                if (!Number.isNaN(idInt)) {
-                    let snapshot = null;
-                    const lineDataAttr = editScreen.getAttribute('data-line-data');
-                    if (lineDataAttr) {
-                        try {
-                            snapshot = JSON.parse(lineDataAttr);
-                        } catch (e) {
-                            snapshot = null;
-                        }
-                    }
-                    if (!snapshot || typeof snapshot !== 'object') {
-                        snapshot = {};
-                    }
-                    if (snapshot.id == null) {
-                        snapshot.id = idInt;
-                    }
-                    if (typeof snapshot.is_riyadh_road === 'undefined') {
-                        snapshot.is_riyadh_road = false;
-                    }
-                    return { target_type: 'approved_line', target_id: idInt, snapshot: snapshot };
-                }
-            }
-        }
-
         return null;
     }
 
     function getDeleteTargetFromEditScreenOptions(options) {
         const opts = options || {};
-        const isApprovedLine = !!opts.isApprovedLine;
-        const approvedLineId = opts.approvedLineId != null ? opts.approvedLineId : null;
         const lineData = opts.lineData || null;
-
-        if (isApprovedLine && approvedLineId != null) {
-            const idInt = parseInt(String(approvedLineId), 10);
-            if (!Number.isNaN(idInt)) {
-                const snapshot = (lineData && typeof lineData === 'object') ? Object.assign({}, lineData) : {};
-                if (snapshot.id == null) {
-                    snapshot.id = idInt;
-                }
-                if (typeof snapshot.is_riyadh_road === 'undefined') {
-                    snapshot.is_riyadh_road = false;
-                }
-                return { target_type: 'approved_line', target_id: idInt, snapshot: snapshot };
-            }
-        }
 
         // If the edit screen was opened for a Riyadh road (tile feature), it should be in the snapshot.
         if (lineData && typeof lineData === 'object' && lineData.is_riyadh_road) {
@@ -175,6 +122,11 @@
                         window.approvedLineBeingEdited = null;
                         setSelectedOverlayGeometry(null);
                     } catch (e) {}
+                    try {
+                        if (window.sessionStorage) {
+                            window.sessionStorage.setItem('riyadh_tiles_bust', '1');
+                        }
+                    } catch (e2) {}
                     setTimeout(function () { window.location.reload(); }, 500);
                 } else {
                     notify('Delete request sent for approval.', 'success');
@@ -894,178 +846,10 @@
         } catch (e) {}
     }
 
-    // Show Search Features screen for approved line editing (Editor/System Admin).
-    function showLineSidePanelForApprovedLineEdit(featureLabel) {
-        const sidePanel = document.getElementById('editSidePanel');
-        if (!sidePanel) {
-            setTimeout(function() {
-                showLineSidePanelForApprovedLineEdit(featureLabel);
-            }, 100);
-            return;
-        }
-
-        // Get approved line data BEFORE removing edit screen
-        const editScreen = document.getElementById('editFeatureScreen');
-        let approvedLineId = null;
-        let approvedLineGeometry = null;
-        let approvedLineData = null;
-        
-        if (editScreen) {
-            approvedLineId = editScreen.getAttribute('data-approved-line-id');
-            const geometryAttr = editScreen.getAttribute('data-approved-line-geometry');
-            const lineDataAttr = editScreen.getAttribute('data-line-data');
-            
-            if (geometryAttr) {
-                try {
-                    approvedLineGeometry = JSON.parse(geometryAttr);
-                } catch (e) {
-                    // Error parsing geometry
-                }
-            }
-            
-            if (lineDataAttr) {
-                try {
-                    approvedLineData = JSON.parse(lineDataAttr);
-                } catch (e) {
-                    // Error parsing line data
-                }
-            }
-            
-            // Also try to get from window storage
-            if (approvedLineId && window.approvedLinesBeingEdited && window.approvedLinesBeingEdited[approvedLineId]) {
-                approvedLineData = window.approvedLinesBeingEdited[approvedLineId];
-                if (!approvedLineGeometry && approvedLineData.geometry) {
-                    approvedLineGeometry = approvedLineData.geometry;
-                }
-            }
-            
-            // Store in window for dropdown selection
-            if (approvedLineData) {
-                window.approvedLineBeingEdited = approvedLineData;
-            }
-            
-            // Remove edit feature screen
-            editScreen.remove();
-        } else {
-            // Try to get from window storage if edit screen not found
-            if (window.approvedLineBeingEdited) {
-                approvedLineData = window.approvedLineBeingEdited;
-                approvedLineGeometry = approvedLineData.geometry;
-                approvedLineId = approvedLineData.id;
-            }
-        }
-
-        // Show default sidepanel elements
-        showSidePanelDefaultElements();
-
-        // Hide search results and show line panel
-        const searchResults = document.getElementById('featureSearchResults');
-        if (searchResults) {
-            searchResults.style.display = 'none';
-        }
-        const linePanelContent = document.getElementById('linePanelContent');
-        const linePanel = linePanelContent || sidePanelContent;
-        if (linePanelContent) {
-            linePanelContent.style.display = 'block';
-        }
-
-        // Ensure content area is visible
-        const contentArea = document.getElementById('sidePanelScrollArea') || document.querySelector('#editSidePanel .flex-1.overflow-y-auto');
-        if (contentArea) {
-            contentArea.style.display = 'block';
-        }
-
-        // Update current feature label to the one from approved line BEFORE creating dropdowns
-        const labelToUse = featureLabel || (approvedLineData ? (approvedLineData.current_feature_label || approvedLineData.feature_type || 'Line') : 'Line');
-        if (labelToUse) {
-            updateCurrentFeatureLabel(labelToUse);
-        }
-
-        // Ensure dropdowns container exists and is visible
-        let dropdownsContainer = document.getElementById('lineDropdownsContainer');
-
-        if (!dropdownsContainer) {
-            if (!linePanel) {
-                setTimeout(function() {
-                    showLineSidePanelForApprovedLineEdit(featureLabel);
-                }, 100);
-                return;
-            }
-
-            linePanel.innerHTML = '';
-
-            const visualizationContainer = createLineVisualization();
-            if (visualizationContainer) {
-                linePanel.appendChild(visualizationContainer);
-            }
-
-            dropdownsContainer = document.createElement('div');
-            dropdownsContainer.className = 'space-y-3';
-            dropdownsContainer.id = 'lineDropdownsContainer';
-
-            const dropdownLabels = [
-                'Major Roads...',
-                'Minor Roads...',
-                'Rails...',
-                'Paths...',
-                'Waterways...',
-                'Barrier Features...',
-                'Natural Features...',
-                'Utility Features...'
-            ];
-
-            dropdownLabels.forEach(function(label) {
-                const dropdownBox = createDropdownBox(label, false);
-                dropdownsContainer.appendChild(dropdownBox);
-            });
-
-            const lineBox = createLineBox();
-            dropdownsContainer.appendChild(lineBox);
-
-            linePanel.appendChild(dropdownsContainer);
-            populateDropdowns();
-        } else {
-            dropdownsContainer.style.display = 'block';
-
-            // Ensure visualization exists above dropdowns
-            let visualizationContainer = document.getElementById('lineVisualizationContainer');
-            if (!visualizationContainer && linePanel) {
-                visualizationContainer = createLineVisualization();
-                if (visualizationContainer) {
-                    linePanel.insertBefore(visualizationContainer, dropdownsContainer);
-                }
-            }
-        }
-
-        // Sync current feature label (and UI) to the latest known value.
-        let finalFeatureLabel = labelToUse;
-        if (approvedLineData) {
-            const latestLabel = approvedLineData.current_feature_label || approvedLineData.feature_type;
-            if (latestLabel) {
-                finalFeatureLabel = latestLabel;
-            }
-        }
-        if (finalFeatureLabel) {
-            updateCurrentFeatureLabel(finalFeatureLabel);
-        }
-
-        updateSearchFeatureScreenSelection();
-
-        // Render preview from the best-available geometry source.
-        const geometryToUse =
-            approvedLineGeometry ||
-            (approvedLineData && approvedLineData.geometry) ||
-            (window.approvedLineBeingEdited && window.approvedLineBeingEdited.geometry) ||
-            null;
-
-        if (geometryToUse) {
-            updateLineVisualizationFromGeometry(geometryToUse, finalFeatureLabel);
-        } else {
-            const svgContainer = document.getElementById('lineVisualizationSVG');
-            if (svgContainer) {
-                renderPreviewPlaceholder(svgContainer, 'No preview available');
-            }
-        }
+    // Legacy approved-line editing flow removed: the road network is served exclusively
+    // from the remote Riyadh roads base network tiles + database.
+    function showLineSidePanelForApprovedLineEdit() {
+        showLineSidePanel();
     }
 
     function showLineSidePanel() {
@@ -1526,13 +1310,6 @@
                     updateRiyadhRoadVisualization(roadId, currentFeatureLabel, external.geometry);
                     setSelectedOverlayGeometry(external.geometry);
                 }
-            } else if (external && external.id != null && external.geometry && external.is_riyadh_road === false) {
-                updateApprovedLineVisualization(external.id, currentFeatureLabel);
-                setSelectedOverlayGeometry(external.geometry);
-            } else if (external && external.id != null && external.geometry && window.approvedLineBeingEdited && window.approvedLineBeingEdited.id != null) {
-                // Defensive: treat as approved line if it looks like one.
-                updateApprovedLineVisualization(window.approvedLineBeingEdited.id, currentFeatureLabel);
-                setSelectedOverlayGeometry(external.geometry);
             }
         } catch (e) {
             // Non-critical
@@ -1857,8 +1634,6 @@
         const hideBackButton = options.hideBackButton || false;
         const requestGeometry = options.requestGeometry || null;
         const lineData = options.lineData || null;
-        const isApprovedLine = options.isApprovedLine || false;
-        const approvedLineId = options.approvedLineId || null;
 
         const sidePanel = document.getElementById('editSidePanel');
         if (!sidePanel) return;
@@ -1910,16 +1685,6 @@
             editScreen.setAttribute('data-line-data', JSON.stringify(lineData));
         }
         
-        // Store approved line information if provided
-        if (isApprovedLine && approvedLineId) {
-            editScreen.setAttribute('data-approved-line-id', approvedLineId.toString());
-            editScreen.setAttribute('data-is-approved-line', 'true');
-            // Store the original geometry for saving edits
-            if (requestGeometry) {
-                editScreen.setAttribute('data-approved-line-geometry', JSON.stringify(requestGeometry));
-            }
-        }
-
         const header = document.createElement('div');
         header.className = 'px-6 py-4 border-b border-gray-700 flex items-center justify-between';
 
@@ -1927,67 +1692,12 @@
         backButton.className = 'p-2 hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0';
         backButton.innerHTML = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>';
         
-        // Hide back button if viewing a request or if manager viewing approved line
+        // Hide back button if viewing a request.
         if (hideBackButton) {
             backButton.style.display = 'none';
         } else {
             backButton.addEventListener('click', function() {
-                // Check if this is an approved line being edited
-                const isApprovedLine = editScreen.getAttribute('data-is-approved-line') === 'true';
-                const approvedLineId = editScreen.getAttribute('data-approved-line-id');
-                
-                if (isApprovedLine && approvedLineId) {
-                    // Prioritize window storage (most up-to-date) over edit screen attributes
-                    let lineData = null;
-                    let featureLabel = null; // Don't use getCurrentFeatureLabel() as it might have default 'Line' value
-                    
-                    // First, try to get from window storage (most up-to-date, especially after dropdown changes)
-                    if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id === parseInt(approvedLineId)) {
-                        lineData = window.approvedLineBeingEdited;
-                    } else if (window.approvedLinesBeingEdited && window.approvedLinesBeingEdited[approvedLineId]) {
-                        lineData = window.approvedLinesBeingEdited[approvedLineId];
-                        window.approvedLineBeingEdited = lineData;
-                    }
-                    
-                    // Fallback to edit screen data if window storage doesn't have it
-                    if (!lineData) {
-                        const lineDataAttr = editScreen.getAttribute('data-line-data');
-                        
-                        if (lineDataAttr) {
-                            try {
-                                lineData = JSON.parse(lineDataAttr);
-                                
-                                // Store in window for future use
-                                window.approvedLineBeingEdited = lineData;
-                                if (!window.approvedLinesBeingEdited) {
-                                    window.approvedLinesBeingEdited = {};
-                                }
-                                window.approvedLinesBeingEdited[approvedLineId] = lineData;
-                            } catch (e) {
-                                // Error parsing line data
-                            }
-                        }
-                    }
-                    
-                    // Get feature label from line data (prioritize current_feature_label, then feature_type)
-                    if (lineData) {
-                        // Prioritize current_feature_label over feature_type
-                        featureLabel = lineData.current_feature_label || lineData.feature_type;
-                    } else {
-                        // Last resort: use getCurrentFeatureLabel() if no lineData found
-                        featureLabel = getCurrentFeatureLabel();
-                    }
-                    
-                    // Fallback to 'Line' only if featureLabel is still null/undefined
-                    if (!featureLabel) {
-                        featureLabel = 'Line';
-                    }
-                    
-                    showLineSidePanelForApprovedLineEdit(featureLabel);
-                } else {
-                    // Normal flow: just show the side panel
-                    showLineSidePanel();
-                }
+                showLineSidePanel();
             });
         }
 
@@ -1996,11 +1706,7 @@
         title.textContent = 'Edit feature';
 
         // Resolve delete target from the explicit options first (works even before the edit screen DOM exists).
-        const deleteTarget = getDeleteTargetFromEditScreenOptions({
-            isApprovedLine: isApprovedLine,
-            approvedLineId: approvedLineId,
-            lineData: lineData,
-        }) || getDeleteTargetFromContext();
+        const deleteTarget = getDeleteTargetFromEditScreenOptions({ lineData: lineData }) || getDeleteTargetFromContext();
         const deleteButton = document.createElement('button');
         deleteButton.className = 'p-2 hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0';
         deleteButton.setAttribute('aria-label', 'Request delete');
@@ -2086,37 +1792,6 @@
                 updateFeatureTypeVisualization();
             }
             
-            // Populate existing data if editing an approved line
-            if (isApprovedLine && lineData) {
-                setTimeout(function() {
-                    // Populate fields data - try manager-requests.js first, then load-approved-lines.js
-                    if (lineData.fields_data) {
-                        if (typeof window.populateFieldsData === 'function') {
-                            window.populateFieldsData(lineData.fields_data);
-                        } else if (typeof window.populateFieldsDataForApprovedLine === 'function') {
-                            window.populateFieldsDataForApprovedLine(lineData.fields_data);
-                        }
-                    }
-                    
-                    // Populate tags data
-                    if (lineData.tags_data) {
-                        if (typeof window.populateTagsData === 'function') {
-                            window.populateTagsData(lineData.tags_data);
-                        } else if (typeof window.populateTagsDataForApprovedLine === 'function') {
-                            window.populateTagsDataForApprovedLine(lineData.tags_data);
-                        }
-                    }
-                    
-                    // Populate relations data
-                    if (lineData.relations_data) {
-                        if (typeof window.populateRelationsData === 'function') {
-                            window.populateRelationsData(lineData.relations_data);
-                        } else if (typeof window.populateRelationsDataForApprovedLine === 'function') {
-                            window.populateRelationsDataForApprovedLine(lineData.relations_data);
-                        }
-                    }
-                }, 300);
-            }
         }, 100);
     }
 
@@ -3965,8 +3640,6 @@
                     if (approved && approved.id && approved.geometry) {
                         if (approved.is_riyadh_road) {
                             updateRiyadhRoadVisualization(approved.id, label, approved.geometry);
-                        } else {
-                            updateApprovedLineVisualization(approved.id, label);
                         }
                         showLineSidePanel();
                     } else if (currentLineId) {
@@ -4142,14 +3815,10 @@
                     }
                 }
 
-                const approvedLineData = window.approvedLineBeingEdited || null;
-                if (approvedLineData) {
-                    if (approvedLineData.id) {
-                        if (approvedLineData.is_riyadh_road) {
-                            updateRiyadhRoadVisualization(approvedLineData.id, selectedValue, approvedLineData.geometry);
-                        } else {
-                            updateApprovedLineVisualization(approvedLineData.id, selectedValue);
-                        }
+                const activeLineData = window.approvedLineBeingEdited || null;
+                if (activeLineData) {
+                    if (activeLineData.id && activeLineData.is_riyadh_road) {
+                        updateRiyadhRoadVisualization(activeLineData.id, selectedValue, activeLineData.geometry);
                     }
                     
                     // Update side panel visualization if it's visible
@@ -4157,18 +3826,18 @@
                     const isSidePanelVisible = sidePanel && !sidePanel.classList.contains('-translate-x-full');
                     const svgContainer = document.getElementById('lineVisualizationSVG');
                     
-                    if (isSidePanelVisible && svgContainer && approvedLineData.geometry) {
-                        updateLineVisualizationFromGeometry(approvedLineData.geometry, selectedValue);
+                    if (isSidePanelVisible && svgContainer && activeLineData.geometry) {
+                        updateLineVisualizationFromGeometry(activeLineData.geometry, selectedValue);
                     }
                     
                     // Preserve existing data when changing feature type
                     // Store current fields, tags, and relations data before showing edit screen
-                    const existingFieldsData = approvedLineData.fields_data || {};
-                    const existingTagsData = approvedLineData.tags_data || [];
-                    const existingRelationsData = approvedLineData.relations_data || [];
+                    const existingFieldsData = activeLineData.fields_data || {};
+                    const existingTagsData = activeLineData.tags_data || [];
+                    const existingRelationsData = activeLineData.relations_data || [];
                     
                     // Update the feature label in the stored data
-                    const updatedLineData = Object.assign({}, approvedLineData, {
+                    const updatedLineData = Object.assign({}, activeLineData, {
                         current_feature_label: selectedValue,
                         feature_type: selectedValue,
                         fields_data: existingFieldsData,
@@ -4176,20 +3845,15 @@
                         relations_data: existingRelationsData
                     });
                     
-                    // Update the stored approved line data
+                    // Update the stored active line data (Riyadh road context).
                     window.approvedLineBeingEdited = updatedLineData;
-                    if (window.approvedLinesBeingEdited) {
-                        window.approvedLinesBeingEdited[approvedLineData.id] = updatedLineData;
-                    }
                     
                     // Show Edit Feature screen with updated feature label and preserved data
                     setTimeout(function() {
                         showEditFeatureScreen({
                             hideBackButton: false,
-                            requestGeometry: approvedLineData.geometry,
-                            lineData: updatedLineData,
-                            isApprovedLine: true,
-                            approvedLineId: approvedLineData.id
+                            requestGeometry: activeLineData.geometry,
+                            lineData: updatedLineData
                         });
                     }, 10);
                 } else if (currentLineId) {
@@ -4252,108 +3916,6 @@
         }
     }
 
-    // Update approved line visualization on the map when feature type changes.
-    function updateApprovedLineVisualization(approvedLineId, newFeatureLabel) {
-        if (typeof map === 'undefined' || !map) return;
-        
-        const featureId = 'approved-line-' + approvedLineId;
-        const sourceId = 'approved-line-source-' + approvedLineId;
-        const glowLayerId = 'approved-line-glow-' + approvedLineId;
-        const layerId = 'approved-line-layer-' + approvedLineId;
-        
-        // Get the source to get the geometry
-        if (!map.getSource(sourceId)) {
-            return;
-        }
-        
-        // Try to get geometry from stored approved line data first
-        let geometry = null;
-        let feature = null;
-        
-        if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id === approvedLineId) {
-            geometry = window.approvedLineBeingEdited.geometry;
-            feature = {
-                geometry: geometry,
-                type: 'Feature'
-            };
-        } else if (window.approvedLinesBeingEdited && window.approvedLinesBeingEdited[approvedLineId]) {
-            geometry = window.approvedLinesBeingEdited[approvedLineId].geometry;
-            feature = {
-                geometry: geometry,
-                type: 'Feature'
-            };
-        } else {
-            // Fallback: try to get from source data
-            const source = map.getSource(sourceId);
-            const sourceData = source._data;
-            
-            if (sourceData) {
-                // Handle both Feature and FeatureCollection
-                if (sourceData.type === 'Feature') {
-                    feature = sourceData;
-                    geometry = sourceData.geometry;
-                } else if (sourceData.type === 'FeatureCollection' && sourceData.features && sourceData.features.length > 0) {
-                    feature = sourceData.features[0];
-                    geometry = feature.geometry;
-                } else if (sourceData.features && sourceData.features.length > 0) {
-                    // Handle case where it's stored as features array directly
-                    feature = sourceData.features[0];
-                    geometry = feature.geometry;
-                }
-            }
-        }
-        
-        // Road closure: use "Road Closure" style from catalog when closed
-        const isRoadClosed = (function() {
-            const data = (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id === approvedLineId)
-                ? window.approvedLineBeingEdited
-                : (window.approvedLinesData && window.approvedLinesData[layerId])
-                    ? window.approvedLinesData[layerId]
-                    : null;
-            if (!data) return false;
-            const rc = data.road_closure;
-            return rc === 1 || rc === true || rc === '1';
-        })();
-        const closureStyle = getVisualizationStyle("Road Closure");
-        const featureStyle = getVisualizationStyle(newFeatureLabel);
-        const style = (isRoadClosed && closureStyle) ? closureStyle : featureStyle;
-        if (!style) {
-            return;
-        }
-
-        const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
-        const lineColor = style.lineColor;
-        const glowColor = style.glowColor;
-
-        if (map.getLayer(glowLayerId)) {
-            map.setPaintProperty(glowLayerId, 'line-color', glowColor);
-            map.setPaintProperty(glowLayerId, 'line-width', style.glowWidth);
-            map.setPaintProperty(glowLayerId, 'line-opacity', style.glowOpacity);
-        }
-
-        if (map.getLayer(layerId)) {
-            map.setPaintProperty(layerId, 'line-color', lineColor);
-            map.setPaintProperty(layerId, 'line-width', style.lineWidth);
-            map.setPaintProperty(layerId, 'line-dasharray', lineDasharray);
-        }
-        
-        // Update vertex markers - only if we have geometry
-        if (feature && geometry && geometry.type === 'LineString' && geometry.coordinates) {
-            // Remove all existing markers for this line
-            geometry.coordinates.forEach(function(coord, index) {
-                const markerId = 'approved-marker-' + approvedLineId + '-' + index;
-                const existingMarker = document.getElementById(markerId);
-                if (existingMarker) {
-                    existingMarker.remove();
-                }
-            });
-            
-            // Vertex markers for approved lines have been removed; the
-            // updated symbology is now represented purely by the line
-            // styling on the map layer.
-        }
-    }
-
     function updateDropdownData(dropdownIndex, options) {
         const container = document.getElementById('lineDropdownsContainer');
         if (!container) return;
@@ -4384,7 +3946,6 @@
         addFieldToContainer: addFieldToContainer,
         updateAddFieldDisplay: updateAddFieldDisplay,
         addMultilingualNameField: addMultilingualNameField,
-        updateApprovedLineVisualization: updateApprovedLineVisualization,
         updateRiyadhRoadVisualization: updateRiyadhRoadVisualization
     };
     
@@ -4396,7 +3957,6 @@
     window.getCurrentFeatureLabel = getCurrentFeatureLabel;
     window.getDrawInstance = function() { return drawInstance; };
     window.getVisualizationStyle = getVisualizationStyle;
-    window.updateApprovedLineVisualization = updateApprovedLineVisualization;
     window.updateRiyadhRoadVisualization = updateRiyadhRoadVisualization;
     window.updateFeatureTypeVisualization = updateFeatureTypeVisualization;
     window.removeMapLibreLineLayer = removeMapLibreLineLayer;
@@ -4420,14 +3980,8 @@
         if (!lineFeatureData) {
             return;
         }
-
-        if (!window.approvedLinesBeingEdited) {
-            window.approvedLinesBeingEdited = {};
-        }
-        
         const roadId = lineFeatureData.id || 'riyadh-road-' + Date.now();
-        window.approvedLinesBeingEdited[roadId] = lineFeatureData;
-        window.approvedLineBeingEdited = lineFeatureData;
+        window.approvedLineBeingEdited = Object.assign({}, lineFeatureData, { id: roadId });
 
         if (lineFeatureData.geometry && typeof map !== 'undefined' && map) {
             const featureLabel = lineFeatureData.current_feature_label || lineFeatureData.feature_type || 'Line';
@@ -4442,9 +3996,7 @@
             showEditFeatureScreen({
                 hideBackButton: false,
                 requestGeometry: lineFeatureData.geometry || null,
-                lineData: lineFeatureData,
-                isApprovedLine: false,
-                approvedLineId: null
+                lineData: lineFeatureData
             });
         } catch (e) {}
     }
