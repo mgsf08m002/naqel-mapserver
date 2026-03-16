@@ -174,11 +174,7 @@
                         window.selectedRiyadhRoad = null;
                         window.approvedLineBeingEdited = null;
                         setSelectedOverlayGeometry(null);
-                        setApprovedLinesDimmed(null);
                     } catch (e) {}
-                    if (typeof window.reloadApprovedLines === 'function') {
-                        try { window.reloadApprovedLines(); } catch (e2) {}
-                    }
                     setTimeout(function () { window.location.reload(); }, 500);
                 } else {
                     notify('Delete request sent for approval.', 'success');
@@ -195,49 +191,7 @@
     const SELECTED_OVERLAY_LINE_LAYER_ID = 'selected-road-overlay-line';
     const SELECTED_OVERLAY_OUTLINE_COLOR = '#22d3ee';
 
-    function setApprovedLinesDimmed(selectedApprovedLineId) {
-        if (typeof map === 'undefined' || !map) {
-            return;
-        }
-
-        const hasSelection = selectedApprovedLineId != null;
-        const selectedLayerId = hasSelection
-            ? 'approved-line-layer-' + String(selectedApprovedLineId)
-            : null;
-
-        const all = window.approvedLinesData || {};
-        const layerIds = Object.keys(all);
-
-        layerIds.forEach(function(layerId) {
-            const isSelectedLayer = hasSelection && layerId === selectedLayerId;
-            const baseOpacity = !hasSelection ? 1 : isSelectedLayer ? 1 : 0.15;
-            const glowOpacity = !hasSelection ? 0.5 : isSelectedLayer ? 0.5 : 0.15;
-
-            try {
-                if (map.getLayer(layerId)) {
-                    map.setPaintProperty(layerId, 'line-opacity', baseOpacity);
-                }
-            } catch (e) {}
-
-            const glowId = layerId.replace('approved-line-layer-', 'approved-line-glow-');
-            try {
-                if (map.getLayer(glowId)) {
-                    map.setPaintProperty(glowId, 'line-opacity', glowOpacity);
-                }
-            } catch (e) {}
-
-            const closureId = layerId.replace('approved-line-layer-', 'approved-line-closure-symbols-');
-            try {
-                if (map.getLayer(closureId)) {
-                    map.setLayoutProperty(
-                        closureId,
-                        'visibility',
-                        baseOpacity < 0.2 ? 'none' : 'visible'
-                    );
-                }
-            } catch (e) {}
-        });
-    }
+    // Legacy helper removed: approved-line dimming was only used by the old local overlay flow.
 
     function ensureSelectedOverlayLayers() {
         if (typeof map === 'undefined' || !map) {
@@ -936,7 +890,6 @@
         try {
             if (!window.selectedRiyadhRoad && !window.approvedLineBeingEdited) {
                 setSelectedOverlayGeometry(null);
-                setApprovedLinesDimmed(null);
             }
         } catch (e) {}
     }
@@ -4481,9 +4434,19 @@
             updateRiyadhRoadVisualization(roadId, featureLabel, lineFeatureData.geometry);
         }
 
-        if (typeof window.showApprovedLineDetails === 'function') {
-            window.showApprovedLineDetails(lineFeatureData, true);
-        }
+        // Open the edit sidepanel directly (legacy approved-lines overlay is removed).
+        try {
+            const featureLabel = lineFeatureData.current_feature_label || lineFeatureData.feature_type || 'Line';
+            currentFeatureLabel = featureLabel;
+            updateCurrentFeatureLabel(featureLabel);
+            showEditFeatureScreen({
+                hideBackButton: false,
+                requestGeometry: lineFeatureData.geometry || null,
+                lineData: lineFeatureData,
+                isApprovedLine: false,
+                approvedLineId: null
+            });
+        } catch (e) {}
     }
 
     window.showRiyadhRoadAsLineFeature = showRiyadhRoadAsLineFeature;
@@ -4493,5 +4456,4 @@
 
     // Expose selection utilities for other scripts (approved lines / tile roads).
     window.setSelectedOverlayGeometry = setSelectedOverlayGeometry;
-    window.setApprovedLinesDimmed = setApprovedLinesDimmed;
 })();

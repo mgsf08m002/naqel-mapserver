@@ -45,8 +45,8 @@ const MAPTILER_API_KEY = getMaptilerApiKey();
 const HAS_MAPTILER = !!MAPTILER_API_KEY;
 const RIYADH_ROADS_TILE_URL = getRiyadhRoadsTileUrl();
 const HAS_RIYADH_ROADS_TILES = !!RIYADH_ROADS_TILE_URL;
-window.deletedRiyadhRoadIds = window.deletedRiyadhRoadIds || [];
 const IS_AUTHENTICATED = getIsAuthenticated();
+const PUBLIC_ROAD_COLOR = '#fb9a99';
 
 // Basemap definitions: raster sources/layers for MapLibre; MapTiler basemaps added when API key present.
 const BASEMAP_DEFINITIONS = (() => {
@@ -325,22 +325,6 @@ map.on('load', () => {
                 });
             }
 
-            function applyDeletedRiyadhRoadFilter(deletedIds) {
-                try {
-                    const ids = Array.isArray(deletedIds) ? deletedIds : [];
-                    const baseFilter = ['all'];
-                    if (ids.length) {
-                        baseFilter.push(['!', ['in', ['get', 'id'], ['literal', ids]]]);
-                    }
-                    if (map.getLayer('riyadh-roads-public-layer')) {
-                        map.setFilter('riyadh-roads-public-layer', baseFilter);
-                    }
-                    if (map.getLayer('riyadh-roads-layer')) {
-                        map.setFilter('riyadh-roads-layer', baseFilter);
-                    }
-                } catch (e) {}
-            }
-
             // Base public view: always render the Riyadh road network with a
             // single neutral color so unauthenticated users can still see the
             // geometry, but without the full symbology. Use a dedicated
@@ -357,12 +341,15 @@ map.on('load', () => {
                         'line-join': 'round'
                     },
                     paint: {
-                        'line-color': '#fb9a99',
+                        'line-color': PUBLIC_ROAD_COLOR,
                         'line-width': 2,
                         'line-opacity': 1
                     }
                 });
             }
+
+            // Public click-to-login is attached by `public-approved-lines.js` to keep
+            // authenticated/public concerns separated.
 
             const fclassToLabel = {
                 motorway: 'Motorway',
@@ -533,8 +520,6 @@ map.on('load', () => {
                         map.setPaintProperty('riyadh-roads-layer', 'line-width', widthExpression);
                     } catch (e) {}
                 }
-
-                applyDeletedRiyadhRoadFilter(window.deletedRiyadhRoadIds || []);
             }
 
             function requestCatalog() {
@@ -573,27 +558,6 @@ map.on('load', () => {
                 });
             }
             requestCatalog();
-
-            (function requestDeletedRiyadhRoads() {
-                fetch('/mapping/api/riyadh-roads/deleted/', {
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json' }
-                })
-                    .then(function (resp) {
-                        if (!resp.ok) {
-                            throw new Error('Failed to load deleted Riyadh roads');
-                        }
-                        return resp.json();
-                    })
-                    .then(function (data) {
-                        if (!data || !data.success || !Array.isArray(data.deleted_ids)) {
-                            return;
-                        }
-                        window.deletedRiyadhRoadIds = data.deleted_ids;
-                        applyDeletedRiyadhRoadFilter(window.deletedRiyadhRoadIds);
-                    })
-                    .catch(function () {});
-            })();
         } catch (e) {}
     }
 

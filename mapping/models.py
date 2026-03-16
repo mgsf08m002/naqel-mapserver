@@ -99,7 +99,7 @@ class LineEditRequest(models.Model):
 
 
 class RiyadhRoad(gis_models.Model):
-    gid = gis_models.IntegerField(primary_key=True, db_column="gid")
+    gid = gis_models.AutoField(primary_key=True, db_column="gid")
     id = gis_models.FloatField(null=True, blank=True, db_column="id")
     objectid = gis_models.DecimalField(max_digits=20, decimal_places=0, null=True, blank=True)
     osm_id = gis_models.CharField(max_length=12, null=True, blank=True)

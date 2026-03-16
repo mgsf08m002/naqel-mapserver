@@ -5,6 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.contrib.gis.geos import GEOSGeometry, Polygon
+from django.db import transaction, connections
+from django.db.models import Max
 from decimal import Decimal
 import json
 import math
@@ -87,7 +89,10 @@ def _get_riyadh_road_geometry_wgs84(road_id):
         try:
             road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(road_id))
         except Exception:
-            road = RiyadhRoad.objects.get(id=float(road_id))
+            try:
+                road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(road_id))
+            except Exception:
+                road = RiyadhRoad.objects.get(gid=int(road_id))
 
         geom = getattr(road, "geom", None)
         if not geom:
@@ -196,33 +201,38 @@ def save_line_edit_request(request):
             riyadh_road_id=riyadh_road_id_int,
         )
 
+        created_request_id = edit_request.id
         auto_approved = False
+        remote_road_id = None
 
-        if closure_changed:
+        if closure_changed or is_manager:
             edit_request.approve(request.user)
             auto_approved = True
-            if edit_request.is_riyadh_road:
-                try:
+            try:
+                if (edit_request.edit_type or "").upper() == "DELETE":
+                    _apply_delete_to_base_network(edit_request)
+                elif edit_request.is_riyadh_road:
                     _apply_riyadh_edit_to_base_network(edit_request)
-                except Exception:
-                    pass
+                    remote_road_id = edit_request.riyadh_road_id
+                else:
+                    remote_road_id = _apply_manual_approval_to_remote_network(edit_request)
+            except Exception:
+                pass
 
-        elif is_manager:
-            edit_request.approve(request.user)
-            auto_approved = True
-            if edit_request.is_riyadh_road:
-                try:
-                    _apply_riyadh_edit_to_base_network(edit_request)
-                except Exception:
-                    pass
+            # Requirement: no traces in local DB once approved & applied.
+            try:
+                edit_request.delete()
+            except Exception:
+                pass
 
         if auto_approved:
             return JsonResponse(
                 {
                     "success": True,
                     "message": "Edit saved successfully!",
-                    "request_id": edit_request.id,
+                    "request_id": created_request_id,
                     "auto_approved": True,
+                    "remote_road_id": remote_road_id,
                 }
             )
 
@@ -230,7 +240,7 @@ def save_line_edit_request(request):
             {
                 "success": True,
                 "message": "Your requested edit has been sent to Manager and will be approved/rejected accordingly.",
-                "request_id": edit_request.id,
+                "request_id": created_request_id,
                 "auto_approved": False,
             }
         )
@@ -300,6 +310,73 @@ def _apply_riyadh_edit_to_base_network(edit_request):
     road.save(using="riyadh_roads")
 
 
+def _apply_manual_approval_to_remote_network(edit_request):
+    """Create a new RiyadhRoad row for an approved manual line, then return its assigned id."""
+    if not edit_request:
+        return None
+
+    if edit_request.is_riyadh_road:
+        return edit_request.riyadh_road_id
+
+    geometry_json = edit_request.geometry
+    if not geometry_json:
+        raise ValueError("Missing geometry for approved manual line.")
+
+    fields = edit_request.fields_data or {}
+
+    with transaction.atomic(using="riyadh_roads"):
+        max_id = RiyadhRoad.objects.using("riyadh_roads").aggregate(max_id=Max("id")).get("max_id")
+        next_id = int(max_id or 0) + 1
+
+        # Insert using PostGIS to guarantee correct SRID/projection and MultiLineString type.
+        geometry_geojson = json.dumps(geometry_json)
+        name = fields.get("name") or ""
+        ref = fields.get("ref") or ""
+        fclass = fields.get("fclass") or ""
+        oneway = fields.get("oneway") or ""
+        maxspeed = fields.get("maxspeed")
+        code = fields.get("code")
+        bridge = fields.get("bridge") or ""
+        tunnel = fields.get("tunnel") or ""
+        layer = fields.get("layer")
+        road_closure = edit_request.road_closure or 0
+
+        with connections["riyadh_roads"].cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO public.riyadh_roads
+                    (id, geom, name, ref, fclass, oneway, maxspeed, code, bridge, tunnel, layer, road_closure)
+                VALUES
+                    (
+                        %s,
+                        ST_Multi(
+                            ST_Transform(
+                                ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326),
+                                3857
+                            )
+                        ),
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    )
+                """,
+                [
+                    float(next_id),
+                    geometry_geojson,
+                    name,
+                    ref,
+                    fclass,
+                    oneway,
+                    maxspeed,
+                    code,
+                    bridge,
+                    tunnel,
+                    layer,
+                    road_closure,
+                ],
+            )
+
+        return next_id
+
+
 def _get_user_is_manager(user):
     profile = getattr(user, "profile", None)
     return bool(profile and profile.role == "manager")
@@ -340,40 +417,6 @@ def _apply_delete_to_base_network(edit_request):
             return
         except Exception:
             return
-
-
-@require_http_methods(["GET"])
-def get_deleted_riyadh_roads(request):
-    """Return IDs of Riyadh roads that have been approved for deletion."""
-    try:
-        qs = LineEditRequest.objects.filter(
-            status="approved",
-            is_riyadh_road=True,
-        ).filter(edit_type__iexact="DELETE")
-
-        ids = []
-        for value in qs.values_list("riyadh_road_id", flat=True):
-            if value is None:
-                continue
-            try:
-                ids.append(int(value))
-            except (TypeError, ValueError):
-                continue
-
-        return JsonResponse(
-            {
-                "success": True,
-                "deleted_ids": ids,
-            }
-        )
-    except Exception as e:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": f"Error fetching deleted Riyadh roads: {str(e)}",
-            },
-            status=500,
-        )
 
 
 @login_required
@@ -736,22 +779,35 @@ def approve_edit_request(request, request_id):
         edit_request = get_object_or_404(LineEditRequest, id=request_id, status="pending")
 
         edit_request.approve(request.user)
+        remote_road_id = None
 
         if (edit_request.edit_type or "").upper() == "DELETE":
             try:
                 _apply_delete_to_base_network(edit_request)
             except Exception:
                 pass
-        elif edit_request.is_riyadh_road:
+        else:
             try:
-                _apply_riyadh_edit_to_base_network(edit_request)
+                if edit_request.is_riyadh_road:
+                    _apply_riyadh_edit_to_base_network(edit_request)
+                    remote_road_id = edit_request.riyadh_road_id
+                else:
+                    # Approved manual line: migrate to remote base network and remove local trace.
+                    remote_road_id = _apply_manual_approval_to_remote_network(edit_request)
             except Exception:
                 pass
+
+        # Requirement: no traces in local DB once approved & applied.
+        try:
+            edit_request.delete()
+        except Exception:
+            pass
 
         return JsonResponse(
             {
                 "success": True,
                 "message": "Edit request approved successfully",
+                "remote_road_id": remote_road_id,
             }
         )
 
@@ -796,55 +852,9 @@ def reject_edit_request(request, request_id):
         }, status=500)
 
 
-@login_required
 def get_approved_lines(request):
-    """Return all non‑superseded, approved line edits for map rendering."""
-    try:
-        approved_requests = (
-            LineEditRequest.objects.filter(status="approved", is_riyadh_road=False)
-            .exclude(edit_type__iexact="DELETE")
-            .order_by("-created_at")
-        )
-
-        superseded_ids = set()
-        for req in approved_requests:
-            if req.parent_approved_line_id:
-                superseded_ids.add(int(req.parent_approved_line_id))
-
-        lines_data = []
-        for req in approved_requests:
-            if req.id not in superseded_ids:
-                geometry = _ensure_wgs84_geometry(req.geometry, source_srid=3857)
-                lines_data.append(
-                    {
-                        "id": req.id,
-                        "geometry": geometry,
-                        "feature_type": req.current_feature_label or "Line",
-                        "current_feature_label": req.current_feature_label or "Line",
-                        "fields_data": req.fields_data or {},
-                        "tags_data": req.tags_data or [],
-                        "relations_data": req.relations_data or [],
-                        "road_closure": req.road_closure,
-                        "is_riyadh_road": req.is_riyadh_road,
-                        "riyadh_road_id": req.riyadh_road_id,
-                    }
-                )
-
-        return JsonResponse(
-            {
-                "success": True,
-                "lines": lines_data,
-            }
-        )
-
-    except Exception as e:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": f"Error fetching approved lines: {str(e)}",
-            },
-            status=500,
-        )
+    """Deprecated endpoint: approved roads are served via the remote base network tiles."""
+    return JsonResponse({"success": True, "lines": []})
 
 
 
@@ -867,8 +877,16 @@ def get_riyadh_road_details(request, road_id):
             return float(value)
         return value
 
+    # Tiles may carry either `id` (data column) or `gid` (PK) as the feature identifier,
+    # depending on the Martin source configuration. Accept both to avoid 404s.
     try:
-        road = get_object_or_404(RiyadhRoad, id=float(road_id))
+        try:
+            road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(road_id))
+        except Exception:
+            try:
+                road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(road_id))
+            except Exception:
+                road = get_object_or_404(RiyadhRoad, gid=int(road_id))
     except Http404:
         return JsonResponse(
             {
