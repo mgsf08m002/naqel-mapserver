@@ -1064,12 +1064,11 @@
                 });
                 displayRequests();
                 updateRequestsBadge();
-                try {
-                    if (window.sessionStorage) {
-                        window.sessionStorage.setItem('riyadh_tiles_bust', '1');
-                    }
-                } catch (e) {}
-                window.location.reload();
+                if (typeof window.triggerRiyadhTilesReload === 'function') {
+                    window.triggerRiyadhTilesReload();
+                } else {
+                    window.location.reload();
+                }
             } else {
                 alert('Error: ' + data.message);
             }

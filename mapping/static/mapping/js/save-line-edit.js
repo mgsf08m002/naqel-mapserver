@@ -496,13 +496,12 @@
                 });
                 
                 if (isAutoApproved) {
-                    try {
-                        if (window.sessionStorage) {
-                            window.sessionStorage.setItem('riyadh_tiles_bust', '1');
-                        }
-                    } catch (e) {}
                     setTimeout(function() {
-                        window.location.reload();
+                        if (typeof window.triggerRiyadhTilesReload === 'function') {
+                            window.triggerRiyadhTilesReload();
+                        } else {
+                            window.location.reload();
+                        }
                     }, 1500);
                 } else {
                     revertPendingApprovalVisualization(editData);

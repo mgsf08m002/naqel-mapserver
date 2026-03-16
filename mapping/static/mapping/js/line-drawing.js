@@ -122,12 +122,13 @@
                         window.approvedLineBeingEdited = null;
                         setSelectedOverlayGeometry(null);
                     } catch (e) {}
-                    try {
-                        if (window.sessionStorage) {
-                            window.sessionStorage.setItem('riyadh_tiles_bust', '1');
+                    setTimeout(function () {
+                        if (typeof window.triggerRiyadhTilesReload === 'function') {
+                            window.triggerRiyadhTilesReload();
+                        } else {
+                            window.location.reload();
                         }
-                    } catch (e2) {}
-                    setTimeout(function () { window.location.reload(); }, 500);
+                    }, 500);
                 } else {
                     notify('Delete request sent for approval.', 'success');
                 }

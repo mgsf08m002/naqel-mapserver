@@ -30,19 +30,32 @@ function getRiyadhRoadsTileUrl() {
         return null;
     }
 
-    // Bust cached vector tiles once after an approve/delete so the user sees the
-    // updated base network immediately after reload.
+    // Cache bust vector tiles using URL versioning.
+    // This avoids issues with browsers blocking access to storage.
     try {
-        const shouldBust = window.sessionStorage && window.sessionStorage.getItem('riyadh_tiles_bust') === '1';
-        if (shouldBust) {
-            window.sessionStorage.removeItem('riyadh_tiles_bust');
+        const params = new URLSearchParams(window.location.search || '');
+        const tilesV = params.get('tiles_v');
+        if (tilesV) {
             const sep = trimmed.indexOf('?') >= 0 ? '&' : '?';
-            return `${trimmed}${sep}v=${Date.now()}`;
+            return `${trimmed}${sep}v=${encodeURIComponent(tilesV)}`;
         }
     } catch (e) {}
 
     return trimmed;
 }
+
+// Request a hard refresh of the Riyadh roads tiles without relying on storage.
+// This updates the page URL with a `tiles_v` query parameter (timestamp), which
+// is then appended to the tiles URL by `getRiyadhRoadsTileUrl()`.
+window.triggerRiyadhTilesReload = function() {
+    try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('tiles_v', String(Date.now()));
+        window.location.href = url.toString();
+    } catch (e) {
+        window.location.reload();
+    }
+};
 
 function getIsAuthenticated() {
     const mapElement = document.getElementById('map');
