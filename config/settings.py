@@ -208,8 +208,11 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# Internationalization
+# Authentication
+LOGIN_URL = '/login/'
 
+
+# Internationalization
 LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'Asia/Riyadh'

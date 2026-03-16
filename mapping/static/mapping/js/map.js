@@ -311,6 +311,29 @@ map.on('load', () => {
                 });
             }
 
+            // Base public view: always render the Riyadh road network with a
+            // single neutral color so unauthenticated users can still see the
+            // geometry, but without the full symbology. Use a dedicated
+            // layer id so the authenticated symbology layer (riyadh-roads-layer)
+            // can still attach its own click handlers.
+            if (!map.getLayer('riyadh-roads-public-layer')) {
+                map.addLayer({
+                    id: 'riyadh-roads-public-layer',
+                    type: 'line',
+                    source: 'riyadh-roads',
+                    'source-layer': 'riyadh_roads',
+                    layout: {
+                        'line-cap': 'round',
+                        'line-join': 'round'
+                    },
+                    paint: {
+                        'line-color': '#fb9a99',
+                        'line-width': 2,
+                        'line-opacity': 1
+                    }
+                });
+            }
+
             const fclassToLabel = {
                 motorway: 'Motorway',
                 motorway_link: 'Motorway Link',
@@ -383,9 +406,7 @@ map.on('load', () => {
                         }
                     });
 
-                    // Dedicated highlight layer for the currently selected Riyadh
-                    // road, rendered above the base network so selection is
-                    // always visually obvious.
+                    // Highlight layer for the currently selected Riyadh road, rendered above the base network.
                     if (!map.getLayer('riyadh-roads-selected-layer')) {
                         map.addLayer({
                             id: 'riyadh-roads-selected-layer',
@@ -398,9 +419,7 @@ map.on('load', () => {
                                 'line-join': 'round'
                             },
                             paint: {
-                                // Use the same fclass-based color as the base
-                                // layer, but slightly thicker so it stands out
-                                // while preserving the symbology.
+                                // Slightly thicker than the base layer to keep symbology while emphasizing selection.
                                 'line-color': colorExpression,
                                 'line-width': ['+', widthExpression, 2],
                                 'line-opacity': 1
