@@ -1,6 +1,3 @@
-# Docker commands for naqel-mapserver
-# Sample GeoJSON data is in docs/sample-geojson.json
-
 # Remove everything (containers, volumes, images)
 docker compose down --volumes --remove-orphans --rmi all
 
@@ -12,7 +9,3 @@ docker compose up -d
 
 # Start with build and view logs
 docker compose up --build
-
-
-ALTER TABLE public.riyadh_roads
-ADD COLUMN road_closure integer NOT NULL DEFAULT 0;

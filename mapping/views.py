@@ -80,16 +80,13 @@ def _ensure_wgs84_geometry(geometry, source_srid=3857):
         return geometry
 
 
-def _get_riyadh_road_geometry_wgs84(road_id):
-    """Fetch a RiyadhRoad geometry and return it in WGS84."""
-    if road_id is None:
+def _get_riyadh_road_geometry_wgs84(road_gid):
+    """Fetch a RiyadhRoad geometry by gid and return it in WGS84."""
+    if road_gid is None:
         return None
 
     try:
-        try:
-            road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(road_id))
-        except Exception:
-            road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(road_id))
+        road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(road_gid))
 
         geom = getattr(road, "geom", None)
         if not geom:
@@ -385,13 +382,10 @@ def _apply_delete_to_base_network(edit_request):
         return
 
     if not edit_request.is_riyadh_road or edit_request.riyadh_road_id is None:
-        raise ValueError("Delete requests must target a Riyadh road id.")
+        raise ValueError("Delete requests must target a Riyadh road gid.")
 
     identifier = edit_request.riyadh_road_id
-    try:
-        road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(identifier))
-    except RiyadhRoad.DoesNotExist:
-        road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(identifier))
+    road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(identifier))
     road.delete(using="riyadh_roads")
 
 
@@ -412,7 +406,7 @@ def create_delete_request(request):
         )
 
     target_type = data.get("target_type")
-    target_id = data.get("target_id")
+    target_gid = data.get("target_id")
 
     if target_type != "riyadh_road":
         return JsonResponse(
@@ -424,7 +418,7 @@ def create_delete_request(request):
         )
 
     try:
-        target_id_int = int(target_id)
+        target_gid_int = int(target_gid)
     except (TypeError, ValueError):
         return JsonResponse(
             {
@@ -448,13 +442,10 @@ def create_delete_request(request):
 
     try:
         is_riyadh_road = True
-        riyadh_road_id_int = target_id_int
+        riyadh_road_id_int = target_gid_int
 
-        try:
-            road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(target_id_int))
-        except RiyadhRoad.DoesNotExist:
-            road = get_object_or_404(RiyadhRoad.objects.using("riyadh_roads"), gid=int(target_id_int))
-        geometry = _get_riyadh_road_geometry_wgs84(target_id_int)
+        road = get_object_or_404(RiyadhRoad.objects.using("riyadh_roads"), gid=int(target_gid_int))
+        geometry = _get_riyadh_road_geometry_wgs84(target_gid_int)
         feature_label = _derive_feature_label_from_riyadh_road(road)
         current_feature_label = feature_label
         feature_type = feature_label
@@ -535,7 +526,7 @@ def set_road_closure(request):
         )
 
     target_type = data.get("target_type")
-    target_id = data.get("target_id")
+    target_gid = data.get("target_id")
     raw_closure = data.get("road_closure", 0)
 
     if target_type != "riyadh_road":
@@ -548,7 +539,7 @@ def set_road_closure(request):
         )
 
     try:
-        target_id_int = int(target_id)
+        target_gid_int = int(target_gid)
     except (TypeError, ValueError):
         return JsonResponse(
             {
@@ -567,7 +558,7 @@ def set_road_closure(request):
 
     try:
         road = get_object_or_404(
-            RiyadhRoad.objects.using("riyadh_roads"), id=float(target_id_int)
+            RiyadhRoad.objects.using("riyadh_roads"), gid=int(target_gid_int)
         )
         road.road_closure = road_closure
         road.save(using="riyadh_roads", update_fields=["road_closure"])
@@ -576,7 +567,7 @@ def set_road_closure(request):
             {
                 "success": True,
                 "target_type": target_type,
-                "target_id": target_id_int,
+                "target_id": target_gid_int,
                 "road_closure": road_closure,
             }
         )
@@ -805,8 +796,8 @@ def get_approved_lines(request):
 
 @login_required
 @require_http_methods(["GET"])
-def get_riyadh_road_details(request, road_id):
-    """Return geometry and metadata for a single Riyadh road."""
+def get_riyadh_road_details(request, road_gid):
+    """Return geometry and metadata for a single Riyadh road, addressed by gid."""
     def _sanitize_number(value):
         if value is None:
             return None
@@ -821,13 +812,8 @@ def get_riyadh_road_details(request, road_id):
             return float(value)
         return value
 
-    # Tiles may carry either `id` (data column) or `gid` (PK) as the feature identifier.
-    # Accept both and return a clean 404 when the feature no longer exists.
     try:
-        try:
-            road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(road_id))
-        except RiyadhRoad.DoesNotExist:
-            road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(road_id))
+        road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(road_gid))
     except RiyadhRoad.DoesNotExist:
         return JsonResponse(
             {
@@ -866,7 +852,7 @@ def get_riyadh_road_details(request, road_id):
                 continue
             tags_data.append({"key": key, "value": str(value)})
 
-        road_identifier = int(road.id) if road.id is not None else int(road.gid)
+        road_identifier = int(road.gid)
         feature_label = _derive_feature_label_from_riyadh_road(road)
         payload = {
             "id": road_identifier,
