@@ -486,6 +486,11 @@ map.on('load', () => {
                                 const roadId = rawId != null ? parseInt(rawId, 10) : null;
                                 if (!roadId || Number.isNaN(roadId)) return;
 
+                                try {
+                                    console.log('[RiyadhRoadClick] feature properties:', props);
+                                    console.log('[RiyadhRoadClick] resolved roadId:', roadId);
+                                } catch (eLog) {}
+
                                 // Update the highlight layer immediately so the
                                 // user sees which road is selected even before
                                 // the details API responds.
@@ -493,13 +498,28 @@ map.on('load', () => {
                                     window.setRiyadhRoadSelectedId(roadId);
                                 }
 
-                                const resp = await fetch(`/mapping/api/riyadh-road/${roadId}/`, {
+                                const url = `/mapping/api/riyadh-road/${roadId}/`;
+                                const resp = await fetch(url, {
                                     method: 'GET',
                                     headers: { 'Content-Type': 'application/json' }
                                 });
-                                if (!resp.ok) return;
+                                if (!resp.ok) {
+                                    try {
+                                        console.warn('[RiyadhRoadClick] details request failed', { url, status: resp.status });
+                                    } catch (eWarn) {}
+                                    return;
+                                }
                                 const data = await resp.json();
-                                if (!data || !data.success || !data.road) return;
+                                if (!data || !data.success || !data.road) {
+                                    try {
+                                        console.warn('[RiyadhRoadClick] details response missing road', { url, payload: data });
+                                    } catch (eWarn2) {}
+                                    return;
+                                }
+
+                                try {
+                                    console.log('[RiyadhRoadClick] details loaded successfully', { url, roadId: roadId });
+                                } catch (eLog2) {}
 
                                 try {
                                     if (!window.riyadhRoadOriginalState) {

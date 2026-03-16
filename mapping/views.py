@@ -821,14 +821,14 @@ def get_riyadh_road_details(request, road_id):
             return float(value)
         return value
 
-    # Tiles may carry either `id` (data column) or `gid` (PK) as the feature identifier,
-    # depending on the Martin source configuration. Accept both to avoid 404s.
+    # Tiles may carry either `id` (data column) or `gid` (PK) as the feature identifier.
+    # Accept both and return a clean 404 when the feature no longer exists.
     try:
         try:
             road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(road_id))
-        except Exception:
+        except RiyadhRoad.DoesNotExist:
             road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(road_id))
-    except Http404:
+    except RiyadhRoad.DoesNotExist:
         return JsonResponse(
             {
                 "success": False,
