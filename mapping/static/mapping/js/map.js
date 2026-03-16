@@ -490,9 +490,11 @@ map.on('load', () => {
                                 const features = map.queryRenderedFeatures(e.point, { layers: ['riyadh-roads-layer'] }) || [];
                                 if (!features.length) return;
 
-                                const props = features[0] && features[0].properties ? features[0].properties : {};
+                                const feature = features[0];
+                                const props = feature && feature.properties ? feature.properties : {};
                                 const rawId = props && props.id != null ? props.id : null;
                                 const roadId = rawId != null ? parseInt(rawId, 10) : null;
+
                                 if (!roadId || Number.isNaN(roadId)) return;
 
                                 // Update the highlight layer immediately so the
@@ -508,6 +510,7 @@ map.on('load', () => {
                                     headers: { 'Content-Type': 'application/json' }
                                 });
                                 if (!resp.ok) return;
+
                                 const data = await resp.json();
                                 if (!data || !data.success || !data.road) return;
 

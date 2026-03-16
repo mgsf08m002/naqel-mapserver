@@ -3977,10 +3977,197 @@
         }
     };
 
-    function showRiyadhRoadAsLineFeature(lineFeatureData) {
-        if (!lineFeatureData) {
-            return;
+    // Local helpers to populate the edit sidepanel with external
+    // line/road data (used when manager-requests.js is not present).
+    function populateFieldsDataFromRoad(fieldsData) {
+        const fieldsContainer = document.getElementById('fields-container');
+        if (!fieldsContainer || !fieldsData) return;
+
+        const nameFieldContainer = fieldsContainer.querySelector('.bg-gray-700.rounded-lg');
+        if (nameFieldContainer) {
+            const nameInput = nameFieldContainer.querySelector('input[type="text"]');
+            if (nameInput && fieldsData.name) {
+                nameInput.value = fieldsData.name;
+            }
         }
+
+        const commonNameInput = fieldsContainer.querySelector('.bg-gray-700.rounded-lg input[type="text"]:not([placeholder*="Name"])');
+        if (commonNameInput && fieldsData.common_name) {
+            commonNameInput.value = fieldsData.common_name;
+        }
+
+        if (fieldsData.multilingual_names && Array.isArray(fieldsData.multilingual_names)) {
+            fieldsData.multilingual_names.forEach(function(multilingual) {
+                if (multilingual.language && multilingual.name) {
+                    let multilingualSection = null;
+                    if (typeof window.addMultilingualNameField === 'function') {
+                        window.addMultilingualNameField(fieldsContainer);
+                        setTimeout(function() {
+                            const multilingualSections = fieldsContainer.querySelectorAll('[id^="multilingual-"]');
+                            if (multilingualSections.length > 0) {
+                                multilingualSection = multilingualSections[multilingualSections.length - 1];
+                                const languageSelect = multilingualSection.querySelector('select');
+                                const nameInput = multilingualSection.querySelector('input[type="text"]');
+                                if (languageSelect) languageSelect.value = multilingual.language;
+                                if (nameInput) nameInput.value = multilingual.name;
+                            }
+                        }, 50);
+                    } else {
+                        // Fallback: simple multilingual field without helper
+                        const multilingualDiv = document.createElement('div');
+                        multilingualDiv.className = 'bg-gray-700 rounded-lg p-3 space-y-2.5';
+                        const label = document.createElement('div');
+                        label.className = 'text-xs font-medium text-white';
+                        label.textContent = 'Multilingual Name (' + multilingual.language + ')';
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400';
+                        input.value = multilingual.name;
+                        multilingualDiv.appendChild(label);
+                        multilingualDiv.appendChild(input);
+                        fieldsContainer.appendChild(multilingualDiv);
+                    }
+                }
+            });
+        }
+
+        const fieldMappings = {
+            'description': { id: 'description', name: 'Description' },
+            'fix_me': { id: 'fix-me', name: 'Fix Me' },
+            'image': { id: 'image', name: 'Image' },
+            'last_checked_date': { id: 'last-checked-date', name: 'Last Checked Date' },
+            'mapillary_image_id': { id: 'mapillary-image-id', name: 'Mapillary Image ID' },
+            'note': { id: 'note', name: 'Note' },
+            'panoramax_image_id': { id: 'panoramax-image-id', name: 'Panoramax Image ID' },
+            'website': { id: 'website', name: 'Website' }
+        };
+
+        Object.keys(fieldMappings).forEach(function(fieldKey) {
+            if (fieldsData[fieldKey]) {
+                const fieldInfo = fieldMappings[fieldKey];
+                const fieldId = fieldInfo.id;
+                const existingField = document.getElementById('field-' + fieldId);
+                if (!existingField) {
+                    if (typeof window.addFieldToContainer === 'function') {
+                        window.addFieldToContainer(fieldInfo.name, fieldId, fieldsContainer);
+                        if (typeof window.selectedFields === 'undefined') {
+                            window.selectedFields = [];
+                        }
+                        if (window.selectedFields.indexOf(fieldId) === -1) {
+                            window.selectedFields.push(fieldId);
+                        }
+                        setTimeout(function() {
+                            const fieldElement = document.getElementById('field-' + fieldId);
+                            if (fieldElement) {
+                                const input = fieldElement.querySelector('input, textarea');
+                                if (input) {
+                                    input.value = fieldsData[fieldKey];
+                                }
+                            }
+                        }, 150);
+                    }
+                } else {
+                    const input = existingField.querySelector('input, textarea');
+                    if (input) {
+                        input.value = fieldsData[fieldKey];
+                    }
+                }
+            }
+        });
+
+        setTimeout(function() {
+            if (typeof window.updateAddFieldDisplay === 'function') {
+                window.updateAddFieldDisplay();
+            }
+        }, 200);
+    }
+
+    function populateTagsDataFromRoad(tagsData) {
+        if (!Array.isArray(tagsData) || tagsData.length === 0) return;
+
+        const tagsRowsContainer = document.getElementById('tags-rows-container');
+        const tagsLabel = document.getElementById('tags-label-span');
+
+        if (!tagsRowsContainer || !tagsLabel) return;
+
+        tagsData.forEach(function(tag) {
+            if (tag.key || tag.value) {
+                // Minimal inline version of createTagRow to avoid hard dependency
+                const tagRow = document.createElement('div');
+                tagRow.className = 'flex items-center gap-2';
+
+                const keyInput = document.createElement('input');
+                keyInput.type = 'text';
+                keyInput.className = 'flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400';
+                keyInput.value = tag.key || '';
+
+                const valueInput = document.createElement('input');
+                valueInput.type = 'text';
+                valueInput.className = 'flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400';
+                valueInput.value = tag.value || '';
+
+                tagRow.appendChild(keyInput);
+                tagRow.appendChild(valueInput);
+                tagsRowsContainer.appendChild(tagRow);
+            }
+        });
+
+        const count = tagsRowsContainer.querySelectorAll('.flex.items-center.gap-2').length;
+        tagsLabel.textContent = 'Tags (' + count + ')';
+    }
+
+    function populateRelationsDataFromRoad(relationsData) {
+        if (!Array.isArray(relationsData) || relationsData.length === 0) return;
+
+        const relationsRowsContainer = document.getElementById('relations-rows-container');
+        const relationsLabel = document.getElementById('relations-label-span');
+
+        if (!relationsRowsContainer || !relationsLabel) return;
+
+        relationsData.forEach(function(relation) {
+            if (relation.parent_relation || relation.role) {
+                const relationRow = document.createElement('div');
+                relationRow.className = 'space-y-2';
+
+                const header = document.createElement('div');
+                header.className = 'flex items-center gap-2';
+
+                const parentInput = document.createElement('input');
+                parentInput.type = 'text';
+                parentInput.className = 'flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400';
+                parentInput.value = relation.parent_relation || 'New Relation';
+
+                const deleteButton = document.createElement('button');
+                deleteButton.type = 'button';
+                deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-gray-600 transition-colors flex-shrink-0';
+                deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m3 0V4a1 1 0 011-1h6a1 1 0 011 1v3m-9 0h10"></path></svg>';
+                deleteButton.addEventListener('click', function() {
+                    relationRow.remove();
+                    const remaining = relationsRowsContainer.querySelectorAll('.space-y-2').length;
+                    relationsLabel.textContent = 'Relations (' + remaining + ')';
+                });
+
+                header.appendChild(parentInput);
+                header.appendChild(deleteButton);
+
+                const roleInput = document.createElement('input');
+                roleInput.type = 'text';
+                roleInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400';
+                roleInput.value = relation.role || '';
+
+                relationRow.appendChild(header);
+                relationRow.appendChild(roleInput);
+                relationsRowsContainer.appendChild(relationRow);
+            }
+        });
+
+        const count = relationsRowsContainer.querySelectorAll('.space-y-2').length;
+        relationsLabel.textContent = 'Relations (' + count + ')';
+    }
+
+    function showRiyadhRoadAsLineFeature(lineFeatureData) {
+        if (!lineFeatureData) return;
+
         const roadId = lineFeatureData.id || 'riyadh-road-' + Date.now();
         window.approvedLineBeingEdited = Object.assign({}, lineFeatureData, { id: roadId });
 
@@ -3989,16 +4176,47 @@
             updateRiyadhRoadVisualization(roadId, featureLabel, lineFeatureData.geometry);
         }
 
-        // Open the edit sidepanel directly (legacy approved-lines overlay is removed).
+        // Open the edit sidepanel directly (legacy approved-lines overlay is removed)
+        // and populate it with the full attribute payload returned from the API
+        // (fields, tags and relations) so the user sees all road details.
         try {
             const featureLabel = lineFeatureData.current_feature_label || lineFeatureData.feature_type || 'Line';
             currentFeatureLabel = featureLabel;
             updateCurrentFeatureLabel(featureLabel);
+
             showEditFeatureScreen({
                 hideBackButton: false,
                 requestGeometry: lineFeatureData.geometry || null,
                 lineData: lineFeatureData
             });
+
+            const fieldsData = lineFeatureData.fields_data || {};
+            const tagsData = lineFeatureData.tags_data || [];
+            const relationsData = lineFeatureData.relations_data || [];
+
+            setTimeout(function() {
+                if (fieldsData) {
+                    if (typeof window.populateFieldsData === 'function') {
+                        window.populateFieldsData(fieldsData);
+                    } else {
+                        populateFieldsDataFromRoad(fieldsData);
+                    }
+                }
+                if (tagsData && Array.isArray(tagsData)) {
+                    if (typeof window.populateTagsData === 'function') {
+                        window.populateTagsData(tagsData);
+                    } else {
+                        populateTagsDataFromRoad(tagsData);
+                    }
+                }
+                if (relationsData && Array.isArray(relationsData)) {
+                    if (typeof window.populateRelationsData === 'function') {
+                        window.populateRelationsData(relationsData);
+                    } else {
+                        populateRelationsDataFromRoad(relationsData);
+                    }
+                }
+            }, 300);
         } catch (e) {}
     }
 
