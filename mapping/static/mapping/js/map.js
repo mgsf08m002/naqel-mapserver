@@ -44,10 +44,11 @@ function getRiyadhRoadsTileUrl() {
     return trimmed;
 }
 
-// Request a hard refresh of the Riyadh roads tiles without relying on storage.
-// This updates the page URL with a `tiles_v` query parameter (timestamp), which
-// is then appended to the tiles URL by `getRiyadhRoadsTileUrl()`.
 window.triggerRiyadhTilesReload = function() {
+    if (typeof window.reloadRiyadhRoadsSource === 'function') {
+        window.reloadRiyadhRoadsSource();
+        return;
+    }
     try {
         const url = new URL(window.location.href);
         url.searchParams.set('tiles_v', String(Date.now()));
@@ -353,11 +354,7 @@ map.on('load', () => {
                 });
             }
 
-            // Base public view: always render the Riyadh road network with a
-            // single neutral color so unauthenticated users can still see the
-            // geometry, but without the full symbology. Use a dedicated
-            // layer id so the authenticated symbology layer (riyadh-roads-layer)
-            // can still attach its own click handlers.
+            // Public layer shows the Riyadh road network in a single neutral color for all users.
             if (!map.getLayer('riyadh-roads-public-layer')) {
                 map.addLayer({
                     id: 'riyadh-roads-public-layer',
@@ -376,8 +373,7 @@ map.on('load', () => {
                 });
             }
 
-            // Public click-to-login is attached by `public-approved-lines.js` to keep
-            // authenticated/public concerns separated.
+            // Public click-to-login is handled by `public-approved-lines.js`.
 
             const fclassToLabel = {
                 motorway: 'Motorway',
@@ -499,11 +495,6 @@ map.on('load', () => {
                                 const roadId = rawId != null ? parseInt(rawId, 10) : null;
                                 if (!roadId || Number.isNaN(roadId)) return;
 
-                                try {
-                                    console.log('[RiyadhRoadClick] feature properties:', props);
-                                    console.log('[RiyadhRoadClick] resolved roadId:', roadId);
-                                } catch (eLog) {}
-
                                 // Update the highlight layer immediately so the
                                 // user sees which road is selected even before
                                 // the details API responds.
@@ -516,23 +507,9 @@ map.on('load', () => {
                                     method: 'GET',
                                     headers: { 'Content-Type': 'application/json' }
                                 });
-                                if (!resp.ok) {
-                                    try {
-                                        console.warn('[RiyadhRoadClick] details request failed', { url, status: resp.status });
-                                    } catch (eWarn) {}
-                                    return;
-                                }
+                                if (!resp.ok) return;
                                 const data = await resp.json();
-                                if (!data || !data.success || !data.road) {
-                                    try {
-                                        console.warn('[RiyadhRoadClick] details response missing road', { url, payload: data });
-                                    } catch (eWarn2) {}
-                                    return;
-                                }
-
-                                try {
-                                    console.log('[RiyadhRoadClick] details loaded successfully', { url, roadId: roadId });
-                                } catch (eLog2) {}
+                                if (!data || !data.success || !data.road) return;
 
                                 try {
                                     if (!window.riyadhRoadOriginalState) {
@@ -606,6 +583,61 @@ map.on('load', () => {
                 });
             }
             requestCatalog();
+
+            // Helper to reload Riyadh roads tiles by recreating the vector source and layers with a cache-busting URL.
+            window.reloadRiyadhRoadsSource = function() {
+                if (typeof map === 'undefined' || !map) {
+                    return;
+                }
+
+                try {
+                    if (map.getLayer('riyadh-roads-layer')) {
+                        map.removeLayer('riyadh-roads-layer');
+                    }
+                    if (map.getLayer('riyadh-roads-selected-layer')) {
+                        map.removeLayer('riyadh-roads-selected-layer');
+                    }
+                    if (map.getLayer('riyadh-roads-public-layer')) {
+                        map.removeLayer('riyadh-roads-public-layer');
+                    }
+                    if (map.getSource('riyadh-roads')) {
+                        map.removeSource('riyadh-roads');
+                    }
+                } catch (e) {}
+
+                try {
+                    const baseUrl = RIYADH_ROADS_TILE_URL;
+                    const sep = baseUrl.indexOf('?') >= 0 ? '&' : '?';
+                    const bustedUrl = `${baseUrl}${sep}_t=${Date.now()}`;
+
+                    map.addSource('riyadh-roads', {
+                        type: 'vector',
+                        tiles: [bustedUrl],
+                        minzoom: 0,
+                        maxzoom: 14
+                    });
+
+                    map.addLayer({
+                        id: 'riyadh-roads-public-layer',
+                        type: 'line',
+                        source: 'riyadh-roads',
+                        'source-layer': 'riyadh_roads',
+                        layout: {
+                            'line-cap': 'round',
+                            'line-join': 'round'
+                        },
+                        paint: {
+                            'line-color': PUBLIC_ROAD_COLOR,
+                            'line-width': 2,
+                            'line-opacity': 1
+                        }
+                    });
+
+                    if (window.symbologyCatalog) {
+                        ensureRiyadhRoadLayerFromCatalog(window.symbologyCatalog);
+                    }
+                } catch (e2) {}
+            };
         } catch (e) {}
     }
 

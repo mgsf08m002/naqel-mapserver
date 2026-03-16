@@ -371,8 +371,6 @@
         if (!normalizedGeometry || !normalizedGeometry.coordinates || normalizedGeometry.coordinates.length < 2) {
             if (window.notify && window.notify.warning) {
                 window.notify.warning('This edit request has invalid geometry and cannot be shown on the map, but its details can still be reviewed.');
-            } else {
-                console.warn('Edit request has invalid geometry and cannot be shown on the map (request id: ' + request.id + ').');
             }
 
             ensureEditModeEnabled(function() {

@@ -46,7 +46,7 @@
         if (type === 'error') {
             alert(message);
         } else {
-            try { console.log(message); } catch (e) {}
+            try { console.info ? console.info(message) : void 0; } catch (e) {}
         }
     }
 
