@@ -90,8 +90,11 @@
         const editType = document.createElement('div');
         editType.className = 'mb-2';
         const badge = document.createElement('span');
-        badge.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300';
-        badge.textContent = request.edit_type;
+        const isDelete = (request.edit_type || '').toUpperCase() === 'DELETE';
+        badge.className = isDelete
+            ? 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200'
+            : 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300';
+        badge.textContent = isDelete ? 'DELETE REQUEST' : request.edit_type;
         editType.appendChild(badge);
         card.appendChild(editType);
 

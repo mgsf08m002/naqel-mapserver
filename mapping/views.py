@@ -300,6 +300,221 @@ def _apply_riyadh_edit_to_base_network(edit_request):
     road.save(using="riyadh_roads")
 
 
+def _get_user_is_manager(user):
+    profile = getattr(user, "profile", None)
+    return bool(profile and profile.role == "manager")
+
+
+def _apply_delete_to_base_network(edit_request):
+    """Apply a delete request to the underlying dataset (hard delete)."""
+    if not edit_request:
+        return
+
+    if (edit_request.edit_type or "").upper() != "DELETE":
+        return
+
+    if edit_request.is_riyadh_road:
+        if edit_request.riyadh_road_id is None:
+            return
+        try:
+            road = RiyadhRoad.objects.using("riyadh_roads").get(
+                id=float(edit_request.riyadh_road_id)
+            )
+            road.delete(using="riyadh_roads")
+        except RiyadhRoad.DoesNotExist:
+            return
+        except Exception:
+            return
+
+    else:
+        if not edit_request.parent_approved_line_id:
+            return
+        try:
+            target = LineEditRequest.objects.get(
+                pk=int(edit_request.parent_approved_line_id),
+                status="approved",
+                is_riyadh_road=False,
+            )
+            target.delete()
+        except LineEditRequest.DoesNotExist:
+            return
+        except Exception:
+            return
+
+
+@require_http_methods(["GET"])
+def get_deleted_riyadh_roads(request):
+    """Return IDs of Riyadh roads that have been approved for deletion."""
+    try:
+        qs = LineEditRequest.objects.filter(
+            status="approved",
+            is_riyadh_road=True,
+        ).filter(edit_type__iexact="DELETE")
+
+        ids = []
+        for value in qs.values_list("riyadh_road_id", flat=True):
+            if value is None:
+                continue
+            try:
+                ids.append(int(value))
+            except (TypeError, ValueError):
+                continue
+
+        return JsonResponse(
+            {
+                "success": True,
+                "deleted_ids": ids,
+            }
+        )
+    except Exception as e:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": f"Error fetching deleted Riyadh roads: {str(e)}",
+            },
+            status=500,
+        )
+
+
+@login_required
+@require_http_methods(["POST"])
+@csrf_exempt
+def create_delete_request(request):
+    """Create a delete request for a RiyadhRoad or an approved manual line."""
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid JSON data",
+            },
+            status=400,
+        )
+
+    target_type = data.get("target_type")
+    target_id = data.get("target_id")
+
+    if target_type not in ("riyadh_road", "approved_line"):
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid target_type. Use 'riyadh_road' or 'approved_line'.",
+            },
+            status=400,
+        )
+
+    try:
+        target_id_int = int(target_id)
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid or missing target_id.",
+            },
+            status=400,
+        )
+
+    is_manager = _get_user_is_manager(request.user)
+
+    # Resolve target and capture a geometry snapshot for review.
+    is_riyadh_road = False
+    riyadh_road_id_int = None
+    approved_line_id_int = None
+    geometry = None
+    current_feature_label = None
+    feature_type = None
+    fields_data = {}
+    tags_data = []
+    relations_data = []
+
+    try:
+        if target_type == "riyadh_road":
+            is_riyadh_road = True
+            riyadh_road_id_int = target_id_int
+
+            try:
+                road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(target_id_int))
+            except Exception:
+                road = get_object_or_404(RiyadhRoad, id=float(target_id_int))
+
+            geometry = _get_riyadh_road_geometry_wgs84(target_id_int)
+            feature_label = _derive_feature_label_from_riyadh_road(road)
+            current_feature_label = feature_label
+            feature_type = feature_label
+
+            # Optional client snapshots, used only for display convenience.
+            fields_data = data.get("fields_data") or {}
+            tags_data = data.get("tags_data") or []
+            relations_data = data.get("relations_data") or []
+
+        else:
+            approved_line_id_int = target_id_int
+            approved_line = get_object_or_404(
+                LineEditRequest,
+                pk=approved_line_id_int,
+                status="approved",
+                is_riyadh_road=False,
+            )
+            geometry = _ensure_wgs84_geometry(approved_line.geometry, source_srid=3857)
+            current_feature_label = approved_line.current_feature_label or "Line"
+            feature_type = approved_line.feature_type or ""
+            fields_data = approved_line.fields_data or {}
+            tags_data = approved_line.tags_data or []
+            relations_data = approved_line.relations_data or []
+
+    except Http404:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Target not found.",
+            },
+            status=404,
+        )
+
+    if not geometry:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Target geometry is missing and cannot be deleted.",
+            },
+            status=400,
+        )
+
+    delete_request = LineEditRequest.objects.create(
+        requester=request.user,
+        status="pending",
+        edit_type="DELETE",
+        geometry=_ensure_wgs84_geometry(geometry, source_srid=3857),
+        feature_type=feature_type or "",
+        current_feature_label=current_feature_label or "Line",
+        fields_data=fields_data,
+        tags_data=tags_data,
+        relations_data=relations_data,
+        is_riyadh_road=is_riyadh_road,
+        riyadh_road_id=riyadh_road_id_int,
+        parent_approved_line_id=approved_line_id_int,
+    )
+
+    auto_approved = False
+    if is_manager:
+        delete_request.approve(request.user)
+        auto_approved = True
+        try:
+            _apply_delete_to_base_network(delete_request)
+        except Exception:
+            pass
+
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Delete request submitted." if not auto_approved else "Delete request approved and applied.",
+            "request_id": delete_request.id,
+            "auto_approved": auto_approved,
+        }
+    )
+
+
 @login_required
 @require_http_methods(["POST"])
 @csrf_exempt
@@ -522,7 +737,12 @@ def approve_edit_request(request, request_id):
 
         edit_request.approve(request.user)
 
-        if edit_request.is_riyadh_road:
+        if (edit_request.edit_type or "").upper() == "DELETE":
+            try:
+                _apply_delete_to_base_network(edit_request)
+            except Exception:
+                pass
+        elif edit_request.is_riyadh_road:
             try:
                 _apply_riyadh_edit_to_base_network(edit_request)
             except Exception:
@@ -582,6 +802,7 @@ def get_approved_lines(request):
     try:
         approved_requests = (
             LineEditRequest.objects.filter(status="approved", is_riyadh_road=False)
+            .exclude(edit_type__iexact="DELETE")
             .order_by("-created_at")
         )
 
@@ -624,6 +845,8 @@ def get_approved_lines(request):
             },
             status=500,
         )
+
+
 
 
 @login_required

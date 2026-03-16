@@ -29,10 +29,24 @@ function getRiyadhRoadsTileUrl() {
     return trimmed.length ? trimmed : null;
 }
 
+function getIsAuthenticated() {
+    const mapElement = document.getElementById('map');
+    if (!mapElement) {
+        return true;
+    }
+
+    const value = mapElement.getAttribute('data-is-authenticated');
+    // Default to true so authenticated pages without the attribute still enable symbology.
+    // Public/landing pages should explicitly set data-is-authenticated="false".
+    return value !== 'false';
+}
+
 const MAPTILER_API_KEY = getMaptilerApiKey();
 const HAS_MAPTILER = !!MAPTILER_API_KEY;
 const RIYADH_ROADS_TILE_URL = getRiyadhRoadsTileUrl();
 const HAS_RIYADH_ROADS_TILES = !!RIYADH_ROADS_TILE_URL;
+window.deletedRiyadhRoadIds = window.deletedRiyadhRoadIds || [];
+const IS_AUTHENTICATED = getIsAuthenticated();
 
 // Basemap definitions: raster sources/layers for MapLibre; MapTiler basemaps added when API key present.
 const BASEMAP_DEFINITIONS = (() => {
@@ -311,6 +325,22 @@ map.on('load', () => {
                 });
             }
 
+            function applyDeletedRiyadhRoadFilter(deletedIds) {
+                try {
+                    const ids = Array.isArray(deletedIds) ? deletedIds : [];
+                    const baseFilter = ['all'];
+                    if (ids.length) {
+                        baseFilter.push(['!', ['in', ['get', 'id'], ['literal', ids]]]);
+                    }
+                    if (map.getLayer('riyadh-roads-public-layer')) {
+                        map.setFilter('riyadh-roads-public-layer', baseFilter);
+                    }
+                    if (map.getLayer('riyadh-roads-layer')) {
+                        map.setFilter('riyadh-roads-layer', baseFilter);
+                    }
+                } catch (e) {}
+            }
+
             // Base public view: always render the Riyadh road network with a
             // single neutral color so unauthenticated users can still see the
             // geometry, but without the full symbology. Use a dedicated
@@ -503,9 +533,14 @@ map.on('load', () => {
                         map.setPaintProperty('riyadh-roads-layer', 'line-width', widthExpression);
                     } catch (e) {}
                 }
+
+                applyDeletedRiyadhRoadFilter(window.deletedRiyadhRoadIds || []);
             }
 
             function requestCatalog() {
+                if (!IS_AUTHENTICATED) {
+                    return;
+                }
                 if (window.symbologyCatalog) {
                     ensureRiyadhRoadLayerFromCatalog(window.symbologyCatalog);
                     return;
@@ -531,11 +566,34 @@ map.on('load', () => {
                     .catch(function() {});
             }
 
-            window.addEventListener('symbology:catalogLoaded', function(e) {
-                const catalog = e && e.detail ? e.detail : window.symbologyCatalog;
-                ensureRiyadhRoadLayerFromCatalog(catalog);
-            });
+            if (IS_AUTHENTICATED) {
+                window.addEventListener('symbology:catalogLoaded', function(e) {
+                    const catalog = e && e.detail ? e.detail : window.symbologyCatalog;
+                    ensureRiyadhRoadLayerFromCatalog(catalog);
+                });
+            }
             requestCatalog();
+
+            (function requestDeletedRiyadhRoads() {
+                fetch('/mapping/api/riyadh-roads/deleted/', {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                })
+                    .then(function (resp) {
+                        if (!resp.ok) {
+                            throw new Error('Failed to load deleted Riyadh roads');
+                        }
+                        return resp.json();
+                    })
+                    .then(function (data) {
+                        if (!data || !data.success || !Array.isArray(data.deleted_ids)) {
+                            return;
+                        }
+                        window.deletedRiyadhRoadIds = data.deleted_ids;
+                        applyDeletedRiyadhRoadFilter(window.deletedRiyadhRoadIds);
+                    })
+                    .catch(function () {});
+            })();
         } catch (e) {}
     }
 

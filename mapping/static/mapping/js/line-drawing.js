@@ -18,6 +18,177 @@
     let symbologyStylesByLabel = null;
     let symbologyCatalogRequested = false;
 
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function notify(message, type) {
+        if (!message) {
+            return;
+        }
+        if (window.notify) {
+            if (type === 'success' && typeof window.notify.success === 'function') return window.notify.success(message);
+            if (type === 'error' && typeof window.notify.error === 'function') return window.notify.error(message);
+            if (type === 'warning' && typeof window.notify.warning === 'function') return window.notify.warning(message);
+            if (typeof window.notify.info === 'function') return window.notify.info(message);
+        }
+        if (type === 'error') {
+            alert(message);
+        } else {
+            try { console.log(message); } catch (e) {}
+        }
+    }
+
+    function getDeleteTargetFromContext() {
+        const riyadh = window.selectedRiyadhRoad || null;
+        if (riyadh && riyadh.is_riyadh_road) {
+            const id = riyadh.riyadh_road_id != null ? riyadh.riyadh_road_id : riyadh.id;
+            if (id != null) {
+                return { target_type: 'riyadh_road', target_id: id, snapshot: riyadh };
+            }
+        }
+
+        const approved = window.approvedLineBeingEdited || null;
+        if (approved && approved.id != null && approved.is_riyadh_road === false) {
+            return { target_type: 'approved_line', target_id: approved.id, snapshot: approved };
+        }
+
+        // Fallback: derive approved-line context from the current edit screen when globals are missing.
+        const editScreen = document.getElementById('editFeatureScreen');
+        if (editScreen) {
+            const approvedLineIdAttr = editScreen.getAttribute('data-approved-line-id');
+            const isApprovedLineAttr = editScreen.getAttribute('data-is-approved-line');
+            const isApprovedLine = isApprovedLineAttr === 'true';
+            if (isApprovedLine && approvedLineIdAttr) {
+                const idInt = parseInt(approvedLineIdAttr, 10);
+                if (!Number.isNaN(idInt)) {
+                    let snapshot = null;
+                    const lineDataAttr = editScreen.getAttribute('data-line-data');
+                    if (lineDataAttr) {
+                        try {
+                            snapshot = JSON.parse(lineDataAttr);
+                        } catch (e) {
+                            snapshot = null;
+                        }
+                    }
+                    if (!snapshot || typeof snapshot !== 'object') {
+                        snapshot = {};
+                    }
+                    if (snapshot.id == null) {
+                        snapshot.id = idInt;
+                    }
+                    if (typeof snapshot.is_riyadh_road === 'undefined') {
+                        snapshot.is_riyadh_road = false;
+                    }
+                    return { target_type: 'approved_line', target_id: idInt, snapshot: snapshot };
+                }
+            }
+        }
+
+        return null;
+    }
+
+    function getDeleteTargetFromEditScreenOptions(options) {
+        const opts = options || {};
+        const isApprovedLine = !!opts.isApprovedLine;
+        const approvedLineId = opts.approvedLineId != null ? opts.approvedLineId : null;
+        const lineData = opts.lineData || null;
+
+        if (isApprovedLine && approvedLineId != null) {
+            const idInt = parseInt(String(approvedLineId), 10);
+            if (!Number.isNaN(idInt)) {
+                const snapshot = (lineData && typeof lineData === 'object') ? Object.assign({}, lineData) : {};
+                if (snapshot.id == null) {
+                    snapshot.id = idInt;
+                }
+                if (typeof snapshot.is_riyadh_road === 'undefined') {
+                    snapshot.is_riyadh_road = false;
+                }
+                return { target_type: 'approved_line', target_id: idInt, snapshot: snapshot };
+            }
+        }
+
+        // If the edit screen was opened for a Riyadh road (tile feature), it should be in the snapshot.
+        if (lineData && typeof lineData === 'object' && lineData.is_riyadh_road) {
+            const id = lineData.riyadh_road_id != null ? lineData.riyadh_road_id : lineData.id;
+            if (id != null) {
+                return { target_type: 'riyadh_road', target_id: id, snapshot: lineData };
+            }
+        }
+
+        return null;
+    }
+
+    function requestDeleteForCurrentFeature() {
+        const target = getDeleteTargetFromContext();
+        if (!target) {
+            notify('Select a road first.', 'warning');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to request deletion of this road?')) {
+            return;
+        }
+
+        const snapshot = target.snapshot || {};
+        const payload = {
+            target_type: target.target_type,
+            target_id: target.target_id,
+            geometry: snapshot.geometry || null,
+            feature_type: snapshot.feature_type || snapshot.current_feature_label || 'Line',
+            current_feature_label: snapshot.current_feature_label || snapshot.feature_type || 'Line',
+            fields_data: snapshot.fields_data || {},
+            tags_data: snapshot.tags_data || [],
+            relations_data: snapshot.relations_data || [],
+        };
+
+        fetch('/mapping/api/request/delete/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify(payload),
+        })
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+                if (!data || !data.success) {
+                    notify((data && data.message) ? data.message : 'Failed to submit delete request.', 'error');
+                    return;
+                }
+
+                if (data.auto_approved) {
+                    notify('Road deleted successfully.', 'success');
+                    try {
+                        window.selectedRiyadhRoad = null;
+                        window.approvedLineBeingEdited = null;
+                        setSelectedOverlayGeometry(null);
+                        setApprovedLinesDimmed(null);
+                    } catch (e) {}
+                    if (typeof window.reloadApprovedLines === 'function') {
+                        try { window.reloadApprovedLines(); } catch (e2) {}
+                    }
+                    setTimeout(function () { window.location.reload(); }, 500);
+                } else {
+                    notify('Delete request sent for approval.', 'success');
+                }
+            })
+            .catch(function () {
+                notify('Failed to submit delete request.', 'error');
+            });
+    }
+
     // Selected-feature overlay used to highlight approved lines and tile roads.
     const SELECTED_OVERLAY_SOURCE_ID = 'selected-road-overlay-source';
     const SELECTED_OVERLAY_GLOW_LAYER_ID = 'selected-road-overlay-glow';
@@ -1871,6 +2042,25 @@
         title.className = 'text-lg font-semibold text-white flex-1 text-center';
         title.textContent = 'Edit feature';
 
+        // Resolve delete target from the explicit options first (works even before the edit screen DOM exists).
+        const deleteTarget = getDeleteTargetFromEditScreenOptions({
+            isApprovedLine: isApprovedLine,
+            approvedLineId: approvedLineId,
+            lineData: lineData,
+        }) || getDeleteTargetFromContext();
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'p-2 hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0';
+        deleteButton.setAttribute('aria-label', 'Request delete');
+        deleteButton.innerHTML = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m3 0V4a1 1 0 011-1h6a1 1 0 011 1v3m-9 0h10"></path></svg>';
+        if (!deleteTarget) {
+            deleteButton.style.display = 'none';
+        } else {
+            deleteButton.addEventListener('click', function (e) {
+                e.stopPropagation();
+                requestDeleteForCurrentFeature();
+            });
+        }
+
         const closeButton = document.createElement('button');
         closeButton.className = 'p-2 hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0';
         closeButton.innerHTML = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
@@ -1886,6 +2076,7 @@
 
         header.appendChild(backButton);
         header.appendChild(title);
+        header.appendChild(deleteButton);
         header.appendChild(closeButton);
         editScreen.appendChild(header);
 
