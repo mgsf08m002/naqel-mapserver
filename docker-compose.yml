@@ -42,7 +42,7 @@ services:
     volumes:
       - .:/app
       - ./database:/database
-    command: sh -c "mkdir -p /app/static/css && tailwindcss -i /app/static/src/input.css -o /app/static/css/output.css --minify && until PGPASSWORD=\"$$DB_PASSWORD\" pg_isready -h db -U \"$$DB_USER\" > /dev/null 2>&1; do sleep 1; done && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    command: ["/usr/local/bin/naqel_entrypoint.sh"]
     environment:
       - PYTHONUNBUFFERED=1
     env_file:

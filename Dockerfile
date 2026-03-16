@@ -7,8 +7,8 @@ ENV PYTHONUNBUFFERED=1
 # Set work directory
 WORKDIR /app
 
-# Install system dependencies for GDAL/PostGIS
-RUN apt-get update && apt-get install -y \
+# Install system dependencies for GDAL/PostGIS (quieter apt output)
+RUN apt-get update -qq && apt-get install -y \
     curl \
     gdal-bin \
     libgdal-dev \
@@ -21,16 +21,23 @@ RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/downlo
     chmod +x tailwindcss-linux-x64 && \
     mv tailwindcss-linux-x64 /usr/local/bin/tailwindcss
 
-# Install dependencies
+# Install Python dependencies (quieter pip output)
 COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -q -r requirements.txt
+
+# Copy entrypoint separately to avoid being overridden by bind mounts
+COPY entrypoint.sh /usr/local/bin/naqel_entrypoint.sh
 
 # Copy project
 COPY . /app/
 
+# Normalize line endings and ensure entrypoint is executable
+RUN sed -i 's/\r$//' /usr/local/bin/naqel_entrypoint.sh && \
+    chmod +x /usr/local/bin/naqel_entrypoint.sh
+
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Default command (may be overridden by docker-compose)
+CMD ["/usr/local/bin/naqel_entrypoint.sh"]
 
