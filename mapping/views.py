@@ -127,7 +127,7 @@ def _derive_feature_label_from_riyadh_road(road):
         "living_street": "Living Street",
         "service": "Service Road",
         "unclassified": "Unclassified Road",
-        "track": "Track",
+        "track": "Track / Land-Access Road",
         "footway": "Footway",
         "steps": "Steps",
         "path": "Path",
@@ -142,6 +142,44 @@ def _derive_feature_label_from_riyadh_road(road):
         return fclass.replace("_", " ").title()
 
     return "Line"
+
+
+def _derive_fclass_from_feature_label(label: str) -> str | None:
+    """
+    Map a human‑readable feature label back to an OSM‑style fclass value.
+
+    This is the inverse of the mapping in _derive_feature_label_from_riyadh_road
+    and must stay in sync with the frontend's fclassToLabel map in map.js.
+    """
+    if not label:
+        return None
+
+    normalized = (label or "").strip().lower()
+
+    label_to_fclass = {
+        "motorway": "motorway",
+        "motorway link": "motorway_link",
+        "trunk road": "trunk",
+        "trunk link": "trunk_link",
+        "primary road": "primary",
+        "primary link": "primary_link",
+        "secondary road": "secondary",
+        "secondary link": "secondary_link",
+        "tertiary road": "tertiary",
+        "tertiary link": "tertiary_link",
+        "residential road": "residential",
+        "living street": "living_street",
+        "service road": "service",
+        "unclassified road": "unclassified",
+        "track / land-access road": "track",
+        "track": "track",
+        "footway": "footway",
+        "steps": "steps",
+        "path": "path",
+        "cycleway": "cycleway",
+    }
+
+    return label_to_fclass.get(normalized)
 
 
 @login_required
@@ -276,12 +314,20 @@ def _apply_riyadh_edit_to_base_network(edit_request):
         except Exception:
             geom = None
 
-    fields = edit_request.fields_data or {}
+        fields = edit_request.fields_data or {}
 
-    road_kwargs = {
-        "name": fields.get("name") or "",
-        "ref": fields.get("ref") or "",
-        "fclass": fields.get("fclass") or "",
+        # Ensure fclass is populated from the chosen feature label when not
+        # explicitly provided in fields_data so tile symbology is consistent.
+        if not fields.get("fclass"):
+            effective_label = edit_request.current_feature_label or edit_request.feature_type
+            derived_fclass = _derive_fclass_from_feature_label(effective_label or "")
+            if derived_fclass:
+                fields["fclass"] = derived_fclass
+
+        road_kwargs = {
+            "name": fields.get("name") or "",
+            "ref": fields.get("ref") or "",
+            "fclass": fields.get("fclass") or "",
         "oneway": fields.get("oneway") or "",
         "maxspeed": fields.get("maxspeed"),
         "code": fields.get("code"),
@@ -326,6 +372,14 @@ def _apply_manual_approval_to_remote_network(edit_request):
         raise ValueError("Missing geometry for approved manual line.")
 
     fields = edit_request.fields_data or {}
+
+    # Ensure fclass is populated from the chosen feature label when not
+    # explicitly provided in fields_data for newly created roads.
+    if not fields.get("fclass"):
+        effective_label = edit_request.current_feature_label or edit_request.feature_type
+        derived_fclass = _derive_fclass_from_feature_label(effective_label or "")
+        if derived_fclass:
+            fields["fclass"] = derived_fclass
 
     with transaction.atomic(using="riyadh_roads"):
         max_id = RiyadhRoad.objects.using("riyadh_roads").aggregate(max_id=Max("id")).get("max_id")
@@ -394,10 +448,19 @@ def _apply_delete_to_base_network(edit_request):
         return
 
     if not edit_request.is_riyadh_road or edit_request.riyadh_road_id is None:
-        raise ValueError("Delete requests must target a Riyadh road gid.")
+        raise ValueError("Delete requests must target a Riyadh road identifier.")
 
-    identifier = edit_request.riyadh_road_id
-    road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(identifier))
+    identifier = int(edit_request.riyadh_road_id)
+
+    # Mirror the lookup strategy used by get_riyadh_road_details so that
+    # deletes work regardless of whether tiles / external systems reference
+    # `gid` or `id`.
+    road = None
+    try:
+        road = RiyadhRoad.objects.using("riyadh_roads").get(gid=identifier)
+    except RiyadhRoad.DoesNotExist:
+        road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(identifier))
+
     road.delete(using="riyadh_roads")
 
 
@@ -456,8 +519,25 @@ def create_delete_request(request):
         is_riyadh_road = True
         riyadh_road_id_int = target_gid_int
 
-        road = get_object_or_404(RiyadhRoad.objects.using("riyadh_roads"), gid=int(target_gid_int))
-        geometry = _get_riyadh_road_geometry_wgs84(target_gid_int)
+        # Resolve road by gid first, then fall back to the `id` column so that
+        # deletes work regardless of which identifier the tiles or external
+        # systems are using.
+        road = None
+        try:
+            road = RiyadhRoad.objects.using("riyadh_roads").get(gid=target_gid_int)
+        except RiyadhRoad.DoesNotExist:
+            try:
+                road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(target_gid_int))
+            except RiyadhRoad.DoesNotExist:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": "Target Riyadh road not found for delete request.",
+                    },
+                    status=404,
+                )
+
+        geometry = _get_riyadh_road_geometry_wgs84(getattr(road, "gid", target_gid_int))
         feature_label = _derive_feature_label_from_riyadh_road(road)
         current_feature_label = feature_label
         feature_type = feature_label
@@ -817,7 +897,14 @@ def get_approved_lines(request):
 @login_required
 @require_http_methods(["GET"])
 def get_riyadh_road_details(request, road_gid):
-    """Return geometry and metadata for a single Riyadh road, addressed by gid."""
+    """
+    Return geometry and metadata for a single Riyadh road.
+
+    The identifier comes from the vector tile feature's `id` property. Depending
+    on how the tiles were generated, that may correspond to either the
+    PostGIS primary key `gid` or the secondary `id` column. To avoid tight
+    coupling to tileserver configuration, we resolve the road by trying both.
+    """
     def _sanitize_number(value):
         if value is None:
             return None
@@ -832,16 +919,23 @@ def get_riyadh_road_details(request, road_gid):
             return float(value)
         return value
 
+    road = None
+    identifier = int(road_gid)
+
+    # Prefer gid lookup, but gracefully fall back to the `id` column if needed.
     try:
-        road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(road_gid))
+        road = RiyadhRoad.objects.using("riyadh_roads").get(gid=identifier)
     except RiyadhRoad.DoesNotExist:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": "Riyadh road not found for the given id.",
-            },
-            status=404,
-        )
+        try:
+            road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(identifier))
+        except RiyadhRoad.DoesNotExist:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": "Riyadh road not found for the given id.",
+                },
+                status=404,
+            )
 
     try:
         try:
@@ -872,7 +966,9 @@ def get_riyadh_road_details(request, road_gid):
                 continue
             tags_data.append({"key": key, "value": str(value)})
 
-        road_identifier = int(road.gid)
+        # Use whichever identifier matches the incoming value so that round‑trips
+        # between tiles, API, and editor remain consistent.
+        road_identifier = identifier
         feature_label = _derive_feature_label_from_riyadh_road(road)
         payload = {
             "id": road_identifier,

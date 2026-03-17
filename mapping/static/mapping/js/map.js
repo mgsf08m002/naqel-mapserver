@@ -434,7 +434,11 @@ map.on('load', () => {
                 living_street: 'Living Street',
                 service: 'Service Road',
                 unclassified: 'Unclassified Road',
-                track: 'Track / Land-Access Road'
+                track: 'Track / Land-Access Road',
+                footway: 'Footway',
+                steps: 'Steps',
+                path: 'Path',
+                cycleway: 'Cycleway'
             };
 
             function buildMatchExpressionForStyle(stylesByLabel, propName, defaultValue, transform) {
