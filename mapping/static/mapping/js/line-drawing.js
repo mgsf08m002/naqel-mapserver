@@ -46,7 +46,7 @@
         if (type === 'error') {
             alert(message);
         } else {
-            try { console.info ? console.info(message) : void 0; } catch (e) {}
+            
         }
     }
 
@@ -124,9 +124,7 @@
                     } catch (e) {}
                     setTimeout(function () {
                         if (typeof window.triggerRiyadhTilesReload === 'function') {
-                            window.triggerRiyadhTilesReload();
-                        } else {
-                            window.location.reload();
+                            window.triggerRiyadhTilesReload(data.tiles_version);
                         }
                     }, 500);
                 } else {

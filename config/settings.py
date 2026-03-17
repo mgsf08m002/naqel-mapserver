@@ -29,7 +29,7 @@ MAPTILER_API_KEY = os.getenv('MAPTILER_API_KEY', '').strip()
 # Riyadh roads XYZ tile service for visualizing the road network; overridable via RIYADH_ROADS_TILE_URL.
 RIYADH_ROADS_TILE_URL = os.getenv(
     "RIYADH_ROADS_TILE_URL",
-    "http://139.162.60.105:3000/tiles/riyadh_roads/{z}/{x}/{y}",
+    "http://139.162.60.105:3000/riyadh_roads/{z}/{x}/{y}",
 ).strip()
 
 # Derive the tile service origin (scheme + host) so CSP stays aligned with RIYADH_ROADS_TILE_URL.

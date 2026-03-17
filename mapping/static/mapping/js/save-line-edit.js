@@ -498,9 +498,7 @@
                 if (isAutoApproved) {
                     setTimeout(function() {
                         if (typeof window.triggerRiyadhTilesReload === 'function') {
-                            window.triggerRiyadhTilesReload();
-                        } else {
-                            window.location.reload();
+                            window.triggerRiyadhTilesReload(data.tiles_version);
                         }
                     }, 1500);
                 } else {

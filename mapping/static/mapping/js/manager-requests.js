@@ -1063,9 +1063,7 @@
                 displayRequests();
                 updateRequestsBadge();
                 if (typeof window.triggerRiyadhTilesReload === 'function') {
-                    window.triggerRiyadhTilesReload();
-                } else {
-                    window.location.reload();
+                    window.triggerRiyadhTilesReload(data.tiles_version);
                 }
             } else {
                 alert('Error: ' + data.message);

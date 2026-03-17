@@ -30,31 +30,18 @@ function getRiyadhRoadsTileUrl() {
         return null;
     }
 
-    // Cache bust vector tiles using URL versioning.
-    // This avoids issues with browsers blocking access to storage.
-    try {
-        const params = new URLSearchParams(window.location.search || '');
-        const tilesV = params.get('tiles_v');
-        if (tilesV) {
-            const sep = trimmed.indexOf('?') >= 0 ? '&' : '?';
-            return `${trimmed}${sep}v=${encodeURIComponent(tilesV)}`;
-        }
-    } catch (e) {}
-
     return trimmed;
 }
 
-window.triggerRiyadhTilesReload = function() {
-    if (typeof window.reloadRiyadhRoadsSource === 'function') {
-        window.reloadRiyadhRoadsSource();
-        return;
+window.__riyadhTilesVersion = null;
+
+window.triggerRiyadhTilesReload = function(tilesVersion) {
+    if (tilesVersion !== undefined && tilesVersion !== null) {
+        window.__riyadhTilesVersion = String(tilesVersion);
     }
-    try {
-        const url = new URL(window.location.href);
-        url.searchParams.set('tiles_v', String(Date.now()));
-        window.location.href = url.toString();
-    } catch (e) {
-        window.location.reload();
+
+    if (typeof window.reloadRiyadhRoadsSource === 'function') {
+        window.reloadRiyadhRoadsSource(window.__riyadhTilesVersion);
     }
 };
 
@@ -65,8 +52,6 @@ function getIsAuthenticated() {
     }
 
     const value = mapElement.getAttribute('data-is-authenticated');
-    // Default to true so authenticated pages without the attribute still enable symbology.
-    // Public/landing pages should explicitly set data-is-authenticated="false".
     return value !== 'false';
 }
 
@@ -77,7 +62,6 @@ const HAS_RIYADH_ROADS_TILES = !!RIYADH_ROADS_TILE_URL;
 const IS_AUTHENTICATED = getIsAuthenticated();
 const PUBLIC_ROAD_COLOR = '#fb9a99';
 
-// Basemap definitions: raster sources/layers for MapLibre; MapTiler basemaps added when API key present.
 const BASEMAP_DEFINITIONS = (() => {
     const definitions = [
         {
@@ -373,8 +357,6 @@ map.on('load', () => {
                 });
             }
 
-            // Public click-to-login is handled by `public-approved-lines.js`.
-
             const fclassToLabel = {
                 motorway: 'Motorway',
                 motorway_link: 'Motorway Link',
@@ -460,7 +442,6 @@ map.on('load', () => {
                                 'line-join': 'round'
                             },
                             paint: {
-                                // Slightly thicker than the base layer to keep symbology while emphasizing selection.
                                 'line-color': colorExpression,
                                 'line-width': ['+', widthExpression, 2],
                                 'line-opacity': 1
@@ -479,7 +460,6 @@ map.on('load', () => {
                                 }
                                 map.setFilter('riyadh-roads-selected-layer', ['==', ['get', 'id'], selectedId]);
                             } catch (e) {
-                                // Non-critical
                             }
                         };
                     }
@@ -587,59 +567,23 @@ map.on('load', () => {
             }
             requestCatalog();
 
-            // Helper to reload Riyadh roads tiles by recreating the vector source and layers with a cache-busting URL.
-            window.reloadRiyadhRoadsSource = function() {
-                if (typeof map === 'undefined' || !map) {
-                    return;
-                }
+            window.reloadRiyadhRoadsSource = function(tilesVersion) {
+                if (typeof map === 'undefined' || !map) return;
 
                 try {
-                    if (map.getLayer('riyadh-roads-layer')) {
-                        map.removeLayer('riyadh-roads-layer');
-                    }
-                    if (map.getLayer('riyadh-roads-selected-layer')) {
-                        map.removeLayer('riyadh-roads-selected-layer');
-                    }
-                    if (map.getLayer('riyadh-roads-public-layer')) {
-                        map.removeLayer('riyadh-roads-public-layer');
-                    }
-                    if (map.getSource('riyadh-roads')) {
-                        map.removeSource('riyadh-roads');
+                    const source = map.getSource('riyadh-roads');
+                    const baseUrl = RIYADH_ROADS_TILE_URL;
+                    if (!baseUrl) return;
+
+                    if (!tilesVersion) return;
+
+                    const sep = baseUrl.indexOf('?') >= 0 ? '&' : '?';
+                    const bustedUrl = `${baseUrl}${sep}v=${encodeURIComponent(String(tilesVersion))}`;
+
+                    if (source && typeof source.setTiles === 'function') {
+                        source.setTiles([bustedUrl]);
                     }
                 } catch (e) {}
-
-                try {
-                    const baseUrl = RIYADH_ROADS_TILE_URL;
-                    const sep = baseUrl.indexOf('?') >= 0 ? '&' : '?';
-                    const bustedUrl = `${baseUrl}${sep}_t=${Date.now()}`;
-
-                    map.addSource('riyadh-roads', {
-                        type: 'vector',
-                        tiles: [bustedUrl],
-                        minzoom: 0,
-                        maxzoom: 14
-                    });
-
-                    map.addLayer({
-                        id: 'riyadh-roads-public-layer',
-                        type: 'line',
-                        source: 'riyadh-roads',
-                        'source-layer': 'riyadh_roads',
-                        layout: {
-                            'line-cap': 'round',
-                            'line-join': 'round'
-                        },
-                        paint: {
-                            'line-color': PUBLIC_ROAD_COLOR,
-                            'line-width': 2,
-                            'line-opacity': 1
-                        }
-                    });
-
-                    if (window.symbologyCatalog) {
-                        ensureRiyadhRoadLayerFromCatalog(window.symbologyCatalog);
-                    }
-                } catch (e2) {}
             };
         } catch (e) {}
     }
@@ -652,8 +596,6 @@ map.on('load', () => {
                 map.addImage('road-closure', image);
             }
         });
-    } else {
-        // No-op: approved roads are served via the Riyadh road tiles.
     }
 });
 

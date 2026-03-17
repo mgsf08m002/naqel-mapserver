@@ -10,8 +10,14 @@ from django.db.models import Max
 from decimal import Decimal
 import json
 import math
+import time
 
 from .models import LineEditRequest, RiyadhRoad
+
+
+def _tiles_version_ms():
+    """Server-side version used to refresh tiles when the base network changes."""
+    return int(time.time_ns() // 1_000_000)
 
 
 def map_view(request):
@@ -197,8 +203,6 @@ def save_line_edit_request(request):
         remote_road_id = None
 
         if closure_changed or is_manager:
-            edit_request.approve(request.user)
-            auto_approved = True
             try:
                 if (edit_request.edit_type or "").upper() == "DELETE":
                     _apply_delete_to_base_network(edit_request)
@@ -207,10 +211,17 @@ def save_line_edit_request(request):
                     remote_road_id = edit_request.riyadh_road_id
                 else:
                     remote_road_id = _apply_manual_approval_to_remote_network(edit_request)
-            except Exception:
-                pass
+                edit_request.approve(request.user)
+                auto_approved = True
+            except Exception as e:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": f"Failed to apply approved edit to remote network: {str(e)}",
+                    },
+                    status=500,
+                )
 
-            # Requirement: no traces in local DB once approved & applied.
             try:
                 edit_request.delete()
             except Exception:
@@ -224,6 +235,7 @@ def save_line_edit_request(request):
                     "request_id": created_request_id,
                     "auto_approved": True,
                     "remote_road_id": remote_road_id,
+                    "tiles_version": _tiles_version_ms(),
                 }
             )
 
@@ -489,16 +501,23 @@ def create_delete_request(request):
 
     auto_approved = False
     if is_manager:
-        delete_request.approve(request.user)
-        auto_approved = True
         try:
             _apply_delete_to_base_network(delete_request)
-        finally:
-            # Requirement: no traces in local DB once approved & applied.
+            delete_request.approve(request.user)
+            auto_approved = True
+
             try:
                 delete_request.delete()
             except Exception:
                 pass
+        except Exception as e:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": f"Failed to apply delete to remote network: {str(e)}",
+                },
+                status=500,
+            )
 
     return JsonResponse(
         {
@@ -506,6 +525,7 @@ def create_delete_request(request):
             "message": "Delete request submitted." if not auto_approved else "Delete request approved and applied.",
             "request_id": delete_request.id,
             "auto_approved": auto_approved,
+            **({"tiles_version": _tiles_version_ms()} if auto_approved else {}),
         }
     )
 
@@ -569,6 +589,7 @@ def set_road_closure(request):
                 "target_type": target_type,
                 "target_id": target_gid_int,
                 "road_closure": road_closure,
+                "tiles_version": _tiles_version_ms(),
             }
         )
     except Exception as e:
@@ -722,8 +743,6 @@ def approve_edit_request(request, request_id):
     
     try:
         edit_request = get_object_or_404(LineEditRequest, id=request_id, status="pending")
-
-        edit_request.approve(request.user)
         remote_road_id = None
 
         if (edit_request.edit_type or "").upper() == "DELETE":
@@ -736,7 +755,7 @@ def approve_edit_request(request, request_id):
                 # Approved manual line: migrate to remote base network and remove local trace.
                 remote_road_id = _apply_manual_approval_to_remote_network(edit_request)
 
-        # Requirement: no traces in local DB once approved & applied.
+        edit_request.approve(request.user)
         edit_request.delete()
 
         return JsonResponse(
@@ -744,6 +763,7 @@ def approve_edit_request(request, request_id):
                 "success": True,
                 "message": "Edit request approved successfully",
                 "remote_road_id": remote_road_id,
+                "tiles_version": _tiles_version_ms(),
             }
         )
 
