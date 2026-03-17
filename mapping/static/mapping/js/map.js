@@ -35,13 +35,54 @@ function getRiyadhRoadsTileUrl() {
 
 window.__riyadhTilesVersion = null;
 
-window.triggerRiyadhTilesReload = function(tilesVersion) {
-    if (tilesVersion !== undefined && tilesVersion !== null) {
-        window.__riyadhTilesVersion = String(tilesVersion);
+function getStoredRiyadhTilesVersion() {
+    try {
+        const raw = window.localStorage ? window.localStorage.getItem('riyadhTilesVersion') : null;
+        if (!raw) return null;
+        const trimmed = String(raw).trim();
+        return trimmed.length ? trimmed : null;
+    } catch (e) {
+        return null;
     }
+}
+
+function storeRiyadhTilesVersion(version) {
+    try {
+        if (!window.localStorage) return;
+        if (!version) {
+            window.localStorage.removeItem('riyadhTilesVersion');
+            return;
+        }
+        window.localStorage.setItem('riyadhTilesVersion', String(version));
+    } catch (e) {}
+}
+
+function getDefaultRiyadhTilesVersion() {
+    return String(Date.now());
+}
+
+function getRiyadhTilesVersionOrDefault(version) {
+    if (version !== undefined && version !== null) {
+        const trimmed = String(version).trim();
+        if (trimmed.length) return trimmed;
+    }
+    return window.__riyadhTilesVersion || getStoredRiyadhTilesVersion() || getDefaultRiyadhTilesVersion();
+}
+
+function buildCacheBustedUrl(baseUrl, version) {
+    if (!baseUrl) return baseUrl;
+    const v = getRiyadhTilesVersionOrDefault(version);
+    const sep = baseUrl.indexOf('?') >= 0 ? '&' : '?';
+    return `${baseUrl}${sep}v=${encodeURIComponent(String(v))}`;
+}
+
+window.triggerRiyadhTilesReload = function(tilesVersion) {
+    const resolved = getRiyadhTilesVersionOrDefault(tilesVersion);
+    window.__riyadhTilesVersion = resolved;
+    storeRiyadhTilesVersion(resolved);
 
     if (typeof window.reloadRiyadhRoadsSource === 'function') {
-        window.reloadRiyadhRoadsSource(window.__riyadhTilesVersion);
+        window.reloadRiyadhRoadsSource(resolved);
     }
 };
 
@@ -139,6 +180,13 @@ BASEMAP_DEFINITIONS.forEach((def) => {
         },
     });
 });
+
+// Ensure each page load starts with a fresh tile version so browser/CDN caches
+// cannot keep serving stale vector tiles after road mutations.
+if (!window.__riyadhTilesVersion) {
+    window.__riyadhTilesVersion = getStoredRiyadhTilesVersion() || getDefaultRiyadhTilesVersion();
+}
+storeRiyadhTilesVersion(window.__riyadhTilesVersion);
 
 const map = new maplibregl.Map({
     container: 'map',
@@ -329,22 +377,36 @@ map.on('load', () => {
     setBasemapVisibility(currentBasemapId);
     if (HAS_RIYADH_ROADS_TILES && RIYADH_ROADS_TILE_URL) {
         try {
-            if (!map.getSource('riyadh-roads')) {
-                map.addSource('riyadh-roads', {
+            const SOURCE_ID = 'riyadh-roads';
+            const PUBLIC_LAYER_ID = 'riyadh-roads-public-layer';
+            const STYLED_LAYER_ID = 'riyadh-roads-layer';
+            const SELECTED_LAYER_ID = 'riyadh-roads-selected-layer';
+            const SOURCE_LAYER = 'riyadh_roads';
+
+            function ensureRiyadhRoadsSource(version) {
+                if (map.getSource(SOURCE_ID)) {
+                    return;
+                }
+                const bustedUrl = buildCacheBustedUrl(RIYADH_ROADS_TILE_URL, version);
+                map.addSource(SOURCE_ID, {
                     type: 'vector',
-                    tiles: [RIYADH_ROADS_TILE_URL],
+                    tiles: [bustedUrl],
                     minzoom: 0,
                     maxzoom: 14
                 });
             }
 
+            if (!map.getSource('riyadh-roads')) {
+                ensureRiyadhRoadsSource(window.__riyadhTilesVersion);
+            }
+
             // Public layer shows the Riyadh road network in a single neutral color for all users.
-            if (!map.getLayer('riyadh-roads-public-layer')) {
+            if (!map.getLayer(PUBLIC_LAYER_ID)) {
                 map.addLayer({
-                    id: 'riyadh-roads-public-layer',
+                    id: PUBLIC_LAYER_ID,
                     type: 'line',
-                    source: 'riyadh-roads',
-                    'source-layer': 'riyadh_roads',
+                    source: SOURCE_ID,
+                    'source-layer': SOURCE_LAYER,
                     layout: {
                         'line-cap': 'round',
                         'line-join': 'round'
@@ -412,12 +474,12 @@ map.on('load', () => {
                     function(v) { return Number(v) || defaultWidth; }
                 );
 
-                if (!map.getLayer('riyadh-roads-layer')) {
+                if (!map.getLayer(STYLED_LAYER_ID)) {
                     map.addLayer({
-                        id: 'riyadh-roads-layer',
+                        id: STYLED_LAYER_ID,
                         type: 'line',
-                        source: 'riyadh-roads',
-                        'source-layer': 'riyadh_roads',
+                        source: SOURCE_ID,
+                        'source-layer': SOURCE_LAYER,
                         layout: {
                             'line-cap': 'round',
                             'line-join': 'round'
@@ -430,12 +492,12 @@ map.on('load', () => {
                     });
 
                     // Highlight layer for the currently selected Riyadh road, rendered above the base network.
-                    if (!map.getLayer('riyadh-roads-selected-layer')) {
+                    if (!map.getLayer(SELECTED_LAYER_ID)) {
                         map.addLayer({
-                            id: 'riyadh-roads-selected-layer',
+                            id: SELECTED_LAYER_ID,
                             type: 'line',
-                            source: 'riyadh-roads',
-                            'source-layer': 'riyadh_roads',
+                            source: SOURCE_ID,
+                            'source-layer': SOURCE_LAYER,
                             filter: ['==', ['get', 'id'], -1],
                             layout: {
                                 'line-cap': 'round',
@@ -451,23 +513,23 @@ map.on('load', () => {
                         // Simple helper to update the current selection filter.
                         window.setRiyadhRoadSelectedId = function(selectedId) {
                             try {
-                                if (!map.getLayer('riyadh-roads-selected-layer')) {
+                                if (!map.getLayer(SELECTED_LAYER_ID)) {
                                     return;
                                 }
                                 if (!selectedId && selectedId !== 0) {
-                                    map.setFilter('riyadh-roads-selected-layer', ['==', ['get', 'id'], -1]);
+                                    map.setFilter(SELECTED_LAYER_ID, ['==', ['get', 'id'], -1]);
                                     return;
                                 }
-                                map.setFilter('riyadh-roads-selected-layer', ['==', ['get', 'id'], selectedId]);
+                                map.setFilter(SELECTED_LAYER_ID, ['==', ['get', 'id'], selectedId]);
                             } catch (e) {
                             }
                         };
                     }
 
                     if (isEditingEnabled) {
-                        map.on('click', 'riyadh-roads-layer', async (e) => {
+                        map.on('click', STYLED_LAYER_ID, async (e) => {
                             try {
-                                const features = map.queryRenderedFeatures(e.point, { layers: ['riyadh-roads-layer'] }) || [];
+                                const features = map.queryRenderedFeatures(e.point, { layers: [STYLED_LAYER_ID] }) || [];
                                 if (!features.length) return;
 
                                 const feature = features[0];
@@ -515,17 +577,17 @@ map.on('load', () => {
                             }
                         });
 
-                        map.on('mouseenter', 'riyadh-roads-layer', () => {
+                        map.on('mouseenter', STYLED_LAYER_ID, () => {
                             map.getCanvas().style.cursor = 'pointer';
                         });
-                        map.on('mouseleave', 'riyadh-roads-layer', () => {
+                        map.on('mouseleave', STYLED_LAYER_ID, () => {
                             map.getCanvas().style.cursor = '';
                         });
                     }
                 } else {
                     try {
-                        map.setPaintProperty('riyadh-roads-layer', 'line-color', colorExpression);
-                        map.setPaintProperty('riyadh-roads-layer', 'line-width', widthExpression);
+                        map.setPaintProperty(STYLED_LAYER_ID, 'line-color', colorExpression);
+                        map.setPaintProperty(STYLED_LAYER_ID, 'line-width', widthExpression);
                     } catch (e) {}
                 }
             }
@@ -571,17 +633,57 @@ map.on('load', () => {
                 if (typeof map === 'undefined' || !map) return;
 
                 try {
-                    const source = map.getSource('riyadh-roads');
-                    const baseUrl = RIYADH_ROADS_TILE_URL;
-                    if (!baseUrl) return;
+                    const resolved = getRiyadhTilesVersionOrDefault(tilesVersion);
+                    window.__riyadhTilesVersion = resolved;
+                    storeRiyadhTilesVersion(resolved);
 
-                    if (!tilesVersion) return;
+                    const selectedFilterId = (() => {
+                        try {
+                            if (map.getLayer(SELECTED_LAYER_ID) && map.getFilter) {
+                                return map.getFilter(SELECTED_LAYER_ID) || null;
+                            }
+                        } catch (e) {}
+                        return null;
+                    })();
 
-                    const sep = baseUrl.indexOf('?') >= 0 ? '&' : '?';
-                    const bustedUrl = `${baseUrl}${sep}v=${encodeURIComponent(String(tilesVersion))}`;
+                    // Remove layers first (MapLibre requires this before removing a source).
+                    [SELECTED_LAYER_ID, STYLED_LAYER_ID, PUBLIC_LAYER_ID].forEach((layerId) => {
+                        try {
+                            if (map.getLayer(layerId)) {
+                                map.removeLayer(layerId);
+                            }
+                        } catch (e) {}
+                    });
 
-                    if (source && typeof source.setTiles === 'function') {
-                        source.setTiles([bustedUrl]);
+                    try {
+                        if (map.getSource(SOURCE_ID)) {
+                            map.removeSource(SOURCE_ID);
+                        }
+                    } catch (e) {}
+
+                    // Re-add source with cache-busted URL and rebuild layers.
+                    ensureRiyadhRoadsSource(resolved);
+
+                    if (!map.getLayer(PUBLIC_LAYER_ID)) {
+                        map.addLayer({
+                            id: PUBLIC_LAYER_ID,
+                            type: 'line',
+                            source: SOURCE_ID,
+                            'source-layer': SOURCE_LAYER,
+                            layout: { 'line-cap': 'round', 'line-join': 'round' },
+                            paint: { 'line-color': PUBLIC_ROAD_COLOR, 'line-width': 2, 'line-opacity': 1 }
+                        });
+                    }
+
+                    // If symbology is available, rebuild the styled + selected layers too.
+                    try {
+                        const catalog = window.symbologyCatalog || null;
+                        ensureRiyadhRoadLayerFromCatalog(catalog);
+                    } catch (e2) {}
+
+                    // Restore selection filter if we had one.
+                    if (selectedFilterId && map.getLayer(SELECTED_LAYER_ID)) {
+                        try { map.setFilter(SELECTED_LAYER_ID, selectedFilterId); } catch (e3) {}
                     }
                 } catch (e) {}
             };
