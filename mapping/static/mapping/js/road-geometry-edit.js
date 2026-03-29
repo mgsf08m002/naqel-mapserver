@@ -274,10 +274,13 @@
         var lineGeom = { type: 'LineString', coordinates: coords };
         var beforeId = null;
         try {
-            if (mapRef.getLayer('selected-road-overlay-glow')) {
-                beforeId = 'selected-road-overlay-glow';
-            } else if (mapRef.getLayer('selected-road-overlay-line')) {
-                beforeId = 'selected-road-overlay-line';
+            var mlsSel = typeof window.MapLineSelection !== 'undefined' ? window.MapLineSelection : null;
+            var overlayOutlineId = (mlsSel && mlsSel.OVERLAY_OUTLINE_LAYER_ID) || 'selected-road-overlay-outline';
+            var overlayLineId = (mlsSel && mlsSel.OVERLAY_LINE_LAYER_ID) || 'selected-road-overlay-line';
+            if (mapRef.getLayer(overlayOutlineId)) {
+                beforeId = overlayOutlineId;
+            } else if (mapRef.getLayer(overlayLineId)) {
+                beforeId = overlayLineId;
             }
             mapRef.addSource(GHOST_SOURCE_ID, {
                 type: 'geojson',

@@ -26,6 +26,7 @@
     ></div>
 
     {% include 'mapping/includes/basemap_gallery.html' %}
+    <script src="{% static 'mapping/js/map-line-selection.js' %}"></script>
     <script src="{% static 'mapping/js/map.js' %}"></script>
     {% if request.user.is_authenticated %}
         {# Approved roads are served via the Riyadh road tiles; no local approved overlay. #}

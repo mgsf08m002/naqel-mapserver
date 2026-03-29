@@ -389,8 +389,24 @@
         if (typeof map === 'undefined' || !map) {
             return;
         }
+        try {
+            const mainLayers = [
+                'request-line-layer-' + featureId,
+                'request-line-ring-' + featureId,
+                'request-line-outline-' + featureId,
+            ];
+            mainLayers.forEach(function(lid) {
+                if (map.getLayer(lid)) {
+                    map.removeLayer(lid);
+                }
+            });
+            const mainSrc = 'request-line-source-' + featureId;
+            if (map.getSource(mainSrc)) {
+                map.removeSource(mainSrc);
+            }
+        } catch (e0) {}
+
         const triplets = [
-            ['request-line-layer-', 'request-line-glow-', 'request-line-source-'],
             ['request-line-before-layer-', 'request-line-before-glow-', 'request-line-before-source-'],
             ['request-line-diff-layer-', 'request-line-diff-glow-', 'request-line-diff-source-']
         ];
@@ -696,7 +712,8 @@
         if (typeof map === 'undefined' || !map) return;
 
         const sourceId = 'request-line-source-' + featureId;
-        const glowLayerId = 'request-line-glow-' + featureId;
+        const outlineLayerId = 'request-line-outline-' + featureId;
+        const ringLayerId = 'request-line-ring-' + featureId;
         const layerId = 'request-line-layer-' + featureId;
 
         const isRoadClosed = request.road_closure === 1 || request.road_closure === true || request.road_closure === '1';
@@ -710,12 +727,21 @@
 
         const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
 
+        if (!window.MapLineSelection) {
+            return;
+        }
+        var mls = window.MapLineSelection;
+        var pair = mls.maplibreSelectionCasingPaintPair(style.lineWidth, lineDasharray);
+
         try {
             if (map.getLayer(layerId)) {
                 map.removeLayer(layerId);
             }
-            if (map.getLayer(glowLayerId)) {
-                map.removeLayer(glowLayerId);
+            if (map.getLayer(ringLayerId)) {
+                map.removeLayer(ringLayerId);
+            }
+            if (map.getLayer(outlineLayerId)) {
+                map.removeLayer(outlineLayerId);
             }
             if (map.getSource(sourceId)) {
                 map.removeSource(sourceId);
@@ -728,15 +754,16 @@
                 }
             });
             map.addLayer({
-                id: glowLayerId,
+                id: outlineLayerId,
                 type: 'line',
                 source: sourceId,
-                paint: {
-                    'line-color': style.glowColor,
-                    'line-width': style.glowWidth,
-                    'line-opacity': style.glowOpacity,
-                    'line-blur': 6
-                }
+                paint: pair.outline
+            });
+            map.addLayer({
+                id: ringLayerId,
+                type: 'line',
+                source: sourceId,
+                paint: pair.ring
             });
             map.addLayer({
                 id: layerId,

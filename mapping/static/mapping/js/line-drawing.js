@@ -18,6 +18,11 @@
     let symbologyStylesByLabel = null;
     let symbologyCatalogRequested = false;
 
+    /** Shared selection halo + layer ids; see map-line-selection.js */
+    function mapLineSelection() {
+        return typeof window.MapLineSelection !== 'undefined' ? window.MapLineSelection : null;
+    }
+
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -364,13 +369,17 @@
             });
     }
 
-    // Selected-feature overlay used to highlight approved lines and tile roads.
+    // Selected-feature overlay (GeoJSON): same selection chrome as tile roads / drawn lines.
     const SELECTED_OVERLAY_SOURCE_ID = 'selected-road-overlay-v2';
-    const SELECTED_OVERLAY_GLOW_LAYER_ID = 'selected-road-overlay-glow';
-    const SELECTED_OVERLAY_GRADIENT_LAYER_ID = 'selected-road-overlay-gradient';
-    const SELECTED_OVERLAY_LINE_LAYER_ID = 'selected-road-overlay-line';
-    /** Default glow before symbology paint; warm so selection reads on pale basemaps. */
-    const SELECTED_OVERLAY_OUTLINE_COLOR = '#ea580c';
+    const _MLS_OVERLAY = mapLineSelection();
+    const SELECTED_OVERLAY_OUTLINE_LAYER_ID =
+        (_MLS_OVERLAY && _MLS_OVERLAY.OVERLAY_OUTLINE_LAYER_ID) || 'selected-road-overlay-outline';
+    const SELECTED_OVERLAY_RING_LAYER_ID =
+        (_MLS_OVERLAY && _MLS_OVERLAY.OVERLAY_RING_LAYER_ID) || 'selected-road-overlay-ring';
+    const SELECTED_OVERLAY_GRADIENT_LAYER_ID =
+        (_MLS_OVERLAY && _MLS_OVERLAY.OVERLAY_GRADIENT_LAYER_ID) || 'selected-road-overlay-gradient';
+    const SELECTED_OVERLAY_LINE_LAYER_ID =
+        (_MLS_OVERLAY && _MLS_OVERLAY.OVERLAY_LINE_LAYER_ID) || 'selected-road-overlay-line';
 
     function ensureSelectedOverlayLayers() {
         if (typeof map === 'undefined' || !map) {
@@ -396,18 +405,36 @@
         }
 
         try {
-            if (!map.getLayer(SELECTED_OVERLAY_GLOW_LAYER_ID)) {
+            if (!map.getLayer(SELECTED_OVERLAY_OUTLINE_LAYER_ID)) {
+                const mls = mapLineSelection();
+                const op = mls ? mls.defaultGeoJsonOutlinePaint() : {
+                    'line-color': '#0f172a',
+                    'line-width': 11,
+                    'line-opacity': 0.93,
+                    'line-blur': 0.45,
+                };
                 map.addLayer({
-                    id: SELECTED_OVERLAY_GLOW_LAYER_ID,
+                    id: SELECTED_OVERLAY_OUTLINE_LAYER_ID,
                     type: 'line',
                     source: SELECTED_OVERLAY_SOURCE_ID,
                     layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: {
-                        'line-color': SELECTED_OVERLAY_OUTLINE_COLOR,
-                        'line-width': 18,
-                        'line-opacity': 0.3,
-                        'line-blur': 10,
-                    },
+                    paint: op,
+                });
+            }
+            if (!map.getLayer(SELECTED_OVERLAY_RING_LAYER_ID)) {
+                const mls2 = mapLineSelection();
+                const rp = mls2 ? mls2.defaultGeoJsonRingPaint() : {
+                    'line-color': '#ffffff',
+                    'line-width': 8,
+                    'line-opacity': 1,
+                    'line-blur': 0,
+                };
+                map.addLayer({
+                    id: SELECTED_OVERLAY_RING_LAYER_ID,
+                    type: 'line',
+                    source: SELECTED_OVERLAY_SOURCE_ID,
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: rp,
                 });
             }
             if (!map.getLayer(SELECTED_OVERLAY_GRADIENT_LAYER_ID)) {
@@ -424,11 +451,11 @@
                                 ['linear'],
                                 ['line-progress'],
                                 0,
-                                SELECTED_OVERLAY_OUTLINE_COLOR,
+                                '#94a3b8',
                                 1,
-                                SELECTED_OVERLAY_OUTLINE_COLOR,
+                                '#94a3b8',
                             ],
-                            'line-width': 11,
+                            'line-width': 4,
                             'line-opacity': 0.95,
                         },
                     });
@@ -456,10 +483,15 @@
                 const lastId = style.layers[style.layers.length - 1].id;
                 if (lastId) {
                     try {
-                        if (map.getLayer(SELECTED_OVERLAY_GLOW_LAYER_ID)) {
-                            map.moveLayer(SELECTED_OVERLAY_GLOW_LAYER_ID, lastId);
+                        if (map.getLayer(SELECTED_OVERLAY_OUTLINE_LAYER_ID)) {
+                            map.moveLayer(SELECTED_OVERLAY_OUTLINE_LAYER_ID, lastId);
                         }
                     } catch (e2) {}
+                    try {
+                        if (map.getLayer(SELECTED_OVERLAY_RING_LAYER_ID)) {
+                            map.moveLayer(SELECTED_OVERLAY_RING_LAYER_ID, lastId);
+                        }
+                    } catch (e2r) {}
                     try {
                         if (map.getLayer(SELECTED_OVERLAY_GRADIENT_LAYER_ID)) {
                             map.moveLayer(SELECTED_OVERLAY_GRADIENT_LAYER_ID, lastId);
@@ -612,6 +644,41 @@
             return null;
         }
         return style.lineDasharray.map(function(x) { return String(x); }).join(',');
+    }
+
+    /** SVG previews: stack outline → ring → core to match map selection (no blur glow). */
+    function appendSvgLinePathsWithMapSelectionCasing(svg, pathData, style, svgDasharray, strokeScale) {
+        const mls = mapLineSelection();
+        const oColor = (mls && mls.OUTLINE_COLOR) || '#0f172a';
+        const rColor = (mls && mls.RING_COLOR) || '#ffffff';
+        const oAdd = (mls && mls.OUTLINE_WIDTH_ADD != null) ? mls.OUTLINE_WIDTH_ADD : 7;
+        const rAdd = (mls && mls.RING_WIDTH_ADD != null) ? mls.RING_WIDTH_ADD : 4;
+        const oOp = (mls && mls.OUTLINE_OPACITY != null) ? mls.OUTLINE_OPACITY : 0.93;
+        const rOp = (mls && mls.RING_OPACITY != null) ? mls.RING_OPACITY : 1;
+        const sc = Number(strokeScale) > 0 ? Number(strokeScale) : 0.42;
+        const lw = Number(style.lineWidth) || 4;
+        const coreW = lw * sc;
+        const ringW = coreW + rAdd * sc;
+        const outlineW = coreW + oAdd * sc;
+
+        function addPath(strokeW, color, opacity) {
+            const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            p.setAttribute('d', pathData);
+            p.setAttribute('fill', 'none');
+            p.setAttribute('stroke', color);
+            p.setAttribute('stroke-width', String(strokeW));
+            p.setAttribute('stroke-opacity', String(opacity));
+            p.setAttribute('stroke-linecap', 'round');
+            p.setAttribute('stroke-linejoin', 'round');
+            if (svgDasharray) {
+                p.setAttribute('stroke-dasharray', svgDasharray);
+            }
+            svg.appendChild(p);
+        }
+
+        addPath(outlineW, oColor, oOp);
+        addPath(ringW, rColor, rOp);
+        addPath(coreW, style.lineColor || '#52525b', 1);
     }
 
     function renderPreviewPlaceholder(container, message) {
@@ -942,7 +1009,7 @@
                     showLineSidePanel();
                     updateCurrentFeatureLabel('Line');
                     clearVertexMarkers();
-                    applyGlowingEffect(id);
+                    setMapContainerDrawnLineSelectionAttr(id);
                     updateLineVisualization();
                     
                     setTimeout(function() {
@@ -975,7 +1042,7 @@
             }
 
             hideDefaultRendering();
-            applyGlowingEffect(id);
+            setMapContainerDrawnLineSelectionAttr(id);
 
             setTimeout(function() {
                 hideDefaultRendering();
@@ -990,12 +1057,12 @@
                 updateCurrentFeatureLabel('Line');
             }
             
-            applyGlowingEffect(id);
+            setMapContainerDrawnLineSelectionAttr(id);
             clearVertexMarkers();
         }
     }
 
-    function applyGlowingEffect(id) {
+    function setMapContainerDrawnLineSelectionAttr(id) {
         const mapContainer = document.getElementById('map');
         if (mapContainer) {
             mapContainer.setAttribute('data-selected-line', id);
@@ -1007,7 +1074,7 @@
         // Single-path selection handler for TerraDraw LineString features:
         // - updates selection state
         // - ensures select mode
-        // - applies MapLibre rendering + glow
+        // - applies MapLibre rendering + selection casing
         // - opens side panel and renders preview
         if (!drawInstance || !id) {
             return;
@@ -1035,7 +1102,7 @@
 
         hideDefaultRendering();
         renderLineAsMapLibreLayer(id);
-        applyGlowingEffect(id);
+        setMapContainerDrawnLineSelectionAttr(id);
         clearVertexMarkers();
 
         // Open the side panel with a consistent rendering path.
@@ -1323,21 +1390,7 @@
             svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
             svg.style.display = 'block';
 
-            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-            
-            const blurFilter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
-            blurFilter.setAttribute('id', 'blur-approved');
-            blurFilter.setAttribute('x', '-50%');
-            blurFilter.setAttribute('y', '-50%');
-            blurFilter.setAttribute('width', '200%');
-            blurFilter.setAttribute('height', '200%');
-            const feGaussianBlur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
-            feGaussianBlur.setAttribute('stdDeviation', '2');
-            blurFilter.appendChild(feGaussianBlur);
-            defs.appendChild(blurFilter);
-            svg.appendChild(defs);
-
-            // Use same coordinate transformation as working updateLineVisualization function
+            // Use same coordinate transformation as updateLineVisualization
             let pathData = 'M ';
             coordinates.forEach(function(coord, index) {
                 const x = coord[0] * scale + offsetX;
@@ -1360,32 +1413,7 @@
             }
             const svgDasharray = dasharrayToSvg(style);
             const previewStroke = 0.42;
-
-            // Draw glow path
-            const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            glowPath.setAttribute('d', pathData);
-            glowPath.setAttribute('fill', 'none');
-            glowPath.setAttribute('stroke', style.glowColor || style.lineColor);
-            glowPath.setAttribute('stroke-width', (Number(style.glowWidth) * previewStroke).toString());
-            glowPath.setAttribute('stroke-opacity', String(style.glowOpacity != null ? style.glowOpacity : 0.45));
-            glowPath.setAttribute('stroke-linecap', 'round');
-            glowPath.setAttribute('stroke-linejoin', 'round');
-            glowPath.setAttribute('filter', 'url(#blur-approved)');
-            svg.appendChild(glowPath);
-
-            // Draw main line path
-            const mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            mainPath.setAttribute('d', pathData);
-            mainPath.setAttribute('fill', 'none');
-            mainPath.setAttribute('stroke', style.lineColor);
-            mainPath.setAttribute('stroke-width', (Number(style.lineWidth) * previewStroke).toString());
-            mainPath.setAttribute('stroke-opacity', '1');
-            mainPath.setAttribute('stroke-linecap', 'round');
-            mainPath.setAttribute('stroke-linejoin', 'round');
-            if (svgDasharray) {
-                mainPath.setAttribute('stroke-dasharray', svgDasharray);
-            }
-            svg.appendChild(mainPath);
+            appendSvgLinePathsWithMapSelectionCasing(svg, pathData, style, svgDasharray, previewStroke);
 
             svgContainer.innerHTML = '';
             svgContainer.appendChild(svg);
@@ -1443,21 +1471,6 @@
             svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
             svg.style.display = 'block';
 
-            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-            
-            const blurFilter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
-            blurFilter.setAttribute('id', 'blur');
-            blurFilter.setAttribute('x', '-50%');
-            blurFilter.setAttribute('y', '-50%');
-            blurFilter.setAttribute('width', '200%');
-            blurFilter.setAttribute('height', '200%');
-
-            const feGaussianBlur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
-            feGaussianBlur.setAttribute('stdDeviation', '6');
-            blurFilter.appendChild(feGaussianBlur);
-            defs.appendChild(blurFilter);
-            svg.appendChild(defs);
-
             let pathData = 'M ';
             coordinates.forEach(function(coord, index) {
                 const x = coord[0] * scale + offsetX;
@@ -1478,30 +1491,7 @@
                 return;
             }
             const svgDasharray = dasharrayToSvg(style);
-
-            const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            glowPath.setAttribute('d', pathData);
-            glowPath.setAttribute('fill', 'none');
-            glowPath.setAttribute('stroke', style.glowColor);
-            glowPath.setAttribute('stroke-width', style.glowWidth.toString());
-            glowPath.setAttribute('stroke-opacity', style.glowOpacity.toString());
-            glowPath.setAttribute('filter', 'url(#blur)');
-            glowPath.setAttribute('stroke-linecap', 'round');
-            glowPath.setAttribute('stroke-linejoin', 'round');
-            svg.appendChild(glowPath);
-
-            const mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            mainPath.setAttribute('d', pathData);
-            mainPath.setAttribute('fill', 'none');
-            mainPath.setAttribute('stroke', style.lineColor);
-            mainPath.setAttribute('stroke-width', style.lineWidth.toString());
-            mainPath.setAttribute('stroke-opacity', '1');
-            mainPath.setAttribute('stroke-linecap', 'round');
-            mainPath.setAttribute('stroke-linejoin', 'round');
-            if (svgDasharray) {
-                mainPath.setAttribute('stroke-dasharray', svgDasharray);
-            }
-            svg.appendChild(mainPath);
+            appendSvgLinePathsWithMapSelectionCasing(svg, pathData, style, svgDasharray, 1);
 
             svgContainer.innerHTML = '';
             svgContainer.appendChild(svg);
@@ -1603,7 +1593,8 @@
 
             const sourceId = 'drawn-line-' + id;
             const layerId = 'drawn-line-layer-' + id;
-            const glowLayerId = 'drawn-line-glow-' + id;
+            const outlineLayerId = 'drawn-line-outline-' + id;
+            const ringLayerId = 'drawn-line-ring-' + id;
             
             if (!map.loaded() || !map.isStyleLoaded()) {
                 map.once('load', function() {
@@ -1617,22 +1608,24 @@
             
             const style = getEffectiveVisualizationStyle(currentFeatureLabel);
             if (!style) { return; }
+            if (!mapLineSelection()) {
+                return;
+            }
             const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
 
             const existingSource = map.getSource(sourceId);
-            const existingGlowLayer = map.getLayer(glowLayerId);
+            const existingOutline = map.getLayer(outlineLayerId);
+            const existingRing = map.getLayer(ringLayerId);
             const existingLayer = map.getLayer(layerId);
             
-            if (existingSource && existingSource.setData && existingGlowLayer && existingLayer) {
+            if (existingSource && existingSource.setData && existingOutline && existingRing && existingLayer) {
                 try {
                     existingSource.setData({
                         type: 'FeatureCollection',
                         features: [feature]
                     });
-                    
-                    map.setPaintProperty(glowLayerId, 'line-color', style.glowColor);
-                    map.setPaintProperty(glowLayerId, 'line-width', style.glowWidth);
-                    map.setPaintProperty(glowLayerId, 'line-opacity', style.glowOpacity);
+
+                    mapLineSelection().applyGeoJsonCasingFromCoreWidth(map, outlineLayerId, ringLayerId, style.lineWidth, lineDasharray);
                     
                     map.setPaintProperty(layerId, 'line-color', style.lineColor);
                     map.setPaintProperty(layerId, 'line-width', style.lineWidth);
@@ -1649,8 +1642,11 @@
                 if (map.getLayer(layerId)) {
                     map.removeLayer(layerId);
                 }
-                if (map.getLayer(glowLayerId)) {
-                    map.removeLayer(glowLayerId);
+                if (map.getLayer(ringLayerId)) {
+                    map.removeLayer(ringLayerId);
+                }
+                if (map.getLayer(outlineLayerId)) {
+                    map.removeLayer(outlineLayerId);
                 }
                 if (map.getSource(sourceId)) {
                     map.removeSource(sourceId);
@@ -1667,17 +1663,21 @@
                 }
             });
             
-            map.addLayer({
-                id: glowLayerId,
-                type: 'line',
-                source: sourceId,
-                paint: {
-                    'line-color': style.glowColor,
-                    'line-width': style.glowWidth,
-                    'line-opacity': style.glowOpacity,
-                    'line-blur': 6
-                }
-            });
+            (function () {
+                const pair = mapLineSelection().maplibreSelectionCasingPaintPair(style.lineWidth, lineDasharray);
+                map.addLayer({
+                    id: outlineLayerId,
+                    type: 'line',
+                    source: sourceId,
+                    paint: pair.outline,
+                });
+                map.addLayer({
+                    id: ringLayerId,
+                    type: 'line',
+                    source: sourceId,
+                    paint: pair.ring,
+                });
+            })();
             
             map.addLayer({
                 id: layerId,
@@ -1697,7 +1697,8 @@
             map._drawnLineLayers[id] = {
                 sourceId: sourceId,
                 layerId: layerId,
-                glowLayerId: glowLayerId
+                outlineLayerId: outlineLayerId,
+                ringLayerId: ringLayerId
             };
             
             hideDefaultRendering();
@@ -1720,8 +1721,11 @@
             if (map.getLayer(layers.layerId)) {
                 map.removeLayer(layers.layerId);
             }
-            if (map.getLayer(layers.glowLayerId)) {
-                map.removeLayer(layers.glowLayerId);
+            if (layers.ringLayerId && map.getLayer(layers.ringLayerId)) {
+                map.removeLayer(layers.ringLayerId);
+            }
+            if (layers.outlineLayerId && map.getLayer(layers.outlineLayerId)) {
+                map.removeLayer(layers.outlineLayerId);
             }
             if (map.getSource(layers.sourceId)) {
                 map.removeSource(layers.sourceId);
@@ -2321,21 +2325,6 @@
             svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
             svg.style.display = 'block';
 
-            const filterId = 'ft-blur-' + Date.now();
-
-            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-            const blurFilter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
-            blurFilter.setAttribute('id', filterId);
-            blurFilter.setAttribute('x', '-50%');
-            blurFilter.setAttribute('y', '-50%');
-            blurFilter.setAttribute('width', '200%');
-            blurFilter.setAttribute('height', '200%');
-            const feGaussianBlur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
-            feGaussianBlur.setAttribute('stdDeviation', '1');
-            blurFilter.appendChild(feGaussianBlur);
-            defs.appendChild(blurFilter);
-            svg.appendChild(defs);
-
             let pathData = 'M ';
             coordinates.forEach(function(coord, index) {
                 const x = (coord[0] - minX) * scale + padding;
@@ -2357,27 +2346,8 @@
                 return;
             }
             const scaleFactor = 0.32;
-
-            const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            glowPath.setAttribute('d', pathData);
-            glowPath.setAttribute('fill', 'none');
-            glowPath.setAttribute('stroke', style.glowColor || style.lineColor);
-            glowPath.setAttribute('stroke-width', (style.glowWidth * scaleFactor).toString());
-            glowPath.setAttribute('stroke-opacity', String(style.glowOpacity != null ? style.glowOpacity : 0.45));
-            glowPath.setAttribute('stroke-linecap', 'round');
-            glowPath.setAttribute('stroke-linejoin', 'round');
-            glowPath.setAttribute('filter', 'url(#' + filterId + ')');
-            svg.appendChild(glowPath);
-
-            const mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            mainPath.setAttribute('d', pathData);
-            mainPath.setAttribute('fill', 'none');
-            mainPath.setAttribute('stroke', style.lineColor);
-            mainPath.setAttribute('stroke-width', (style.lineWidth * scaleFactor).toString());
-            mainPath.setAttribute('stroke-opacity', '1');
-            mainPath.setAttribute('stroke-linecap', 'round');
-            mainPath.setAttribute('stroke-linejoin', 'round');
-            svg.appendChild(mainPath);
+            const svgDashMini = dasharrayToSvg(style);
+            appendSvgLinePathsWithMapSelectionCasing(svg, pathData, style, svgDashMini, scaleFactor);
 
             container.innerHTML = '';
             container.appendChild(svg);
@@ -4141,9 +4111,7 @@
     }
 
     /**
-     * Paint the GeoJSON selection overlay (gradient + halo + core) to match the
-     * current feature symbology so turning off geometry edit restores the same
-     * look as the tile highlight and sidebar previews.
+     * GeoJSON selection overlay: dark outline + light ring under symbology core (map-line-selection).
      */
     function applySelectedOverlaySymbologyPaint(featureLabel) {
         if (typeof map === 'undefined' || !map) {
@@ -4160,8 +4128,8 @@
         const w = Number(style.lineWidth) || 4;
         const c = style.lineColor || '#52525b';
         const coreW = Math.max(2, Math.min(8, w * 0.45));
-        const midW = w + 5;
-        const haloW = w + 18;
+        const coreLineW = w;
+        const mls = mapLineSelection();
         // White inner stroke is only for vertex-edit mode; otherwise it reads as wrong symbology
         // (thick casing + white core) after "Done editing".
         const geomEditActive =
@@ -4178,16 +4146,18 @@
                     1,
                     c,
                 ]);
-                map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-width', midW);
+                map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-width', coreLineW);
                 map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-opacity', 1);
                 map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-dasharray', lineDasharray);
             }
-            if (map.getLayer(SELECTED_OVERLAY_GLOW_LAYER_ID)) {
-                map.setPaintProperty(SELECTED_OVERLAY_GLOW_LAYER_ID, 'line-color', c);
-                map.setPaintProperty(SELECTED_OVERLAY_GLOW_LAYER_ID, 'line-width', haloW);
-                map.setPaintProperty(SELECTED_OVERLAY_GLOW_LAYER_ID, 'line-opacity', 0.3);
-                map.setPaintProperty(SELECTED_OVERLAY_GLOW_LAYER_ID, 'line-dasharray', lineDasharray);
-                map.setPaintProperty(SELECTED_OVERLAY_GLOW_LAYER_ID, 'line-blur', 10);
+            if (mls) {
+                mls.applyGeoJsonCasingFromCoreWidth(
+                    map,
+                    SELECTED_OVERLAY_OUTLINE_LAYER_ID,
+                    SELECTED_OVERLAY_RING_LAYER_ID,
+                    coreLineW,
+                    lineDasharray
+                );
             }
             if (map.getLayer(SELECTED_OVERLAY_LINE_LAYER_ID)) {
                 if (geomEditActive) {
@@ -4220,30 +4190,13 @@
         // the original fclass from the tileserver.
         try {
             if (typeof map !== 'undefined' && map && geometry) {
-                const layerId = 'riyadh-roads-selected-layer';
-                const haloId = 'riyadh-roads-selected-halo-layer';
-                if (map.getLayer(layerId)) {
-                    const style = getEffectiveVisualizationStyle(newFeatureLabel);
-
-                    if (style) {
-                        const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray))
-                            ? style.lineDasharray
-                            : [1, 0];
-                        const w = Number(style.lineWidth) || 4;
-
-                        map.setPaintProperty(layerId, 'line-color', style.lineColor);
-                        map.setPaintProperty(layerId, 'line-width', w + 5);
-                        map.setPaintProperty(layerId, 'line-opacity', 1);
-                        map.setPaintProperty(layerId, 'line-dasharray', lineDasharray);
-
-                        if (map.getLayer(haloId)) {
-                            map.setPaintProperty(haloId, 'line-color', style.lineColor);
-                            map.setPaintProperty(haloId, 'line-width', w + 16);
-                            map.setPaintProperty(haloId, 'line-opacity', 0.36);
-                            map.setPaintProperty(haloId, 'line-dasharray', lineDasharray);
-                            map.setPaintProperty(haloId, 'line-blur', 8);
-                        }
-                    }
+                const mls = mapLineSelection();
+                const style = getEffectiveVisualizationStyle(newFeatureLabel);
+                if (mls && style) {
+                    const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray))
+                        ? style.lineDasharray
+                        : [1, 0];
+                    mls.applyRiyadhTileSelectionHighlightFromSymbology(map, style, lineDasharray);
                 }
             }
         } catch (e) {

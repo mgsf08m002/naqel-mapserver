@@ -381,8 +381,10 @@ map.on('load', () => {
             const PUBLIC_LAYER_ID = 'riyadh-roads-public-layer';
             const STYLED_LAYER_ID = 'riyadh-roads-layer';
             const HOVER_LAYER_ID = 'riyadh-roads-hover-layer';
-            const HALO_LAYER_ID = 'riyadh-roads-selected-halo-layer';
-            const SELECTED_LAYER_ID = 'riyadh-roads-selected-layer';
+            const MLS = typeof window.MapLineSelection !== 'undefined' ? window.MapLineSelection : null;
+            const OUTLINE_LAYER_ID = MLS ? MLS.RIYADH_OUTLINE_LAYER_ID : 'riyadh-roads-selected-outline-layer';
+            const RING_LAYER_ID = MLS ? MLS.RIYADH_RING_LAYER_ID : 'riyadh-roads-selected-ring-layer';
+            const SELECTED_LAYER_ID = MLS ? MLS.RIYADH_CORE_LAYER_ID : 'riyadh-roads-selected-layer';
             const SOURCE_LAYER = 'riyadh_roads';
             const HOVER_NONE_ID = -999999;
 
@@ -498,7 +500,7 @@ map.on('load', () => {
                         }
                     });
 
-                    // Hover highlight (subtle) — under selection halo.
+                    // Hover highlight (subtle) — under selection casing.
                     if (!map.getLayer(HOVER_LAYER_ID)) {
                         map.addLayer({
                             id: HOVER_LAYER_ID,
@@ -512,17 +514,17 @@ map.on('load', () => {
                             },
                             paint: {
                                 'line-color': '#f8fafc',
-                                'line-width': ['+', widthExpression, 5],
-                                'line-opacity': 0.38,
-                                'line-blur': 0.75
+                                'line-width': ['+', widthExpression, 2],
+                                'line-opacity': 0.28,
+                                'line-blur': 0.85
                             }
                         });
                     }
 
-                    // Selection glow (behind the main selected stroke).
-                    if (!map.getLayer(HALO_LAYER_ID)) {
+                    // Selection casing (under symbology core): dark outline + light ring — shared across all roads.
+                    if (!map.getLayer(OUTLINE_LAYER_ID)) {
                         map.addLayer({
-                            id: HALO_LAYER_ID,
+                            id: OUTLINE_LAYER_ID,
                             type: 'line',
                             source: SOURCE_ID,
                             'source-layer': SOURCE_LAYER,
@@ -532,15 +534,34 @@ map.on('load', () => {
                                 'line-join': 'round'
                             },
                             paint: {
-                                'line-color': '#ea580c',
-                                'line-width': ['+', widthExpression, 16],
-                                'line-opacity': 0.36,
-                                'line-blur': 8
+                                'line-color': MLS ? MLS.OUTLINE_COLOR : '#0f172a',
+                                'line-width': MLS ? MLS.riyadhTileOutlineWidthExpression(widthExpression) : ['+', widthExpression, 7],
+                                'line-opacity': MLS ? MLS.OUTLINE_OPACITY : 0.93,
+                                'line-blur': MLS ? MLS.OUTLINE_BLUR : 0.45
+                            }
+                        });
+                    }
+                    if (!map.getLayer(RING_LAYER_ID)) {
+                        map.addLayer({
+                            id: RING_LAYER_ID,
+                            type: 'line',
+                            source: SOURCE_ID,
+                            'source-layer': SOURCE_LAYER,
+                            filter: ['==', ['get', 'id'], -1],
+                            layout: {
+                                'line-cap': 'round',
+                                'line-join': 'round'
+                            },
+                            paint: {
+                                'line-color': MLS ? MLS.RING_COLOR : '#ffffff',
+                                'line-width': MLS ? MLS.riyadhTileRingWidthExpression(widthExpression) : ['+', widthExpression, 4],
+                                'line-opacity': MLS ? MLS.RING_OPACITY : 1,
+                                'line-blur': MLS ? MLS.RING_BLUR : 0
                             }
                         });
                     }
 
-                    // Highlight layer for the currently selected Riyadh road, rendered above the base network.
+                    // Selected road core: catalog symbology (color / width / dash).
                     if (!map.getLayer(SELECTED_LAYER_ID)) {
                         map.addLayer({
                             id: SELECTED_LAYER_ID,
@@ -554,28 +575,35 @@ map.on('load', () => {
                             },
                             paint: {
                                 'line-color': colorExpression,
-                                'line-width': ['+', widthExpression, 4],
+                                'line-width': widthExpression,
                                 'line-opacity': 1
                             }
                         });
 
-                        // Simple helper to update the current selection filter (stroke + halo).
+                        // Selection filter on outline, ring, and core (keeps hit-testing on STYLED_LAYER).
                         window.setRiyadhRoadSelectedId = function(selectedId) {
                             try {
                                 if (!map.getLayer(SELECTED_LAYER_ID)) {
                                     return;
                                 }
+                                const emptyFl = ['==', ['get', 'id'], -1];
                                 if (!selectedId && selectedId !== 0) {
-                                    map.setFilter(SELECTED_LAYER_ID, ['==', ['get', 'id'], -1]);
-                                    if (map.getLayer(HALO_LAYER_ID)) {
-                                        map.setFilter(HALO_LAYER_ID, ['==', ['get', 'id'], -1]);
+                                    map.setFilter(SELECTED_LAYER_ID, emptyFl);
+                                    if (map.getLayer(RING_LAYER_ID)) {
+                                        map.setFilter(RING_LAYER_ID, emptyFl);
+                                    }
+                                    if (map.getLayer(OUTLINE_LAYER_ID)) {
+                                        map.setFilter(OUTLINE_LAYER_ID, emptyFl);
                                     }
                                     return;
                                 }
                                 const fl = ['==', ['get', 'id'], selectedId];
                                 map.setFilter(SELECTED_LAYER_ID, fl);
-                                if (map.getLayer(HALO_LAYER_ID)) {
-                                    map.setFilter(HALO_LAYER_ID, fl);
+                                if (map.getLayer(RING_LAYER_ID)) {
+                                    map.setFilter(RING_LAYER_ID, fl);
+                                }
+                                if (map.getLayer(OUTLINE_LAYER_ID)) {
+                                    map.setFilter(OUTLINE_LAYER_ID, fl);
                                 }
                             } catch (e) {
                             }
@@ -808,7 +836,7 @@ map.on('load', () => {
                                   0,
                                   1,
                               ];
-                    [PUBLIC_LAYER_ID, STYLED_LAYER_ID, HOVER_LAYER_ID, HALO_LAYER_ID, SELECTED_LAYER_ID].forEach((lid) => {
+                    [PUBLIC_LAYER_ID, STYLED_LAYER_ID, HOVER_LAYER_ID, OUTLINE_LAYER_ID, RING_LAYER_ID, SELECTED_LAYER_ID].forEach((lid) => {
                         try {
                             if (map.getLayer(lid)) {
                                 map.setPaintProperty(lid, 'line-opacity', op);
@@ -836,7 +864,7 @@ map.on('load', () => {
                     })();
 
                     // Remove layers first (MapLibre requires this before removing a source).
-                    [SELECTED_LAYER_ID, HALO_LAYER_ID, HOVER_LAYER_ID, STYLED_LAYER_ID, PUBLIC_LAYER_ID].forEach((layerId) => {
+                    [SELECTED_LAYER_ID, RING_LAYER_ID, OUTLINE_LAYER_ID, HOVER_LAYER_ID, STYLED_LAYER_ID, PUBLIC_LAYER_ID].forEach((layerId) => {
                         try {
                             if (map.getLayer(layerId)) {
                                 map.removeLayer(layerId);
@@ -874,8 +902,11 @@ map.on('load', () => {
                     if (selectedFilterId && map.getLayer(SELECTED_LAYER_ID)) {
                         try {
                             map.setFilter(SELECTED_LAYER_ID, selectedFilterId);
-                            if (map.getLayer(HALO_LAYER_ID)) {
-                                map.setFilter(HALO_LAYER_ID, selectedFilterId);
+                            if (map.getLayer(RING_LAYER_ID)) {
+                                map.setFilter(RING_LAYER_ID, selectedFilterId);
+                            }
+                            if (map.getLayer(OUTLINE_LAYER_ID)) {
+                                map.setFilter(OUTLINE_LAYER_ID, selectedFilterId);
                             }
                         } catch (e3) {}
                     }
