@@ -73,7 +73,8 @@
                     } else if (roadId != null && window.lineDrawingHandler && typeof window.lineDrawingHandler.updateRiyadhRoadVisualization === 'function') {
                         window.lineDrawingHandler.updateRiyadhRoadVisualization(roadId, labelForMap, geom);
                     }
-                    if (window.roadGeometryEdit && typeof window.roadGeometryEdit.startFromRiyadhContext === 'function') {
+                    const hadGeometryEdit = window.__roadGeometryEditActiveId != null;
+                    if (hadGeometryEdit && window.roadGeometryEdit && typeof window.roadGeometryEdit.startFromRiyadhContext === 'function') {
                         setTimeout(function() {
                             window.roadGeometryEdit.startFromRiyadhContext();
                         }, 80);
@@ -358,116 +359,90 @@
         };
     }
 
-    function syncRoadClosureImmediate(editData) {
-        if (
-            !editData ||
-            typeof editData.road_closure !== 'number' ||
-            !editData.closure_changed
-        ) {
-            return;
+    /**
+     * Notify user after save based on server flags:
+     * - Manager: applied live (toast).
+     * - Editor/admin: pending review (modal) + optional toast if closure already applied.
+     * - Closure-only riyadh: toast only.
+     */
+    function showSaveOutcomeUI(opts) {
+        const autoApproved = !!(opts && opts.autoApproved);
+        const pendingSubmitted = !!(opts && opts.pendingSubmitted);
+        const closureApplied = !!(opts && opts.closureApplied);
+        const roadClosure = opts && opts.roadClosure;
+        const serverMessage = (opts && opts.serverMessage) ? String(opts.serverMessage) : '';
+
+        function toast(msg, type) {
+            showToastNotification(msg, type || 'info');
         }
 
-        let targetType = null;
-        let targetId = null;
-
-        if (editData.is_riyadh_road && editData.riyadh_road_id != null) {
-            targetType = 'riyadh_road';
-            targetId = editData.riyadh_road_id;
-        }
-
-        if (!targetType || targetId == null) {
-            return;
-        }
-
-        const payload = {
-            target_type: targetType,
-            target_id: targetId,
-            road_closure: editData.road_closure
-        };
-
-        fetch('/mapping/api/set-road-closure/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(function(response) {
-            if (!response.ok) {
-                return null;
-            }
-            return response.json();
-        })
-        .then(function(data) {
-            if (!data || !data.success) {
-                return;
-            }
-        })
-        .catch(function() {});
-    }
-
-    function showSaveConfirmationPopup(options) {
-        const isAutoApproved = options && options.isAutoApproved;
-        const closureChanged = options && options.closureChanged;
-        const roadClosureValue = options && typeof options.roadClosure === 'number'
-            ? options.roadClosure
-            : null;
-
-        if (closureChanged && roadClosureValue !== null) {
-            const isClosed = roadClosureValue === 1;
-            const message = isClosed
-                ? 'The road has been marked closed.'
-                : 'The road has been marked opened.';
-
-            showToastNotification(message, 'success');
-            return;
-        }
-
-        const popup = document.createElement('div');
-        popup.id = 'saveConfirmationPopup';
-        popup.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50';
-        
-        let title;
-        let messageText;
-
-        if (isAutoApproved) {
-            title = 'Edit Saved Successfully';
-            messageText = 'Your edit has been saved and will appear on the map after reload.';
-        } else {
-            title = 'Edit Request Submitted';
-            messageText = 'Your edit has been sent to the manager and will be approved or rejected accordingly.';
-        }
-        
-        popup.innerHTML = `
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-                <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-green-100 rounded-full">
-                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-                <h3 class="text-lg font-semibold text-gray-900 text-center mb-2">${title}</h3>
-                <p class="text-sm text-gray-600 text-center mb-6">
-                    ${messageText}
-                </p>
-                <button id="closeConfirmationPopup" class="w-full px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium">
-                    OK
-                </button>
-            </div>
-        `;
-
-        document.body.appendChild(popup);
-
-        const closeBtn = popup.querySelector('#closeConfirmationPopup');
-        closeBtn.addEventListener('click', function() {
-            popup.remove();
-        });
-
-        popup.addEventListener('click', function(e) {
-            if (e.target === popup) {
+        function openReviewModal(bodyText) {
+            const popup = document.createElement('div');
+            popup.id = 'saveConfirmationPopup';
+            popup.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50';
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6';
+            const iconWrap = document.createElement('div');
+            iconWrap.className = 'flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-amber-50 rounded-full';
+            iconWrap.innerHTML = '<svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+            const title = document.createElement('h3');
+            title.className = 'text-lg font-semibold text-gray-900 text-center mb-2';
+            title.textContent = 'Submitted for manager review';
+            const p = document.createElement('p');
+            p.className = 'text-sm text-gray-600 text-center mb-6';
+            p.textContent = bodyText;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.id = 'closeConfirmationPopup';
+            btn.className = 'w-full px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium';
+            btn.textContent = 'OK';
+            card.appendChild(iconWrap);
+            card.appendChild(title);
+            card.appendChild(p);
+            card.appendChild(btn);
+            popup.appendChild(card);
+            document.body.appendChild(popup);
+            btn.addEventListener('click', function() {
                 popup.remove();
+            });
+            popup.addEventListener('click', function(e) {
+                if (e.target === popup) {
+                    popup.remove();
+                }
+            });
+        }
+
+        if (autoApproved) {
+            toast(serverMessage || 'Your edit was applied to the live road network.', 'success');
+            return;
+        }
+
+        if (pendingSubmitted) {
+            if (closureApplied && typeof roadClosure === 'number') {
+                toast(
+                    roadClosure === 1
+                        ? 'Road closure is already live on the network for everyone.'
+                        : 'Road is shown as open on the network for everyone.',
+                    'success'
+                );
             }
-        });
+            openReviewModal(
+                serverMessage || 'A manager will review your geometry and attribute changes. They will appear on the map after approval.'
+            );
+            return;
+        }
+
+        if (closureApplied && typeof roadClosure === 'number') {
+            toast(
+                roadClosure === 1
+                    ? 'Road closure saved. No other changes required review.'
+                    : 'Road reopening saved. No other changes required review.',
+                'success'
+            );
+            return;
+        }
+
+        toast(serverMessage || 'Saved.', 'info');
     }
 
     // Handle save button click.
@@ -484,8 +459,6 @@
             alert('Please draw a line first before saving.');
             return;
         }
-
-        syncRoadClosureImmediate(editData);
 
         if (saveBtn) {
             saveBtn.disabled = true;
@@ -510,38 +483,47 @@
             return response.json();
         })
         .then(function(data) {
-            if (data.success) {
-                const isAutoApproved = data.auto_approved || false;
-                const closureChanged = !!editData.closure_changed;
-                showSaveConfirmationPopup({
-                    isAutoApproved: isAutoApproved,
-                    closureChanged: closureChanged,
-                    roadClosure: editData.road_closure
-                });
-                
-                if (isAutoApproved) {
-                    if (window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
-                        window.roadGeometryEdit.stop();
-                    }
-                    setTimeout(function() {
-                        if (typeof window.triggerRiyadhTilesReload === 'function') {
-                            window.triggerRiyadhTilesReload(data.tiles_version);
-                        }
-                    }, 1500);
-                } else {
-                    revertPendingApprovalVisualization(editData);
+            if (!data || !data.success) {
+                alert('Error: ' + (data && data.message ? data.message : 'Failed to save edit request'));
+                return;
+            }
 
-                    try {
-                        if (currentLineId && typeof window.removeMapLibreLineLayer === 'function') {
-                            window.removeMapLibreLineLayer(currentLineId);
-                        }
-                        if (typeof window.clearVertexMarkers === 'function') {
-                            window.clearVertexMarkers();
-                        }
-                    } catch (e) {}
+            const autoApproved = !!data.auto_approved;
+            const pendingSubmitted = !!data.pending_submitted;
+            const closureApplied = !!data.closure_applied;
+
+            if (typeof editData.road_closure === 'number' && (closureApplied || autoApproved)) {
+                window.initialRoadClosureState = (editData.road_closure === 1);
+            }
+
+            if (data.tiles_version != null && typeof window.triggerRiyadhTilesReload === 'function') {
+                setTimeout(function() {
+                    window.triggerRiyadhTilesReload(data.tiles_version);
+                }, autoApproved ? 900 : 400);
+            }
+
+            showSaveOutcomeUI({
+                autoApproved: autoApproved,
+                pendingSubmitted: pendingSubmitted,
+                closureApplied: closureApplied,
+                roadClosure: editData.road_closure,
+                serverMessage: data.message || ''
+            });
+
+            if (autoApproved) {
+                if (window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
+                    window.roadGeometryEdit.stop();
                 }
-            } else {
-                alert('Error: ' + (data.message || 'Failed to save edit request'));
+            } else if (pendingSubmitted) {
+                revertPendingApprovalVisualization(editData);
+                try {
+                    if (currentLineId && typeof window.removeMapLibreLineLayer === 'function') {
+                        window.removeMapLibreLineLayer(currentLineId);
+                    }
+                    if (typeof window.clearVertexMarkers === 'function') {
+                        window.clearVertexMarkers();
+                    }
+                } catch (e) {}
             }
         })
         .catch(function(error) {
@@ -597,7 +579,6 @@
         initSaveHandler();
     }
 
-    window.collectLineEditData = collectLineEditData;
     window.handleSaveLineEdit = handleSave;
     window.showToastNotification = showToastNotification;
 

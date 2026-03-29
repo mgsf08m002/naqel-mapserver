@@ -260,7 +260,15 @@ def _derive_fclass_from_feature_label(label: str) -> str | None:
 @require_http_methods(["POST"])
 @csrf_exempt
 def save_line_edit_request(request):
-    """Save a line edit request and handle auto‑approval rules."""
+    """
+    Save a line edit.
+
+    Managers: apply immediately to the remote network (no pending row left).
+
+    Editors / admins: Riyadh road closure updates apply immediately on the remote
+    DB; geometry and attribute changes create a pending LineEditRequest for
+    manager approval only. Closure-only riyadh saves skip creating a request.
+    """
     try:
         data = json.loads(request.body.decode("utf-8"))
 
@@ -308,6 +316,10 @@ def save_line_edit_request(request):
                 status=400,
             )
 
+        fields_data = data.get("fields_data") or {}
+        tags_data = data.get("tags_data") or []
+        relations_data = data.get("relations_data") or []
+
         original_geometry = None
         geometry_changed = False
         if is_riyadh_road and riyadh_road_id_int is not None:
@@ -324,26 +336,38 @@ def save_line_edit_request(request):
                 original_geometry, normalized_geometry
             )
 
-        edit_request = LineEditRequest.objects.create(
-            requester=request.user,
-            geometry=normalized_geometry,
-            original_geometry=original_geometry,
-            geometry_changed=geometry_changed,
-            feature_type=data.get("feature_type", ""),
-            current_feature_label=data.get("current_feature_label", "Line"),
-            fields_data=data.get("fields_data", {}),
-            tags_data=data.get("tags_data", []),
-            relations_data=data.get("relations_data", []),
-            road_closure=road_closure,
-            is_riyadh_road=is_riyadh_road,
-            riyadh_road_id=riyadh_road_id_int,
-        )
+        closure_tiles_version = None
+        if is_riyadh_road and riyadh_road_id_int is not None and closure_changed:
+            try:
+                _apply_riyadh_road_closure_remote(riyadh_road_id_int, road_closure)
+                closure_tiles_version = _tiles_version_ms()
+            except Exception as e:
+                logger.warning("Immediate road closure update failed: %s", e)
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": f"Could not update road closure on the network: {str(e)}",
+                    },
+                    status=500,
+                )
 
-        created_request_id = edit_request.id
-        auto_approved = False
-        remote_road_id = None
-
-        if closure_changed or is_manager:
+        if is_manager:
+            edit_request = LineEditRequest.objects.create(
+                requester=request.user,
+                geometry=normalized_geometry,
+                original_geometry=original_geometry,
+                geometry_changed=geometry_changed,
+                feature_type=data.get("feature_type", ""),
+                current_feature_label=data.get("current_feature_label", "Line"),
+                fields_data=fields_data,
+                tags_data=tags_data,
+                relations_data=relations_data,
+                road_closure=road_closure,
+                is_riyadh_road=is_riyadh_road,
+                riyadh_road_id=riyadh_road_id_int,
+            )
+            created_request_id = edit_request.id
+            remote_road_id = None
             try:
                 if (edit_request.edit_type or "").upper() == "DELETE":
                     _apply_delete_to_base_network(edit_request)
@@ -353,8 +377,11 @@ def save_line_edit_request(request):
                 else:
                     remote_road_id = _apply_manual_approval_to_remote_network(edit_request)
                 edit_request.approve(request.user)
-                auto_approved = True
             except Exception as e:
+                try:
+                    edit_request.delete()
+                except Exception:
+                    pass
                 return JsonResponse(
                     {
                         "success": False,
@@ -368,24 +395,100 @@ def save_line_edit_request(request):
             except Exception:
                 pass
 
-        if auto_approved:
             return JsonResponse(
                 {
                     "success": True,
-                    "message": "Edit saved successfully!",
+                    "message": "Your edit was applied to the live road network.",
                     "request_id": created_request_id,
                     "auto_approved": True,
+                    "pending_submitted": False,
+                    "closure_applied": bool(closure_changed),
                     "remote_road_id": remote_road_id,
-                    "tiles_version": _tiles_version_ms(),
+                    "tiles_version": _tiles_version_ms() or closure_tiles_version,
                 }
             )
+
+        if not is_riyadh_road:
+            edit_request = LineEditRequest.objects.create(
+                requester=request.user,
+                geometry=normalized_geometry,
+                original_geometry=original_geometry,
+                geometry_changed=geometry_changed,
+                feature_type=data.get("feature_type", ""),
+                current_feature_label=data.get("current_feature_label", "Line"),
+                fields_data=fields_data,
+                tags_data=tags_data,
+                relations_data=relations_data,
+                road_closure=road_closure,
+                is_riyadh_road=is_riyadh_road,
+                riyadh_road_id=riyadh_road_id_int,
+            )
+            return JsonResponse(
+                {
+                    "success": True,
+                    "message": "Your line edit has been submitted for manager review.",
+                    "request_id": edit_request.id,
+                    "auto_approved": False,
+                    "pending_submitted": True,
+                    "closure_applied": False,
+                    "tiles_version": None,
+                }
+            )
+
+        road = _resolve_riyadh_road(riyadh_road_id_int)
+        if not road:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": "Riyadh road not found after update.",
+                },
+                status=404,
+            )
+
+        needs_review = _riyadh_needs_manager_review(
+            fields_data,
+            tags_data,
+            relations_data,
+            road,
+            geometry_changed,
+        )
+
+        if not needs_review:
+            return JsonResponse(
+                {
+                    "success": True,
+                    "message": "Road closure and attributes are up to date. Nothing else requires review.",
+                    "auto_approved": False,
+                    "pending_submitted": False,
+                    "closure_applied": bool(closure_changed),
+                    "tiles_version": closure_tiles_version,
+                }
+            )
+
+        edit_request = LineEditRequest.objects.create(
+            requester=request.user,
+            geometry=normalized_geometry,
+            original_geometry=original_geometry,
+            geometry_changed=geometry_changed,
+            feature_type=data.get("feature_type", ""),
+            current_feature_label=data.get("current_feature_label", "Line"),
+            fields_data=fields_data,
+            tags_data=tags_data,
+            relations_data=relations_data,
+            road_closure=road_closure,
+            is_riyadh_road=is_riyadh_road,
+            riyadh_road_id=riyadh_road_id_int,
+        )
 
         return JsonResponse(
             {
                 "success": True,
-                "message": "Your requested edit has been sent to Manager and will be approved/rejected accordingly.",
-                "request_id": created_request_id,
+                "message": "Your edit has been submitted for manager review. Road closure is already live if you changed it.",
+                "request_id": edit_request.id,
                 "auto_approved": False,
+                "pending_submitted": True,
+                "closure_applied": bool(closure_changed),
+                "tiles_version": closure_tiles_version,
             }
         )
 
@@ -552,6 +655,133 @@ def _apply_manual_approval_to_remote_network(edit_request):
 def _get_user_is_manager(user):
     profile = getattr(user, "profile", None)
     return bool(profile and profile.role == "manager")
+
+
+def _apply_riyadh_road_closure_remote(riyadh_road_id_int, road_closure: int):
+    """Persist road_closure on the remote riyadh_roads row (no local workflow)."""
+    road = _resolve_riyadh_road(int(riyadh_road_id_int))
+    if not road:
+        raise ValueError("Road not found for closure update.")
+    rc = 1 if int(road_closure) == 1 else 0
+    road.road_closure = rc
+    road.save(using="riyadh_roads", update_fields=["road_closure"])
+
+
+def _norm_str_edit(v):
+    if v is None:
+        return ""
+    return str(v).strip()
+
+
+def _riyadh_num_eq(a, b) -> bool:
+    try:
+        if a is None or a == "":
+            fa = None
+        else:
+            fa = float(a)
+        if b is None:
+            fb = None
+        elif isinstance(b, Decimal):
+            fb = float(b)
+        else:
+            fb = float(b)
+    except (TypeError, ValueError):
+        return _norm_str_edit(a) == _norm_str_edit(b)
+    if fa is None and fb is None:
+        return True
+    if fa is None or fb is None:
+        return False
+    return math.isclose(fa, fb, rel_tol=0, abs_tol=1e-5)
+
+
+def _riyadh_fields_match_remote(fields_data, road) -> bool:
+    """Compare editable riyadh columns to payload (after any immediate closure write)."""
+    fd = fields_data or {}
+    if _norm_str_edit(fd.get("name")) != _norm_str_edit(road.name):
+        return False
+    if _norm_str_edit(fd.get("ref")) != _norm_str_edit(road.ref):
+        return False
+    if _norm_str_edit(fd.get("fclass")) != _norm_str_edit(road.fclass):
+        return False
+    if _norm_str_edit(fd.get("oneway")) != _norm_str_edit(road.oneway):
+        return False
+    if not _riyadh_num_eq(fd.get("maxspeed"), road.maxspeed):
+        return False
+    if _norm_str_edit(fd.get("osm_id")) != _norm_str_edit(road.osm_id):
+        return False
+    if not _riyadh_num_eq(fd.get("code"), road.code):
+        return False
+    if _norm_str_edit(fd.get("bridge")) != _norm_str_edit(road.bridge):
+        return False
+    if _norm_str_edit(fd.get("tunnel")) != _norm_str_edit(road.tunnel):
+        return False
+    if not _riyadh_num_eq(fd.get("layer"), road.layer):
+        return False
+    return True
+
+
+def _riyadh_remote_field_keys():
+    return {
+        "name",
+        "ref",
+        "fclass",
+        "oneway",
+        "maxspeed",
+        "osm_id",
+        "code",
+        "bridge",
+        "tunnel",
+        "layer",
+        "shape_length",
+        "road_closure",
+    }
+
+
+def _riyadh_extra_fields_require_review(fields_data) -> bool:
+    fd = fields_data or {}
+    allowed = _riyadh_remote_field_keys()
+    for k, v in fd.items():
+        if k in allowed:
+            continue
+        if v in (None, "", [], {}):
+            continue
+        return True
+    return False
+
+
+def _riyadh_tags_match_client(tags_data, fields_data) -> bool:
+    """Client tags must match canonical tags built from submitted fields_data."""
+    canon_pairs = []
+    fd = fields_data or {}
+    for key, value in fd.items():
+        if value is None or value == "":
+            continue
+        canon_pairs.append((key, str(value)))
+    canon_pairs.sort()
+    client_pairs = sorted(
+        (t.get("key"), str(t.get("value", ""))) for t in (tags_data or [])
+    )
+    return tuple(canon_pairs) == tuple(client_pairs)
+
+
+def _riyadh_needs_manager_review(
+    fields_data,
+    tags_data,
+    relations_data,
+    road,
+    geometry_changed: bool,
+) -> bool:
+    if geometry_changed:
+        return True
+    if relations_data:
+        return True
+    if _riyadh_extra_fields_require_review(fields_data):
+        return True
+    if not _riyadh_fields_match_remote(fields_data, road):
+        return True
+    if not _riyadh_tags_match_client(tags_data, fields_data):
+        return True
+    return False
 
 
 def _apply_delete_to_base_network(edit_request):
@@ -772,9 +1002,15 @@ def set_road_closure(request):
     road_closure = 1 if road_closure == 1 else 0
 
     try:
-        road = get_object_or_404(
-            RiyadhRoad.objects.using("riyadh_roads"), gid=int(target_gid_int)
-        )
+        road = _resolve_riyadh_road(int(target_gid_int))
+        if not road:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": "Riyadh road not found for the given id.",
+                },
+                status=404,
+            )
         road.road_closure = road_closure
         road.save(using="riyadh_roads", update_fields=["road_closure"])
 
@@ -800,14 +1036,10 @@ def set_road_closure(request):
 @login_required
 def list_pending_requests(request):
     """Return all pending line edit requests for manager review."""
-    profile = getattr(request.user, 'profile', None)
-    is_manager = profile and profile.role == 'manager'
-    is_superuser = request.user.is_superuser
-    
-    if not (is_manager or is_superuser):
+    if not _get_user_is_manager(request.user):
         return JsonResponse({
             'success': False,
-            'message': 'Unauthorized'
+            'message': 'Only managers can review edit requests.',
         }, status=403)
     
     try:
@@ -864,14 +1096,10 @@ def list_pending_requests(request):
 @login_required
 def get_edit_request_details(request, request_id):
     """Return full details of a single edit request for manager review."""
-    profile = getattr(request.user, 'profile', None)
-    is_manager = profile and profile.role == 'manager'
-    is_superuser = request.user.is_superuser
-    
-    if not (is_manager or is_superuser):
+    if not _get_user_is_manager(request.user):
         return JsonResponse({
             'success': False,
-            'message': 'Unauthorized'
+            'message': 'Only managers can review edit requests.',
         }, status=403)
     
     try:
@@ -941,14 +1169,10 @@ def get_edit_request_details(request, request_id):
 @csrf_exempt
 def approve_edit_request(request, request_id):
     """Approve an edit request."""
-    profile = getattr(request.user, 'profile', None)
-    is_manager = profile and profile.role == 'manager'
-    is_superuser = request.user.is_superuser
-    
-    if not (is_manager or is_superuser):
+    if not _get_user_is_manager(request.user):
         return JsonResponse({
             'success': False,
-            'message': 'Unauthorized'
+            'message': 'Only managers can approve edit requests.',
         }, status=403)
     
     try:
@@ -992,14 +1216,10 @@ def approve_edit_request(request, request_id):
 @csrf_exempt
 def reject_edit_request(request, request_id):
     """Reject an edit request."""
-    profile = getattr(request.user, 'profile', None)
-    is_manager = profile and profile.role == 'manager'
-    is_superuser = request.user.is_superuser
-    
-    if not (is_manager or is_superuser):
+    if not _get_user_is_manager(request.user):
         return JsonResponse({
             'success': False,
-            'message': 'Unauthorized'
+            'message': 'Only managers can reject edit requests.',
         }, status=403)
     
     try:

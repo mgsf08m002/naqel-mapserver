@@ -90,7 +90,12 @@
 
     function enterEditMode() {
         updateButtonText('Exit Edit Mode');
-        if (sidePanel) {
+        if (typeof window.initMapSidePanelChrome === 'function') {
+            window.initMapSidePanelChrome();
+        }
+        if (typeof window.applyMapSidePanelOpen === 'function') {
+            window.applyMapSidePanelOpen(true);
+        } else if (sidePanel) {
             sidePanel.classList.remove('-translate-x-full');
             sidePanel.style.display = '';
             sidePanel.style.visibility = 'visible';
@@ -100,7 +105,7 @@
         if (editToolbar) {
             editToolbar.classList.remove('hidden');
         }
-        if (mapContainer) {
+        if (mapContainer && typeof window.applyMapSidePanelOpen !== 'function') {
             mapContainer.style.marginLeft = SIDE_PANEL_WIDTH + 'px';
             mapContainer.style.width = `calc(100% - ${SIDE_PANEL_WIDTH}px)`;
         }

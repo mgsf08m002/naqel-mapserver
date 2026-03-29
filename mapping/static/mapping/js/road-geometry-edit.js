@@ -11,6 +11,25 @@
     var doubleClickZoomWasEnabled = false;
     var hintElement = null;
     var visualRafId = null;
+    var LEGEND_EXPANDED_KEY = 'roadGeometryEditLegendOpen';
+
+    function readLegendExpandedDefault() {
+        try {
+            var v = localStorage.getItem(LEGEND_EXPANDED_KEY);
+            if (v === '1') {
+                return true;
+            }
+        } catch (e) {}
+        return false;
+    }
+
+    function persistLegendExpanded(expanded) {
+        try {
+            localStorage.setItem(LEGEND_EXPANDED_KEY, expanded ? '1' : '0');
+        } catch (e) {}
+    }
+    var GHOST_SOURCE_ID = 'road-geometry-original-ghost-source';
+    var GHOST_LAYER_ID = 'road-geometry-original-ghost-line';
 
     function getMap() {
         return typeof map !== 'undefined' ? map : null;
@@ -213,6 +232,81 @@
         }
     }
 
+    /** Snapshot-only reference line (server state). Stays fixed while the cyan overlay moves. */
+    function removeOriginalGhostLayer(mapRef) {
+        var m = mapRef || mapInstance;
+        if (!m) {
+            return;
+        }
+        try {
+            if (m.getLayer(GHOST_LAYER_ID)) {
+                m.removeLayer(GHOST_LAYER_ID);
+            }
+            if (m.getSource(GHOST_SOURCE_ID)) {
+                m.removeSource(GHOST_SOURCE_ID);
+            }
+        } catch (e) {}
+    }
+
+    function ensureOriginalGhostLayer(mapRef, roadIdKey) {
+        removeOriginalGhostLayer(mapRef);
+        if (!mapRef || roadIdKey == null) {
+            return;
+        }
+        var st =
+            window.riyadhRoadOriginalState &&
+            (window.riyadhRoadOriginalState[String(roadIdKey)] ||
+                window.riyadhRoadOriginalState[roadIdKey]);
+        if (!st || !st.geometry) {
+            return;
+        }
+        var norm = normalizeGeometry(st.geometry);
+        if (!norm || !norm.coordinates || norm.coordinates.length < 2) {
+            return;
+        }
+        var raw = norm.coordinates.map(function(c) {
+            return [Number(c[0]), Number(c[1])];
+        });
+        var coords = normalizeLineStringCoordsForMap(raw);
+        if (!coords || coords.length < 2) {
+            return;
+        }
+        var lineGeom = { type: 'LineString', coordinates: coords };
+        var beforeId = null;
+        try {
+            if (mapRef.getLayer('selected-road-overlay-glow')) {
+                beforeId = 'selected-road-overlay-glow';
+            } else if (mapRef.getLayer('selected-road-overlay-line')) {
+                beforeId = 'selected-road-overlay-line';
+            }
+            mapRef.addSource(GHOST_SOURCE_ID, {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: lineGeom,
+                    properties: { kind: 'original-snapshot' }
+                }
+            });
+            var layerDef = {
+                id: GHOST_LAYER_ID,
+                type: 'line',
+                source: GHOST_SOURCE_ID,
+                layout: { 'line-cap': 'round', 'line-join': 'round' },
+                paint: {
+                    'line-color': '#475569',
+                    'line-width': 2.5,
+                    'line-opacity': 0.48,
+                    'line-dasharray': [1.25, 2]
+                }
+            };
+            if (beforeId) {
+                mapRef.addLayer(layerDef, beforeId);
+            } else {
+                mapRef.addLayer(layerDef);
+            }
+        } catch (e2) {}
+    }
+
     function showEditHint() {
         removeEditHint();
         var container = document.getElementById('mapContainer');
@@ -223,18 +317,72 @@
             mapInstance.getContainer().classList.add('road-geometry-edit-active');
         } catch (e) {}
 
-        hintElement = document.createElement('div');
-        hintElement.className = 'road-geometry-edit-hint';
-        hintElement.setAttribute('role', 'status');
+        var expanded = readLegendExpandedDefault();
+
+        hintElement = document.createElement('aside');
+        hintElement.className =
+            'road-geometry-edit-hint' + (expanded ? '' : ' road-geometry-edit-hint--collapsed');
+        hintElement.setAttribute('aria-label', 'Geometry editing guide');
+
+        var chevronSvg =
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+            '<path d="M6 9l6 6 6-6"/>' +
+            '</svg>';
+        var lineIconSvg =
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
+            '<path d="M4 12c2.5-4 6-6 8-2s5 4 8-2"/>' +
+            '<circle cx="7" cy="11" r="1.5" fill="currentColor" stroke="none"/>' +
+            '<circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/>' +
+            '</svg>';
+
         hintElement.innerHTML =
-            '<div class="road-geometry-edit-hint__inner">' +
-            '<span class="road-geometry-edit-hint__badge">Shape edit</span>' +
-            '<span class="road-geometry-edit-hint__sep" aria-hidden="true"></span>' +
-            '<span class="road-geometry-edit-hint__item"><span class="road-geometry-edit-hint__kbd">Drag</span> nodes</span>' +
-            '<span class="road-geometry-edit-hint__item"><span class="road-geometry-edit-hint__icon-plus" aria-hidden="true">+</span> on segment adds</span>' +
-            '<span class="road-geometry-edit-hint__item"><span class="road-geometry-edit-hint__kbd">Shift</span>+click removes</span>' +
+            '<div class="road-geometry-edit-hint__panel">' +
+            '<button type="button" class="road-geometry-edit-hint__toggle" aria-expanded="' +
+            (expanded ? 'true' : 'false') +
+            '" aria-controls="road-geometry-edit-hint-body" title="Show or hide editing guide">' +
+            '<span class="road-geometry-edit-hint__toggle-main">' +
+            '<span class="road-geometry-edit-hint__icon">' +
+            lineIconSvg +
+            '</span>' +
+            '<span class="road-geometry-edit-hint__titles">' +
+            '<span class="road-geometry-edit-hint__title">Shape editing</span>' +
+            '<span class="road-geometry-edit-hint__subtitle">Saved vs draft · shortcuts</span>' +
+            '</span>' +
+            '</span>' +
+            '<span class="road-geometry-edit-hint__chev">' +
+            chevronSvg +
+            '</span>' +
+            '</button>' +
+            '<div id="road-geometry-edit-hint-body" class="road-geometry-edit-hint__body">' +
+            '<div class="road-geometry-edit-hint__strip">' +
+            '<div class="road-geometry-edit-hint__strip-item">' +
+            '<span class="road-geometry-edit-hint__strip-line road-geometry-edit-hint__strip-line--ghost"></span>' +
+            '<span class="road-geometry-edit-hint__strip-label">On network (saved)</span>' +
+            '</div>' +
+            '<div class="road-geometry-edit-hint__strip-item">' +
+            '<span class="road-geometry-edit-hint__strip-line road-geometry-edit-hint__strip-line--edit"></span>' +
+            '<span class="road-geometry-edit-hint__strip-label">Your edit (draft)</span>' +
+            '</div>' +
+            '</div>' +
+            '<p class="road-geometry-edit-hint__strip-hint">The dashed path stays fixed as a reference; cyan follows your edits until you save.</p>' +
+            '<ul class="road-geometry-edit-hint__list">' +
+            '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--drag" aria-hidden="true"></span><span>Drag nodes to move the line</span></li>' +
+            '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--plus" aria-hidden="true">+</span><span>Click <strong>+</strong> on a segment to add a node</span></li>' +
+            '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--key" aria-hidden="true"><kbd>⇧</kbd></span><span><kbd>Shift</kbd>+click a node to remove it</span></li>' +
+            '</ul>' +
+            '</div>' +
             '</div>';
+
         container.appendChild(hintElement);
+
+        var toggleBtn = hintElement.querySelector('.road-geometry-edit-hint__toggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function() {
+                var collapsed = hintElement.classList.toggle('road-geometry-edit-hint--collapsed');
+                toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                persistLegendExpanded(!collapsed);
+            });
+        }
     }
 
     function projectPointOnSegment(p, a, b) {
@@ -435,26 +583,39 @@
     function stop() {
         cancelScheduledVisualSync();
         removeEditHint();
+        var rid = roadId;
+        var mapRef = mapInstance;
+        removeOriginalGhostLayer(mapRef);
+        if (rid != null && typeof window.setRiyadhRoadBasemapHiddenForEdit === 'function') {
+            window.setRiyadhRoadBasemapHiddenForEdit(rid, false);
+        }
+        try {
+            window.__roadGeometryEditActiveId = null;
+        } catch (e0) {}
         removeAllMarkers();
         workingCoords = null;
         roadId = null;
 
-        if (mapInstance && dblClickHandler) {
+        if (mapRef && dblClickHandler) {
             try {
-                mapInstance.off('dblclick', dblClickHandler);
+                mapRef.off('dblclick', dblClickHandler);
             } catch (e) {}
             dblClickHandler = null;
         }
 
-        if (mapInstance && doubleClickZoomWasEnabled) {
+        if (mapRef && doubleClickZoomWasEnabled) {
             try {
-                if (mapInstance.doubleClickZoom && mapInstance.doubleClickZoom.enable) {
-                    mapInstance.doubleClickZoom.enable();
+                if (mapRef.doubleClickZoom && mapRef.doubleClickZoom.enable) {
+                    mapRef.doubleClickZoom.enable();
                 }
             } catch (e2) {}
         }
         doubleClickZoomWasEnabled = false;
         mapInstance = null;
+
+        if (typeof window.syncRiyadhRoadMapOverlayFromContext === 'function') {
+            window.syncRiyadhRoadMapOverlayFromContext();
+        }
     }
 
     function startFromRiyadhContext() {
@@ -491,6 +652,13 @@
 
         showEditHint();
         pushStateToGlobals();
+        try {
+            window.__roadGeometryEditActiveId = roadId;
+        } catch (eR) {}
+        if (typeof window.setRiyadhRoadBasemapHiddenForEdit === 'function') {
+            window.setRiyadhRoadBasemapHiddenForEdit(roadId, true);
+        }
+        ensureOriginalGhostLayer(mapInstance, roadId);
         rebuildMarkers();
 
         if (mapInstance.doubleClickZoom) {

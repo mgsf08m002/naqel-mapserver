@@ -77,6 +77,200 @@
         return null;
     }
 
+    const SIDE_PANEL_WIDTH_PX = 320;
+    let mapSidePanelChromeReady = false;
+    let mapSidePanelOpenedOnce = false;
+
+    function syncRiyadhRoadMapOverlayFromContext() {
+        try {
+            const ext = window.approvedLineBeingEdited || window.selectedRiyadhRoad;
+            if (!ext || !ext.is_riyadh_road || !ext.geometry) {
+                return;
+            }
+            const roadId = ext.riyadh_road_id != null ? ext.riyadh_road_id : ext.id;
+            const label = ext.current_feature_label || ext.feature_type || 'Line';
+            setSelectedOverlayGeometry(ext.geometry);
+            updateRiyadhRoadVisualization(roadId, label, ext.geometry);
+        } catch (e) {}
+    }
+
+    function applyMapSidePanelOpen(open) {
+        const sp = document.getElementById('editSidePanel');
+        const mc = document.getElementById('mapContainer');
+        const collapseBtn = document.getElementById('sidePanelCollapseBtn');
+        const expandTab = document.getElementById('sidePanelExpandTab');
+        if (!sp || !mc) {
+            return;
+        }
+
+        window.__mapSidePanelOpen = !!open;
+        if (open) {
+            mapSidePanelOpenedOnce = true;
+        }
+
+        if (open) {
+            sp.classList.remove('-translate-x-full');
+            sp.style.setProperty('transform', 'translateX(0)', 'important');
+            mc.style.marginLeft = SIDE_PANEL_WIDTH_PX + 'px';
+            mc.style.width = 'calc(100% - ' + SIDE_PANEL_WIDTH_PX + 'px)';
+            if (collapseBtn) {
+                collapseBtn.classList.remove('hidden');
+            }
+            if (expandTab) {
+                expandTab.classList.add('hidden');
+            }
+        } else {
+            sp.classList.add('-translate-x-full');
+            sp.style.removeProperty('transform');
+            mc.style.marginLeft = '0';
+            mc.style.width = '100%';
+            if (collapseBtn) {
+                collapseBtn.classList.add('hidden');
+            }
+            if (expandTab && mapSidePanelOpenedOnce) {
+                expandTab.classList.remove('hidden');
+            }
+        }
+
+        setTimeout(function() {
+            if (typeof map !== 'undefined' && map && map.resize) {
+                map.resize();
+            }
+        }, 320);
+    }
+
+    function initMapSidePanelChrome() {
+        if (mapSidePanelChromeReady) {
+            return;
+        }
+        const root = document.querySelector('.w-full.h-full.relative');
+        if (!root || document.getElementById('sidePanelCollapseBtn')) {
+            mapSidePanelChromeReady = true;
+            return;
+        }
+
+        const collapseBtn = document.createElement('button');
+        collapseBtn.id = 'sidePanelCollapseBtn';
+        collapseBtn.type = 'button';
+        collapseBtn.className =
+            'hidden absolute top-6 z-[31] flex h-10 w-9 items-center justify-center rounded-r-xl border border-l-0 border-gray-200 bg-white text-gray-700 shadow-md transition hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500';
+        collapseBtn.style.left = SIDE_PANEL_WIDTH_PX + 'px';
+        collapseBtn.setAttribute('aria-expanded', 'true');
+        collapseBtn.setAttribute('aria-controls', 'editSidePanel');
+        collapseBtn.title = 'Hide panel';
+        collapseBtn.innerHTML =
+            '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">' +
+            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>';
+
+        const expandTab = document.createElement('button');
+        expandTab.id = 'sidePanelExpandTab';
+        expandTab.type = 'button';
+        expandTab.className =
+            'hidden fixed left-0 top-1/2 z-[31] -translate-y-1/2 rounded-r-xl border border-l-0 border-gray-200 bg-white px-2 py-4 text-xs font-semibold text-gray-700 shadow-md transition hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500';
+        expandTab.setAttribute('aria-expanded', 'false');
+        expandTab.setAttribute('aria-controls', 'editSidePanel');
+        expandTab.title = 'Show details panel';
+        expandTab.textContent = 'Details';
+
+        root.appendChild(collapseBtn);
+        root.appendChild(expandTab);
+
+        collapseBtn.addEventListener('click', function() {
+            applyMapSidePanelOpen(false);
+            collapseBtn.setAttribute('aria-expanded', 'false');
+            expandTab.setAttribute('aria-expanded', 'true');
+        });
+        expandTab.addEventListener('click', function() {
+            applyMapSidePanelOpen(true);
+            collapseBtn.setAttribute('aria-expanded', 'true');
+            expandTab.setAttribute('aria-expanded', 'false');
+        });
+
+        mapSidePanelChromeReady = true;
+    }
+
+    function attachRiyadhGeometryEditRow(editScreen, lineData) {
+        const existing = document.getElementById('riyadhGeometryEditRow');
+        if (existing) {
+            existing.remove();
+        }
+
+        const readonly = editScreen && editScreen.getAttribute('data-geometry-readonly') === 'true';
+        const content = editScreen && editScreen.querySelector('.flex-1.overflow-y-auto');
+        if (readonly || !content || !lineData || !lineData.is_riyadh_road) {
+            return;
+        }
+
+        const row = document.createElement('div');
+        row.id = 'riyadhGeometryEditRow';
+        row.className = 'border-b border-gray-700 px-6 py-3';
+
+        const wrap = document.createElement('div');
+        wrap.className = 'flex items-center justify-between gap-3';
+        const copy = document.createElement('div');
+        copy.className = 'min-w-0 flex-1';
+        const title = document.createElement('p');
+        title.className = 'text-xs font-medium text-gray-200';
+        title.textContent = 'Road geometry';
+        const sub = document.createElement('p');
+        sub.className = 'text-xs text-gray-500 mt-0.5';
+        sub.textContent = 'Turn on to show vertices and edit the line on the map';
+        copy.appendChild(title);
+        copy.appendChild(sub);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'riyadhGeometryEditToggleBtn';
+        btn.className =
+            'flex-shrink-0 rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500';
+        btn.setAttribute('aria-pressed', 'false');
+
+        function syncGeometryToggleBtn() {
+            const ctx = window.approvedLineBeingEdited || window.selectedRiyadhRoad;
+            const rid = ctx && (ctx.riyadh_road_id != null ? ctx.riyadh_road_id : ctx.id);
+            const active =
+                window.__roadGeometryEditActiveId != null &&
+                rid != null &&
+                Number(window.__roadGeometryEditActiveId) === Number(rid);
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+            btn.textContent = active ? 'Done editing' : 'Edit shape';
+            if (active) {
+                btn.classList.add('border-cyan-500', 'bg-cyan-700', 'ring-1', 'ring-cyan-400/40');
+            } else {
+                btn.classList.remove('border-cyan-500', 'bg-cyan-700', 'ring-1', 'ring-cyan-400/40');
+            }
+        }
+
+        btn.addEventListener('click', function() {
+            if (window.__roadGeometryEditActiveId != null) {
+                if (window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
+                    window.roadGeometryEdit.stop();
+                }
+                syncRiyadhRoadMapOverlayFromContext();
+            } else if (window.roadGeometryEdit && typeof window.roadGeometryEdit.startFromRiyadhContext === 'function') {
+                window.roadGeometryEdit.startFromRiyadhContext();
+            }
+            setTimeout(syncGeometryToggleBtn, 0);
+        });
+
+        wrap.appendChild(copy);
+        wrap.appendChild(btn);
+        row.appendChild(wrap);
+
+        const first = content.firstElementChild;
+        if (first) {
+            first.after(row);
+        } else {
+            content.appendChild(row);
+        }
+
+        syncGeometryToggleBtn();
+    }
+
+    window.syncRiyadhRoadMapOverlayFromContext = syncRiyadhRoadMapOverlayFromContext;
+    window.applyMapSidePanelOpen = applyMapSidePanelOpen;
+    window.initMapSidePanelChrome = initMapSidePanelChrome;
+
     function requestDeleteForCurrentFeature() {
         const target = getDeleteTargetFromContext();
         if (!target) {
@@ -141,8 +335,6 @@
     const SELECTED_OVERLAY_GLOW_LAYER_ID = 'selected-road-overlay-glow';
     const SELECTED_OVERLAY_LINE_LAYER_ID = 'selected-road-overlay-line';
     const SELECTED_OVERLAY_OUTLINE_COLOR = '#22d3ee';
-
-    // Legacy helper removed: approved-line dimming was only used by the old local overlay flow.
 
     function ensureSelectedOverlayLayers() {
         if (typeof map === 'undefined' || !map) {
@@ -274,7 +466,7 @@
             symbologyStylesByLabel[normalizedKey] = catalog.styles_by_label[rawLabel];
         });
 
-        // Expose catalog so other scripts (manager-requests, approved-lines, etc.) can reuse it.
+        // Expose catalog so other scripts (e.g. manager-requests) can reuse it.
         window.symbologyCatalog = catalog;
 
         try {
@@ -460,6 +652,8 @@
 
             sidePanel = document.getElementById('editSidePanel');
             sidePanelContent = document.getElementById('sidePanelContent');
+
+            initMapSidePanelChrome();
 
             setupLineDrawingListeners();
             setupFeatureSearch();
@@ -679,7 +873,7 @@
                     hideDefaultRendering();
                     showLineSidePanel();
                     updateCurrentFeatureLabel('Line');
-                    forceMarkersVisibility();
+                    clearVertexMarkers();
                     applyGlowingEffect(id);
                     updateLineVisualization();
                     
@@ -718,7 +912,7 @@
             setTimeout(function() {
                 hideDefaultRendering();
                 renderLineAsMapLibreLayer(id);
-                forceMarkersVisibility();
+                clearVertexMarkers();
             }, 100);
         } catch (error) {
             selectedLineId = id;
@@ -729,7 +923,7 @@
             }
             
             applyGlowingEffect(id);
-            forceMarkersVisibility();
+            clearVertexMarkers();
         }
     }
 
@@ -774,7 +968,7 @@
         hideDefaultRendering();
         renderLineAsMapLibreLayer(id);
         applyGlowingEffect(id);
-        forceMarkersVisibility();
+        clearVertexMarkers();
 
         // Open the side panel with a consistent rendering path.
         showLineSidePanel();
@@ -845,40 +1039,19 @@
         } catch (e) {}
     }
 
-    // Legacy approved-line editing flow removed: the road network is served exclusively
-    // from the remote Riyadh roads base network tiles + database.
-    function showLineSidePanelForApprovedLineEdit() {
-        showLineSidePanel();
-    }
-
     function showLineSidePanel() {
         if (typeof window.roadGeometryEdit !== 'undefined' && window.roadGeometryEdit.stop) {
             window.roadGeometryEdit.stop();
         }
-        // Always ensure sidebar is visible (works in both edit mode and view mode)
+
+        initMapSidePanelChrome();
+        applyMapSidePanelOpen(true);
+
         const sidePanel = document.getElementById('editSidePanel');
         if (sidePanel) {
-            sidePanel.classList.remove('-translate-x-full');
             sidePanel.style.display = '';
             sidePanel.style.visibility = 'visible';
             sidePanel.style.opacity = '1';
-            
-            // Force show with important styles
-            sidePanel.style.setProperty('transform', 'translateX(0)', 'important');
-            
-            // Adjust map container width
-            const mapContainer = document.getElementById('mapContainer');
-            if (mapContainer) {
-                const SIDE_PANEL_WIDTH = 320;
-                mapContainer.style.marginLeft = SIDE_PANEL_WIDTH + 'px';
-                mapContainer.style.width = `calc(100% - ${SIDE_PANEL_WIDTH}px)`;
-                
-                setTimeout(function() {
-                    if (map && map.resize) {
-                        map.resize();
-                    }
-                }, 300);
-            }
         }
         
         if (!sidePanelContent) {
@@ -1287,7 +1460,7 @@
 
         if (currentLineId) {
             renderLineAsMapLibreLayer(currentLineId);
-            forceMarkersVisibility();
+            clearVertexMarkers();
         }
 
         // Always keep the sidepanel previews in sync, regardless of whether
@@ -1492,13 +1665,6 @@
         }
     }
 
-    function forceMarkersVisibility() {
-        // Vertex markers have been removed to keep the visualization
-        // purely line-based. This function now only ensures that any
-        // previously created markers are cleared.
-        clearVertexMarkers();
-    }
-
     function createDropdownBox(label, isLast) {
         const container = document.createElement('div');
         container.className = 'relative';
@@ -1637,27 +1803,13 @@
         const requestGeometry = options.requestGeometry || null;
         const lineData = options.lineData || null;
 
+        initMapSidePanelChrome();
+        applyMapSidePanelOpen(true);
+
         const sidePanel = document.getElementById('editSidePanel');
         if (!sidePanel) return;
-        
-        // Always ensure sidebar is visible (works in both edit mode and view mode)
-        // This is critical for viewing lines/roads when edit mode is disabled
-        sidePanel.classList.remove('-translate-x-full');
+
         sidePanel.style.display = '';
-        
-        // Adjust map container width
-        const mapContainer = document.getElementById('mapContainer');
-        if (mapContainer) {
-            const SIDE_PANEL_WIDTH = 320;
-            mapContainer.style.marginLeft = SIDE_PANEL_WIDTH + 'px';
-            mapContainer.style.width = `calc(100% - ${SIDE_PANEL_WIDTH}px)`;
-            
-            setTimeout(function() {
-                if (map && map.resize) {
-                    map.resize();
-                }
-            }, 300);
-        }
 
         const existingEditScreen = document.getElementById('editFeatureScreen');
         if (existingEditScreen) {
@@ -1777,6 +1929,8 @@
 
         editScreen.appendChild(content);
         flexContainer.appendChild(editScreen);
+
+        attachRiyadhGeometryEditRow(editScreen, lineData);
 
         // Sync Feature Type label immediately so the sidebar never shows empty.
         (function syncFeatureTypeLabelNow() {
@@ -3897,6 +4051,7 @@
         try {
             if (typeof map !== 'undefined' && map && geometry) {
                 const layerId = 'riyadh-roads-selected-layer';
+                const haloId = 'riyadh-roads-selected-halo-layer';
                 if (map.getLayer(layerId)) {
                     // Respect road-closure override when applicable.
                     let style = null;
@@ -3911,11 +4066,19 @@
                         const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray))
                             ? style.lineDasharray
                             : [1, 0];
+                        const w = Number(style.lineWidth) || 4;
 
                         map.setPaintProperty(layerId, 'line-color', style.lineColor);
-                        map.setPaintProperty(layerId, 'line-width', style.lineWidth + 2);
+                        map.setPaintProperty(layerId, 'line-width', w + 4);
                         map.setPaintProperty(layerId, 'line-opacity', 1);
                         map.setPaintProperty(layerId, 'line-dasharray', lineDasharray);
+
+                        if (map.getLayer(haloId)) {
+                            map.setPaintProperty(haloId, 'line-color', style.lineColor);
+                            map.setPaintProperty(haloId, 'line-width', w + 12);
+                            map.setPaintProperty(haloId, 'line-opacity', 0.45);
+                            map.setPaintProperty(haloId, 'line-dasharray', lineDasharray);
+                        }
                     }
                 }
             }
@@ -4176,6 +4339,10 @@
     function showRiyadhRoadAsLineFeature(lineFeatureData) {
         if (!lineFeatureData) return;
 
+        if (window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
+            window.roadGeometryEdit.stop();
+        }
+
         const roadId = lineFeatureData.id || 'riyadh-road-' + Date.now();
         window.approvedLineBeingEdited = Object.assign({}, lineFeatureData, { id: roadId });
 
@@ -4184,9 +4351,6 @@
             updateRiyadhRoadVisualization(roadId, featureLabel, lineFeatureData.geometry);
         }
 
-        // Open the edit sidepanel directly (legacy approved-lines overlay is removed)
-        // and populate it with the full attribute payload returned from the API
-        // (fields, tags and relations) so the user sees all road details.
         try {
             const featureLabel = lineFeatureData.current_feature_label || lineFeatureData.feature_type || 'Line';
             currentFeatureLabel = featureLabel;
@@ -4226,12 +4390,6 @@
                 }
             }, 300);
         } catch (e) {}
-
-        setTimeout(function() {
-            if (window.roadGeometryEdit && typeof window.roadGeometryEdit.startFromRiyadhContext === 'function') {
-                window.roadGeometryEdit.startFromRiyadhContext();
-            }
-        }, 450);
     }
 
     window.showRiyadhRoadAsLineFeature = showRiyadhRoadAsLineFeature;

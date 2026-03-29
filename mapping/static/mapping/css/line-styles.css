@@ -4,90 +4,323 @@
  * CSS only for markers and UI elements
  */
 
+/* Map canvas: subtle feedback when hovering clickable roads (see map.js) */
+.maplibregl-canvas.map-road-hover {
+    cursor: pointer;
+}
+
+#mapContainer {
+    transition: margin-left 0.28s ease, width 0.28s ease;
+}
+
+#sidePanelExpandTab {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    letter-spacing: 0.06em;
+}
+
 /* Road geometry edit — aligned with selected overlay accent (#22d3ee) in line-drawing.js */
 .road-geometry-edit-active {
     outline: none;
 }
 
+/* Bottom-right: avoids basemap gallery (bottom-left) and keeps the canvas clear */
 .road-geometry-edit-hint {
     position: absolute;
-    left: 50%;
-    top: 5.25rem;
-    transform: translateX(-50%);
-    z-index: 45;
-    max-width: min(36rem, calc(100% - 2rem));
+    right: 0.75rem;
+    bottom: 3rem;
+    left: auto;
+    top: auto;
+    z-index: 46;
+    width: min(18rem, calc(100% - 1.5rem));
+    pointer-events: auto;
+}
+
+.road-geometry-edit-hint__panel {
+    position: relative;
+    padding-left: 0.25rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    box-shadow:
+        0 4px 6px -1px rgba(15, 23, 42, 0.06),
+        0 12px 32px -8px rgba(15, 23, 42, 0.14);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    overflow: hidden;
+    text-align: left;
+}
+
+.road-geometry-edit-hint__panel::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, #22d3ee 0%, #0ea5e9 100%);
+    border-radius: 12px 0 0 12px;
     pointer-events: none;
 }
 
-.road-geometry-edit-hint__inner {
+.road-geometry-edit-hint__toggle {
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    width: 100%;
+    margin: 0;
+    padding: 0.65rem 0.75rem 0.65rem 0.85rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+    border-radius: 12px 12px 0 0;
+    transition: background 0.15s ease;
+}
+
+.road-geometry-edit-hint__toggle:hover {
+    background: rgba(241, 245, 249, 0.85);
+}
+
+.road-geometry-edit-hint__toggle:focus {
+    outline: none;
+}
+
+.road-geometry-edit-hint__toggle:focus-visible {
+    box-shadow: inset 0 0 0 2px rgba(14, 165, 233, 0.45);
+    border-radius: 10px;
+}
+
+.road-geometry-edit-hint__toggle-main {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.road-geometry-edit-hint__icon {
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 8px;
+    background: linear-gradient(145deg, rgba(34, 211, 238, 0.18), rgba(14, 165, 233, 0.1));
+    border: 1px solid rgba(6, 182, 212, 0.35);
+    display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.35rem 0.75rem;
-    padding: 0.5rem 1rem 0.55rem;
-    border-radius: 9999px;
-    background: rgba(255, 255, 255, 0.94);
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    box-shadow:
-        0 4px 24px rgba(15, 23, 42, 0.12),
-        0 0 0 1px rgba(255, 255, 255, 0.6) inset;
-    font-size: 11px;
-    line-height: 1.35;
-    color: #334155;
-    letter-spacing: 0.01em;
-}
-
-.road-geometry-edit-hint__badge {
-    font-weight: 700;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
     color: #0e7490;
-    background: linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(14, 165, 233, 0.12));
-    padding: 0.2rem 0.5rem;
-    border-radius: 9999px;
-    border: 1px solid rgba(34, 211, 238, 0.35);
 }
 
-.road-geometry-edit-hint__sep {
-    width: 1px;
-    height: 12px;
-    background: rgba(148, 163, 184, 0.6);
-    margin: 0 0.15rem;
+.road-geometry-edit-hint__icon svg {
+    width: 14px;
+    height: 14px;
 }
 
-.road-geometry-edit-hint__item {
-    white-space: nowrap;
+.road-geometry-edit-hint__titles {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+.road-geometry-edit-hint__title {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+    line-height: 1.2;
+}
+
+.road-geometry-edit-hint__subtitle {
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: #64748b;
+    line-height: 1.25;
+}
+
+.road-geometry-edit-hint__chev {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    background: rgba(248, 250, 252, 0.9);
+    border: 1px solid #e2e8f0;
+    transition: transform 0.2s ease, color 0.15s ease;
+}
+
+.road-geometry-edit-hint__chev svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Expanded: chevron points up (click to collapse) */
+.road-geometry-edit-hint:not(.road-geometry-edit-hint--collapsed) .road-geometry-edit-hint__chev {
+    transform: rotate(180deg);
+    color: #0e7490;
+    border-color: rgba(6, 182, 212, 0.45);
+    background: rgba(224, 242, 254, 0.6);
+}
+
+.road-geometry-edit-hint__body {
+    padding: 0 0.75rem 0.75rem 0.85rem;
+    padding-top: 0;
+    border-top: 1px solid transparent;
+}
+
+.road-geometry-edit-hint:not(.road-geometry-edit-hint--collapsed) .road-geometry-edit-hint__body {
+    border-top-color: rgba(226, 232, 240, 0.95);
+    padding-top: 0.5rem;
+}
+
+.road-geometry-edit-hint--collapsed .road-geometry-edit-hint__body {
+    display: none;
+}
+
+.road-geometry-edit-hint--collapsed .road-geometry-edit-hint__toggle {
+    border-radius: 12px;
+}
+
+.road-geometry-edit-hint__strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 0.65rem;
+}
+
+.road-geometry-edit-hint__strip-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.4rem 0.45rem;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.road-geometry-edit-hint__strip-line {
+    display: block;
+    height: 3px;
+    border-radius: 2px;
+    width: 100%;
+}
+
+.road-geometry-edit-hint__strip-line--ghost {
+    background: repeating-linear-gradient(
+        90deg,
+        #64748b 0,
+        #64748b 4px,
+        transparent 4px,
+        transparent 7px
+    );
+    opacity: 0.75;
+}
+
+.road-geometry-edit-hint__strip-line--edit {
+    background: linear-gradient(90deg, #22d3ee, #06b6d4);
+    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35);
+}
+
+.road-geometry-edit-hint__strip-label {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     color: #475569;
+    line-height: 1.2;
 }
 
-.road-geometry-edit-hint__kbd {
+.road-geometry-edit-hint__strip-hint {
+    margin: 0 0 0.6rem;
+    font-size: 0.625rem;
+    line-height: 1.45;
+    color: #64748b;
+}
+
+.road-geometry-edit-hint__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.road-geometry-edit-hint__list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: #334155;
+}
+
+.road-geometry-edit-hint__list kbd {
     display: inline-block;
-    padding: 0.08rem 0.35rem;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    padding: 0.1rem 0.35rem;
     border-radius: 4px;
     background: #f1f5f9;
     border: 1px solid #e2e8f0;
-    font-size: 10px;
-    font-weight: 600;
-    color: #64748b;
-    margin-right: 0.2rem;
+    color: #475569;
 }
 
-.road-geometry-edit-hint__icon-plus {
-    display: inline-flex;
+.road-geometry-edit-hint__ic {
+    flex-shrink: 0;
+    width: 1.375rem;
+    height: 1.375rem;
+    border-radius: 6px;
+    margin-top: 0.05rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.road-geometry-edit-hint__ic--plus {
+    display: flex;
     align-items: center;
     justify-content: center;
-    width: 1rem;
-    height: 1rem;
-    margin-right: 0.15rem;
-    border-radius: 4px;
-    background: #f8fafc;
-    border: 1px dashed #94a3b8;
     font-size: 11px;
     font-weight: 700;
+    color: #0e7490;
+    line-height: 1;
+    border-style: dashed;
+    border-color: #94a3b8;
+}
+
+.road-geometry-edit-hint__ic--key {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 7px;
+    font-weight: 700;
     color: #64748b;
-    vertical-align: -2px;
+}
+
+.road-geometry-edit-hint__ic--drag {
+    position: relative;
+    border-color: #bae6fd;
+    background: linear-gradient(160deg, rgba(224, 242, 254, 0.9), rgba(255, 255, 255, 0.95));
+}
+
+.road-geometry-edit-hint__ic--drag::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    margin: -3.5px 0 0 -3.5px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #0284c7;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
 }
 
 /* Large hit target; visible dot is inner — feels like Figma/Mapbox editors */
@@ -252,13 +485,6 @@ svg[data-terra-draw] line {
     visibility: hidden !important;
     opacity: 0 !important;
     pointer-events: none !important;
-}
-
-/* Vertex markers - white with red glow */
-.vertex-marker {
-    background-color: #ffffff !important;
-    border: 2px solid #ffffff !important;
-    box-shadow: 0 0 4px rgba(239, 68, 68, 0.8), 0 0 8px rgba(239, 68, 68, 0.6) !important;
 }
 
 /* Side panel: ensure visible and scrollable content */

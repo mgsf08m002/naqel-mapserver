@@ -535,13 +535,20 @@
             if (callback) setTimeout(callback, 100);
             return;
         }
-        sidePanel.classList.remove('-translate-x-full');
+        if (typeof window.initMapSidePanelChrome === 'function') {
+            window.initMapSidePanelChrome();
+        }
+        if (typeof window.applyMapSidePanelOpen === 'function') {
+            window.applyMapSidePanelOpen(true);
+        } else {
+            sidePanel.classList.remove('-translate-x-full');
+            if (mapContainer) {
+                mapContainer.style.marginLeft = '320px';
+                mapContainer.style.width = 'calc(100% - 320px)';
+            }
+        }
         if (editToolbar) {
             editToolbar.classList.remove('hidden');
-        }
-        if (mapContainer) {
-            mapContainer.style.marginLeft = '320px';
-            mapContainer.style.width = 'calc(100% - 320px)';
         }
         if (typeof map !== 'undefined' && map && map.resize) {
             setTimeout(function() {
@@ -964,19 +971,24 @@
         const isCurrentlyActive = !sidePanel.classList.contains('-translate-x-full');
         
         if (!isCurrentlyActive) {
-            sidePanel.classList.remove('-translate-x-full');
-            
-            // Adjust map container if needed
-            const mapContainer = document.getElementById('mapContainer');
-            if (mapContainer) {
-                const SIDE_PANEL_WIDTH = 320;
-                mapContainer.style.marginLeft = SIDE_PANEL_WIDTH + 'px';
-                mapContainer.style.width = `calc(100% - ${SIDE_PANEL_WIDTH}px)`;
-                setTimeout(function() {
-                    if (map && map.resize) {
-                        map.resize();
-                    }
-                }, 300);
+            if (typeof window.initMapSidePanelChrome === 'function') {
+                window.initMapSidePanelChrome();
+            }
+            if (typeof window.applyMapSidePanelOpen === 'function') {
+                window.applyMapSidePanelOpen(true);
+            } else {
+                sidePanel.classList.remove('-translate-x-full');
+                const mapContainer = document.getElementById('mapContainer');
+                if (mapContainer) {
+                    const SIDE_PANEL_WIDTH = 320;
+                    mapContainer.style.marginLeft = SIDE_PANEL_WIDTH + 'px';
+                    mapContainer.style.width = `calc(100% - ${SIDE_PANEL_WIDTH}px)`;
+                    setTimeout(function() {
+                        if (map && map.resize) {
+                            map.resize();
+                        }
+                    }, 300);
+                }
             }
         }
         if (editToolbar && editToolbar.classList.contains('hidden')) {
