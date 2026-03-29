@@ -68,9 +68,7 @@
                         editScreen.setAttribute('data-request-geometry', JSON.stringify(geom));
                     }
                     const roadId = (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id) || editData.riyadh_road_id;
-                    if (roadId != null && typeof window.updateRiyadhRoadVisualization === 'function') {
-                        window.updateRiyadhRoadVisualization(roadId, labelForMap, geom);
-                    } else if (roadId != null && window.lineDrawingHandler && typeof window.lineDrawingHandler.updateRiyadhRoadVisualization === 'function') {
+                    if (roadId != null && window.lineDrawingHandler && typeof window.lineDrawingHandler.updateRiyadhRoadVisualization === 'function') {
                         window.lineDrawingHandler.updateRiyadhRoadVisualization(roadId, labelForMap, geom);
                     }
                     const hadGeometryEdit = window.__roadGeometryEditActiveId != null;
@@ -82,9 +80,7 @@
                 }
             }
 
-            if (typeof window.updateFeatureTypeVisualization === 'function') {
-                window.updateFeatureTypeVisualization();
-            } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateFeatureTypeVisualization === 'function') {
+            if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateFeatureTypeVisualization === 'function') {
                 window.lineDrawingHandler.updateFeatureTypeVisualization();
             }
         } catch (e) {}
@@ -124,21 +120,13 @@
     }
 
     function getCurrentLineData() {
-        if (typeof window.getCurrentLineId === 'function') {
-            currentLineId = window.getCurrentLineId();
-        } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getCurrentLineId === 'function') {
+        if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getCurrentLineId === 'function') {
             currentLineId = window.lineDrawingHandler.getCurrentLineId();
         }
-        
-        if (typeof window.getCurrentFeatureLabel === 'function') {
-            currentFeatureLabel = window.getCurrentFeatureLabel();
-        } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getCurrentFeatureLabel === 'function') {
+        if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getCurrentFeatureLabel === 'function') {
             currentFeatureLabel = window.lineDrawingHandler.getCurrentFeatureLabel();
         }
-        
-        if (typeof window.getDrawInstance === 'function') {
-            drawInstance = window.getDrawInstance();
-        } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getDrawInstance === 'function') {
+        if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getDrawInstance === 'function') {
             drawInstance = window.lineDrawingHandler.getDrawInstance();
         } else if (typeof draw !== 'undefined' && draw && typeof draw.getTerraDrawInstance === 'function') {
             drawInstance = draw.getTerraDrawInstance();
@@ -153,17 +141,11 @@
             return fieldsData;
         }
 
-        const nameFieldContainer = fieldsContainer.querySelector('.bg-gray-700.rounded-lg');
-        if (nameFieldContainer) {
-            const nameInput = nameFieldContainer.querySelector('input[type="text"]');
-            if (nameInput && nameInput.placeholder && nameInput.placeholder.includes('Name')) {
-                fieldsData.name = nameInput.value || '';
-            }
-        }
-
-        const commonNameInput = fieldsContainer.querySelector('.bg-gray-700.rounded-lg input[type="text"]:not([placeholder*="Name"])');
-        if (commonNameInput) {
-            fieldsData.common_name = commonNameInput.value || '';
+        const nameEl = document.getElementById('sidebar-feature-name-input');
+        if (nameEl) {
+            const v = (nameEl.value || '').trim();
+            fieldsData.name = v;
+            fieldsData.common_name = v;
         }
 
         const multilingualSections = fieldsContainer.querySelectorAll('[id^="multilingual-"]');
@@ -218,15 +200,19 @@
 
         const tagRows = tagsRowsContainer.querySelectorAll('.flex.items-center.gap-2');
         tagRows.forEach(function(row) {
-            const keyInput = row.querySelector('input[readonly]');
-            const valueInput = row.querySelector('input:not([readonly])');
-            
-            if (keyInput && valueInput && keyInput.value && valueInput.value) {
-                tagsData.push({
-                    key: keyInput.value,
-                    value: valueInput.value
-                });
+            const inputs = row.querySelectorAll('input[type="text"]');
+            if (inputs.length < 2) {
+                return;
             }
+            const key = (inputs[0].value || '').trim();
+            const value = (inputs[1].value || '').trim();
+            if (!key && !value) {
+                return;
+            }
+            tagsData.push({
+                key: key,
+                value: value
+            });
         });
 
         return tagsData;
@@ -279,9 +265,7 @@
             const riyadhRoadData = window.selectedRiyadhRoad || window.approvedLineBeingEdited;
             if (riyadhRoadData && riyadhRoadData.geometry) {
                 geometry = riyadhRoadData.geometry;
-                if (typeof window.getCurrentFeatureLabel === 'function') {
-                    featureLabelToUse = window.getCurrentFeatureLabel();
-                } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getCurrentFeatureLabel === 'function') {
+                if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getCurrentFeatureLabel === 'function') {
                     featureLabelToUse = window.lineDrawingHandler.getCurrentFeatureLabel();
                 } else if (riyadhRoadData.current_feature_label) {
                     featureLabelToUse = riyadhRoadData.current_feature_label;
@@ -344,14 +328,34 @@
                 }
             }
         }
-        
+
+        const fieldsBase = collectFieldsData();
+        const tagsCollected = collectTagsData();
+        const relationsCollected = collectRelationsData();
+
+        let fieldsPayload = fieldsBase;
+        if (isRiyadhRoadFlag) {
+            fieldsPayload = Object.assign({}, fieldsBase);
+            tagsCollected.forEach(function (t) {
+                if (!t) {
+                    return;
+                }
+                const k = t.key != null ? String(t.key).trim() : '';
+                if (!k || k === 'name' || k === 'road_closure') {
+                    return;
+                }
+                fieldsPayload[k] = t.value != null ? t.value : '';
+            });
+            fieldsPayload.road_closure = isRoadClosed ? 1 : 0;
+        }
+
         return {
             geometry: geometry,
             feature_type: featureLabelToUse,
             current_feature_label: featureLabelToUse,
-            fields_data: collectFieldsData(),
-            tags_data: collectTagsData(),
-            relations_data: collectRelationsData(),
+            fields_data: fieldsPayload,
+            tags_data: tagsCollected,
+            relations_data: relationsCollected,
             road_closure: isRoadClosed ? 1 : 0,
             is_riyadh_road: isRiyadhRoadFlag,
             riyadh_road_id: riyadhRoadId,

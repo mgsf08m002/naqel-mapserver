@@ -13,15 +13,15 @@
         container.style.display = 'none';
 
         const header = document.createElement('div');
-        header.className = 'bg-black px-4 py-3 flex items-center justify-between';
-        
+        header.className = 'bg-zinc-50 border-b border-zinc-200 px-4 py-3 flex items-center justify-between shrink-0';
+
         const title = document.createElement('h2');
-        title.className = 'text-sm font-semibold text-white';
+        title.className = 'text-sm font-semibold text-zinc-900 tracking-tight';
         title.textContent = 'Pending Edit Requests';
         header.appendChild(title);
 
         const closeBtn = document.createElement('button');
-        closeBtn.className = 'text-white hover:text-gray-300 transition-colors';
+        closeBtn.className = 'rounded-lg p-1 text-zinc-500 hover:bg-white hover:text-zinc-900 transition-colors';
         closeBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
         closeBtn.addEventListener('click', function() {
             container.style.display = 'none';
@@ -62,7 +62,7 @@
         header.className = 'flex items-start gap-2 mb-2';
 
         const avatar = document.createElement('div');
-        avatar.className = 'w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-white font-semibold text-xs flex-shrink-0';
+        avatar.className = 'w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-800 font-semibold text-xs flex-shrink-0';
         
         if (request.profile_image_url) {
             avatar.innerHTML = `<img src="${request.profile_image_url}" alt="${request.requester_name}" class="w-full h-full rounded-full object-cover">`;
@@ -754,12 +754,16 @@
 
     // Fill the tags section of the side panel from request.tags_data.
     function populateTagsData(tagsData) {
-        if (!Array.isArray(tagsData) || tagsData.length === 0) return;
-        
         const tagsRowsContainer = document.getElementById('tags-rows-container');
         const tagsLabel = document.getElementById('tags-label-span');
-        
+
         if (!tagsRowsContainer || !tagsLabel) return;
+
+        tagsRowsContainer.innerHTML = '';
+        if (!Array.isArray(tagsData) || tagsData.length === 0) {
+            tagsLabel.textContent = 'Tags (0)';
+            return;
+        }
 
         tagsData.forEach(function(tag) {
             if (tag.key || tag.value) {
@@ -780,22 +784,22 @@
 
         const leftInput = document.createElement('input');
         leftInput.type = 'text';
-        leftInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer';
+        leftInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all cursor-pointer';
         leftInput.placeholder = 'Add new tag';
         leftInput.readOnly = true;
         leftInput.value = key;
 
         const leftChevron = document.createElement('div');
         leftChevron.className = 'absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none';
-        leftChevron.innerHTML = '<svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+        leftChevron.innerHTML = '<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
 
         const leftMenu = document.createElement('div');
-        leftMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg z-50 hidden max-h-60 overflow-y-auto';
+        leftMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-lg shadow-xl z-50 hidden max-h-60 overflow-y-auto';
 
         const tagOptions = ['building', 'highway', 'source', 'name', 'surface', 'natural', 'addr:housenumber', 'addr:street', 'addr:city', 'addr:postcode'];
         tagOptions.forEach(function(option) {
             const menuItem = document.createElement('div');
-            menuItem.className = 'px-3 py-2 text-xs text-white hover:bg-gray-600 cursor-pointer border-b border-gray-600 last:border-b-0';
+            menuItem.className = 'px-3 py-2 text-xs text-zinc-900 hover:bg-zinc-50 cursor-pointer border-b border-zinc-100 last:border-b-0';
             menuItem.textContent = option;
             menuItem.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -823,14 +827,14 @@
 
         const rightInput = document.createElement('input');
         rightInput.type = 'text';
-        rightInput.className = 'flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        rightInput.className = 'flex-1 min-w-0 bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
         rightInput.placeholder = '';
         rightInput.value = value;
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-gray-600 transition-colors flex-shrink-0';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors flex-shrink-0';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             tagRow.remove();
             updateTagsCount(labelElement);
@@ -884,22 +888,22 @@
 
         const parentInput = document.createElement('input');
         parentInput.type = 'text';
-        parentInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer';
+        parentInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all cursor-pointer';
         parentInput.placeholder = 'Choose a parent relation';
         parentInput.value = parentRelation;
         parentInput.readOnly = true;
 
         const parentChevron = document.createElement('div');
         parentChevron.className = 'absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none';
-        parentChevron.innerHTML = '<svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+        parentChevron.innerHTML = '<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
 
         const parentMenu = document.createElement('div');
-        parentMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg z-50 hidden max-h-60 overflow-y-auto';
+        parentMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-lg shadow-xl z-50 hidden max-h-60 overflow-y-auto';
 
         const relationOptions = ['New Relation'];
         relationOptions.forEach(function(option) {
             const menuItem = document.createElement('div');
-            menuItem.className = 'px-3 py-2 text-xs text-white hover:bg-gray-600 cursor-pointer border-b border-gray-600 last:border-b-0';
+            menuItem.className = 'px-3 py-2 text-xs text-zinc-900 hover:bg-zinc-50 cursor-pointer border-b border-zinc-100 last:border-b-0';
             menuItem.textContent = option;
             menuItem.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -926,8 +930,8 @@
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-gray-600 transition-colors flex-shrink-0';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors flex-shrink-0';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             relationRow.remove();
             updateRelationsCount(labelElement);
@@ -938,7 +942,7 @@
 
         const roleInput = document.createElement('input');
         roleInput.type = 'text';
-        roleInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        roleInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
         roleInput.placeholder = 'Role';
         roleInput.value = role;
 
@@ -1055,18 +1059,21 @@
     function populateFieldsData(fieldsData) {
         const fieldsContainer = document.getElementById('fields-container');
         if (!fieldsContainer || !fieldsData) return;
-        const nameFieldContainer = fieldsContainer.querySelector('.bg-gray-700.rounded-lg');
-        if (nameFieldContainer) {
-            const nameInput = nameFieldContainer.querySelector('input[type="text"]');
-            if (nameInput && nameInput.placeholder && nameInput.placeholder.includes('Name')) {
+        const byId = document.getElementById('sidebar-feature-name-input');
+        if (byId) {
+            const n = fieldsData.name != null ? String(fieldsData.name).trim() : '';
+            const c = fieldsData.common_name != null ? String(fieldsData.common_name).trim() : '';
+            byId.value = n || c || '';
+        } else {
+            const nameFieldGroup = fieldsContainer.querySelector('.ms-sidebar-field-group');
+            const fallbackNameInput = nameFieldGroup && nameFieldGroup.querySelector('input[type="text"]');
+            if (fallbackNameInput) {
                 if (fieldsData.name) {
-                    nameInput.value = fieldsData.name;
+                    fallbackNameInput.value = fieldsData.name;
+                } else if (fieldsData.common_name) {
+                    fallbackNameInput.value = fieldsData.common_name;
                 }
             }
-        }
-        const commonNameInput = fieldsContainer.querySelector('.bg-gray-700.rounded-lg input[type="text"]:not([placeholder*="Name"])');
-        if (commonNameInput && fieldsData.common_name) {
-            commonNameInput.value = fieldsData.common_name;
         }
         if (fieldsData.multilingual_names && Array.isArray(fieldsData.multilingual_names)) {
             fieldsData.multilingual_names.forEach(function(multilingual) {
@@ -1143,21 +1150,21 @@
     // Add a multilingual-name block under the fields section.
     function createMultilingualNameField(fieldsContainer, language, name) {
         const multilingualSection = document.createElement('div');
-        multilingualSection.className = 'bg-gray-700 rounded-lg p-3 space-y-2.5';
+        multilingualSection.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2.5';
         multilingualSection.id = 'multilingual-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
         const headerRow = document.createElement('div');
         headerRow.className = 'flex items-center justify-between';
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-xs font-medium text-white';
+        labelSpan.className = 'text-xs font-medium text-zinc-900';
         labelSpan.textContent = 'Multilingual Name';
         headerRow.appendChild(labelSpan);
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-200/80 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             multilingualSection.remove();
         });
@@ -1169,7 +1176,7 @@
         languageDropdown.className = 'relative';
 
         const languageSelect = document.createElement('select');
-        languageSelect.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none cursor-pointer';
+        languageSelect.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all appearance-none cursor-pointer';
 
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
@@ -1190,7 +1197,7 @@
 
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
-        nameInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        nameInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
         nameInput.placeholder = 'Name';
         nameInput.value = name || '';
         multilingualSection.appendChild(nameInput);

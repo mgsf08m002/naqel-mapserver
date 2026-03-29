@@ -17,6 +17,9 @@ from .models import LineEditRequest, RiyadhRoad
 
 logger = logging.getLogger(__name__)
 
+# Riyadh sidebar: these keys use Fields / closure toggle; the rest are shown as tags.
+RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS = frozenset({"name", "road_closure"})
+
 
 def _tiles_version_ms():
     """Server-side version used to refresh tiles when the base network changes."""
@@ -750,16 +753,23 @@ def _riyadh_extra_fields_require_review(fields_data) -> bool:
 
 
 def _riyadh_tags_match_client(tags_data, fields_data) -> bool:
-    """Client tags must match canonical tags built from submitted fields_data."""
+    """Tags must match fields_data for keys that are not exclusive to other sidebar controls."""
     canon_pairs = []
     fd = fields_data or {}
     for key, value in fd.items():
+        if key in RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS:
+            continue
         if value is None or value == "":
             continue
         canon_pairs.append((key, str(value)))
     canon_pairs.sort()
     client_pairs = sorted(
-        (t.get("key"), str(t.get("value", ""))) for t in (tags_data or [])
+        (
+            t.get("key"),
+            str(t.get("value", "")),
+        )
+        for t in (tags_data or [])
+        if t.get("key") not in RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS
     )
     return tuple(canon_pairs) == tuple(client_pairs)
 
@@ -1289,7 +1299,9 @@ def get_riyadh_road_details(request, road_gid):
         geometry = _ensure_wgs84_geometry(raw_geometry, source_srid=3857)
 
         fields_data = {
-            "name": road.name or "",
+            "gid": getattr(road, "gid", None),
+            "objectid": str(road.objectid) if getattr(road, "objectid", None) is not None else "",
+            "name": (road.name or "").strip(),
             "ref": road.ref or "",
             "fclass": road.fclass or "",
             "oneway": road.oneway or "",
@@ -1305,6 +1317,8 @@ def get_riyadh_road_details(request, road_gid):
 
         tags_data = []
         for key, value in fields_data.items():
+            if key in RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS:
+                continue
             if value is None or value == "":
                 continue
             tags_data.append({"key": key, "value": str(value)})

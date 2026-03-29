@@ -1,0 +1,64 @@
+{# Opens #mapPageShell, sidebar, expand tab, and #mapContainer — close with map_shell_end.html #}
+<div id="mapPageShell" class="w-full h-full relative min-h-0">
+    <aside
+        id="editSidePanel"
+        class="map-sidebar map-sidebar-root absolute left-0 top-0 bottom-0 w-80 max-w-[min(100%,20rem)] z-50 flex flex-col min-h-0 min-w-0 -translate-x-full transition-transform duration-300 ease-out bg-white text-zinc-900 antialiased shadow-[2px_0_20px_rgba(0,0,0,0.06)]"
+        role="complementary"
+        aria-label="Map details"
+    >
+        <div class="map-sidebar__chrome flex items-center justify-between gap-2 px-4 py-3 border-b border-zinc-200 bg-white shrink-0">
+            <div class="min-w-0">
+                <p class="text-[13px] font-semibold text-zinc-900 tracking-tight">Details</p>
+                <p class="text-[11px] text-zinc-500 mt-0.5 leading-snug">Features &amp; attributes</p>
+            </div>
+            <button
+                type="button"
+                id="sidePanelCollapseBtn"
+                class="hidden map-sidebar__collapse flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-800 shadow-sm transition hover:bg-zinc-50 hover:border-zinc-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+                title="Hide panel"
+                aria-expanded="true"
+                aria-controls="editSidePanel"
+            >
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="sidePanelInner" class="map-sidebar__body flex flex-col flex-1 min-h-0 min-w-0 bg-zinc-50/80 border-r border-zinc-200/90">
+            <div class="px-4 py-3 border-b border-zinc-200 bg-white shrink-0">
+                <h2 class="text-sm font-semibold text-zinc-900">Feature type</h2>
+                <p class="text-[11px] text-zinc-500 mt-1 leading-snug">Search or choose below, then fill attributes and save.</p>
+            </div>
+            <div class="px-4 py-3 border-b border-zinc-200 bg-white shrink-0">
+                <label for="featureSearch" class="block text-[11px] font-medium text-zinc-600 mb-2">Search features</label>
+                <input
+                    type="text"
+                    id="featureSearch"
+                    placeholder="e.g. Motorway, Path, Fence"
+                    class="map-sidebar-input w-full px-3 py-2.5 bg-white border border-zinc-200 rounded-lg text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent text-sm"
+                    autocomplete="off"
+                >
+            </div>
+            <div id="sidePanelScrollArea" class="flex-1 overflow-y-auto overflow-x-hidden px-4 py-3 min-h-0">
+                <div id="sidePanelContent" class="space-y-4">
+                    <div id="featureSearchResults" class="space-y-1 min-h-[120px]">
+                        <p class="text-xs text-zinc-500 px-1 py-4 leading-relaxed">Type above to search feature types, or draw a line on the map to choose from the list.</p>
+                    </div>
+                    <div id="linePanelContent" class="space-y-3" style="display: none;">
+                        <!-- Line dropdowns and visualization injected by line-drawing.js -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+    <button
+        type="button"
+        id="sidePanelExpandTab"
+        class="hidden fixed left-0 top-1/2 z-[52] -translate-y-1/2 rounded-r-lg border border-l-0 border-zinc-200 bg-white px-2.5 py-4 text-[11px] font-semibold uppercase tracking-wide text-zinc-800 shadow-md transition hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+        aria-expanded="false"
+        aria-controls="editSidePanel"
+        title="Show details panel"
+    >
+        Details
+    </button>
+    <div id="mapContainer" class="w-full h-full relative transition-all duration-300 ease-in-out min-h-0">

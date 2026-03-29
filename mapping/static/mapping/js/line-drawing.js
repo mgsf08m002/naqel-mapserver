@@ -143,38 +143,15 @@
         if (mapSidePanelChromeReady) {
             return;
         }
-        const root = document.querySelector('.w-full.h-full.relative');
-        if (!root || document.getElementById('sidePanelCollapseBtn')) {
+        const collapseBtn = document.getElementById('sidePanelCollapseBtn');
+        const expandTab = document.getElementById('sidePanelExpandTab');
+        if (!collapseBtn || !expandTab) {
+            return;
+        }
+        if (collapseBtn.getAttribute('data-sidebar-bound') === '1') {
             mapSidePanelChromeReady = true;
             return;
         }
-
-        const collapseBtn = document.createElement('button');
-        collapseBtn.id = 'sidePanelCollapseBtn';
-        collapseBtn.type = 'button';
-        collapseBtn.className =
-            'hidden absolute top-6 z-[31] flex h-10 w-9 items-center justify-center rounded-r-xl border border-l-0 border-gray-200 bg-white text-gray-700 shadow-md transition hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500';
-        collapseBtn.style.left = SIDE_PANEL_WIDTH_PX + 'px';
-        collapseBtn.setAttribute('aria-expanded', 'true');
-        collapseBtn.setAttribute('aria-controls', 'editSidePanel');
-        collapseBtn.title = 'Hide panel';
-        collapseBtn.innerHTML =
-            '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">' +
-            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>';
-
-        const expandTab = document.createElement('button');
-        expandTab.id = 'sidePanelExpandTab';
-        expandTab.type = 'button';
-        expandTab.className =
-            'hidden fixed left-0 top-1/2 z-[31] -translate-y-1/2 rounded-r-xl border border-l-0 border-gray-200 bg-white px-2 py-4 text-xs font-semibold text-gray-700 shadow-md transition hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500';
-        expandTab.setAttribute('aria-expanded', 'false');
-        expandTab.setAttribute('aria-controls', 'editSidePanel');
-        expandTab.title = 'Show details panel';
-        expandTab.textContent = 'Details';
-
-        root.appendChild(collapseBtn);
-        root.appendChild(expandTab);
-
         collapseBtn.addEventListener('click', function() {
             applyMapSidePanelOpen(false);
             collapseBtn.setAttribute('aria-expanded', 'false');
@@ -185,7 +162,8 @@
             collapseBtn.setAttribute('aria-expanded', 'true');
             expandTab.setAttribute('aria-expanded', 'false');
         });
-
+        collapseBtn.setAttribute('data-sidebar-bound', '1');
+        expandTab.setAttribute('data-sidebar-bound', '1');
         mapSidePanelChromeReady = true;
     }
 
@@ -203,17 +181,17 @@
 
         const row = document.createElement('div');
         row.id = 'riyadhGeometryEditRow';
-        row.className = 'border-b border-gray-700 px-6 py-3';
+        row.className = 'border-b border-zinc-200 px-4 py-3 bg-white';
 
         const wrap = document.createElement('div');
         wrap.className = 'flex items-center justify-between gap-3';
         const copy = document.createElement('div');
         copy.className = 'min-w-0 flex-1';
         const title = document.createElement('p');
-        title.className = 'text-xs font-medium text-gray-200';
+        title.className = 'text-xs font-medium text-zinc-800';
         title.textContent = 'Road geometry';
         const sub = document.createElement('p');
-        sub.className = 'text-xs text-gray-500 mt-0.5';
+        sub.className = 'text-xs text-zinc-500 mt-0.5';
         sub.textContent = 'Turn on to show vertices and edit the line on the map';
         copy.appendChild(title);
         copy.appendChild(sub);
@@ -222,7 +200,7 @@
         btn.type = 'button';
         btn.id = 'riyadhGeometryEditToggleBtn';
         btn.className =
-            'flex-shrink-0 rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500';
+            'flex-shrink-0 rounded-lg border border-zinc-300 bg-zinc-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900';
         btn.setAttribute('aria-pressed', 'false');
 
         function syncGeometryToggleBtn() {
@@ -265,6 +243,62 @@
         }
 
         syncGeometryToggleBtn();
+    }
+
+    /** Keep tags_data in sync with fields_data (exclude keys that have their own UI). */
+    function normalizeRiyadhRoadTagsFromFields(road) {
+        if (!road || !road.is_riyadh_road) {
+            return;
+        }
+        const fd = road.fields_data && typeof road.fields_data === 'object' ? road.fields_data : {};
+        road.fields_data = fd;
+        const skip = { name: true, road_closure: true };
+        const tags = [];
+        Object.keys(fd).forEach(function (k) {
+            if (skip[k]) {
+                return;
+            }
+            const v = fd[k];
+            if (v === undefined || v === null || v === '') {
+                return;
+            }
+            tags.push({ key: k, value: String(v) });
+        });
+        road.tags_data = tags;
+    }
+
+    function updateRiyadhRoadFeatureContextLine(lineData) {
+        const el = document.getElementById('riyadhRoadFeatureContextLine');
+        if (!el) {
+            return;
+        }
+        if (!lineData || !lineData.is_riyadh_road) {
+            el.classList.add('hidden');
+            el.textContent = '';
+            return;
+        }
+        const fd = lineData.fields_data && typeof lineData.fields_data === 'object' ? lineData.fields_data : {};
+        const name = String(fd.name || '').trim();
+        const ref = String(fd.ref || '').trim();
+        const fclassRaw = String(fd.fclass || '').trim();
+        const fclassLower = fclassRaw.toLowerCase();
+        const parts = [];
+        if (name) {
+            parts.push(name);
+        }
+        if (ref) {
+            parts.push('Ref ' + ref);
+        }
+        if (fclassRaw && fclassLower !== 'unclassified') {
+            parts.push(fclassRaw);
+        }
+        if (!parts.length) {
+            el.textContent = '';
+            el.classList.add('hidden');
+            return;
+        }
+        el.textContent = parts.join(' · ');
+        el.classList.remove('hidden');
     }
 
     window.syncRiyadhRoadMapOverlayFromContext = syncRiyadhRoadMapOverlayFromContext;
@@ -331,10 +365,12 @@
     }
 
     // Selected-feature overlay used to highlight approved lines and tile roads.
-    const SELECTED_OVERLAY_SOURCE_ID = 'selected-road-overlay-source';
+    const SELECTED_OVERLAY_SOURCE_ID = 'selected-road-overlay-v2';
     const SELECTED_OVERLAY_GLOW_LAYER_ID = 'selected-road-overlay-glow';
+    const SELECTED_OVERLAY_GRADIENT_LAYER_ID = 'selected-road-overlay-gradient';
     const SELECTED_OVERLAY_LINE_LAYER_ID = 'selected-road-overlay-line';
-    const SELECTED_OVERLAY_OUTLINE_COLOR = '#22d3ee';
+    /** Default glow before symbology paint; warm so selection reads on pale basemaps. */
+    const SELECTED_OVERLAY_OUTLINE_COLOR = '#ea580c';
 
     function ensureSelectedOverlayLayers() {
         if (typeof map === 'undefined' || !map) {
@@ -352,6 +388,7 @@
                 map.addSource(SELECTED_OVERLAY_SOURCE_ID, {
                     type: 'geojson',
                     data: { type: 'FeatureCollection', features: [] },
+                    lineMetrics: true,
                 });
             }
         } catch (e) {
@@ -367,11 +404,37 @@
                     layout: { 'line-join': 'round', 'line-cap': 'round' },
                     paint: {
                         'line-color': SELECTED_OVERLAY_OUTLINE_COLOR,
-                        'line-width': 14,
-                        'line-opacity': 0.45,
-                        'line-blur': 8,
+                        'line-width': 18,
+                        'line-opacity': 0.3,
+                        'line-blur': 10,
                     },
                 });
+            }
+            if (!map.getLayer(SELECTED_OVERLAY_GRADIENT_LAYER_ID)) {
+                try {
+                    map.addLayer({
+                        id: SELECTED_OVERLAY_GRADIENT_LAYER_ID,
+                        type: 'line',
+                        source: SELECTED_OVERLAY_SOURCE_ID,
+                        layout: { 'line-join': 'round', 'line-cap': 'round' },
+                        paint: {
+                            /* Placeholder; applySelectedOverlaySymbologyPaint replaces with feature color. */
+                            'line-gradient': [
+                                'interpolate',
+                                ['linear'],
+                                ['line-progress'],
+                                0,
+                                SELECTED_OVERLAY_OUTLINE_COLOR,
+                                1,
+                                SELECTED_OVERLAY_OUTLINE_COLOR,
+                            ],
+                            'line-width': 11,
+                            'line-opacity': 0.95,
+                        },
+                    });
+                } catch (eGrad) {
+                    // line-gradient requires LineString + lineMetrics; skip if unsupported geometry
+                }
             }
             if (!map.getLayer(SELECTED_OVERLAY_LINE_LAYER_ID)) {
                 map.addLayer({
@@ -381,13 +444,13 @@
                     layout: { 'line-join': 'round', 'line-cap': 'round' },
                     paint: {
                         'line-color': '#ffffff',
-                        'line-width': 6,
-                        'line-opacity': 1,
+                        'line-width': 5,
+                        /* Hidden until applySelectedOverlaySymbologyPaint (avoids white core flash). */
+                        'line-opacity': 0,
                     },
                 });
             }
 
-            // Keep overlay layers above approved lines and the Riyadh network.
             const style = map.getStyle && map.getStyle();
             if (style && Array.isArray(style.layers) && style.layers.length) {
                 const lastId = style.layers[style.layers.length - 1].id;
@@ -397,6 +460,11 @@
                             map.moveLayer(SELECTED_OVERLAY_GLOW_LAYER_ID, lastId);
                         }
                     } catch (e2) {}
+                    try {
+                        if (map.getLayer(SELECTED_OVERLAY_GRADIENT_LAYER_ID)) {
+                            map.moveLayer(SELECTED_OVERLAY_GRADIENT_LAYER_ID, lastId);
+                        }
+                    } catch (e2b) {}
                     try {
                         if (map.getLayer(SELECTED_OVERLAY_LINE_LAYER_ID)) {
                             map.moveLayer(SELECTED_OVERLAY_LINE_LAYER_ID, lastId);
@@ -554,7 +622,7 @@
         container.innerHTML = '';
 
         const wrapper = document.createElement('div');
-        wrapper.className = 'w-full h-full flex items-center justify-center text-xs text-gray-400';
+        wrapper.className = 'w-full h-full flex items-center justify-center text-xs text-zinc-500';
         wrapper.textContent = text;
         container.appendChild(wrapper);
     }
@@ -1069,7 +1137,7 @@
         const searchResults = document.getElementById('featureSearchResults');
         if (searchResults) {
             searchResults.style.display = 'block';
-            searchResults.innerHTML = '<p class="text-xs text-gray-400 px-2 py-4">Type to search feature types (e.g. Motorway, Path, Fence)</p>';
+            searchResults.innerHTML = '<p class="text-xs text-zinc-500 px-1 py-4 leading-relaxed">Type to search feature types (e.g. Motorway, Path, Fence)</p>';
         }
         const linePanelContent = document.getElementById('linePanelContent');
         const linePanel = linePanelContent || sidePanelContent;
@@ -1161,30 +1229,29 @@
     function createLineVisualization() {
         const container = document.createElement('div');
         container.id = 'lineVisualizationContainer';
-        container.className = 'mb-4 p-4 bg-gray-800 rounded-lg border border-gray-700';
+        container.className =
+            'map-line-symbology-preview mb-4 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm';
         container.style.display = 'block'; // Ensure container is visible
 
         const labelText = document.createElement('div');
-        labelText.className = 'text-xs font-medium text-gray-400 mb-2';
-        labelText.textContent = 'Current Feature';
+        labelText.className = 'text-[11px] font-semibold uppercase tracking-wide text-zinc-500 mb-1.5';
+        labelText.textContent = 'Current feature';
         container.appendChild(labelText);
 
         const valueDisplay = document.createElement('div');
         valueDisplay.id = 'lineVisualizationFeatureName';
-        valueDisplay.className = 'text-sm font-semibold text-white mb-3';
+        valueDisplay.className = 'text-sm font-semibold text-zinc-900 mb-2';
         // Use current feature label instead of hardcoding 'Line'
         valueDisplay.textContent = currentFeatureLabel || 'Line';
         container.appendChild(valueDisplay);
 
         const svgContainer = document.createElement('div');
         svgContainer.id = 'lineVisualizationSVG';
-        svgContainer.className = 'relative w-full';
-        svgContainer.style.height = '200px';
+        svgContainer.className =
+            'relative w-full overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50';
+        svgContainer.style.height = '140px';
         svgContainer.style.width = '100%';
-        svgContainer.style.minHeight = '200px';
-        svgContainer.style.backgroundColor = '#1f2937';
-        svgContainer.style.borderRadius = '4px';
-        svgContainer.style.overflow = 'hidden';
+        svgContainer.style.minHeight = '140px';
         svgContainer.style.display = 'block';
         svgContainer.style.visibility = 'visible';
         svgContainer.style.opacity = '1';
@@ -1265,7 +1332,7 @@
             blurFilter.setAttribute('width', '200%');
             blurFilter.setAttribute('height', '200%');
             const feGaussianBlur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
-            feGaussianBlur.setAttribute('stdDeviation', '4');
+            feGaussianBlur.setAttribute('stdDeviation', '2');
             blurFilter.appendChild(feGaussianBlur);
             defs.appendChild(blurFilter);
             svg.appendChild(defs);
@@ -1292,14 +1359,15 @@
                 return;
             }
             const svgDasharray = dasharrayToSvg(style);
+            const previewStroke = 0.42;
 
             // Draw glow path
             const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             glowPath.setAttribute('d', pathData);
             glowPath.setAttribute('fill', 'none');
-            glowPath.setAttribute('stroke', style.glowColor);
-            glowPath.setAttribute('stroke-width', style.glowWidth.toString());
-            glowPath.setAttribute('stroke-opacity', style.glowOpacity.toString());
+            glowPath.setAttribute('stroke', style.glowColor || style.lineColor);
+            glowPath.setAttribute('stroke-width', (Number(style.glowWidth) * previewStroke).toString());
+            glowPath.setAttribute('stroke-opacity', String(style.glowOpacity != null ? style.glowOpacity : 0.45));
             glowPath.setAttribute('stroke-linecap', 'round');
             glowPath.setAttribute('stroke-linejoin', 'round');
             glowPath.setAttribute('filter', 'url(#blur-approved)');
@@ -1310,7 +1378,7 @@
             mainPath.setAttribute('d', pathData);
             mainPath.setAttribute('fill', 'none');
             mainPath.setAttribute('stroke', style.lineColor);
-            mainPath.setAttribute('stroke-width', style.lineWidth.toString());
+            mainPath.setAttribute('stroke-width', (Number(style.lineWidth) * previewStroke).toString());
             mainPath.setAttribute('stroke-opacity', '1');
             mainPath.setAttribute('stroke-linecap', 'round');
             mainPath.setAttribute('stroke-linejoin', 'round');
@@ -1671,7 +1739,7 @@
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'w-full bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg px-4 py-3 text-left text-white transition-colors duration-200 flex items-center justify-between group';
+        button.className = 'w-full bg-white hover:bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-3 text-left text-zinc-900 shadow-sm transition-colors duration-200 flex items-center justify-between group';
         button.setAttribute('data-dropdown-toggle', 'dropdown-' + label.replace(/\s+/g, '-').toLowerCase());
 
         const icon = createIconForLabel(label);
@@ -1686,7 +1754,7 @@
         buttonContent.appendChild(labelSpan);
 
         const chevron = document.createElement('svg');
-        chevron.className = 'w-4 h-4 text-gray-400 group-hover:text-white transition-colors';
+        chevron.className = 'w-4 h-4 text-zinc-400 group-hover:text-zinc-700 transition-colors';
         chevron.setAttribute('fill', 'none');
         chevron.setAttribute('stroke', 'currentColor');
         chevron.setAttribute('viewBox', '0 0 24 24');
@@ -1697,7 +1765,7 @@
 
         const dropdownMenu = document.createElement('div');
         dropdownMenu.id = 'dropdown-' + label.replace(/\s+/g, '-').toLowerCase();
-        dropdownMenu.className = 'hidden absolute z-50 w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto';
+        dropdownMenu.className = 'hidden absolute z-50 w-full mt-1 bg-white border border-zinc-200 rounded-lg shadow-lg max-h-60 overflow-y-auto';
         dropdownMenu.setAttribute('role', 'menu');
         dropdownMenu.setAttribute('data-dropdown-label', label);
 
@@ -1724,20 +1792,20 @@
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'w-full bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg px-4 py-3 text-left text-white transition-colors duration-200 flex items-center justify-between group';
+        button.className = 'w-full bg-white hover:bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-3 text-left text-zinc-900 shadow-sm transition-colors duration-200 flex items-center justify-between group';
         button.setAttribute('data-line-box', 'true');
 
         const iconContainer = document.createElement('div');
         iconContainer.className = 'flex-shrink-0 w-6 h-6 flex items-center justify-center';
 
         const folderContainer = document.createElement('div');
-        folderContainer.className = 'w-5 h-5 rounded flex items-center justify-center bg-gray-500/20';
+        folderContainer.className = 'w-5 h-5 rounded flex items-center justify-center bg-zinc-200';
 
         const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         iconSvg.setAttribute('class', 'w-4 h-4');
         iconSvg.setAttribute('viewBox', '0 0 24 24');
         iconSvg.setAttribute('fill', 'none');
-        iconSvg.setAttribute('stroke', '#9CA3AF');
+        iconSvg.setAttribute('stroke', '#71717a');
         iconSvg.setAttribute('stroke-width', '2');
         iconSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M6 8v8M12 8v8M18 8v8"></path>';
         folderContainer.appendChild(iconSvg);
@@ -1753,7 +1821,7 @@
         buttonContent.appendChild(labelSpan);
 
         const chevron = document.createElement('svg');
-        chevron.className = 'w-4 h-4 text-gray-400 group-hover:text-white transition-colors';
+        chevron.className = 'w-4 h-4 text-zinc-400 group-hover:text-zinc-700 transition-colors';
         chevron.setAttribute('fill', 'none');
         chevron.setAttribute('stroke', 'currentColor');
         chevron.setAttribute('viewBox', '0 0 24 24');
@@ -1822,12 +1890,12 @@
 
         hideSidePanelDefaultElements();
 
-        const flexContainer = sidePanel.querySelector('.h-full.flex.flex-col');
+        const flexContainer = document.getElementById('sidePanelInner') || sidePanel.querySelector('.h-full.flex.flex-col');
         if (!flexContainer) return;
 
         const editScreen = document.createElement('div');
         editScreen.id = 'editFeatureScreen';
-        editScreen.className = 'h-full flex flex-col bg-gray-800';
+        editScreen.className = 'h-full flex flex-col bg-zinc-50 text-zinc-900 min-h-0';
 
         if (hideBackButton) {
             editScreen.setAttribute('data-geometry-readonly', 'true');
@@ -1846,11 +1914,11 @@
         }
         
         const header = document.createElement('div');
-        header.className = 'px-6 py-4 border-b border-gray-700 flex items-center justify-between';
+        header.className = 'px-4 py-3 border-b border-zinc-200 bg-white flex items-center justify-between shrink-0';
 
         const backButton = document.createElement('button');
-        backButton.className = 'p-2 hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0';
-        backButton.innerHTML = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>';
+        backButton.className = 'p-2 hover:bg-zinc-100 rounded-lg transition-colors flex-shrink-0';
+        backButton.innerHTML = '<svg class="w-5 h-5 text-zinc-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>';
         
         // Hide back button if viewing a request.
         if (hideBackButton) {
@@ -1862,15 +1930,15 @@
         }
 
         const title = document.createElement('h2');
-        title.className = 'text-lg font-semibold text-white flex-1 text-center';
+        title.className = 'text-base font-semibold text-zinc-900 flex-1 text-center';
         title.textContent = 'Edit feature';
 
         // Resolve delete target from the explicit options first (works even before the edit screen DOM exists).
         const deleteTarget = getDeleteTargetFromEditScreenOptions({ lineData: lineData }) || getDeleteTargetFromContext();
         const deleteButton = document.createElement('button');
-        deleteButton.className = 'p-2 hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0';
+        deleteButton.className = 'p-2 hover:bg-zinc-100 rounded-lg transition-colors flex-shrink-0';
         deleteButton.setAttribute('aria-label', 'Request delete');
-        deleteButton.innerHTML = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m3 0V4a1 1 0 011-1h6a1 1 0 011 1v3m-9 0h10"></path></svg>';
+        deleteButton.innerHTML = '<svg class="w-5 h-5 text-zinc-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m3 0V4a1 1 0 011-1h6a1 1 0 011 1v3m-9 0h10"></path></svg>';
         if (!deleteTarget) {
             deleteButton.style.display = 'none';
         } else {
@@ -1881,8 +1949,8 @@
         }
 
         const closeButton = document.createElement('button');
-        closeButton.className = 'p-2 hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0';
-        closeButton.innerHTML = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+        closeButton.className = 'p-2 hover:bg-zinc-100 rounded-lg transition-colors flex-shrink-0';
+        closeButton.innerHTML = '<svg class="w-5 h-5 text-zinc-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
         
         // Disable close button if viewing a request
         if (hideBackButton) {
@@ -1900,7 +1968,7 @@
         editScreen.appendChild(header);
 
         const content = document.createElement('div');
-        content.className = 'flex-1 overflow-y-auto';
+        content.className = 'flex-1 overflow-y-auto min-h-0';
 
         const featureTypeItem = createFeatureTypeMenuItem();
         content.appendChild(featureTypeItem);
@@ -1945,6 +2013,8 @@
             }
         })();
 
+        updateRiyadhRoadFeatureContextLine(lineData);
+
         setTimeout(function() {
             updateFeatureTypeLabelDisplay();
             // Update visualization - use request geometry if available
@@ -1953,7 +2023,7 @@
             } else {
                 updateFeatureTypeVisualization();
             }
-            
+                                   
         }, 100);
     }
 
@@ -2007,7 +2077,7 @@
         const sidePanel = document.getElementById('editSidePanel');
         if (!sidePanel) return;
 
-        const flexContainer = sidePanel.querySelector('.h-full.flex.flex-col');
+        const flexContainer = document.getElementById('sidePanelInner') || sidePanel.querySelector('.h-full.flex.flex-col');
         if (!flexContainer) return;
 
         const children = Array.from(flexContainer.children);
@@ -2022,7 +2092,7 @@
         const sidePanel = document.getElementById('editSidePanel');
         if (!sidePanel) return;
 
-        const flexContainer = sidePanel.querySelector('.h-full.flex.flex-col');
+        const flexContainer = document.getElementById('sidePanelInner') || sidePanel.querySelector('.h-full.flex.flex-col');
         if (!flexContainer) return;
 
         const children = Array.from(flexContainer.children);
@@ -2035,15 +2105,15 @@
 
     function createFeatureTypeMenuItem() {
         const container = document.createElement('div');
-        container.className = 'border-b border-gray-700';
+        container.className = 'border-b border-zinc-200';
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-700 transition-colors group';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-zinc-100 transition-colors group';
         button.setAttribute('data-menu-item', 'featureType');
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-sm font-medium text-blue-400 group-hover:text-blue-300 transition-colors';
+        labelSpan.className = 'text-sm font-semibold text-zinc-900 group-hover:text-black transition-colors';
         labelSpan.textContent = 'Feature Type';
 
         button.appendChild(labelSpan);
@@ -2087,12 +2157,10 @@
 
         const visualizationContainer = document.createElement('div');
         visualizationContainer.id = 'featureTypeVisualization';
-        visualizationContainer.className = 'flex-shrink-0 transition-opacity';
-        visualizationContainer.style.width = '60px';
-        visualizationContainer.style.height = '30px';
-        visualizationContainer.style.backgroundColor = '#1f2937';
-        visualizationContainer.style.borderRadius = '4px';
-        visualizationContainer.style.overflow = 'hidden';
+        visualizationContainer.className =
+            'map-feature-type-symbology-preview flex-shrink-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50 transition-opacity';
+        visualizationContainer.style.width = '80px';
+        visualizationContainer.style.height = '40px';
         
         // Check if we're in view-only mode (manager viewing request)
         const editScreen = document.getElementById('editFeatureScreen');
@@ -2106,7 +2174,7 @@
 
         const selectedFeatureName = document.createElement('div');
         selectedFeatureName.id = 'selectedFeatureName';
-        selectedFeatureName.className = 'text-sm font-semibold text-white truncate';
+        selectedFeatureName.className = 'text-sm font-semibold text-zinc-900 truncate';
         selectedFeatureName.textContent = labelToSet;
         
         if (!isViewOnly) {
@@ -2122,7 +2190,7 @@
         if (!isViewOnly) {
             const changeBtn = document.createElement('button');
             changeBtn.type = 'button';
-            changeBtn.className = 'flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-gray-700 text-white hover:bg-gray-600 transition-colors';
+            changeBtn.className = 'flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 bg-white text-zinc-800 shadow-sm hover:bg-zinc-50 transition-colors';
             changeBtn.textContent = 'Change';
             changeBtn.addEventListener('click', function() {
                 updateSearchFeatureScreenSelection();
@@ -2132,6 +2200,12 @@
         }
 
         container.appendChild(selectorContainer);
+
+        const contextLine = document.createElement('p');
+        contextLine.id = 'riyadhRoadFeatureContextLine';
+        contextLine.className = 'mt-2 text-[11px] text-zinc-500 leading-snug hidden';
+        contextLine.setAttribute('aria-label', 'Road summary');
+        container.appendChild(contextLine);
 
         return container;
     }
@@ -2214,7 +2288,7 @@
         }
     }
 
-    // Render the Feature Type visualization SVG.
+    // Render the Feature Type visualization SVG (compact preview next to the label).
     function renderFeatureTypeVisualization(container, coordinates) {
         if (!container || !coordinates || coordinates.length < 2) {
             if (container) container.innerHTML = '';
@@ -2222,9 +2296,9 @@
         }
 
         try {
-            const width = 60;
-            const height = 30;
-            const padding = 4;
+            const width = 80;
+            const height = 40;
+            const padding = 6;
 
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             coordinates.forEach(function(coord) {
@@ -2238,21 +2312,17 @@
             const rangeY = maxY - minY || 0.001;
             const scaleX = (width - padding * 2) / rangeX;
             const scaleY = (height - padding * 2) / rangeY;
-            const scale = Math.min(scaleX, scaleY) * 0.8;
-
-            const centerX = (minX + maxX) / 2;
-            const centerY = (minY + maxY) / 2;
-            const offsetX = width / 2 - centerX * scale;
-            const offsetY = height / 2 - centerY * scale;
+            const scale = Math.min(scaleX, scaleY) * 0.82;
 
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('width', width.toString());
-            svg.setAttribute('height', height.toString());
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '100%');
             svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
             svg.style.display = 'block';
 
-            const filterId = 'blur-small-' + Date.now();
-            
+            const filterId = 'ft-blur-' + Date.now();
+
             const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
             const blurFilter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
             blurFilter.setAttribute('id', filterId);
@@ -2261,7 +2331,7 @@
             blurFilter.setAttribute('width', '200%');
             blurFilter.setAttribute('height', '200%');
             const feGaussianBlur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
-            feGaussianBlur.setAttribute('stdDeviation', '1.5');
+            feGaussianBlur.setAttribute('stdDeviation', '1');
             blurFilter.appendChild(feGaussianBlur);
             defs.appendChild(blurFilter);
             svg.appendChild(defs);
@@ -2279,15 +2349,21 @@
 
             const featureLabel = getCurrentFeatureLabel();
             const style = getEffectiveVisualizationStyle(featureLabel);
-            if (!style) { return; }
-            const scaleFactor = 0.25;
+            if (!style) {
+                renderPreviewPlaceholder(container, 'Loading symbology…');
+                rerenderOnCatalogLoaded(function() {
+                    renderFeatureTypeVisualization(container, coordinates);
+                });
+                return;
+            }
+            const scaleFactor = 0.32;
 
             const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             glowPath.setAttribute('d', pathData);
             glowPath.setAttribute('fill', 'none');
-            glowPath.setAttribute('stroke', style.glowColor);
+            glowPath.setAttribute('stroke', style.glowColor || style.lineColor);
             glowPath.setAttribute('stroke-width', (style.glowWidth * scaleFactor).toString());
-            glowPath.setAttribute('stroke-opacity', style.glowOpacity.toString());
+            glowPath.setAttribute('stroke-opacity', String(style.glowOpacity != null ? style.glowOpacity : 0.45));
             glowPath.setAttribute('stroke-linecap', 'round');
             glowPath.setAttribute('stroke-linejoin', 'round');
             glowPath.setAttribute('filter', 'url(#' + filterId + ')');
@@ -2313,15 +2389,15 @@
     function createFieldsMenuItem() {
         window.selectedFields = [];
         const container = document.createElement('div');
-        container.className = 'border-b border-gray-700';
+        container.className = 'border-b border-zinc-200';
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-700 transition-colors group';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-zinc-100 transition-colors group';
         button.setAttribute('data-menu-item', 'fields');
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-sm font-medium text-blue-400 group-hover:text-blue-300 transition-colors';
+        labelSpan.className = 'text-sm font-semibold text-zinc-900 group-hover:text-black transition-colors';
         labelSpan.textContent = 'Fields';
 
         button.appendChild(labelSpan);
@@ -2336,14 +2412,15 @@
         fieldsContainer.id = 'fields-container';
 
         const existingFieldsContainer = document.createElement('div');
-        existingFieldsContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-3';
+        existingFieldsContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-3';
 
         const nameField = createFieldItem('Name', false, true, true);
         existingFieldsContainer.appendChild(nameField);
 
         const commonNameInput = document.createElement('input');
         commonNameInput.type = 'text';
-        commonNameInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        commonNameInput.id = 'sidebar-feature-name-input';
+        commonNameInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-0 transition-all';
         commonNameInput.placeholder = '';
         existingFieldsContainer.appendChild(commonNameInput);
 
@@ -2354,7 +2431,7 @@
         addFieldSection.id = 'add-field-section';
 
         const addFieldLabel = document.createElement('label');
-        addFieldLabel.className = 'text-xs text-gray-300';
+        addFieldLabel.className = 'text-xs text-zinc-600';
         addFieldLabel.textContent = 'Add field:';
         addFieldSection.appendChild(addFieldLabel);
 
@@ -2364,23 +2441,23 @@
 
         const dropdownInput = document.createElement('input');
         dropdownInput.type = 'text';
-        dropdownInput.className = 'w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer';
+        dropdownInput.className = 'w-full ms-sidebar-input bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all cursor-pointer';
         dropdownInput.placeholder = 'Description, Fix Me, Image...';
         dropdownInput.readOnly = true;
         dropdownInput.id = 'add-field-input';
 
         const dropdownChevron = document.createElement('div');
         dropdownChevron.className = 'absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none';
-        dropdownChevron.innerHTML = '<svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+        dropdownChevron.innerHTML = '<svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
 
         const dropdownMenu = document.createElement('div');
-        dropdownMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg z-50 hidden';
+        dropdownMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-lg shadow-xl z-50 hidden';
         dropdownMenu.id = 'add-field-menu';
 
         const fieldOptions = ['Description', 'Fix Me', 'Image', 'Last Checked Date', 'Mapillary Image ID', 'Note', 'Panoramax Image ID', 'Website'];
         fieldOptions.forEach(function(option) {
             const menuItem = document.createElement('div');
-            menuItem.className = 'px-3 py-2 text-sm text-white hover:bg-gray-600 cursor-pointer flex items-center';
+            menuItem.className = 'px-3 py-2 text-sm text-zinc-900 hover:bg-zinc-50 cursor-pointer flex items-center first:rounded-t-lg last:rounded-b-lg';
             menuItem.setAttribute('data-field', option.toLowerCase().replace(/\s+/g, '-'));
             menuItem.textContent = option;
             menuItem.addEventListener('click', function(e) {
@@ -2413,10 +2490,10 @@
         fieldsContainer.appendChild(addFieldSection);
 
         const roadClosureSection = document.createElement('div');
-        roadClosureSection.className = 'mt-4 pt-3 border-t border-gray-700';
+        roadClosureSection.className = 'mt-4 pt-3 border-t border-zinc-200';
 
         const roadClosureLabel = document.createElement('div');
-        roadClosureLabel.className = 'text-xs text-gray-300 mb-2';
+        roadClosureLabel.className = 'text-xs font-medium text-zinc-600 mb-2';
         roadClosureLabel.textContent = 'Road Closure';
         roadClosureSection.appendChild(roadClosureLabel);
 
@@ -2424,16 +2501,16 @@
         roadClosureToggleRow.className = 'flex items-center justify-between gap-3';
 
         const roadClosureNoLabel = document.createElement('span');
-        roadClosureNoLabel.className = 'text-xs font-medium text-gray-300';
+        roadClosureNoLabel.className = 'text-xs font-medium text-zinc-800';
         roadClosureNoLabel.textContent = 'NO';
 
         const roadClosureYesLabel = document.createElement('span');
-        roadClosureYesLabel.className = 'text-xs font-medium text-gray-500';
+        roadClosureYesLabel.className = 'text-xs font-medium text-zinc-400';
         roadClosureYesLabel.textContent = 'YES';
 
         const roadClosureToggleButton = document.createElement('button');
         roadClosureToggleButton.type = 'button';
-        roadClosureToggleButton.className = 'relative inline-flex h-6 w-11 items-center rounded-full bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900';
+        roadClosureToggleButton.className = 'relative inline-flex h-6 w-11 items-center rounded-full bg-zinc-300 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2 focus:ring-offset-white';
         roadClosureToggleButton.setAttribute('aria-pressed', 'false');
         roadClosureToggleButton.setAttribute('aria-label', 'Toggle road closure');
 
@@ -2460,25 +2537,25 @@
 
         function updateRoadClosureToggleVisualState() {
             if (isRoadClosed) {
-                roadClosureToggleButton.classList.remove('bg-gray-700');
+                roadClosureToggleButton.classList.remove('bg-zinc-300');
                 roadClosureToggleButton.classList.add('bg-green-500');
                 roadClosureToggleKnob.classList.remove('translate-x-0');
                 roadClosureToggleKnob.classList.add('translate-x-5');
                 roadClosureToggleButton.setAttribute('aria-pressed', 'true');
-                roadClosureNoLabel.classList.remove('text-gray-300');
-                roadClosureNoLabel.classList.add('text-gray-500');
-                roadClosureYesLabel.classList.remove('text-gray-500');
-                roadClosureYesLabel.classList.add('text-gray-100');
+                roadClosureNoLabel.classList.remove('text-zinc-800');
+                roadClosureNoLabel.classList.add('text-zinc-400');
+                roadClosureYesLabel.classList.remove('text-zinc-400');
+                roadClosureYesLabel.classList.add('text-zinc-900');
             } else {
                 roadClosureToggleButton.classList.remove('bg-green-500');
-                roadClosureToggleButton.classList.add('bg-gray-700');
+                roadClosureToggleButton.classList.add('bg-zinc-300');
                 roadClosureToggleKnob.classList.remove('translate-x-5');
                 roadClosureToggleKnob.classList.add('translate-x-0');
                 roadClosureToggleButton.setAttribute('aria-pressed', 'false');
-                roadClosureNoLabel.classList.remove('text-gray-500');
-                roadClosureNoLabel.classList.add('text-gray-300');
-                roadClosureYesLabel.classList.remove('text-gray-100');
-                roadClosureYesLabel.classList.add('text-gray-500');
+                roadClosureNoLabel.classList.remove('text-zinc-400');
+                roadClosureNoLabel.classList.add('text-zinc-800');
+                roadClosureYesLabel.classList.remove('text-zinc-900');
+                roadClosureYesLabel.classList.add('text-zinc-400');
             }
         }
 
@@ -2505,6 +2582,14 @@
             isRoadClosed = !isRoadClosed;
             window.currentRoadClosureState = isRoadClosed;
             updateRoadClosureToggleVisualState();
+            const ext = window.approvedLineBeingEdited || window.selectedRiyadhRoad;
+            if (ext && ext.is_riyadh_road && ext.geometry) {
+                const rid = ext.riyadh_road_id != null ? ext.riyadh_road_id : ext.id;
+                const lbl = getCurrentFeatureLabel();
+                updateRiyadhRoadVisualization(rid, lbl, ext.geometry);
+                updateFeatureTypeVisualization();
+                updateLineVisualizationFromGeometry(ext.geometry, lbl);
+            }
         });
 
         roadClosureToggleRow.appendChild(roadClosureNoLabel);
@@ -2547,7 +2632,7 @@
         leftSection.className = 'flex items-center flex-1';
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-xs text-white';
+        labelSpan.className = 'text-xs text-zinc-900';
         labelSpan.textContent = label;
         leftSection.appendChild(labelSpan);
 
@@ -2559,8 +2644,8 @@
         if (hasInfoIcon) {
             const infoButton = document.createElement('button');
             infoButton.type = 'button';
-            infoButton.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
-            infoButton.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+            infoButton.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+            infoButton.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
             rightSection.appendChild(infoButton);
         }
 
@@ -2570,8 +2655,8 @@
 
             const plusButton = document.createElement('button');
             plusButton.type = 'button';
-            plusButton.className = 'w-5 h-5 flex items-center justify-center rounded bg-gray-600 hover:bg-gray-500 transition-colors';
-            plusButton.innerHTML = '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>';
+            plusButton.className = 'w-5 h-5 flex items-center justify-center rounded-lg bg-zinc-200 hover:bg-zinc-300 transition-colors';
+            plusButton.innerHTML = '<svg class="w-3 h-3 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>';
 
             const tooltip = document.createElement('div');
             tooltip.className = 'absolute right-0 top-full mt-1.5 px-2.5 py-1.5 bg-black text-white text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none shadow-lg';
@@ -2603,15 +2688,15 @@
 
     function createTagsMenuItem() {
         const container = document.createElement('div');
-        container.className = 'border-b border-gray-700';
+        container.className = 'border-b border-zinc-200';
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-700 transition-colors group';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-zinc-100 transition-colors group';
         button.setAttribute('data-menu-item', 'tags');
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-sm font-medium text-blue-400 group-hover:text-blue-300 transition-colors';
+        labelSpan.className = 'text-sm font-semibold text-zinc-900 group-hover:text-black transition-colors';
         labelSpan.id = 'tags-label-span';
         labelSpan.textContent = 'Tags (0)';
 
@@ -2637,21 +2722,21 @@
 
             const leftInput = document.createElement('input');
             leftInput.type = 'text';
-            leftInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer';
+            leftInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all cursor-pointer';
             leftInput.placeholder = 'Add new tag';
             leftInput.readOnly = true;
 
             const leftChevron = document.createElement('div');
             leftChevron.className = 'absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none';
-            leftChevron.innerHTML = '<svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+            leftChevron.innerHTML = '<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
 
             const leftMenu = document.createElement('div');
-            leftMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg z-50 hidden max-h-60 overflow-y-auto';
+            leftMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-lg shadow-xl z-50 hidden max-h-60 overflow-y-auto';
 
             const tagOptions = ['building', 'highway', 'source', 'name', 'surface', 'natural', 'addr:housenumber', 'addr:street', 'addr:city', 'addr:postcode'];
             tagOptions.forEach(function(option) {
                 const menuItem = document.createElement('div');
-                menuItem.className = 'px-3 py-2 text-xs text-white hover:bg-gray-600 cursor-pointer border-b border-gray-600 last:border-b-0';
+                menuItem.className = 'px-3 py-2 text-xs text-zinc-900 hover:bg-zinc-50 cursor-pointer border-b border-zinc-100 last:border-b-0';
                 menuItem.textContent = option;
                 menuItem.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -2679,13 +2764,13 @@
 
             const rightInput = document.createElement('input');
             rightInput.type = 'text';
-            rightInput.className = 'flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+            rightInput.className = 'flex-1 min-w-0 bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
             rightInput.placeholder = '';
 
             const deleteButton = document.createElement('button');
             deleteButton.type = 'button';
-            deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-gray-600 transition-colors flex-shrink-0';
-            deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+            deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors flex-shrink-0';
+            deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
             deleteButton.addEventListener('click', function() {
                 tagRow.remove();
                 updateTagsCount(labelElement);
@@ -2714,7 +2799,7 @@
 
         const addTagButton = document.createElement('button');
         addTagButton.type = 'button';
-        addTagButton.className = 'w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-md text-xs text-white transition-colors';
+        addTagButton.className = 'w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-white hover:bg-zinc-50 border border-zinc-200 rounded-lg text-xs font-medium text-zinc-800 transition-colors';
         addTagButton.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg><span>Add Tag</span>';
         addTagButton.addEventListener('click', function() {
             addTagRow(tagsContainer, labelSpan);
@@ -2795,7 +2880,7 @@
     }
 
     function addFieldToContainer(fieldName, fieldId, fieldsContainer) {
-        const existingFieldsContainer = fieldsContainer.querySelector('.bg-gray-700.rounded-lg');
+        const existingFieldsContainer = fieldsContainer.querySelector('.ms-sidebar-field-group');
         const addFieldSection = document.getElementById('add-field-section');
         
         let fieldElement = null;
@@ -2836,15 +2921,15 @@
 
     function createRelationsMenuItem() {
         const container = document.createElement('div');
-        container.className = 'border-b border-gray-700';
+        container.className = 'border-b border-zinc-200';
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-700 transition-colors group';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-zinc-100 transition-colors group';
         button.setAttribute('data-menu-item', 'relations');
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-sm font-medium text-blue-400 group-hover:text-blue-300 transition-colors';
+        labelSpan.className = 'text-sm font-semibold text-zinc-900 group-hover:text-black transition-colors';
         labelSpan.id = 'relations-label-span';
         labelSpan.textContent = 'Relations (0)';
 
@@ -2873,22 +2958,22 @@
 
             const parentInput = document.createElement('input');
             parentInput.type = 'text';
-            parentInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer';
+            parentInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all cursor-pointer';
             parentInput.placeholder = 'Choose a parent relation';
             parentInput.value = 'New Relation';
             parentInput.readOnly = true;
 
             const parentChevron = document.createElement('div');
             parentChevron.className = 'absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none';
-            parentChevron.innerHTML = '<svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+            parentChevron.innerHTML = '<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
 
             const parentMenu = document.createElement('div');
-            parentMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg z-50 hidden max-h-60 overflow-y-auto';
+            parentMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-lg shadow-xl z-50 hidden max-h-60 overflow-y-auto';
 
             const relationOptions = ['New Relation'];
             relationOptions.forEach(function(option) {
                 const menuItem = document.createElement('div');
-                menuItem.className = 'px-3 py-2 text-xs text-white hover:bg-gray-600 cursor-pointer border-b border-gray-600 last:border-b-0';
+                menuItem.className = 'px-3 py-2 text-xs text-zinc-900 hover:bg-zinc-50 cursor-pointer border-b border-zinc-100 last:border-b-0';
                 menuItem.textContent = option;
                 menuItem.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -2915,8 +3000,8 @@
 
             const deleteButton = document.createElement('button');
             deleteButton.type = 'button';
-            deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-gray-600 transition-colors flex-shrink-0';
-            deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+            deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors flex-shrink-0';
+            deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
             deleteButton.addEventListener('click', function() {
                 relationRow.remove();
                 updateRelationsCount(labelElement);
@@ -2927,7 +3012,7 @@
 
             const roleInput = document.createElement('input');
             roleInput.type = 'text';
-            roleInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+            roleInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-0 transition-all';
             roleInput.placeholder = 'Role';
 
             relationRow.appendChild(parentRelationRow);
@@ -2952,7 +3037,7 @@
 
         const addRelationButton = document.createElement('button');
         addRelationButton.type = 'button';
-        addRelationButton.className = 'w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-md text-xs text-white transition-colors';
+        addRelationButton.className = 'w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-white hover:bg-zinc-50 border border-zinc-200 rounded-lg text-xs font-medium text-zinc-800 transition-colors';
         addRelationButton.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>';
         addRelationButton.addEventListener('click', function() {
             addRelationRow(relationsContainer, labelSpan);
@@ -2984,7 +3069,7 @@
 
     function createDescriptionField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -2994,22 +3079,22 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-white';
+        label.className = 'text-xs font-medium text-zinc-900';
         label.textContent = 'Description';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
-        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
         header.appendChild(labelWrapper);
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
                 const index = window.selectedFields.indexOf(fieldId);
@@ -3025,7 +3110,7 @@
         fieldContainer.appendChild(header);
 
         const textarea = document.createElement('textarea');
-        textarea.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none';
+        textarea.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-0 transition-all resize-none';
         textarea.placeholder = 'Unknown';
         textarea.rows = 3;
         fieldContainer.appendChild(textarea);
@@ -3035,7 +3120,7 @@
 
     function createFixMeField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -3045,22 +3130,22 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-white';
+        label.className = 'text-xs font-medium text-zinc-900';
         label.textContent = 'Fix Me';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
-        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
         header.appendChild(labelWrapper);
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
                 const index = window.selectedFields.indexOf(fieldId);
@@ -3076,7 +3161,7 @@
         fieldContainer.appendChild(header);
 
         const textarea = document.createElement('textarea');
-        textarea.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none';
+        textarea.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-0 transition-all resize-none';
         textarea.placeholder = 'Unknown';
         textarea.rows = 3;
         fieldContainer.appendChild(textarea);
@@ -3086,7 +3171,7 @@
 
     function createImageField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -3096,22 +3181,22 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-white';
+        label.className = 'text-xs font-medium text-zinc-900';
         label.textContent = 'Image';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
-        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
         header.appendChild(labelWrapper);
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
                 const index = window.selectedFields.indexOf(fieldId);
@@ -3131,13 +3216,13 @@
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        input.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
         input.placeholder = 'https://example.com/photo.jpg';
         inputWrapper.appendChild(input);
 
         const externalLinkIcon = document.createElement('button');
         externalLinkIcon.type = 'button';
-        externalLinkIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-300 transition-colors';
+        externalLinkIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors';
         externalLinkIcon.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>';
         inputWrapper.appendChild(externalLinkIcon);
 
@@ -3148,7 +3233,7 @@
 
     function createLastCheckedDateField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -3158,22 +3243,22 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-white';
+        label.className = 'text-xs font-medium text-zinc-900';
         label.textContent = 'Last Checked Date';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
-        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
         header.appendChild(labelWrapper);
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
                 const index = window.selectedFields.indexOf(fieldId);
@@ -3193,14 +3278,14 @@
 
         const input = document.createElement('input');
         input.type = 'date';
-        input.className = 'flex-1 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        input.className = 'flex-1 bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
         input.placeholder = 'YYYY-MM-DD';
         input.id = 'date-input-' + fieldId;
         inputWrapper.appendChild(input);
 
         const calendarIcon = document.createElement('button');
         calendarIcon.type = 'button';
-        calendarIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-white hover:text-gray-200 transition-colors cursor-pointer';
+        calendarIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer';
         calendarIcon.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
         calendarIcon.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -3215,7 +3300,7 @@
 
     function createMapillaryImageIdField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -3225,22 +3310,22 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-white';
+        label.className = 'text-xs font-medium text-zinc-900';
         label.textContent = 'Mapillary Image ID';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
-        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
         header.appendChild(labelWrapper);
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
                 const index = window.selectedFields.indexOf(fieldId);
@@ -3260,13 +3345,13 @@
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        input.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
         input.value = 'Unknown';
         inputWrapper.appendChild(input);
 
         const externalLinkIcon = document.createElement('button');
         externalLinkIcon.type = 'button';
-        externalLinkIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-300 transition-colors';
+        externalLinkIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors';
         externalLinkIcon.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>';
         inputWrapper.appendChild(externalLinkIcon);
 
@@ -3277,7 +3362,7 @@
 
     function createNoteField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -3287,22 +3372,22 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-white';
+        label.className = 'text-xs font-medium text-zinc-900';
         label.textContent = 'Note';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
-        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
         header.appendChild(labelWrapper);
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
                 const index = window.selectedFields.indexOf(fieldId);
@@ -3318,7 +3403,7 @@
         fieldContainer.appendChild(header);
 
         const textarea = document.createElement('textarea');
-        textarea.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all resize-y';
+        textarea.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-0 transition-all resize-y';
         textarea.value = 'Unknown';
         textarea.rows = 3;
         fieldContainer.appendChild(textarea);
@@ -3328,7 +3413,7 @@
 
     function createPanoramaxImageIdField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -3338,22 +3423,22 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-white';
+        label.className = 'text-xs font-medium text-zinc-900';
         label.textContent = 'Panoramax Image ID';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
-        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
         header.appendChild(labelWrapper);
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
                 const index = window.selectedFields.indexOf(fieldId);
@@ -3373,13 +3458,13 @@
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        input.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
         input.value = 'Unknown';
         inputWrapper.appendChild(input);
 
         const externalLinkIcon = document.createElement('button');
         externalLinkIcon.type = 'button';
-        externalLinkIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-300 transition-colors';
+        externalLinkIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors';
         externalLinkIcon.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>';
         inputWrapper.appendChild(externalLinkIcon);
 
@@ -3390,7 +3475,7 @@
 
     function createWebsiteField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'bg-gray-700 rounded-lg p-3 space-y-2';
+        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -3400,22 +3485,22 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-white';
+        label.className = 'text-xs font-medium text-zinc-900';
         label.textContent = 'Website';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 transition-colors';
-        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
         header.appendChild(labelWrapper);
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
                 const index = window.selectedFields.indexOf(fieldId);
@@ -3435,13 +3520,13 @@
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        input.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
         input.value = 'https://example.com';
         inputWrapper.appendChild(input);
 
         const externalLinkIcon = document.createElement('button');
         externalLinkIcon.type = 'button';
-        externalLinkIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-300 transition-colors cursor-pointer';
+        externalLinkIcon.className = 'absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer';
         externalLinkIcon.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>';
         externalLinkIcon.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -3464,20 +3549,20 @@
 
     function addMultilingualNameField(fieldsContainer) {
         const multilingualSection = document.createElement('div');
-        multilingualSection.className = 'bg-gray-700 rounded-lg p-3 space-y-2.5';
+        multilingualSection.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2.5';
 
         const headerRow = document.createElement('div');
         headerRow.className = 'flex items-center justify-between';
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-xs font-medium text-white';
+        labelSpan.className = 'text-xs font-medium text-zinc-900';
         labelSpan.textContent = 'Multilingual Name';
         headerRow.appendChild(labelSpan);
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-gray-600 transition-colors';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             multilingualSection.remove();
         });
@@ -3489,7 +3574,7 @@
         languageDropdown.className = 'relative';
 
         const languageSelect = document.createElement('select');
-        languageSelect.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none cursor-pointer';
+        languageSelect.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all appearance-none cursor-pointer';
         languageSelect.id = 'language-select-' + Date.now();
 
         const defaultOption = document.createElement('option');
@@ -3516,7 +3601,7 @@
 
         const languageChevron = document.createElement('div');
         languageChevron.className = 'absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none';
-        languageChevron.innerHTML = '<svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+        languageChevron.innerHTML = '<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
 
         languageDropdown.appendChild(languageSelect);
         languageDropdown.appendChild(languageChevron);
@@ -3524,11 +3609,11 @@
 
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
-        nameInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all';
+        nameInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-0 transition-all';
         nameInput.placeholder = 'Name';
         multilingualSection.appendChild(nameInput);
 
-        const existingFieldsContainer = fieldsContainer.querySelector('.bg-gray-700.rounded-lg');
+        const existingFieldsContainer = fieldsContainer.querySelector('.ms-sidebar-field-group');
         const addFieldSection = document.getElementById('add-field-section');
         
         if (existingFieldsContainer && addFieldSection) {
@@ -3542,15 +3627,15 @@
 
     function createEditFeatureMenuItem(label, id) {
         const container = document.createElement('div');
-        container.className = 'border-b border-gray-700';
+        container.className = 'border-b border-zinc-200';
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-700 transition-colors group';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-zinc-100 transition-colors group';
         button.setAttribute('data-menu-item', id);
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-sm font-medium text-blue-400 group-hover:text-blue-300 transition-colors';
+        labelSpan.className = 'text-sm font-semibold text-zinc-900 group-hover:text-black transition-colors';
         labelSpan.textContent = label;
 
         button.appendChild(labelSpan);
@@ -3585,13 +3670,13 @@
         folderContainer.className = 'w-5 h-5 rounded flex items-center justify-center';
         
         if (label.includes('Waterways')) {
-            folderContainer.className += ' bg-blue-500/20';
+            folderContainer.className += ' bg-sky-100';
         } else if (label.includes('Barrier')) {
-            folderContainer.className += ' bg-red-500/20';
+            folderContainer.className += ' bg-red-100';
         } else if (label.includes('Natural')) {
-            folderContainer.className += ' bg-green-500/20';
+            folderContainer.className += ' bg-emerald-100';
         } else {
-            folderContainer.className += ' bg-gray-500/20';
+            folderContainer.className += ' bg-zinc-200';
         }
 
         const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -3599,13 +3684,13 @@
         iconSvg.setAttribute('viewBox', '0 0 24 24');
         iconSvg.setAttribute('fill', 'none');
         
-        let strokeColor = '#9CA3AF';
+        let strokeColor = '#71717a';
         if (label.includes('Waterways')) {
-            strokeColor = '#60A5FA';
+            strokeColor = '#0284c7';
         } else if (label.includes('Barrier')) {
-            strokeColor = '#EF4444';
+            strokeColor = '#dc2626';
         } else if (label.includes('Natural')) {
-            strokeColor = '#10B981';
+            strokeColor = '#059669';
         }
         iconSvg.setAttribute('stroke', strokeColor);
         iconSvg.setAttribute('stroke-width', '2');
@@ -3760,7 +3845,7 @@
             const all = getFeatureTypesForSearch();
 
             if (q.length === 0) {
-                searchResults.innerHTML = '<p class="text-xs text-gray-400 px-2 py-4">Type to search feature types (e.g. Motorway, Path, Fence)</p>';
+                searchResults.innerHTML = '<p class="text-xs text-zinc-500 px-1 py-4 leading-relaxed">Type to search feature types (e.g. Motorway, Path, Fence)</p>';
                 searchResults.style.display = 'block';
                 return;
             }
@@ -3775,7 +3860,7 @@
 
             if (matches.length === 0) {
                 const empty = document.createElement('p');
-                empty.className = 'text-xs text-gray-400 px-2 py-4';
+                empty.className = 'text-xs text-zinc-500 px-2 py-4';
                 empty.textContent = 'No feature types match your search.';
                 searchResults.appendChild(empty);
                 return;
@@ -3784,11 +3869,11 @@
             matches.forEach(function(item) {
                 const btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = 'w-full text-left px-3 py-2.5 text-sm text-white hover:bg-gray-600 rounded-lg transition-colors flex items-center justify-between gap-2';
+                btn.className = 'w-full text-left px-3 py-2.5 text-sm text-zinc-900 hover:bg-zinc-100 rounded-lg border border-transparent hover:border-zinc-200/80 transition-colors flex items-center justify-between gap-2';
                 const labelSpan = document.createElement('span');
                 labelSpan.textContent = item.label;
                 const catSpan = document.createElement('span');
-                catSpan.className = 'text-xs text-gray-400 flex-shrink-0';
+                catSpan.className = 'text-xs text-zinc-500 flex-shrink-0';
                 catSpan.textContent = item.category;
                 btn.appendChild(labelSpan);
                 btn.appendChild(catSpan);
@@ -3955,7 +4040,7 @@
         options.forEach(function(option) {
             const item = document.createElement('button');
             item.type = 'button';
-            item.className = 'w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-600 transition-colors first:rounded-t-lg last:rounded-b-lg';
+            item.className = 'w-full text-left px-4 py-2 text-sm text-zinc-900 hover:bg-zinc-50 transition-colors first:rounded-t-lg last:rounded-b-lg';
             item.textContent = option.label || option;
             item.setAttribute('role', 'menuitem');
             item.setAttribute('data-value', option.value || option);
@@ -4034,6 +4119,91 @@
         });
     }
 
+    /** Blend a 6-digit hex line color toward white (edit-mode core, less harsh than #fff). */
+    function mixHexTowardWhite(hex, amountTowardWhite) {
+        var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+        if (!m) {
+            return '#f1f5f9';
+        }
+        var n = parseInt(m[1], 16);
+        var r = (n >> 16) & 255;
+        var g = (n >> 8) & 255;
+        var b = n & 255;
+        var t = Math.max(0, Math.min(1, amountTowardWhite));
+        r = Math.round(r + (255 - r) * t);
+        g = Math.round(g + (255 - g) * t);
+        b = Math.round(b + (255 - b) * t);
+        function h2(x) {
+            var h = x.toString(16);
+            return h.length === 1 ? '0' + h : h;
+        }
+        return '#' + h2(r) + h2(g) + h2(b);
+    }
+
+    /**
+     * Paint the GeoJSON selection overlay (gradient + halo + core) to match the
+     * current feature symbology so turning off geometry edit restores the same
+     * look as the tile highlight and sidebar previews.
+     */
+    function applySelectedOverlaySymbologyPaint(featureLabel) {
+        if (typeof map === 'undefined' || !map) {
+            return;
+        }
+        ensureSelectedOverlayLayers();
+        const label = featureLabel || getCurrentFeatureLabel();
+        const style = getEffectiveVisualizationStyle(label);
+        if (!style) {
+            return;
+        }
+        const lineDasharray =
+            style.lineDasharray && Array.isArray(style.lineDasharray) ? style.lineDasharray : [1, 0];
+        const w = Number(style.lineWidth) || 4;
+        const c = style.lineColor || '#52525b';
+        const coreW = Math.max(2, Math.min(8, w * 0.45));
+        const midW = w + 5;
+        const haloW = w + 18;
+        // White inner stroke is only for vertex-edit mode; otherwise it reads as wrong symbology
+        // (thick casing + white core) after "Done editing".
+        const geomEditActive =
+            typeof window.__roadGeometryEditActiveId !== 'undefined' &&
+            window.__roadGeometryEditActiveId != null;
+        try {
+            if (map.getLayer(SELECTED_OVERLAY_GRADIENT_LAYER_ID)) {
+                map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-gradient', [
+                    'interpolate',
+                    ['linear'],
+                    ['line-progress'],
+                    0,
+                    c,
+                    1,
+                    c,
+                ]);
+                map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-width', midW);
+                map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-opacity', 1);
+                map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-dasharray', lineDasharray);
+            }
+            if (map.getLayer(SELECTED_OVERLAY_GLOW_LAYER_ID)) {
+                map.setPaintProperty(SELECTED_OVERLAY_GLOW_LAYER_ID, 'line-color', c);
+                map.setPaintProperty(SELECTED_OVERLAY_GLOW_LAYER_ID, 'line-width', haloW);
+                map.setPaintProperty(SELECTED_OVERLAY_GLOW_LAYER_ID, 'line-opacity', 0.3);
+                map.setPaintProperty(SELECTED_OVERLAY_GLOW_LAYER_ID, 'line-dasharray', lineDasharray);
+                map.setPaintProperty(SELECTED_OVERLAY_GLOW_LAYER_ID, 'line-blur', 10);
+            }
+            if (map.getLayer(SELECTED_OVERLAY_LINE_LAYER_ID)) {
+                if (geomEditActive) {
+                    map.setPaintProperty(SELECTED_OVERLAY_LINE_LAYER_ID, 'line-color', mixHexTowardWhite(c, 0.5));
+                    map.setPaintProperty(SELECTED_OVERLAY_LINE_LAYER_ID, 'line-width', coreW);
+                    map.setPaintProperty(SELECTED_OVERLAY_LINE_LAYER_ID, 'line-opacity', 1);
+                } else {
+                    map.setPaintProperty(SELECTED_OVERLAY_LINE_LAYER_ID, 'line-width', coreW);
+                    map.setPaintProperty(SELECTED_OVERLAY_LINE_LAYER_ID, 'line-opacity', 0);
+                }
+            }
+        } catch (e) {
+            // Non-critical
+        }
+    }
+
     // Update Riyadh road visualization on the map when feature type changes.
     function updateRiyadhRoadVisualization(roadId, newFeatureLabel, geometry) {
         // Keep the highlight selection in sync with the chosen road id.
@@ -4053,14 +4223,7 @@
                 const layerId = 'riyadh-roads-selected-layer';
                 const haloId = 'riyadh-roads-selected-halo-layer';
                 if (map.getLayer(layerId)) {
-                    // Respect road-closure override when applicable.
-                    let style = null;
-                    const isClosed = isRoadClosedForCurrentContext();
-                    if (isClosed) {
-                        style = getVisualizationStyle('Road Closure') || getVisualizationStyle(newFeatureLabel);
-                    } else {
-                        style = getVisualizationStyle(newFeatureLabel);
-                    }
+                    const style = getEffectiveVisualizationStyle(newFeatureLabel);
 
                     if (style) {
                         const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray))
@@ -4069,21 +4232,26 @@
                         const w = Number(style.lineWidth) || 4;
 
                         map.setPaintProperty(layerId, 'line-color', style.lineColor);
-                        map.setPaintProperty(layerId, 'line-width', w + 4);
+                        map.setPaintProperty(layerId, 'line-width', w + 5);
                         map.setPaintProperty(layerId, 'line-opacity', 1);
                         map.setPaintProperty(layerId, 'line-dasharray', lineDasharray);
 
                         if (map.getLayer(haloId)) {
                             map.setPaintProperty(haloId, 'line-color', style.lineColor);
-                            map.setPaintProperty(haloId, 'line-width', w + 12);
-                            map.setPaintProperty(haloId, 'line-opacity', 0.45);
+                            map.setPaintProperty(haloId, 'line-width', w + 16);
+                            map.setPaintProperty(haloId, 'line-opacity', 0.36);
                             map.setPaintProperty(haloId, 'line-dasharray', lineDasharray);
+                            map.setPaintProperty(haloId, 'line-blur', 8);
                         }
                     }
                 }
             }
         } catch (e) {
             // Non-critical styling failure; base tiles still show underlying road.
+        }
+
+        if (geometry && typeof map !== 'undefined' && map) {
+            applySelectedOverlaySymbologyPaint(newFeatureLabel);
         }
     }
 
@@ -4118,19 +4286,15 @@
         updateAddFieldDisplay: updateAddFieldDisplay,
         addMultilingualNameField: addMultilingualNameField,
         updateRiyadhRoadVisualization: updateRiyadhRoadVisualization,
-        normalizeToLineStringGeometry: normalizeToLineStringGeometry
+        normalizeToLineStringGeometry: normalizeToLineStringGeometry,
+        showRiyadhRoadAsLineFeature: showRiyadhRoadAsLineFeature
     };
     
     window.addFieldToContainer = addFieldToContainer;
     window.updateAddFieldDisplay = updateAddFieldDisplay;
     window.addMultilingualNameField = addMultilingualNameField;
     
-    window.getCurrentLineId = getCurrentLineId;
-    window.getCurrentFeatureLabel = getCurrentFeatureLabel;
-    window.getDrawInstance = function() { return drawInstance; };
     window.getVisualizationStyle = getVisualizationStyle;
-    window.updateRiyadhRoadVisualization = updateRiyadhRoadVisualization;
-    window.updateFeatureTypeVisualization = updateFeatureTypeVisualization;
     window.removeMapLibreLineLayer = removeMapLibreLineLayer;
     window.clearVertexMarkers = clearVertexMarkers;
     window.clearCurrentLine = function() {
@@ -4154,17 +4318,11 @@
         const fieldsContainer = document.getElementById('fields-container');
         if (!fieldsContainer || !fieldsData) return;
 
-        const nameFieldContainer = fieldsContainer.querySelector('.bg-gray-700.rounded-lg');
-        if (nameFieldContainer) {
-            const nameInput = nameFieldContainer.querySelector('input[type="text"]');
-            if (nameInput && fieldsData.name) {
-                nameInput.value = fieldsData.name;
-            }
-        }
-
-        const commonNameInput = fieldsContainer.querySelector('.bg-gray-700.rounded-lg input[type="text"]:not([placeholder*="Name"])');
-        if (commonNameInput && fieldsData.common_name) {
-            commonNameInput.value = fieldsData.common_name;
+        const nameEl = document.getElementById('sidebar-feature-name-input');
+        if (nameEl) {
+            const n = fieldsData.name != null ? String(fieldsData.name).trim() : '';
+            const c = fieldsData.common_name != null ? String(fieldsData.common_name).trim() : '';
+            nameEl.value = n || c || '';
         }
 
         if (fieldsData.multilingual_names && Array.isArray(fieldsData.multilingual_names)) {
@@ -4186,13 +4344,13 @@
                     } else {
                         // Fallback: simple multilingual field without helper
                         const multilingualDiv = document.createElement('div');
-                        multilingualDiv.className = 'bg-gray-700 rounded-lg p-3 space-y-2.5';
+                        multilingualDiv.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2.5';
                         const label = document.createElement('div');
-                        label.className = 'text-xs font-medium text-white';
+                        label.className = 'text-xs font-medium text-zinc-900';
                         label.textContent = 'Multilingual Name (' + multilingual.language + ')';
                         const input = document.createElement('input');
                         input.type = 'text';
-                        input.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400';
+                        input.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400';
                         input.value = multilingual.name;
                         multilingualDiv.appendChild(label);
                         multilingualDiv.appendChild(input);
@@ -4254,12 +4412,16 @@
     }
 
     function populateTagsDataFromRoad(tagsData) {
-        if (!Array.isArray(tagsData) || tagsData.length === 0) return;
-
         const tagsRowsContainer = document.getElementById('tags-rows-container');
         const tagsLabel = document.getElementById('tags-label-span');
 
         if (!tagsRowsContainer || !tagsLabel) return;
+
+        tagsRowsContainer.innerHTML = '';
+        if (!Array.isArray(tagsData) || tagsData.length === 0) {
+            tagsLabel.textContent = 'Tags (0)';
+            return;
+        }
 
         tagsData.forEach(function(tag) {
             if (tag.key || tag.value) {
@@ -4269,12 +4431,12 @@
 
                 const keyInput = document.createElement('input');
                 keyInput.type = 'text';
-                keyInput.className = 'flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400';
+                keyInput.className = 'flex-1 min-w-0 bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400';
                 keyInput.value = tag.key || '';
 
                 const valueInput = document.createElement('input');
                 valueInput.type = 'text';
-                valueInput.className = 'flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400';
+                valueInput.className = 'flex-1 min-w-0 bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400';
                 valueInput.value = tag.value || '';
 
                 tagRow.appendChild(keyInput);
@@ -4305,13 +4467,13 @@
 
                 const parentInput = document.createElement('input');
                 parentInput.type = 'text';
-                parentInput.className = 'flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400';
+                parentInput.className = 'flex-1 min-w-0 bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400';
                 parentInput.value = relation.parent_relation || 'New Relation';
 
                 const deleteButton = document.createElement('button');
                 deleteButton.type = 'button';
-                deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-gray-600 transition-colors flex-shrink-0';
-                deleteButton.innerHTML = '<svg class="w-3 h-3 text-white opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m3 0V4a1 1 0 011-1h6a1 1 0 011 1v3m-9 0h10"></path></svg>';
+                deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors flex-shrink-0';
+                deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m3 0V4a1 1 0 011-1h6a1 1 0 011 1v3m-9 0h10"></path></svg>';
                 deleteButton.addEventListener('click', function() {
                     relationRow.remove();
                     const remaining = relationsRowsContainer.querySelectorAll('.space-y-2').length;
@@ -4323,7 +4485,7 @@
 
                 const roleInput = document.createElement('input');
                 roleInput.type = 'text';
-                roleInput.className = 'w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-xs text-white placeholder-gray-400';
+                roleInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400';
                 roleInput.value = relation.role || '';
 
                 relationRow.appendChild(header);
@@ -4344,27 +4506,32 @@
         }
 
         const roadId = lineFeatureData.id || 'riyadh-road-' + Date.now();
+        const featureLabel = lineFeatureData.current_feature_label || lineFeatureData.feature_type || 'Line';
         window.approvedLineBeingEdited = Object.assign({}, lineFeatureData, { id: roadId });
+        normalizeRiyadhRoadTagsFromFields(window.approvedLineBeingEdited);
 
         if (lineFeatureData.geometry && typeof map !== 'undefined' && map) {
-            const featureLabel = lineFeatureData.current_feature_label || lineFeatureData.feature_type || 'Line';
             updateRiyadhRoadVisualization(roadId, featureLabel, lineFeatureData.geometry);
         }
 
         try {
-            const featureLabel = lineFeatureData.current_feature_label || lineFeatureData.feature_type || 'Line';
-            currentFeatureLabel = featureLabel;
             updateCurrentFeatureLabel(featureLabel);
 
             showEditFeatureScreen({
                 hideBackButton: false,
                 requestGeometry: lineFeatureData.geometry || null,
-                lineData: lineFeatureData
+                lineData: window.approvedLineBeingEdited
             });
 
-            const fieldsData = lineFeatureData.fields_data || {};
-            const tagsData = lineFeatureData.tags_data || [];
-            const relationsData = lineFeatureData.relations_data || [];
+            if (typeof window.setCurrentRoadClosure === 'function') {
+                const rc = window.approvedLineBeingEdited.road_closure;
+                window.setCurrentRoadClosure(rc === 1 || rc === true || rc === '1');
+            }
+
+            const snap = window.approvedLineBeingEdited || {};
+            const fieldsData = snap.fields_data || {};
+            const tagsData = snap.tags_data || [];
+            const relationsData = snap.relations_data || [];
 
             setTimeout(function() {
                 if (fieldsData) {
@@ -4388,14 +4555,12 @@
                         populateRelationsDataFromRoad(relationsData);
                     }
                 }
+                updateRiyadhRoadFeatureContextLine(window.approvedLineBeingEdited);
             }, 300);
         } catch (e) {}
     }
 
     window.showRiyadhRoadAsLineFeature = showRiyadhRoadAsLineFeature;
-    if (window.lineDrawingHandler) {
-        window.lineDrawingHandler.showRiyadhRoadAsLineFeature = showRiyadhRoadAsLineFeature;
-    }
 
     // Expose selection utilities for other scripts (approved lines / tile roads).
     window.setSelectedOverlayGeometry = setSelectedOverlayGeometry;

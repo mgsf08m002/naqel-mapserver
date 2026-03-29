@@ -125,8 +125,8 @@
             label = window.approvedLineBeingEdited.current_feature_label
                 || window.approvedLineBeingEdited.feature_type
                 || label;
-        } else if (typeof window.getCurrentFeatureLabel === 'function') {
-            label = window.getCurrentFeatureLabel();
+        } else if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getCurrentFeatureLabel === 'function') {
+            label = window.lineDrawingHandler.getCurrentFeatureLabel();
         }
         return label;
     }
@@ -140,8 +140,8 @@
         if (typeof window.setSelectedOverlayGeometry === 'function') {
             window.setSelectedOverlayGeometry(lineGeom);
         }
-        if (typeof window.updateRiyadhRoadVisualization === 'function' && roadId != null) {
-            window.updateRiyadhRoadVisualization(roadId, currentFeatureLabel(), lineGeom);
+        if (roadId != null && window.lineDrawingHandler && typeof window.lineDrawingHandler.updateRiyadhRoadVisualization === 'function') {
+            window.lineDrawingHandler.updateRiyadhRoadVisualization(roadId, currentFeatureLabel(), lineGeom);
         }
         var mi;
         if (workingCoords && midpointMarkers.length === workingCoords.length - 1) {
@@ -651,10 +651,11 @@
         roadId = ctx.riyadh_road_id != null ? ctx.riyadh_road_id : ctx.id;
 
         showEditHint();
-        pushStateToGlobals();
         try {
             window.__roadGeometryEditActiveId = roadId;
         } catch (eR) {}
+        // Must set active id before map/overlay sync so selection paint uses edit-mode styling.
+        pushStateToGlobals();
         if (typeof window.setRiyadhRoadBasemapHiddenForEdit === 'function') {
             window.setRiyadhRoadBasemapHiddenForEdit(roadId, true);
         }

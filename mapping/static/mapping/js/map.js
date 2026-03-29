@@ -532,10 +532,10 @@ map.on('load', () => {
                                 'line-join': 'round'
                             },
                             paint: {
-                                'line-color': '#38bdf8',
-                                'line-width': ['+', widthExpression, 12],
-                                'line-opacity': 0.45,
-                                'line-blur': 5
+                                'line-color': '#ea580c',
+                                'line-width': ['+', widthExpression, 16],
+                                'line-opacity': 0.36,
+                                'line-blur': 8
                             }
                         });
                     }
@@ -634,6 +634,48 @@ map.on('load', () => {
 
                                 const data = await resp.json();
                                 if (!data || !data.success || !data.road) return;
+
+                                // Tiles often include name/ref while the DB `name` column can be empty
+                                // for the same feature; prefer DB when set, otherwise use tile attributes.
+                                const fd = data.road.fields_data || {};
+                                const firstTileString = function () {
+                                    for (let i = 0; i < arguments.length; i++) {
+                                        const x = arguments[i];
+                                        if (x == null) {
+                                            continue;
+                                        }
+                                        const s = String(x).trim();
+                                        if (s !== '') {
+                                            return s;
+                                        }
+                                    }
+                                    return '';
+                                };
+                                const tName = firstTileString(
+                                    props.name,
+                                    props.Name,
+                                    props.NAME,
+                                );
+                                const tRef = firstTileString(props.ref, props.Ref, props.REF);
+                                if (!String(fd.name || '').trim() && tName) {
+                                    fd.name = tName;
+                                }
+                                if (!String(fd.ref || '').trim() && tRef) {
+                                    fd.ref = tRef;
+                                }
+                                data.road.fields_data = fd;
+                                const skipTags = { name: true, road_closure: true };
+                                data.road.tags_data = [];
+                                Object.keys(fd).forEach(function (k) {
+                                    if (skipTags[k]) {
+                                        return;
+                                    }
+                                    const v = fd[k];
+                                    if (v === undefined || v === null || v === '') {
+                                        return;
+                                    }
+                                    data.road.tags_data.push({ key: k, value: String(v) });
+                                });
 
                                 try {
                                     if (!window.riyadhRoadOriginalState) {

@@ -19,7 +19,22 @@
     letter-spacing: 0.06em;
 }
 
-/* Road geometry edit — aligned with selected overlay accent (#22d3ee) in line-drawing.js */
+/* Sidebar symbology previews (SVG mini-maps) */
+.map-feature-type-symbology-preview svg,
+#lineVisualizationSVG svg {
+    display: block;
+    shape-rendering: geometricPrecision;
+}
+
+.map-feature-type-symbology-preview {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.map-line-symbology-preview #lineVisualizationSVG {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+/* Road geometry edit — highlight class on map canvas while vertices active */
 .road-geometry-edit-active {
     outline: none;
 }
@@ -487,51 +502,204 @@ svg[data-terra-draw] line {
     pointer-events: none !important;
 }
 
-/* Side panel: ensure visible and scrollable content */
-#editSidePanel {
-    will-change: transform;
+/* -------------------------------------------------------------------------
+   Map sidebar — light theme tokens + safety-net overrides.
+   Primary UI classes live on the template and in JS (zinc/white). Rules below
+   normalize any remaining gray/blue utilities so mixed markup stays readable.
+   ------------------------------------------------------------------------- */
+#mapPageShell {
+    min-height: 0;
 }
+
+#editSidePanel.map-sidebar-root {
+    --ms-bg: #ffffff;
+    --ms-elevated: #fafafa;
+    --ms-surface: #f4f4f5;
+    --ms-border: #e4e4e7;
+    --ms-text: #18181b;
+    --ms-muted: #71717a;
+    --ms-ring: #18181b;
+    will-change: transform;
+    color: var(--ms-text);
+}
+
 #editSidePanel .flex-1.overflow-y-auto,
 #sidePanelScrollArea {
     -webkit-overflow-scrolling: touch;
 }
+
 #featureSearchResults {
     min-height: 120px;
 }
+
 #linePanelContent:not([style*="display: none"]) {
     display: block;
 }
 
-/* Sidepanel dropdown styles */
+/* Readable body text (legacy “white on dark” menus) */
+#editSidePanel.map-sidebar-root .text-white {
+    color: var(--ms-text) !important;
+}
+
+#editSidePanel.map-sidebar-root .text-gray-100 {
+    color: var(--ms-text) !important;
+}
+
+#editSidePanel.map-sidebar-root .text-gray-300,
+#editSidePanel.map-sidebar-root .text-gray-400,
+#editSidePanel.map-sidebar-root .text-gray-500 {
+    color: var(--ms-muted) !important;
+}
+
+#editSidePanel.map-sidebar-root .text-gray-600,
+#editSidePanel.map-sidebar-root .text-gray-700 {
+    color: #3f3f46 !important;
+}
+
+/* Accent: remove blue chrome for monochrome UI */
+#editSidePanel.map-sidebar-root .text-blue-300,
+#editSidePanel.map-sidebar-root .text-blue-400,
+#editSidePanel.map-sidebar-root .group-hover\:text-blue-300 {
+    color: var(--ms-text) !important;
+}
+
+/* Surfaces */
+#editSidePanel.map-sidebar-root .bg-gray-900 {
+    background-color: var(--ms-elevated) !important;
+    color: var(--ms-text) !important;
+}
+
+#editSidePanel.map-sidebar-root .bg-gray-800 {
+    background-color: var(--ms-bg) !important;
+    color: var(--ms-text) !important;
+}
+
+#editSidePanel.map-sidebar-root .bg-gray-700,
+#editSidePanel.map-sidebar-root .bg-gray-600 {
+    background-color: var(--ms-surface) !important;
+    color: var(--ms-text) !important;
+}
+
+#editSidePanel.map-sidebar-root .bg-gray-500\/20,
+#editSidePanel.map-sidebar-root [class*='bg-blue-500'] {
+    background-color: rgba(24, 24, 27, 0.06) !important;
+}
+
+#editSidePanel.map-sidebar-root .border-gray-600,
+#editSidePanel.map-sidebar-root .border-gray-700 {
+    border-color: var(--ms-border) !important;
+}
+
+#editSidePanel.map-sidebar-root .hover\:bg-gray-700:hover,
+#editSidePanel.map-sidebar-root .hover\:bg-gray-600:hover {
+    background-color: var(--ms-surface) !important;
+}
+
+#editSidePanel.map-sidebar-root .hover\:bg-gray-500:hover {
+    background-color: #d4d4d8 !important;
+}
+
+/* Form controls */
+#editSidePanel.map-sidebar-root input,
+#editSidePanel.map-sidebar-root select,
+#editSidePanel.map-sidebar-root textarea {
+    background-color: var(--ms-bg) !important;
+    color: var(--ms-text) !important;
+    border-color: var(--ms-border) !important;
+}
+
+#editSidePanel.map-sidebar-root input::placeholder,
+#editSidePanel.map-sidebar-root textarea::placeholder {
+    color: var(--ms-muted) !important;
+    opacity: 0.9;
+}
+
+#editSidePanel.map-sidebar-root .placeholder-gray-400::placeholder {
+    color: var(--ms-muted) !important;
+}
+
+/* Focus rings: neutral */
+#editSidePanel.map-sidebar-root .focus\:ring-blue-500:focus,
+#editSidePanel.map-sidebar-root .focus\:ring-blue-500:focus-visible {
+    --tw-ring-color: var(--ms-ring) !important;
+}
+
+#editSidePanel.map-sidebar-root .focus\:border-blue-500:focus,
+#editSidePanel.map-sidebar-root .focus\:border-blue-500:focus-visible {
+    border-color: var(--ms-border) !important;
+}
+
+#editSidePanel.map-sidebar-root .focus\:ring-offset-gray-900:focus,
+#editSidePanel.map-sidebar-root .focus\:ring-offset-gray-900:focus-visible {
+    --tw-ring-offset-color: var(--ms-bg) !important;
+}
+
+/* Primary / danger: keep real contrast */
+#editSidePanel.map-sidebar-root .bg-black,
+#editSidePanel.map-sidebar-root .bg-black.text-white,
+#editSidePanel.map-sidebar-root .bg-black .text-white {
+    color: #ffffff !important;
+}
+
+#editSidePanel.map-sidebar-root .bg-zinc-900.text-white {
+    color: #ffffff !important;
+}
+
+#editSidePanel.map-sidebar-root .bg-green-500 {
+    background-color: #22c55e !important;
+}
+
+/* Tooltips & floating menus over dark */
+#editSidePanel.map-sidebar-root .bg-black.text-white,
+#editSidePanel.map-sidebar-root ul[role='menu'].bg-black {
+    color: #ffffff !important;
+}
+
+#editSidePanel.map-sidebar-root [role='menu']:not(.bg-black),
+#editSidePanel.map-sidebar-root .absolute.z-50.max-h-60 {
+    background-color: var(--ms-bg) !important;
+    border: 1px solid var(--ms-border) !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Line visualization card */
+#editSidePanel.map-sidebar-root .rounded-lg.border.border-gray-700 {
+    border-color: var(--ms-border) !important;
+    background: var(--ms-elevated) !important;
+}
+
+/* Dropdown row polish */
 #lineDropdownsContainer button[data-dropdown-toggle] {
-    transition: all 0.2s ease-in-out;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    border-radius: 0.5rem;
 }
 
 #lineDropdownsContainer button[data-dropdown-toggle]:hover {
-    transform: translateX(2px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-#lineDropdownsContainer [role="menu"] {
+#lineDropdownsContainer [role='menu'] {
     scrollbar-width: thin;
-    scrollbar-color: #4b5563 #374151;
+    scrollbar-color: #a1a1aa #f4f4f5;
+    border-radius: 0.5rem;
 }
 
-#lineDropdownsContainer [role="menu"]::-webkit-scrollbar {
+#lineDropdownsContainer [role='menu']::-webkit-scrollbar {
     width: 6px;
 }
 
-#lineDropdownsContainer [role="menu"]::-webkit-scrollbar-track {
-    background: #374151;
+#lineDropdownsContainer [role='menu']::-webkit-scrollbar-track {
+    background: #f4f4f5;
     border-radius: 3px;
 }
 
-#lineDropdownsContainer [role="menu"]::-webkit-scrollbar-thumb {
-    background: #4b5563;
+#lineDropdownsContainer [role='menu']::-webkit-scrollbar-thumb {
+    background: #a1a1aa;
     border-radius: 3px;
 }
 
-#lineDropdownsContainer [role="menu"]::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
+#lineDropdownsContainer [role='menu']::-webkit-scrollbar-thumb:hover {
+    background: #71717a;
 }
 
 /* Hide native date picker icon - only show custom white calendar icon */
