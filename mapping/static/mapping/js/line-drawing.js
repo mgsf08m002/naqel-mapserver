@@ -852,6 +852,9 @@
     }
 
     function showLineSidePanel() {
+        if (typeof window.roadGeometryEdit !== 'undefined' && window.roadGeometryEdit.stop) {
+            window.roadGeometryEdit.stop();
+        }
         // Always ensure sidebar is visible (works in both edit mode and view mode)
         const sidePanel = document.getElementById('editSidePanel');
         if (sidePanel) {
@@ -1673,6 +1676,12 @@
         const editScreen = document.createElement('div');
         editScreen.id = 'editFeatureScreen';
         editScreen.className = 'h-full flex flex-col bg-gray-800';
+
+        if (hideBackButton) {
+            editScreen.setAttribute('data-geometry-readonly', 'true');
+        } else {
+            editScreen.removeAttribute('data-geometry-readonly');
+        }
         
         // Store request geometry for visualization
         if (requestGeometry) {
@@ -3945,7 +3954,8 @@
         addFieldToContainer: addFieldToContainer,
         updateAddFieldDisplay: updateAddFieldDisplay,
         addMultilingualNameField: addMultilingualNameField,
-        updateRiyadhRoadVisualization: updateRiyadhRoadVisualization
+        updateRiyadhRoadVisualization: updateRiyadhRoadVisualization,
+        normalizeToLineStringGeometry: normalizeToLineStringGeometry
     };
     
     window.addFieldToContainer = addFieldToContainer;
@@ -4216,6 +4226,12 @@
                 }
             }, 300);
         } catch (e) {}
+
+        setTimeout(function() {
+            if (window.roadGeometryEdit && typeof window.roadGeometryEdit.startFromRiyadhContext === 'function') {
+                window.roadGeometryEdit.startFromRiyadhContext();
+            }
+        }, 450);
     }
 
     window.showRiyadhRoadAsLineFeature = showRiyadhRoadAsLineFeature;

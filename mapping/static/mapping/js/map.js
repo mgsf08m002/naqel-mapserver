@@ -565,7 +565,12 @@ map.on('load', () => {
                                         window.riyadhRoadOriginalState = {};
                                     }
                                     const originalLabel = data.road.current_feature_label || data.road.feature_type || 'Line';
-                                    window.riyadhRoadOriginalState[String(roadId)] = { feature_label: originalLabel };
+                                    window.riyadhRoadOriginalState[String(roadId)] = {
+                                        feature_label: originalLabel,
+                                        geometry: data.road.geometry
+                                            ? JSON.parse(JSON.stringify(data.road.geometry))
+                                            : null
+                                    };
                                     data.road._original_feature_label = originalLabel;
                                 } catch (e2) {}
 

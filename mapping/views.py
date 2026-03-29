@@ -9,10 +9,13 @@ from django.db import transaction, connections
 from django.db.models import Max
 from decimal import Decimal
 import json
+import logging
 import math
 import time
 
 from .models import LineEditRequest, RiyadhRoad
+
+logger = logging.getLogger(__name__)
 
 
 def _tiles_version_ms():
@@ -86,13 +89,29 @@ def _ensure_wgs84_geometry(geometry, source_srid=3857):
         return geometry
 
 
-def _get_riyadh_road_geometry_wgs84(road_gid):
-    """Fetch a RiyadhRoad geometry by gid and return it in WGS84."""
-    if road_gid is None:
+def _resolve_riyadh_road(road_identifier):
+    """Load RiyadhRoad by gid first, then by ``id`` column (tile id may be either)."""
+    if road_identifier is None:
+        return None
+    identifier = int(road_identifier)
+    try:
+        return RiyadhRoad.objects.using("riyadh_roads").get(gid=identifier)
+    except RiyadhRoad.DoesNotExist:
+        try:
+            return RiyadhRoad.objects.using("riyadh_roads").get(id=float(identifier))
+        except RiyadhRoad.DoesNotExist:
+            return None
+
+
+def _get_riyadh_road_geometry_wgs84(road_identifier):
+    """Fetch a RiyadhRoad geometry and return it in WGS84 GeoJSON."""
+    if road_identifier is None:
         return None
 
     try:
-        road = RiyadhRoad.objects.using("riyadh_roads").get(gid=int(road_gid))
+        road = _resolve_riyadh_road(road_identifier)
+        if not road:
+            return None
 
         geom = getattr(road, "geom", None)
         if not geom:
@@ -106,6 +125,61 @@ def _get_riyadh_road_geometry_wgs84(road_gid):
         return json.loads(geom.json)
     except Exception:
         return None
+
+
+def _geometries_equivalent_wgs84(geom_a, geom_b) -> bool:
+    """Compare two GeoJSON geometries in WGS84 using GEOS equality after normalization."""
+    if geom_a is None and geom_b is None:
+        return True
+    if geom_a is None or geom_b is None:
+        return False
+    try:
+        g1 = GEOSGeometry(json.dumps(geom_a), srid=4326)
+        g2 = GEOSGeometry(json.dumps(geom_b), srid=4326)
+        return g1.equals(g2)
+    except Exception:
+        return False
+
+
+def _validate_line_geojson_for_edit(geometry) -> None:
+    """
+    Ensure geometry is suitable for a road line edit.
+    Raises ValueError with a user-safe message if invalid.
+    """
+    if not geometry or not isinstance(geometry, dict):
+        raise ValueError("Invalid geometry payload.")
+
+    geom_type = geometry.get("type")
+    coords = geometry.get("coordinates")
+
+    if geom_type == "LineString":
+        line_coords = coords
+    elif geom_type == "MultiLineString":
+        if not isinstance(coords, list) or not coords:
+            raise ValueError("MultiLineString must contain at least one line.")
+        line_coords = None
+        for part in coords:
+            if isinstance(part, list) and len(part) >= 2:
+                line_coords = part
+                break
+        if line_coords is None:
+            raise ValueError("MultiLineString has no segment with enough points.")
+    else:
+        raise ValueError("Geometry-type must be LineString or MultiLineString.")
+
+    if not isinstance(line_coords, list) or len(line_coords) < 2:
+        raise ValueError("A road line must have at least two vertices.")
+
+    try:
+        g = GEOSGeometry(json.dumps(geometry), srid=4326)
+        g.transform(3857)
+    except Exception as exc:
+        logger.warning("GEOS parse/transform failed for edit geometry: %s", exc)
+        raise ValueError("Geometry could not be parsed or projected for storage.") from exc
+
+    if geom_type == "LineString" and len(line_coords) >= 2:
+        if line_coords[0] == line_coords[-1] and len(line_coords) < 3:
+            raise ValueError("Degenerate line geometry.")
 
 
 def _derive_feature_label_from_riyadh_road(road):
@@ -223,9 +297,38 @@ def save_line_edit_request(request):
         raw_geometry = data.get("geometry")
         normalized_geometry = _ensure_wgs84_geometry(raw_geometry, source_srid=3857)
 
+        try:
+            _validate_line_geojson_for_edit(normalized_geometry)
+        except ValueError as ve:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": str(ve),
+                },
+                status=400,
+            )
+
+        original_geometry = None
+        geometry_changed = False
+        if is_riyadh_road and riyadh_road_id_int is not None:
+            original_geometry = _get_riyadh_road_geometry_wgs84(riyadh_road_id_int)
+            if original_geometry is None:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": "Could not load original road geometry for this feature.",
+                    },
+                    status=404,
+                )
+            geometry_changed = not _geometries_equivalent_wgs84(
+                original_geometry, normalized_geometry
+            )
+
         edit_request = LineEditRequest.objects.create(
             requester=request.user,
             geometry=normalized_geometry,
+            original_geometry=original_geometry,
+            geometry_changed=geometry_changed,
             feature_type=data.get("feature_type", ""),
             current_feature_label=data.get("current_feature_label", "Line"),
             fields_data=data.get("fields_data", {}),
@@ -308,6 +411,13 @@ def _apply_riyadh_edit_to_base_network(edit_request):
     geometry_json = edit_request.geometry
     geom = None
     if geometry_json:
+        try:
+            _validate_line_geojson_for_edit(
+                _ensure_wgs84_geometry(geometry_json, source_srid=3857)
+            )
+        except ValueError as exc:
+            logger.warning("Rejected invalid geometry on apply: %s", exc)
+            raise
         geom = GEOSGeometry(json.dumps(geometry_json), srid=4326)
         try:
             geom.transform(3857)
@@ -338,10 +448,7 @@ def _apply_riyadh_edit_to_base_network(edit_request):
 
     road = None
     if edit_request.riyadh_road_id is not None:
-        try:
-            road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(edit_request.riyadh_road_id))
-        except RiyadhRoad.DoesNotExist:
-            road = None
+        road = _resolve_riyadh_road(edit_request.riyadh_road_id)
 
     if road is None:
         road = RiyadhRoad.objects.using("riyadh_roads").create(
@@ -370,6 +477,14 @@ def _apply_manual_approval_to_remote_network(edit_request):
     geometry_json = edit_request.geometry
     if not geometry_json:
         raise ValueError("Missing geometry for approved manual line.")
+
+    try:
+        _validate_line_geojson_for_edit(
+            _ensure_wgs84_geometry(geometry_json, source_srid=3857)
+        )
+    except ValueError as exc:
+        logger.warning("Invalid manual line geometry on apply: %s", exc)
+        raise
 
     fields = edit_request.fields_data or {}
 
@@ -709,6 +824,12 @@ def list_pending_requests(request):
 
             geometry = _ensure_wgs84_geometry(req.geometry, source_srid=3857)
 
+            orig_geom = (
+                _ensure_wgs84_geometry(req.original_geometry, source_srid=3857)
+                if req.original_geometry
+                else None
+            )
+
             requests_data.append(
                 {
                     "id": req.id,
@@ -722,6 +843,8 @@ def list_pending_requests(request):
                     "current_feature_label": req.current_feature_label or "Line",
                     "created_at": req.created_at.isoformat(),
                     "geometry": geometry,
+                    "original_geometry": orig_geom,
+                    "geometry_changed": req.geometry_changed,
                     "road_closure": req.road_closure,
                 }
             )
@@ -769,6 +892,11 @@ def get_edit_request_details(request, request_id):
         )
 
         geometry = _ensure_wgs84_geometry(edit_request.geometry, source_srid=3857)
+        original_geometry = (
+            _ensure_wgs84_geometry(edit_request.original_geometry, source_srid=3857)
+            if edit_request.original_geometry
+            else None
+        )
 
         return JsonResponse(
             {
@@ -785,6 +913,8 @@ def get_edit_request_details(request, request_id):
                     "current_feature_label": edit_request.current_feature_label
                     or "Line",
                     "geometry": geometry,
+                    "original_geometry": original_geometry,
+                    "geometry_changed": edit_request.geometry_changed,
                     "fields_data": edit_request.fields_data or {},
                     "tags_data": edit_request.tags_data or [],
                     "relations_data": edit_request.relations_data or [],
@@ -919,23 +1049,16 @@ def get_riyadh_road_details(request, road_gid):
             return float(value)
         return value
 
-    road = None
     identifier = int(road_gid)
-
-    # Prefer gid lookup, but gracefully fall back to the `id` column if needed.
-    try:
-        road = RiyadhRoad.objects.using("riyadh_roads").get(gid=identifier)
-    except RiyadhRoad.DoesNotExist:
-        try:
-            road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(identifier))
-        except RiyadhRoad.DoesNotExist:
-            return JsonResponse(
-                {
-                    "success": False,
-                    "message": "Riyadh road not found for the given id.",
-                },
-                status=404,
-            )
+    road = _resolve_riyadh_road(identifier)
+    if not road:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Riyadh road not found for the given id.",
+            },
+            status=404,
+        )
 
     try:
         try:

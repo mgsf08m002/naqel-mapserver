@@ -21,6 +21,17 @@ class LineEditRequest(models.Model):
     
     # Line geometry (GeoJSON)
     geometry = models.JSONField(help_text="LineString geometry in GeoJSON format")
+
+    # Snapshot of geometry before this edit (WGS84 GeoJSON) for Riyadh roads / review UI.
+    original_geometry = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Pre-edit geometry from base network (GeoJSON, WGS84)",
+    )
+    geometry_changed = models.BooleanField(
+        default=False,
+        help_text="True when proposed geometry differs from original_geometry",
+    )
     
     # Feature details
     feature_type = models.CharField(max_length=200, blank=True, null=True)

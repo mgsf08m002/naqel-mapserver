@@ -101,7 +101,11 @@
         const featureType = document.createElement('div');
         featureType.className = 'text-xs text-gray-700 mb-2';
         const displayFeatureType = request.current_feature_label || request.feature_type || 'Line';
-        featureType.innerHTML = `<span class="font-medium">Feature:</span> ${displayFeatureType}`;
+        let featureHtml = `<span class="font-medium">Feature:</span> ${displayFeatureType}`;
+        if (request.geometry_changed) {
+            featureHtml += ` <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-900 border border-amber-200">GEOMETRY</span>`;
+        }
+        featureType.innerHTML = featureHtml;
         card.appendChild(featureType);
 
         const date = document.createElement('div');
@@ -222,6 +226,73 @@
         };
     }
 
+    function toRad(d) {
+        return d * Math.PI / 180;
+    }
+
+    function haversineMeters(a, b) {
+        const R = 6371000;
+        const dLat = toRad(b[1] - a[1]);
+        const dLon = toRad(b[0] - a[0]);
+        const la1 = toRad(a[1]);
+        const la2 = toRad(b[1]);
+        const h = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+            + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+    }
+
+    function projectPointOnSegmentPlanar(p, a, b) {
+        const x = p[0];
+        const y = p[1];
+        const x1 = a[0];
+        const y1 = a[1];
+        const x2 = b[0];
+        const y2 = b[1];
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        if (dx === 0 && dy === 0) {
+            return [x1, y1];
+        }
+        let t = ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy);
+        t = Math.max(0, Math.min(1, t));
+        return [x1 + t * dx, y1 + t * dy];
+    }
+
+    function minDistPointToPolylineMeters(p, lineCoords) {
+        let minD = Infinity;
+        for (let i = 0; i < lineCoords.length - 1; i++) {
+            const proj = projectPointOnSegmentPlanar(p, lineCoords[i], lineCoords[i + 1]);
+            const d = haversineMeters(p, proj);
+            minD = Math.min(minD, d);
+        }
+        return minD;
+    }
+
+    /** Segments of the proposed line whose midpoints move more than thresholdMeters from the original */
+    function buildChangedSegmentsGeoJson(beforeCoords, afterCoords, thresholdMeters) {
+        const thr = typeof thresholdMeters === 'number' ? thresholdMeters : 2.5;
+        if (!beforeCoords || !afterCoords || beforeCoords.length < 2 || afterCoords.length < 2) {
+            return null;
+        }
+        const lines = [];
+        for (let i = 0; i < afterCoords.length - 1; i++) {
+            const mid = [
+                (afterCoords[i][0] + afterCoords[i + 1][0]) / 2,
+                (afterCoords[i][1] + afterCoords[i + 1][1]) / 2
+            ];
+            if (minDistPointToPolylineMeters(mid, beforeCoords) > thr) {
+                lines.push([afterCoords[i], afterCoords[i + 1]]);
+            }
+        }
+        if (!lines.length) {
+            return null;
+        }
+        return {
+            type: 'MultiLineString',
+            coordinates: lines
+        };
+    }
+
     // Fetch all pending edit requests for the current manager.
     function loadPendingRequests() {
         fetch('/mapping/api/pending-requests/', {
@@ -314,27 +385,40 @@
         });
     }
 
+    function removeOneRequestCompareSet(featureId) {
+        if (typeof map === 'undefined' || !map) {
+            return;
+        }
+        const triplets = [
+            ['request-line-layer-', 'request-line-glow-', 'request-line-source-'],
+            ['request-line-before-layer-', 'request-line-before-glow-', 'request-line-before-source-'],
+            ['request-line-diff-layer-', 'request-line-diff-glow-', 'request-line-diff-source-']
+        ];
+        triplets.forEach(function(t) {
+            const layerId = t[0] + featureId;
+            const glowLayerId = t[1] + featureId;
+            const sourceId = t[2] + featureId;
+            try {
+                if (map.getLayer(layerId)) {
+                    map.removeLayer(layerId);
+                }
+                if (map.getLayer(glowLayerId)) {
+                    map.removeLayer(glowLayerId);
+                }
+                if (map.getSource(sourceId)) {
+                    map.removeSource(sourceId);
+                }
+            } catch (e) {}
+        });
+    }
+
     // Remove any previously drawn request features and markers from the map.
     function cleanupRequestLines() {
         if (typeof map === 'undefined' || !map) return;
         
         if (window.viewingRequestIds && window.viewingRequestIds.length > 0) {
             window.viewingRequestIds.forEach(function(featureId) {
-                const sourceId = 'request-line-source-' + featureId;
-                const glowLayerId = 'request-line-glow-' + featureId;
-                const layerId = 'request-line-layer-' + featureId;
-                
-                try {
-                    if (map.getLayer(layerId)) {
-                        map.removeLayer(layerId);
-                    }
-                    if (map.getLayer(glowLayerId)) {
-                        map.removeLayer(glowLayerId);
-                    }
-                    if (map.getSource(sourceId)) {
-                        map.removeSource(sourceId);
-                    }
-                } catch (e) {}
+                removeOneRequestCompareSet(featureId);
             });
             
             if (window.requestMarkers) {
@@ -382,20 +466,44 @@
 
         const requestForMap = Object.assign({}, request, { geometry: normalizedGeometry });
 
-        const coordinates = normalizedGeometry.coordinates;
+        let minLng = Infinity;
+        let minLat = Infinity;
+        let maxLng = -Infinity;
+        let maxLat = -Infinity;
 
-        let minLng = coordinates[0][0];
-        let minLat = coordinates[0][1];
-        let maxLng = coordinates[0][0];
-        let maxLat = coordinates[0][1];
-        
-        coordinates.forEach(function(coord) {
-            minLng = Math.min(minLng, coord[0]);
-            minLat = Math.min(minLat, coord[1]);
-            maxLng = Math.max(maxLng, coord[0]);
-            maxLat = Math.max(maxLat, coord[1]);
-        });
-        
+        function expandBoundsFromLineString(line) {
+            if (!line || !line.coordinates) {
+                return;
+            }
+            line.coordinates.forEach(function(coord) {
+                minLng = Math.min(minLng, coord[0]);
+                minLat = Math.min(minLat, coord[1]);
+                maxLng = Math.max(maxLng, coord[0]);
+                maxLat = Math.max(maxLat, coord[1]);
+            });
+        }
+
+        expandBoundsFromLineString(normalizedGeometry);
+        const normBefore =
+            request.original_geometry && request.geometry_changed
+                ? normalizeRequestGeometry(request.original_geometry)
+                : null;
+        expandBoundsFromLineString(normBefore);
+
+        if (!Number.isFinite(minLng) || !Number.isFinite(minLat)) {
+            const coordinates = normalizedGeometry.coordinates;
+            minLng = coordinates[0][0];
+            minLat = coordinates[0][1];
+            maxLng = coordinates[0][0];
+            maxLat = coordinates[0][1];
+            coordinates.forEach(function(coord) {
+                minLng = Math.min(minLng, coord[0]);
+                minLat = Math.min(minLat, coord[1]);
+                maxLng = Math.max(maxLng, coord[0]);
+                maxLat = Math.max(maxLat, coord[1]);
+            });
+        }
+
         const bounds = [[minLng, minLat], [maxLng, maxLat]];
 
         map.fitBounds(bounds, {
@@ -446,14 +554,125 @@
         }, 400);
     }
 
-    // Draw the request line on the map as a MapLibre layer.
+    function renderBeforeRequestLine(featureId, geometry) {
+        if (typeof map === 'undefined' || !map) return;
+
+        const sourceId = 'request-line-before-source-' + featureId;
+        const glowLayerId = 'request-line-before-glow-' + featureId;
+        const layerId = 'request-line-before-layer-' + featureId;
+
+        try {
+            if (map.getLayer(layerId)) map.removeLayer(layerId);
+            if (map.getLayer(glowLayerId)) map.removeLayer(glowLayerId);
+            if (map.getSource(sourceId)) map.removeSource(sourceId);
+
+            map.addSource(sourceId, {
+                type: 'geojson',
+                data: { type: 'Feature', geometry: geometry }
+            });
+            map.addLayer({
+                id: glowLayerId,
+                type: 'line',
+                source: sourceId,
+                paint: {
+                    'line-color': '#d1d5db',
+                    'line-width': 12,
+                    'line-opacity': 0.4,
+                    'line-blur': 5
+                }
+            });
+            map.addLayer({
+                id: layerId,
+                type: 'line',
+                source: sourceId,
+                paint: {
+                    'line-color': '#6b7280',
+                    'line-width': 4,
+                    'line-opacity': 0.95,
+                    'line-dasharray': [1.2, 1.2]
+                }
+            });
+        } catch (error) {}
+    }
+
+    function renderDiffRequestLine(featureId, multiLineGeometry) {
+        if (typeof map === 'undefined' || !map || !multiLineGeometry) return;
+
+        const sourceId = 'request-line-diff-source-' + featureId;
+        const glowLayerId = 'request-line-diff-glow-' + featureId;
+        const layerId = 'request-line-diff-layer-' + featureId;
+
+        try {
+            if (map.getLayer(layerId)) map.removeLayer(layerId);
+            if (map.getLayer(glowLayerId)) map.removeLayer(glowLayerId);
+            if (map.getSource(sourceId)) map.removeSource(sourceId);
+
+            map.addSource(sourceId, {
+                type: 'geojson',
+                data: { type: 'Feature', geometry: multiLineGeometry }
+            });
+            map.addLayer({
+                id: glowLayerId,
+                type: 'line',
+                source: sourceId,
+                paint: {
+                    'line-color': '#fdba74',
+                    'line-width': 14,
+                    'line-opacity': 0.55,
+                    'line-blur': 5
+                }
+            });
+            map.addLayer({
+                id: layerId,
+                type: 'line',
+                source: sourceId,
+                paint: {
+                    'line-color': '#ea580c',
+                    'line-width': 6,
+                    'line-opacity': 1
+                }
+            });
+        } catch (error) {}
+    }
+
+    function renderRequestCompareOnMap(featureId, request) {
+        const normAfter = normalizeRequestGeometry(request.geometry);
+        if (!normAfter) {
+            return;
+        }
+        const styledAfter = Object.assign({}, request, { geometry: normAfter });
+
+        const normBefore =
+            request.original_geometry && request.geometry_changed
+                ? normalizeRequestGeometry(request.original_geometry)
+                : null;
+
+        if (normBefore && request.geometry_changed) {
+            renderBeforeRequestLine(featureId, normBefore);
+        }
+
+        renderRequestLineAsMapLibreLayer(featureId, styledAfter);
+
+        if (normBefore && normAfter.coordinates && normBefore.coordinates && request.geometry_changed) {
+            const diffGeom = buildChangedSegmentsGeoJson(
+                normBefore.coordinates,
+                normAfter.coordinates,
+                2.5
+            );
+            if (diffGeom) {
+                renderDiffRequestLine(featureId, diffGeom);
+            }
+        }
+    }
+
+    // Draw the request line on the map as a MapLibre layer (before / after / diff when applicable).
     function drawRequestLineOnMap(request) {
         if (typeof map === 'undefined' || !map) {
             return;
         }
 
         const featureId = 'request-' + request.id;
-        renderRequestLineAsMapLibreLayer(featureId, request);
+        renderRequestCompareOnMap(featureId, request);
         
         // Update feature label
         if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateCurrentFeatureLabel === 'function') {
@@ -992,7 +1211,7 @@
         buttonContainer.className = 'fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 flex gap-3 items-center';
         buttonContainer.style.pointerEvents = 'auto';
         const card = document.createElement('div');
-        card.className = 'bg-white rounded-lg shadow-2xl border border-gray-300 px-4 py-3 flex gap-3 items-center';
+        card.className = 'bg-white rounded-lg shadow-2xl border border-gray-300 px-4 py-3 flex flex-wrap gap-3 items-center max-w-lg';
         card.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.2)';
         const infoText = document.createElement('span');
         infoText.className = 'text-sm font-medium text-gray-800 mr-2';
@@ -1028,6 +1247,15 @@
             }
         });
         card.appendChild(rejectBtn);
+
+        if (request.geometry_changed && request.original_geometry) {
+            const legend = document.createElement('div');
+            legend.className = 'text-[11px] text-gray-600 flex flex-col gap-1 border-t border-gray-200 pt-2 mt-1';
+            legend.innerHTML = '<span><span class="font-medium text-gray-600">━━</span> Gray dashed: original</span>'
+                + '<span><span class="font-medium text-gray-900">━━</span> Solid: proposed</span>'
+                + '<span><span class="font-medium text-orange-600">━━</span> Orange: changed segments</span>';
+            card.appendChild(legend);
+        }
 
         buttonContainer.appendChild(card);
         document.body.appendChild(buttonContainer);
