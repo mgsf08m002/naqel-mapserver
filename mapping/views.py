@@ -4,7 +4,7 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from django.contrib.gis.geos import GEOSGeometry, Polygon
+from django.contrib.gis.geos import GEOSGeometry, Polygon, MultiLineString, LineString
 from django.db import transaction, connections
 from django.db.models import Max
 from decimal import Decimal
@@ -478,6 +478,14 @@ def _apply_riyadh_edit_to_base_network(edit_request):
         try:
             geom.transform(3857)
         except Exception:
+            geom = None
+
+        # RiyadhRoad.geom is a MultiLineStringField; ensure the GEOS geometry
+        # we assign matches that type to avoid SpatialProxy type errors.
+        if isinstance(geom, LineString):
+            geom = MultiLineString(geom)
+        elif geom is not None and geom.geom_type != "MultiLineString":
+            # Fallback: do not assign unsupported geometry types.
             geom = None
 
         fields = edit_request.fields_data or {}

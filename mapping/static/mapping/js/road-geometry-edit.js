@@ -43,8 +43,9 @@
     }
 
     function normalizeGeometry(geom) {
-        if (window.lineDrawingHandler && window.lineDrawingHandler.normalizeToLineStringGeometry) {
-            return window.lineDrawingHandler.normalizeToLineStringGeometry(geom);
+        // Centralized normalization (Geometry / Feature / FeatureCollection → LineString).
+        if (window.GeometryNormalize && window.GeometryNormalize.normalizeToLineStringGeometry) {
+            return window.GeometryNormalize.normalizeToLineStringGeometry(geom);
         }
         return null;
     }

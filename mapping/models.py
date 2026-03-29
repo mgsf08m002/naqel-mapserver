@@ -32,6 +32,14 @@ class LineEditRequest(models.Model):
         default=False,
         help_text="True when proposed geometry differs from original_geometry",
     )
+    # Backward-compatible field: older DB schema used `has_geometry_change`
+    # (NOT NULL, no default). We keep it in sync with `geometry_changed`
+    # so inserts/updates never fail.
+    has_geometry_change = models.BooleanField(
+        db_column="has_geometry_change",
+        default=False,
+        help_text="Legacy alias for geometry_changed (DB: has_geometry_change).",
+    )
     
     # Feature details
     feature_type = models.CharField(max_length=200, blank=True, null=True)
@@ -107,6 +115,11 @@ class LineEditRequest(models.Model):
         self.reviewed_at = timezone.now()
         self.reviewed_by = reviewer
         self.save()
+
+    def save(self, *args, **kwargs):
+        # Ensure legacy NOT NULL column is always populated.
+        self.has_geometry_change = bool(self.geometry_changed)
+        super().save(*args, **kwargs)
 
 
 class RiyadhRoad(gis_models.Model):
