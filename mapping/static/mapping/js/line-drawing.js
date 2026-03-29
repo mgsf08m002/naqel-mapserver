@@ -709,58 +709,10 @@
     }
 
     function normalizeToLineStringGeometry(input) {
-        // Accept GeoJSON Geometry, Feature, or FeatureCollection; return a LineString geometry.
-        if (!input) {
-            return null;
+        // Delegate to the centralized geometry normalizer.
+        if (window.GeometryNormalize && window.GeometryNormalize.normalizeToLineStringGeometry) {
+            return window.GeometryNormalize.normalizeToLineStringGeometry(input);
         }
-
-        let geom = input;
-
-        // Feature / FeatureCollection wrappers
-        if (geom.type === 'Feature' && geom.geometry) {
-            geom = geom.geometry;
-        } else if (geom.type === 'FeatureCollection' && Array.isArray(geom.features) && geom.features.length) {
-            const first = geom.features[0];
-            if (first && first.geometry) {
-                geom = first.geometry;
-            }
-        }
-
-        if (!geom || !geom.type) {
-            return null;
-        }
-
-        if (geom.type === 'LineString') {
-            if (Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) {
-                return geom;
-            }
-            return null;
-        }
-
-        if (geom.type === 'MultiLineString') {
-            const coords = geom.coordinates;
-            if (!Array.isArray(coords) || !coords.length) {
-                return null;
-            }
-            // Use the first non-trivial line for preview.
-            for (let i = 0; i < coords.length; i++) {
-                const line = coords[i];
-                if (Array.isArray(line) && line.length >= 2) {
-                    return { type: 'LineString', coordinates: line };
-                }
-            }
-            return null;
-        }
-
-        if (geom.type === 'GeometryCollection' && Array.isArray(geom.geometries)) {
-            for (let i = 0; i < geom.geometries.length; i++) {
-                const normalized = normalizeToLineStringGeometry(geom.geometries[i]);
-                if (normalized) {
-                    return normalized;
-                }
-            }
-        }
-
         return null;
     }
 

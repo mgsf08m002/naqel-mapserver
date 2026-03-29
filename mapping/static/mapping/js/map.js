@@ -795,6 +795,27 @@ map.on('load', () => {
                                 } else if (typeof window.showRiyadhRoadAsLineFeature === 'function') {
                                     window.showRiyadhRoadAsLineFeature(data.road);
                                 }
+
+                                // If the user is already actively editing a road (vertices mode is on),
+                                // automatically switch the draggable vertices to the newly selected road.
+                                // Without this, vertices can appear "missing" when switching between roads.
+                                if (
+                                    window.__roadGeometryEditActiveId != null &&
+                                    window.roadGeometryEdit &&
+                                    typeof window.roadGeometryEdit.startFromRiyadhContext === 'function'
+                                ) {
+                                    // Avoid clearing vertices when the edit screen is intentionally read-only
+                                    // (e.g. viewing a submitted request rather than an editable road).
+                                    setTimeout(function () {
+                                        try {
+                                            const editScreenEl = document.getElementById('editFeatureScreen');
+                                            if (editScreenEl && editScreenEl.getAttribute('data-geometry-readonly') === 'true') {
+                                                return;
+                                            }
+                                            window.roadGeometryEdit.startFromRiyadhContext();
+                                        } catch (e) {}
+                                    }, 0);
+                                }
                             } catch (err) {
                             }
                         });

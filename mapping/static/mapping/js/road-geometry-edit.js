@@ -35,69 +35,11 @@
         return typeof map !== 'undefined' ? map : null;
     }
 
-    function webMercatorToWgs84(x, y) {
-        var R = 6378137.0;
-        var lng = (x / R) * (180 / Math.PI);
-        var lat = (2 * Math.atan(Math.exp(y / R)) - Math.PI / 2) * (180 / Math.PI);
-        return [lng, lat];
-    }
-
-    function normalizeLineStringCoordsForMap(coords) {
-        if (!coords || coords.length < 2) {
-            return null;
+    function extractEditableCoordsWgs84(geom) {
+        if (window.GeometryNormalize && window.GeometryNormalize.extractEditableLineCoordsWgs84) {
+            return window.GeometryNormalize.extractEditableLineCoordsWgs84(geom);
         }
-        var cleaned = [];
-        var i;
-        for (i = 0; i < coords.length; i++) {
-            var coord = coords[i];
-            if (!coord || coord.length < 2) {
-                return null;
-            }
-            var lng = Number(coord[0]);
-            var lat = Number(coord[1]);
-            if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
-                return null;
-            }
-            if (Math.abs(lng) > 180 || Math.abs(lat) > 90) {
-                var converted = webMercatorToWgs84(lng, lat);
-                lng = converted[0];
-                lat = converted[1];
-            }
-            if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
-                return null;
-            }
-            if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
-                return null;
-            }
-            cleaned.push([lng, lat]);
-        }
-        if (cleaned.length < 2) {
-            return null;
-        }
-        function bboxCenter(cc) {
-            var minLng = cc[0][0];
-            var minLat = cc[0][1];
-            var maxLng = cc[0][0];
-            var maxLat = cc[0][1];
-            cc.forEach(function(pt) {
-                minLng = Math.min(minLng, pt[0]);
-                minLat = Math.min(minLat, pt[1]);
-                maxLng = Math.max(maxLng, pt[0]);
-                maxLat = Math.max(maxLat, pt[1]);
-            });
-            return { lng: (minLng + maxLng) / 2, lat: (minLat + maxLat) / 2 };
-        }
-        function inRiyadhViewport(lng, lat) {
-            return lng >= 45.475 && lng <= 48.733 && lat >= 23.981 && lat <= 25.664;
-        }
-        var center = bboxCenter(cleaned);
-        if (!inRiyadhViewport(center.lng, center.lat) && inRiyadhViewport(center.lat, center.lng)) {
-            for (i = 0; i < cleaned.length; i++) {
-                var pt = cleaned[i];
-                cleaned[i] = [pt[1], pt[0]];
-            }
-        }
-        return cleaned;
+        return null;
     }
 
     function normalizeGeometry(geom) {
@@ -264,10 +206,7 @@
         if (!norm || !norm.coordinates || norm.coordinates.length < 2) {
             return;
         }
-        var raw = norm.coordinates.map(function(c) {
-            return [Number(c[0]), Number(c[1])];
-        });
-        var coords = normalizeLineStringCoordsForMap(raw);
+        var coords = extractEditableCoordsWgs84(norm);
         if (!coords || coords.length < 2) {
             return;
         }
@@ -640,15 +579,18 @@
         }
 
         var norm = normalizeGeometry(ctx.geometry);
-        if (!norm || !norm.coordinates || norm.coordinates.length < 2) {
+        if (!norm) {
+            if (typeof window.showToastNotification === 'function') {
+                window.showToastNotification('Cannot edit this road: geometry is missing or unsupported.', 'error');
+            }
             return;
         }
 
-        var rawCoords = norm.coordinates.map(function(c) {
-            return [Number(c[0]), Number(c[1])];
-        });
-        workingCoords = normalizeLineStringCoordsForMap(rawCoords);
+        workingCoords = extractEditableCoordsWgs84(norm);
         if (!workingCoords) {
+            if (typeof window.showToastNotification === 'function') {
+                window.showToastNotification('Cannot edit this road: geometry must be WGS84 (lng/lat).', 'error');
+            }
             return;
         }
         roadId = ctx.riyadh_road_id != null ? ctx.riyadh_road_id : ctx.id;

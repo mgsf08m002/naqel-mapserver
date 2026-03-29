@@ -35,20 +35,22 @@ def map_view(request):
 def _geometry_looks_like_wgs84(geometry):
     """Return True when a GeoJSON geometry already appears to be in WGS84."""
     try:
-        if not geometry:
-            return True
+        if not geometry or not isinstance(geometry, dict):
+            return False
 
         geom_type = geometry.get("type")
         coords = geometry.get("coordinates")
         if not coords:
-            return True
+            return False
 
         def _iter_points(values):
             if not isinstance(values, (list, tuple)):
                 return
 
+            # Coordinate pair: [x, y] (or [x, y, z])
             if values and isinstance(values[0], (int, float, str)):
-                yield values
+                if len(values) >= 2:
+                    yield values
                 return
 
             for child in values:
@@ -57,13 +59,13 @@ def _geometry_looks_like_wgs84(geometry):
 
         seen = 0
         for pt in _iter_points(coords):
-            if not pt or len(pt) < 2:
+            if not pt or not isinstance(pt, (list, tuple)) or len(pt) < 2:
                 continue
             try:
                 lng = float(pt[0])
                 lat = float(pt[1])
             except (TypeError, ValueError):
-                continue
+                return False
 
             if not (-180.0 <= lng <= 180.0 and -90.0 <= lat <= 90.0):
                 return False
@@ -72,9 +74,12 @@ def _geometry_looks_like_wgs84(geometry):
             if seen >= 1000:
                 break
 
-        return True
+        # If we couldn't validate any coordinates, assume it's NOT WGS84 so we
+        # transform it.
+        return seen > 0
     except Exception:
-        return True
+        # Never treat an error as "already WGS84" — in doubt, transform.
+        return False
 
 
 def _ensure_wgs84_geometry(geometry, source_srid=3857):
@@ -86,7 +91,16 @@ def _ensure_wgs84_geometry(geometry, source_srid=3857):
         return geometry
 
     try:
-        geom = GEOSGeometry(json.dumps(geometry), srid=source_srid)
+        # GeoJSON carries no SRID by default. Django/GEOS commonly assumes 4326,
+        # which is wrong for our stored road network geometries (3857). So we:
+        # - parse without forcing SRID
+        # - explicitly set the expected source SRID
+        # - then transform to 4326
+        geom = GEOSGeometry(json.dumps(geometry))
+        try:
+            geom.srid = int(source_srid)
+        except Exception:
+            pass
         geom.transform(4326)
         return json.loads(geom.json)
     except Exception:
@@ -94,15 +108,24 @@ def _ensure_wgs84_geometry(geometry, source_srid=3857):
 
 
 def _resolve_riyadh_road(road_identifier):
-    """Load RiyadhRoad by gid first, then by ``id`` column (tile id may be either)."""
+    """
+    Resolve a RiyadhRoad for an identifier coming from the map.
+
+    Important: our vector-tile source uses `promoteId: { riyadh_roads: 'id' }`
+    (see mapping/static/mapping/js/map.js). That means the feature identifier
+    used by the browser is the DB column `id`, not the primary key `gid`.
+
+    Because `gid` and `id` can overlap across different rows, we must try the
+    `id` column first, and only fall back to `gid` when there is no `id` match.
+    """
     if road_identifier is None:
         return None
     identifier = int(road_identifier)
     try:
-        return RiyadhRoad.objects.using("riyadh_roads").get(gid=identifier)
+        return RiyadhRoad.objects.using("riyadh_roads").get(id=float(identifier))
     except RiyadhRoad.DoesNotExist:
         try:
-            return RiyadhRoad.objects.using("riyadh_roads").get(id=float(identifier))
+            return RiyadhRoad.objects.using("riyadh_roads").get(gid=identifier)
         except RiyadhRoad.DoesNotExist:
             return None
 
@@ -734,14 +757,9 @@ def _apply_delete_to_base_network(edit_request):
 
     identifier = int(edit_request.riyadh_road_id)
 
-    # Mirror the lookup strategy used by get_riyadh_road_details so that
-    # deletes work regardless of whether tiles / external systems reference
-    # `gid` or `id`.
-    road = None
-    try:
-        road = RiyadhRoad.objects.using("riyadh_roads").get(gid=identifier)
-    except RiyadhRoad.DoesNotExist:
-        road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(identifier))
+    road = _resolve_riyadh_road(identifier)
+    if not road:
+        raise ValueError("Target Riyadh road not found for delete.")
 
     road.delete(using="riyadh_roads")
 
@@ -801,23 +819,15 @@ def create_delete_request(request):
         is_riyadh_road = True
         riyadh_road_id_int = target_gid_int
 
-        # Resolve road by gid first, then fall back to the `id` column so that
-        # deletes work regardless of which identifier the tiles or external
-        # systems are using.
-        road = None
-        try:
-            road = RiyadhRoad.objects.using("riyadh_roads").get(gid=target_gid_int)
-        except RiyadhRoad.DoesNotExist:
-            try:
-                road = RiyadhRoad.objects.using("riyadh_roads").get(id=float(target_gid_int))
-            except RiyadhRoad.DoesNotExist:
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "message": "Target Riyadh road not found for delete request.",
-                    },
-                    status=404,
-                )
+        road = _resolve_riyadh_road(target_gid_int)
+        if not road:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": "Target Riyadh road not found for delete request.",
+                },
+                status=404,
+            )
 
         geometry = _get_riyadh_road_geometry_wgs84(getattr(road, "gid", target_gid_int))
         feature_label = feature_label_from_riyadh_fclass(getattr(road, "fclass", None))
@@ -1218,15 +1228,27 @@ def get_riyadh_road_details(request, road_gid):
         )
 
     try:
+        # `road.geom.json` is GeoJSON without SRID metadata and can be ambiguous.
+        # For reliable WGS84 output (used by the geometry editor / vertex handles),
+        # transform the geometry object itself from its known SRID.
+        geometry = None
         try:
-            raw_geometry = json.loads(road.geom.json) if road.geom else None
+            geom_obj = getattr(road, "geom", None)
+            if geom_obj:
+                geom_obj.transform(4326)
+                geometry = json.loads(geom_obj.json)
         except Exception:
-            raw_geometry = None
-
-        geometry = _ensure_wgs84_geometry(raw_geometry, source_srid=3857)
+            # Fallback: try to normalize whatever we can.
+            try:
+                raw_geometry = json.loads(road.geom.json) if road.geom else None
+            except Exception:
+                raw_geometry = None
+            geometry = _ensure_wgs84_geometry(raw_geometry, source_srid=3857)
 
         fields_data = {
             "gid": getattr(road, "gid", None),
+            # The stable identifier used by vector tiles / MapLibre promoteId.
+            "id": _sanitize_number(getattr(road, "id", None)),
             "objectid": str(road.objectid) if getattr(road, "objectid", None) is not None else "",
             "name": (road.name or "").strip(),
             "ref": road.ref or "",
