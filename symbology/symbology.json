@@ -127,6 +127,65 @@
       "markerColor": "#f3f4f6",
       "markerGlowColor": "#6b7280"
     },
+    "Tertiary Link": {
+      "lineColor": "#c026d3",
+      "glowColor": "#e879f9",
+      "lineWidth": 4.0,
+      "glowWidth": 9.0,
+      "glowOpacity": 0.5,
+      "markerColor": "#fdf4ff",
+      "markerGlowColor": "#c026d3"
+    },
+    "Track / Land-Access Road": {
+      "lineColor": "#92400e",
+      "glowColor": "#ca8a04",
+      "lineWidth": 3.0,
+      "glowWidth": 8.0,
+      "glowOpacity": 0.55,
+      "markerColor": "#fffbeb",
+      "markerGlowColor": "#92400e",
+      "lineDasharray": [2, 1.5]
+    },
+    "Footway": {
+      "lineColor": "#64748b",
+      "glowColor": "#94a3b8",
+      "lineWidth": 2.0,
+      "glowWidth": 6.0,
+      "glowOpacity": 0.45,
+      "markerColor": "#f8fafc",
+      "markerGlowColor": "#64748b",
+      "lineDasharray": [4, 3]
+    },
+    "Steps": {
+      "lineColor": "#78716c",
+      "glowColor": "#a8a29e",
+      "lineWidth": 2.5,
+      "glowWidth": 6.5,
+      "glowOpacity": 0.5,
+      "markerColor": "#fafaf9",
+      "markerGlowColor": "#78716c",
+      "lineDasharray": [1.2, 1.2]
+    },
+    "Path": {
+      "lineColor": "#57534e",
+      "glowColor": "#a8a29e",
+      "lineWidth": 2.5,
+      "glowWidth": 7.0,
+      "glowOpacity": 0.5,
+      "markerColor": "#fafaf9",
+      "markerGlowColor": "#57534e",
+      "lineDasharray": [3, 2.5]
+    },
+    "Cycleway": {
+      "lineColor": "#0d9488",
+      "glowColor": "#2dd4bf",
+      "lineWidth": 3.0,
+      "glowWidth": 8.0,
+      "glowOpacity": 0.55,
+      "markerColor": "#ecfdf5",
+      "markerGlowColor": "#0d9488",
+      "lineDasharray": [5, 2.5]
+    },
     "Road Closure": {
       "lineColor": "#ff3b30",
       "glowColor": "#ff3b30",

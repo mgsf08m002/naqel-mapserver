@@ -4,6 +4,8 @@ from typing import Dict, TypedDict, Any
 from pathlib import Path
 import json
 
+from mapping.riyadh_fclass import RIYADH_FCLASS_TO_LABEL
+
 
 class LineStyle(TypedDict, total=False):
     """Style definition for a linear feature type used by the frontend."""
@@ -23,6 +25,20 @@ class SymbologyCatalog(TypedDict):
 
     version: int
     styles_by_label: Dict[str, LineStyle]
+
+
+def _validate_riyadh_road_styles(styles: Dict[str, LineStyle]) -> None:
+    """
+    Every OSM fclass label used by Riyadh roads must have a row in symbology.json
+    so MVT + DB + map paint stay on one palette (see mapping/riyadh_fclass.py).
+    """
+    required = set(RIYADH_FCLASS_TO_LABEL.values()) | {"Line", "Road Closure"}
+    missing = sorted(label for label in required if label not in styles)
+    if missing:
+        raise ValueError(
+            "symbology.json styles_by_label is missing styles for: "
+            f"{missing}. Add entries or align labels with mapping/riyadh_fclass.py."
+        )
 
 
 def get_catalog() -> SymbologyCatalog:
@@ -94,6 +110,8 @@ def get_catalog() -> SymbologyCatalog:
         if "lineDasharray" in style and isinstance(style["lineDasharray"], list):
             result["lineDasharray"] = [float(x) for x in style["lineDasharray"]]
         styles[label] = result
+
+    _validate_riyadh_road_styles(styles)
 
     return {
         "version": version,

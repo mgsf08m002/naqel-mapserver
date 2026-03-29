@@ -109,38 +109,6 @@
         } catch (e) {}
     }
 
-    function applyRiyadhTileSelectionHighlightFromSymbology(map, style, lineDasharray) {
-        if (!map || !style) {
-            return;
-        }
-        var w = Number(style.lineWidth) || 4;
-        var c = style.lineColor || '#52525b';
-        var dash = normalizeDash(lineDasharray);
-        var pair = maplibreSelectionCasingPaintPair(w, dash);
-        try {
-            if (map.getLayer(RIYADH_CORE_LAYER_ID)) {
-                map.setPaintProperty(RIYADH_CORE_LAYER_ID, 'line-color', c);
-                map.setPaintProperty(RIYADH_CORE_LAYER_ID, 'line-width', w);
-                map.setPaintProperty(RIYADH_CORE_LAYER_ID, 'line-opacity', 1);
-                map.setPaintProperty(RIYADH_CORE_LAYER_ID, 'line-dasharray', dash);
-            }
-            if (map.getLayer(RIYADH_OUTLINE_LAYER_ID)) {
-                map.setPaintProperty(RIYADH_OUTLINE_LAYER_ID, 'line-color', pair.outline['line-color']);
-                map.setPaintProperty(RIYADH_OUTLINE_LAYER_ID, 'line-width', pair.outline['line-width']);
-                map.setPaintProperty(RIYADH_OUTLINE_LAYER_ID, 'line-opacity', pair.outline['line-opacity']);
-                map.setPaintProperty(RIYADH_OUTLINE_LAYER_ID, 'line-blur', pair.outline['line-blur']);
-                map.setPaintProperty(RIYADH_OUTLINE_LAYER_ID, 'line-dasharray', dash);
-            }
-            if (map.getLayer(RIYADH_RING_LAYER_ID)) {
-                map.setPaintProperty(RIYADH_RING_LAYER_ID, 'line-color', pair.ring['line-color']);
-                map.setPaintProperty(RIYADH_RING_LAYER_ID, 'line-width', pair.ring['line-width']);
-                map.setPaintProperty(RIYADH_RING_LAYER_ID, 'line-opacity', pair.ring['line-opacity']);
-                map.setPaintProperty(RIYADH_RING_LAYER_ID, 'line-blur', pair.ring['line-blur']);
-                map.setPaintProperty(RIYADH_RING_LAYER_ID, 'line-dasharray', dash);
-            }
-        } catch (e) {}
-    }
-
     global.MapLineSelection = {
         OUTLINE_COLOR: OUTLINE_COLOR,
         RING_COLOR: RING_COLOR,
@@ -165,7 +133,6 @@
         casingWidthFromCore: casingWidthFromCore,
         maplibreSelectionCasingPaintPair: maplibreSelectionCasingPaintPair,
         applyGeoJsonCasingFromCoreWidth: applyGeoJsonCasingFromCoreWidth,
-        applyRiyadhTileSelectionHighlightFromSymbology: applyRiyadhTileSelectionHighlightFromSymbology,
         defaultGeoJsonOutlinePaint: defaultGeoJsonOutlinePaint,
         defaultGeoJsonRingPaint: defaultGeoJsonRingPaint,
     };

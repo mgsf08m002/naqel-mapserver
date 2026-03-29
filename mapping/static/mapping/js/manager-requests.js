@@ -407,19 +407,19 @@
         } catch (e0) {}
 
         const triplets = [
-            ['request-line-before-layer-', 'request-line-before-glow-', 'request-line-before-source-'],
-            ['request-line-diff-layer-', 'request-line-diff-glow-', 'request-line-diff-source-']
+            ['request-line-before-layer-', 'request-line-before-underlay-', 'request-line-before-source-'],
+            ['request-line-diff-layer-', 'request-line-diff-underlay-', 'request-line-diff-source-']
         ];
         triplets.forEach(function(t) {
             const layerId = t[0] + featureId;
-            const glowLayerId = t[1] + featureId;
+            const underlayLayerId = t[1] + featureId;
             const sourceId = t[2] + featureId;
             try {
                 if (map.getLayer(layerId)) {
                     map.removeLayer(layerId);
                 }
-                if (map.getLayer(glowLayerId)) {
-                    map.removeLayer(glowLayerId);
+                if (map.getLayer(underlayLayerId)) {
+                    map.removeLayer(underlayLayerId);
                 }
                 if (map.getSource(sourceId)) {
                     map.removeSource(sourceId);
@@ -581,12 +581,12 @@
         if (typeof map === 'undefined' || !map) return;
 
         const sourceId = 'request-line-before-source-' + featureId;
-        const glowLayerId = 'request-line-before-glow-' + featureId;
+        const underlayLayerId = 'request-line-before-underlay-' + featureId;
         const layerId = 'request-line-before-layer-' + featureId;
 
         try {
             if (map.getLayer(layerId)) map.removeLayer(layerId);
-            if (map.getLayer(glowLayerId)) map.removeLayer(glowLayerId);
+            if (map.getLayer(underlayLayerId)) map.removeLayer(underlayLayerId);
             if (map.getSource(sourceId)) map.removeSource(sourceId);
 
             map.addSource(sourceId, {
@@ -594,7 +594,7 @@
                 data: { type: 'Feature', geometry: geometry }
             });
             map.addLayer({
-                id: glowLayerId,
+                id: underlayLayerId,
                 type: 'line',
                 source: sourceId,
                 paint: {
@@ -622,12 +622,12 @@
         if (typeof map === 'undefined' || !map || !multiLineGeometry) return;
 
         const sourceId = 'request-line-diff-source-' + featureId;
-        const glowLayerId = 'request-line-diff-glow-' + featureId;
+        const underlayLayerId = 'request-line-diff-underlay-' + featureId;
         const layerId = 'request-line-diff-layer-' + featureId;
 
         try {
             if (map.getLayer(layerId)) map.removeLayer(layerId);
-            if (map.getLayer(glowLayerId)) map.removeLayer(glowLayerId);
+            if (map.getLayer(underlayLayerId)) map.removeLayer(underlayLayerId);
             if (map.getSource(sourceId)) map.removeSource(sourceId);
 
             map.addSource(sourceId, {
@@ -635,7 +635,7 @@
                 data: { type: 'Feature', geometry: multiLineGeometry }
             });
             map.addLayer({
-                id: glowLayerId,
+                id: underlayLayerId,
                 type: 'line',
                 source: sourceId,
                 paint: {

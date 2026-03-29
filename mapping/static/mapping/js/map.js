@@ -388,6 +388,72 @@ map.on('load', () => {
             const SOURCE_LAYER = 'riyadh_roads';
             const HOVER_NONE_ID = -999999;
 
+            /*
+             * Riyadh road styling — keep map, tileserver, and remote DB aligned:
+             *
+             * - Base paint uses MVT ``fclass`` (must match DB when tiles are fresh).
+             * - After GET /mapping/api/riyadh-road/<id>/ or a successful save, we set
+             *   MapLibre feature-state ``db_fclass`` from ``fields_data.fclass`` (remote
+             *   DB). Match expressions use coalesce(feature-state db_fclass, tile fclass)
+             *   so the map reflects DB truth even if MVT is temporarily stale.
+             * - ``promoteId`` ties feature-state ``id`` to the tile ``id`` property
+             *   (same identifier the API resolves).
+             * - ``tiles_version`` on the tile URL (see triggerRiyadhTilesReload) should
+             *   bump when the backend republishes tiles so clients and CDNs load MVT
+             *   that matches the DB; we reapply cached db_fclass after source reload.
+             */
+            window.__riyadhRoadDbFclassById = window.__riyadhRoadDbFclassById || {};
+
+            function normalizeRiyadhDbFclassForTiles(raw) {
+                const s = String(raw || '').trim().toLowerCase();
+                return s.length ? s : null;
+            }
+
+            window.applyRiyadhRoadDbFclassFromDatabase = function(roadId, dbFclassRaw) {
+                const fc = normalizeRiyadhDbFclassForTiles(dbFclassRaw);
+                const idNum = roadId != null ? parseInt(String(roadId), 10) : NaN;
+                if (!fc || Number.isNaN(idNum)) {
+                    return;
+                }
+                window.__riyadhRoadDbFclassById[String(idNum)] = fc;
+                try {
+                    if (!map.getSource(SOURCE_ID)) {
+                        return;
+                    }
+                    map.setFeatureState(
+                        { source: SOURCE_ID, sourceLayer: SOURCE_LAYER, id: idNum },
+                        { db_fclass: fc }
+                    );
+                } catch (e) {}
+            };
+
+            function reapplyRiyadhRoadDbFclassFeatureStates() {
+                const o = window.__riyadhRoadDbFclassById || {};
+                const ids = Object.keys(o);
+                if (!ids.length) {
+                    return;
+                }
+                try {
+                    if (!map.getSource(SOURCE_ID)) {
+                        return;
+                    }
+                } catch (e) {
+                    return;
+                }
+                ids.forEach(function(k) {
+                    const idNum = parseInt(k, 10);
+                    if (Number.isNaN(idNum)) {
+                        return;
+                    }
+                    try {
+                        map.setFeatureState(
+                            { source: SOURCE_ID, sourceLayer: SOURCE_LAYER, id: idNum },
+                            { db_fclass: o[k] }
+                        );
+                    } catch (e2) {}
+                });
+            }
+
             function ensureRiyadhRoadsSource(version) {
                 if (map.getSource(SOURCE_ID)) {
                     return;
@@ -397,7 +463,8 @@ map.on('load', () => {
                     type: 'vector',
                     tiles: [bustedUrl],
                     minzoom: 0,
-                    maxzoom: 14
+                    maxzoom: 14,
+                    promoteId: { [SOURCE_LAYER]: 'id' }
                 });
             }
 
@@ -424,33 +491,24 @@ map.on('load', () => {
                 });
             }
 
-            const fclassToLabel = {
-                motorway: 'Motorway',
-                motorway_link: 'Motorway Link',
-                trunk: 'Trunk Road',
-                trunk_link: 'Trunk Link',
-                primary: 'Primary Road',
-                primary_link: 'Primary Link',
-                secondary: 'Secondary Road',
-                secondary_link: 'Secondary Link',
-                tertiary: 'Tertiary Road',
-                tertiary_link: 'Tertiary Link',
-                residential: 'Residential Road',
-                living_street: 'Living Street',
-                service: 'Service Road',
-                unclassified: 'Unclassified Road',
-                track: 'Track / Land-Access Road',
-                footway: 'Footway',
-                steps: 'Steps',
-                path: 'Path',
-                cycleway: 'Cycleway'
-            };
-
-            function buildMatchExpressionForStyle(stylesByLabel, propName, defaultValue, transform) {
-                const keys = Object.keys(fclassToLabel);
-                const expression = ['match', ['get', 'fclass']];
+            /** Symbology match: catalog from riyadh_fclass.py; see block comment above. */
+            function buildMatchExpressionForStyle(stylesByLabel, fclassToLabel, fclassKeys, propName, defaultValue, transform) {
+                const keys = Array.isArray(fclassKeys) ? fclassKeys : Object.keys(fclassToLabel || {});
+                const effectiveFclass = [
+                    'downcase',
+                    [
+                        'to-string',
+                        [
+                            'coalesce',
+                            ['feature-state', 'db_fclass'],
+                            ['get', 'fclass'],
+                            ''
+                        ]
+                    ]
+                ];
+                const expression = ['match', effectiveFclass];
                 keys.forEach(function(raw) {
-                    const label = fclassToLabel[raw] || 'Line';
+                    const label = (fclassToLabel && fclassToLabel[raw]) || 'Line';
                     const style = stylesByLabel[label] || stylesByLabel['Line'] || null;
                     const rawValue = style && style[propName] != null ? style[propName] : defaultValue;
                     const value = typeof transform === 'function' ? transform(rawValue) : rawValue;
@@ -463,7 +521,9 @@ map.on('load', () => {
 
             function ensureRiyadhRoadLayerFromCatalog(catalog) {
                 const stylesByLabel = catalog && catalog.styles_by_label ? catalog.styles_by_label : null;
-                if (!stylesByLabel || !stylesByLabel['Line']) {
+                const fclassToLabel = catalog && catalog.riyadh_fclass_to_label ? catalog.riyadh_fclass_to_label : null;
+                const fclassKeys = catalog && catalog.riyadh_fclass_keys ? catalog.riyadh_fclass_keys : null;
+                if (!stylesByLabel || !stylesByLabel['Line'] || !fclassToLabel || !fclassKeys || !fclassKeys.length) {
                     return;
                 }
 
@@ -473,11 +533,15 @@ map.on('load', () => {
 
                 const colorExpression = buildMatchExpressionForStyle(
                     stylesByLabel,
+                    fclassToLabel,
+                    fclassKeys,
                     'lineColor',
                     defaultColor
                 );
                 const widthExpression = buildMatchExpressionForStyle(
                     stylesByLabel,
+                    fclassToLabel,
+                    fclassKeys,
                     'lineWidth',
                     defaultWidth,
                     function(v) { return Number(v) || defaultWidth; }
@@ -561,7 +625,7 @@ map.on('load', () => {
                         });
                     }
 
-                    // Selected road core: catalog symbology (color / width / dash).
+                    // Selected road core: same catalog expressions as STYLED_LAYER (fclass + db_fclass).
                     if (!map.getLayer(SELECTED_LAYER_ID)) {
                         map.addLayer({
                             id: SELECTED_LAYER_ID,
@@ -692,6 +756,10 @@ map.on('load', () => {
                                     fd.ref = tRef;
                                 }
                                 data.road.fields_data = fd;
+                                const dbFclass = fd.fclass != null ? String(fd.fclass).trim() : '';
+                                if (dbFclass && typeof window.applyRiyadhRoadDbFclassFromDatabase === 'function') {
+                                    window.applyRiyadhRoadDbFclassFromDatabase(roadId, dbFclass);
+                                }
                                 const skipTags = { name: true, road_closure: true };
                                 data.road.tags_data = [];
                                 Object.keys(fd).forEach(function (k) {
@@ -768,6 +836,27 @@ map.on('load', () => {
                     try {
                         map.setPaintProperty(STYLED_LAYER_ID, 'line-color', colorExpression);
                         map.setPaintProperty(STYLED_LAYER_ID, 'line-width', widthExpression);
+                        if (map.getLayer(HOVER_LAYER_ID)) {
+                            map.setPaintProperty(HOVER_LAYER_ID, 'line-width', ['+', widthExpression, 2]);
+                        }
+                        if (map.getLayer(SELECTED_LAYER_ID)) {
+                            map.setPaintProperty(SELECTED_LAYER_ID, 'line-color', colorExpression);
+                            map.setPaintProperty(SELECTED_LAYER_ID, 'line-width', widthExpression);
+                        }
+                        if (map.getLayer(OUTLINE_LAYER_ID)) {
+                            map.setPaintProperty(
+                                OUTLINE_LAYER_ID,
+                                'line-width',
+                                MLS ? MLS.riyadhTileOutlineWidthExpression(widthExpression) : ['+', widthExpression, 7]
+                            );
+                        }
+                        if (map.getLayer(RING_LAYER_ID)) {
+                            map.setPaintProperty(
+                                RING_LAYER_ID,
+                                'line-width',
+                                MLS ? MLS.riyadhTileRingWidthExpression(widthExpression) : ['+', widthExpression, 4]
+                            );
+                        }
                     } catch (e) {}
                 }
             }
@@ -778,6 +867,7 @@ map.on('load', () => {
                 }
                 if (window.symbologyCatalog) {
                     ensureRiyadhRoadLayerFromCatalog(window.symbologyCatalog);
+                    reapplyRiyadhRoadDbFclassFeatureStates();
                     return;
                 }
 
@@ -797,6 +887,7 @@ map.on('load', () => {
                             window.dispatchEvent(new CustomEvent('symbology:catalogLoaded', { detail: catalog }));
                         } catch (e) {}
                         ensureRiyadhRoadLayerFromCatalog(catalog);
+                        reapplyRiyadhRoadDbFclassFeatureStates();
                     })
                     .catch(function() {});
             }
@@ -805,6 +896,7 @@ map.on('load', () => {
                 window.addEventListener('symbology:catalogLoaded', function(e) {
                     const catalog = e && e.detail ? e.detail : window.symbologyCatalog;
                     ensureRiyadhRoadLayerFromCatalog(catalog);
+                    reapplyRiyadhRoadDbFclassFeatureStates();
                 });
             }
             requestCatalog();
@@ -922,6 +1014,10 @@ map.on('load', () => {
                             );
                         } catch (e4) {}
                     }
+
+                    map.once('idle', function() {
+                        reapplyRiyadhRoadDbFclassFeatureStates();
+                    });
                 } catch (e) {}
             };
         } catch (e) {}

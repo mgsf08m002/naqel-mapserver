@@ -18,7 +18,7 @@
     let symbologyStylesByLabel = null;
     let symbologyCatalogRequested = false;
 
-    /** Shared selection halo + layer ids; see map-line-selection.js */
+    /** Shared selection casing helpers; see map-line-selection.js */
     function mapLineSelection() {
         return typeof window.MapLineSelection !== 'undefined' ? window.MapLineSelection : null;
     }
@@ -576,7 +576,14 @@
     }
 
     function ensureSymbologyCatalogRequested() {
-        if (symbologyCatalogRequested || symbologyCatalog) {
+        if (symbologyCatalog && symbologyStylesByLabel) {
+            return;
+        }
+        if (window.symbologyCatalog && window.symbologyCatalog.styles_by_label) {
+            setSymbologyCatalog(window.symbologyCatalog);
+            return;
+        }
+        if (symbologyCatalogRequested) {
             return;
         }
 
@@ -4174,6 +4181,23 @@
         }
     }
 
+    /** Prefer fields_data.fclass (remote DB); else label→fclass from catalog (riyadh_label_to_fclass). */
+    function resolveRiyadhFclassForFeatureState(featureLabel) {
+        const snap = window.approvedLineBeingEdited || window.selectedRiyadhRoad || {};
+        const fd = snap.fields_data && typeof snap.fields_data === 'object' ? snap.fields_data : {};
+        const fromDb = String(fd.fclass || '').trim();
+        if (fromDb) {
+            return fromDb;
+        }
+        const cat = window.symbologyCatalog;
+        const inv = cat && cat.riyadh_label_to_fclass;
+        if (!inv) {
+            return null;
+        }
+        const lab = (featureLabel != null ? String(featureLabel) : '').trim().toLowerCase();
+        return inv[lab] || null;
+    }
+
     // Update Riyadh road visualization on the map when feature type changes.
     function updateRiyadhRoadVisualization(roadId, newFeatureLabel, geometry) {
         // Keep the highlight selection in sync with the chosen road id.
@@ -4185,23 +4209,22 @@
             }
         }
 
-        // Also restyle the dedicated highlight layer so that, during editing,
-        // the visible symbology reflects the *edited* feature type rather than
-        // the original fclass from the tileserver.
         try {
-            if (typeof map !== 'undefined' && map && geometry) {
-                const mls = mapLineSelection();
-                const style = getEffectiveVisualizationStyle(newFeatureLabel);
-                if (mls && style) {
-                    const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray))
-                        ? style.lineDasharray
-                        : [1, 0];
-                    mls.applyRiyadhTileSelectionHighlightFromSymbology(map, style, lineDasharray);
+            if (
+                geometry &&
+                roadId != null &&
+                typeof window.applyRiyadhRoadDbFclassFromDatabase === 'function'
+            ) {
+                const fc = resolveRiyadhFclassForFeatureState(newFeatureLabel);
+                if (fc) {
+                    window.applyRiyadhRoadDbFclassFromDatabase(roadId, fc);
                 }
             }
-        } catch (e) {
-            // Non-critical styling failure; base tiles still show underlying road.
-        }
+        } catch (eFs) {}
+
+        // Riyadh tile selection core/outline/ring keep MapLibre data-driven paint (same
+        // expressions as riyadh-roads-layer). db_fclass feature-state + filters provide
+        // symbology; do not paint literals here or the core jumps away from the base road.
 
         if (geometry && typeof map !== 'undefined' && map) {
             applySelectedOverlaySymbologyPaint(newFeatureLabel);
@@ -4517,4 +4540,10 @@
 
     // Expose selection utilities for other scripts (approved lines / tile roads).
     window.setSelectedOverlayGeometry = setSelectedOverlayGeometry;
+
+    try {
+        if (window.symbologyCatalog && window.symbologyCatalog.styles_by_label) {
+            setSymbologyCatalog(window.symbologyCatalog);
+        }
+    } catch (e) {}
 })();

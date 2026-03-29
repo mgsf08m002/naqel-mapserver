@@ -14,6 +14,7 @@ import math
 import time
 
 from .models import LineEditRequest, RiyadhRoad
+from .riyadh_fclass import feature_label_from_riyadh_fclass, riyadh_fclass_from_feature_label
 
 logger = logging.getLogger(__name__)
 
@@ -183,80 +184,6 @@ def _validate_line_geojson_for_edit(geometry) -> None:
     if geom_type == "LineString" and len(line_coords) >= 2:
         if line_coords[0] == line_coords[-1] and len(line_coords) < 3:
             raise ValueError("Degenerate line geometry.")
-
-
-def _derive_feature_label_from_riyadh_road(road):
-    """Derive a human‑readable feature label from a RiyadhRoad instance."""
-    fclass = (road.fclass or "").strip().lower()
-
-    fclass_to_label = {
-        "motorway": "Motorway",
-        "motorway_link": "Motorway Link",
-        "trunk": "Trunk Road",
-        "trunk_link": "Trunk Link",
-        "primary": "Primary Road",
-        "primary_link": "Primary Link",
-        "secondary": "Secondary Road",
-        "secondary_link": "Secondary Link",
-        "tertiary": "Tertiary Road",
-        "tertiary_link": "Tertiary Link",
-        "residential": "Residential Road",
-        "living_street": "Living Street",
-        "service": "Service Road",
-        "unclassified": "Unclassified Road",
-        "track": "Track / Land-Access Road",
-        "footway": "Footway",
-        "steps": "Steps",
-        "path": "Path",
-        "cycleway": "Cycleway",
-    }
-
-    label = fclass_to_label.get(fclass)
-    if label:
-        return label
-
-    if fclass:
-        return fclass.replace("_", " ").title()
-
-    return "Line"
-
-
-def _derive_fclass_from_feature_label(label: str) -> str | None:
-    """
-    Map a human‑readable feature label back to an OSM‑style fclass value.
-
-    This is the inverse of the mapping in _derive_feature_label_from_riyadh_road
-    and must stay in sync with the frontend's fclassToLabel map in map.js.
-    """
-    if not label:
-        return None
-
-    normalized = (label or "").strip().lower()
-
-    label_to_fclass = {
-        "motorway": "motorway",
-        "motorway link": "motorway_link",
-        "trunk road": "trunk",
-        "trunk link": "trunk_link",
-        "primary road": "primary",
-        "primary link": "primary_link",
-        "secondary road": "secondary",
-        "secondary link": "secondary_link",
-        "tertiary road": "tertiary",
-        "tertiary link": "tertiary_link",
-        "residential road": "residential",
-        "living street": "living_street",
-        "service road": "service",
-        "unclassified road": "unclassified",
-        "track / land-access road": "track",
-        "track": "track",
-        "footway": "footway",
-        "steps": "steps",
-        "path": "path",
-        "cycleway": "cycleway",
-    }
-
-    return label_to_fclass.get(normalized)
 
 
 @login_required
@@ -536,7 +463,7 @@ def _apply_riyadh_edit_to_base_network(edit_request):
         # explicitly provided in fields_data so tile symbology is consistent.
         if not fields.get("fclass"):
             effective_label = edit_request.current_feature_label or edit_request.feature_type
-            derived_fclass = _derive_fclass_from_feature_label(effective_label or "")
+            derived_fclass = riyadh_fclass_from_feature_label(effective_label or "")
             if derived_fclass:
                 fields["fclass"] = derived_fclass
 
@@ -598,7 +525,7 @@ def _apply_manual_approval_to_remote_network(edit_request):
     # explicitly provided in fields_data for newly created roads.
     if not fields.get("fclass"):
         effective_label = edit_request.current_feature_label or edit_request.feature_type
-        derived_fclass = _derive_fclass_from_feature_label(effective_label or "")
+        derived_fclass = riyadh_fclass_from_feature_label(effective_label or "")
         if derived_fclass:
             fields["fclass"] = derived_fclass
 
@@ -893,7 +820,7 @@ def create_delete_request(request):
                 )
 
         geometry = _get_riyadh_road_geometry_wgs84(getattr(road, "gid", target_gid_int))
-        feature_label = _derive_feature_label_from_riyadh_road(road)
+        feature_label = feature_label_from_riyadh_fclass(getattr(road, "fclass", None))
         current_feature_label = feature_label
         feature_type = feature_label
 
@@ -1326,7 +1253,7 @@ def get_riyadh_road_details(request, road_gid):
         # Use whichever identifier matches the incoming value so that round‑trips
         # between tiles, API, and editor remain consistent.
         road_identifier = identifier
-        feature_label = _derive_feature_label_from_riyadh_road(road)
+        feature_label = feature_label_from_riyadh_fclass(getattr(road, "fclass", None))
         payload = {
             "id": road_identifier,
             "riyadh_road_id": road_identifier,

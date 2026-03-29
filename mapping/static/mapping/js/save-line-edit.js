@@ -500,6 +500,27 @@
                 window.initialRoadClosureState = (editData.road_closure === 1);
             }
 
+            // Keep MVT symbology aligned with remote DB before/while new tiles propagate (tiles_version).
+            if (
+                editData.is_riyadh_road &&
+                editData.riyadh_road_id != null &&
+                typeof window.applyRiyadhRoadDbFclassFromDatabase === 'function'
+            ) {
+                const fd = editData.fields_data || {};
+                let fc = fd.fclass != null ? String(fd.fclass).trim() : '';
+                if (!fc) {
+                    const cat = window.symbologyCatalog;
+                    const inv = cat && cat.riyadh_label_to_fclass;
+                    const lab = (editData.feature_type || editData.current_feature_label || '')
+                        .trim()
+                        .toLowerCase();
+                    fc = inv && inv[lab] ? inv[lab] : '';
+                }
+                if (fc) {
+                    window.applyRiyadhRoadDbFclassFromDatabase(editData.riyadh_road_id, fc);
+                }
+            }
+
             if (data.tiles_version != null && typeof window.triggerRiyadhTilesReload === 'function') {
                 setTimeout(function() {
                     window.triggerRiyadhTilesReload(data.tiles_version);
