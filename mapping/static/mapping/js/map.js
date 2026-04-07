@@ -36,25 +36,8 @@ function getRiyadhRoadsTileUrl() {
 window.__riyadhTilesVersion = null;
 
 function getStoredRiyadhTilesVersion() {
-    try {
-        const raw = window.localStorage ? window.localStorage.getItem('riyadhTilesVersion') : null;
-        if (!raw) return null;
-        const trimmed = String(raw).trim();
-        return trimmed.length ? trimmed : null;
-    } catch (e) {
-        return null;
-    }
-}
-
-function storeRiyadhTilesVersion(version) {
-    try {
-        if (!window.localStorage) return;
-        if (!version) {
-            window.localStorage.removeItem('riyadhTilesVersion');
-            return;
-        }
-        window.localStorage.setItem('riyadhTilesVersion', String(version));
-    } catch (e) {}
+    // Keep versioning purely in-memory to avoid browser storage restrictions.
+    return null;
 }
 
 function getDefaultRiyadhTilesVersion() {
@@ -79,7 +62,6 @@ function buildCacheBustedUrl(baseUrl, version) {
 window.triggerRiyadhTilesReload = function(tilesVersion) {
     const resolved = getRiyadhTilesVersionOrDefault(tilesVersion);
     window.__riyadhTilesVersion = resolved;
-    storeRiyadhTilesVersion(resolved);
 
     if (typeof window.reloadRiyadhRoadsSource === 'function') {
         window.reloadRiyadhRoadsSource(resolved);
@@ -186,7 +168,6 @@ BASEMAP_DEFINITIONS.forEach((def) => {
 if (!window.__riyadhTilesVersion) {
     window.__riyadhTilesVersion = getStoredRiyadhTilesVersion() || getDefaultRiyadhTilesVersion();
 }
-storeRiyadhTilesVersion(window.__riyadhTilesVersion);
 
 const map = new maplibregl.Map({
     container: 'map',
@@ -965,7 +946,6 @@ map.on('load', () => {
                 try {
                     const resolved = getRiyadhTilesVersionOrDefault(tilesVersion);
                     window.__riyadhTilesVersion = resolved;
-                    storeRiyadhTilesVersion(resolved);
 
                     const selectedFilterId = (() => {
                         try {

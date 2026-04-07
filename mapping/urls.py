@@ -5,6 +5,11 @@ app_name = 'mapping'
 
 urlpatterns = [
     path('', views.map_view, name='map'),
+    path(
+        'tiles/riyadh_roads/<int:z>/<int:x>/<int:y>/',
+        views.riyadh_roads_tile_proxy,
+        name='riyadh_roads_tile_proxy',
+    ),
     path('api/save-line-edit/', views.save_line_edit_request, name='save_line_edit'),
     path('api/request/delete/', views.create_delete_request, name='create_delete_request'),
     path('api/set-road-closure/', views.set_road_closure, name='set_road_closure'),

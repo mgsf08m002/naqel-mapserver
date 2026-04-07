@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse, Http404
+from django.http import JsonResponse, Http404, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
@@ -7,11 +7,15 @@ from django.utils import timezone
 from django.contrib.gis.geos import GEOSGeometry, Polygon, MultiLineString, LineString
 from django.db import transaction, connections
 from django.db.models import Max
+from django.conf import settings
 from decimal import Decimal
 import json
 import logging
 import math
 import time
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 
 from .models import LineEditRequest, RiyadhRoad
 from .riyadh_fclass import feature_label_from_riyadh_fclass, riyadh_fclass_from_feature_label
@@ -30,6 +34,66 @@ def _tiles_version_ms():
 def map_view(request):
     """Render the main KSA map editing view."""
     return render(request, 'mapping/map.html')
+
+
+@require_http_methods(["GET"])
+def riyadh_roads_tile_proxy(request, z: int, x: int, y: int):
+    """Proxy Riyadh roads XYZ tiles through this Django server."""
+    upstream_template = getattr(settings, "RIYADH_ROADS_TILE_URL", "").strip()
+    if not upstream_template:
+        raise Http404("Upstream tile service is not configured.")
+
+    try:
+        upstream_url = upstream_template.format(z=int(z), x=int(x), y=int(y))
+    except Exception:
+        raise Http404("Invalid upstream tile URL template.")
+
+    if request.GET:
+        upstream_url = f"{upstream_url}?{urlencode(request.GET, doseq=True)}"
+
+    req = Request(
+        upstream_url,
+        headers={
+            # Some tile servers reject requests without a UA.
+            "User-Agent": "naqel-mapserver/1.0",
+        },
+    )
+    try:
+        timeout_seconds = max(
+            1,
+            int(getattr(settings, "RIYADH_ROADS_TILE_PROXY_TIMEOUT_SECONDS", 20)),
+        )
+        with urlopen(req, timeout=timeout_seconds) as resp:
+            body = resp.read()
+            content_type = resp.headers.get("Content-Type") or "application/octet-stream"
+
+            out = HttpResponse(body, content_type=content_type, status=200)
+            # Cache tile bytes; cache busting remains controlled via the `v` query param.
+            cache_max_age = max(0, int(getattr(settings, "RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE", 3600)))
+            out["Cache-Control"] = f"public, max-age={cache_max_age}"
+            out["Vary"] = "Accept-Encoding"
+
+            # Preserve relevant upstream caching metadata when present.
+            etag = resp.headers.get("ETag")
+            if etag:
+                out["ETag"] = etag
+            last_modified = resp.headers.get("Last-Modified")
+            if last_modified:
+                out["Last-Modified"] = last_modified
+
+            return out
+    except HTTPError as exc:
+        status = int(getattr(exc, "code", 502) or 502)
+        if status == 404:
+            raise Http404("Tile not found.")
+        logger.warning("Tile proxy upstream HTTP error %s for %s", status, upstream_url)
+        return HttpResponse(status=status)
+    except URLError as exc:
+        logger.warning("Tile proxy upstream network error for %s: %s", upstream_url, exc)
+        return HttpResponse(status=502)
+    except Exception as exc:
+        logger.warning("Tile proxy failed for %s: %s", upstream_url, exc)
+        return HttpResponse(status=502)
 
 
 def _geometry_looks_like_wgs84(geometry):

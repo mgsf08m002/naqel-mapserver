@@ -16,6 +16,25 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    """Parse a boolean environment variable safely."""
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int) -> int:
+    """Parse an integer environment variable safely."""
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return int(str(raw).strip())
+    except (TypeError, ValueError):
+        return default
+
+
 # Quick-start development settings; review Django’s deployment checklist before going live.
 
 # SECURITY WARNING: keep the production secret key in the environment only.
@@ -31,6 +50,8 @@ RIYADH_ROADS_TILE_URL = os.getenv(
     "RIYADH_ROADS_TILE_URL",
     "http://139.162.60.105:3000/riyadh_roads/{z}/{x}/{y}",
 ).strip()
+RIYADH_ROADS_TILE_PROXY_TIMEOUT_SECONDS = _env_int("RIYADH_ROADS_TILE_PROXY_TIMEOUT_SECONDS", 20)
+RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE = _env_int("RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE", 3600)
 
 # Derive the tile service origin (scheme + host) so CSP stays aligned with RIYADH_ROADS_TILE_URL.
 _riyadh_tile_url = urlparse(RIYADH_ROADS_TILE_URL)
@@ -40,9 +61,14 @@ else:
     RIYADH_ROADS_TILE_ORIGIN = "http://139.162.60.105:3000"
 
 # SECURITY WARNING: DEBUG must be False in production.
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+DEBUG = _env_bool('DEBUG', True)
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+
+# Security flags: production should set these to True behind HTTPS.
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", not DEBUG)
+CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", not DEBUG)
+SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", False if DEBUG else True)
 
 
 # Application definition
