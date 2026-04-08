@@ -1,13 +1,12 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
-from django.contrib.auth.decorators import login_required
 
 from mapping.riyadh_fclass import riyadh_fclass_map_payload
 
 from .catalog_service import get_catalog
+from .labeling_config import get_road_labeling_config
 
 
-@login_required
 @require_GET
 def symbology_catalog(request):
     """
@@ -24,6 +23,11 @@ def symbology_catalog(request):
     """
 
     catalog = get_catalog()
-    payload = {**catalog, **riyadh_fclass_map_payload()}
+    road_labeling = get_road_labeling_config()
+    payload = {
+        **catalog,
+        **riyadh_fclass_map_payload(),
+        "road_labeling": road_labeling,
+    }
     return JsonResponse(payload)
 

@@ -117,6 +117,8 @@ if DEBUG:
         "https://services.arcgisonline.com",
         "https://tiles.maps.eox.at",
         "https://api.maptiler.com",
+        "https://demotiles.maplibre.org",
+        "https://fonts.openmaptiles.org",
         RIYADH_ROADS_TILE_ORIGIN,
     ]
     CSP_CONNECT_SRC = [
@@ -125,6 +127,8 @@ if DEBUG:
         "https://services.arcgisonline.com",
         "https://tiles.maps.eox.at",
         "https://api.maptiler.com",
+        "https://demotiles.maplibre.org",
+        "https://fonts.openmaptiles.org",
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",
         RIYADH_ROADS_TILE_ORIGIN,
@@ -143,6 +147,8 @@ else:
         "https://services.arcgisonline.com",
         "https://tiles.maps.eox.at",
         "https://api.maptiler.com",
+        "https://demotiles.maplibre.org",
+        "https://fonts.openmaptiles.org",
         RIYADH_ROADS_TILE_ORIGIN,
     ]
     CSP_CONNECT_SRC = [
@@ -151,6 +157,8 @@ else:
         "https://services.arcgisonline.com",
         "https://tiles.maps.eox.at",
         "https://api.maptiler.com",
+        "https://demotiles.maplibre.org",
+        "https://fonts.openmaptiles.org",
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",
         RIYADH_ROADS_TILE_ORIGIN,

@@ -96,6 +96,94 @@ def riyadh_roads_tile_proxy(request, z: int, x: int, y: int):
         return HttpResponse(status=502)
 
 
+@require_http_methods(["GET"])
+def riyadh_road_labels(request):
+    """
+    Return bilingual road labels (name_en/name_ar) from the remote riyadh_roads DB.
+
+    This endpoint is intentionally decoupled from vector-tile properties so label
+    rendering always reflects DB truth even when tile schemas differ.
+    """
+    bbox_raw = (request.GET.get("bbox") or "").strip()
+    if not bbox_raw:
+        return JsonResponse({"success": False, "message": "Missing bbox query parameter."}, status=400)
+
+    try:
+        west, south, east, north = [float(x) for x in bbox_raw.split(",")]
+    except Exception:
+        return JsonResponse({"success": False, "message": "Invalid bbox format."}, status=400)
+
+    if not (-180 <= west <= 180 and -180 <= east <= 180 and -90 <= south <= 90 and -90 <= north <= 90):
+        return JsonResponse({"success": False, "message": "Invalid bbox values."}, status=400)
+
+    if east <= west or north <= south:
+        return JsonResponse({"success": False, "message": "Invalid bbox extent."}, status=400)
+
+    try:
+        limit = int(request.GET.get("limit", "1800"))
+    except Exception:
+        limit = 1800
+    limit = max(100, min(limit, 4000))
+
+    sql = """
+        SELECT
+            CAST(id AS BIGINT) AS road_id,
+            NULLIF(TRIM(name_en), '') AS name_en,
+            NULLIF(TRIM(name_ar), '') AS name_ar,
+            ST_AsGeoJSON(
+                ST_Transform(
+                    ST_LineMerge(geom),
+                    4326
+                )
+            ) AS geometry_geojson
+        FROM public.riyadh_roads
+        WHERE
+            geom && ST_Transform(ST_MakeEnvelope(%s, %s, %s, %s, 4326), 3857)
+            AND ST_Intersects(geom, ST_Transform(ST_MakeEnvelope(%s, %s, %s, %s, 4326), 3857))
+            AND (COALESCE(name_en, '') <> '' OR COALESCE(name_ar, '') <> '')
+        LIMIT %s
+    """
+
+    features = []
+    try:
+        with connections["riyadh_roads"].cursor() as cursor:
+            cursor.execute(
+                sql,
+                [west, south, east, north, west, south, east, north, limit],
+            )
+            rows = cursor.fetchall()
+
+        for road_id, name_en, name_ar, geometry_geojson in rows:
+            if not geometry_geojson:
+                continue
+            try:
+                geometry = json.loads(geometry_geojson)
+            except Exception:
+                continue
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": geometry,
+                    "properties": {
+                        "id": int(road_id) if road_id is not None else None,
+                        "name_en": name_en or "",
+                        "name_ar": name_ar or "",
+                    },
+                }
+            )
+    except Exception as exc:
+        logger.warning("Failed loading Riyadh road labels from DB: %s", exc)
+        return JsonResponse({"success": False, "message": "Failed to load road labels."}, status=500)
+
+    return JsonResponse(
+        {
+            "success": True,
+            "type": "FeatureCollection",
+            "features": features,
+        }
+    )
+
+
 def _geometry_looks_like_wgs84(geometry):
     """Return True when a GeoJSON geometry already appears to be in WGS84."""
     try:

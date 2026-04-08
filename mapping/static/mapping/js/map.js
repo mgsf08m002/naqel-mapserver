@@ -68,21 +68,13 @@ window.triggerRiyadhTilesReload = function(tilesVersion) {
     }
 };
 
-function getIsAuthenticated() {
-    const mapElement = document.getElementById('map');
-    if (!mapElement) {
-        return true;
-    }
-
-    const value = mapElement.getAttribute('data-is-authenticated');
-    return value !== 'false';
-}
-
 const MAPTILER_API_KEY = getMaptilerApiKey();
 const HAS_MAPTILER = !!MAPTILER_API_KEY;
 const RIYADH_ROADS_TILE_URL = getRiyadhRoadsTileUrl();
 const HAS_RIYADH_ROADS_TILES = !!RIYADH_ROADS_TILE_URL;
-const IS_AUTHENTICATED = getIsAuthenticated();
+const MAP_GLYPHS_URL = HAS_MAPTILER
+    ? `https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_API_KEY}`
+    : 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf';
 const PUBLIC_ROAD_COLOR = '#fb9a99';
 
 const BASEMAP_DEFINITIONS = (() => {
@@ -177,6 +169,7 @@ const map = new maplibregl.Map({
     maxBounds: bounds,
     style: {
         version: 8,
+        glyphs: MAP_GLYPHS_URL,
         sources: baseSources,
         layers: baseLayers,
     },
@@ -362,6 +355,9 @@ map.on('load', () => {
             const PUBLIC_LAYER_ID = 'riyadh-roads-public-layer';
             const STYLED_LAYER_ID = 'riyadh-roads-layer';
             const HOVER_LAYER_ID = 'riyadh-roads-hover-layer';
+            const LABEL_LAYER_ID_EN = 'riyadh-roads-label-en-layer';
+            const LABEL_LAYER_ID_AR = 'riyadh-roads-label-ar-layer';
+            const LABELS_SOURCE_ID = 'riyadh-roads-labels-source';
             const MLS = typeof window.MapLineSelection !== 'undefined' ? window.MapLineSelection : null;
             const OUTLINE_LAYER_ID = MLS ? MLS.RIYADH_OUTLINE_LAYER_ID : 'riyadh-roads-selected-outline-layer';
             const RING_LAYER_ID = MLS ? MLS.RIYADH_RING_LAYER_ID : 'riyadh-roads-selected-ring-layer';
@@ -863,12 +859,293 @@ map.on('load', () => {
                 }
             }
 
-            function requestCatalog() {
-                if (!IS_AUTHENTICATED) {
+            function sanitizeLabelingConfig(raw) {
+                const defaults = {
+                    enabled: true,
+                    min_zoom_en: 11.5,
+                    min_zoom_ar: 12.0,
+                    max_zoom: 22,
+                    text_size: { base: 11, mid: 13, high: 15 },
+                    text_color: '#0f172a',
+                    halo_color: '#ffffff',
+                    halo_width: 1.6,
+                    halo_blur: 0.4,
+                    placement: 'line-center',
+                    allow_overlap: true,
+                    ignore_placement: true,
+                    symbol_spacing: 500,
+                    max_angle: 35,
+                    padding: 3,
+                    english: {
+                        field: 'name_en',
+                        font_stack: ['Open Sans Regular', 'Noto Sans Regular'],
+                        offset_em: [0, -0.85],
+                        optional: true
+                    },
+                    arabic: {
+                        field: 'name_ar',
+                        font_stack: ['Noto Sans Arabic Regular', 'Open Sans Regular'],
+                        offset_em: [0, 0.85],
+                        optional: true
+                    }
+                };
+                const cfg = raw && typeof raw === 'object' ? raw : {};
+                const textSize = cfg.text_size && typeof cfg.text_size === 'object' ? cfg.text_size : {};
+                const english = cfg.english && typeof cfg.english === 'object' ? cfg.english : {};
+                const arabic = cfg.arabic && typeof cfg.arabic === 'object' ? cfg.arabic : {};
+                return {
+                    enabled: cfg.enabled !== false,
+                    min_zoom_en: Number(cfg.min_zoom_en ?? defaults.min_zoom_en),
+                    min_zoom_ar: Number(cfg.min_zoom_ar ?? defaults.min_zoom_ar),
+                    max_zoom: Number(cfg.max_zoom ?? defaults.max_zoom),
+                    text_size: {
+                        base: Number(textSize.base ?? defaults.text_size.base),
+                        mid: Number(textSize.mid ?? defaults.text_size.mid),
+                        high: Number(textSize.high ?? defaults.text_size.high)
+                    },
+                    text_color: String(cfg.text_color || defaults.text_color),
+                    halo_color: String(cfg.halo_color || defaults.halo_color),
+                    halo_width: Number(cfg.halo_width ?? defaults.halo_width),
+                    halo_blur: Number(cfg.halo_blur ?? defaults.halo_blur),
+                    placement: String(cfg.placement || defaults.placement),
+                    allow_overlap: cfg.allow_overlap !== false,
+                    ignore_placement: cfg.ignore_placement !== false,
+                    symbol_spacing: Number(cfg.symbol_spacing ?? defaults.symbol_spacing),
+                    max_angle: Number(cfg.max_angle ?? defaults.max_angle),
+                    padding: Number(cfg.padding ?? defaults.padding),
+                    english: {
+                        field: String(english.field || defaults.english.field),
+                        font_stack: Array.isArray(english.font_stack) && english.font_stack.length ? english.font_stack : defaults.english.font_stack,
+                        offset_em: Array.isArray(english.offset_em) && english.offset_em.length === 2 ? english.offset_em : defaults.english.offset_em,
+                        optional: english.optional !== false
+                    },
+                    arabic: {
+                        field: String(arabic.field || defaults.arabic.field),
+                        font_stack: Array.isArray(arabic.font_stack) && arabic.font_stack.length ? arabic.font_stack : defaults.arabic.font_stack,
+                        offset_em: Array.isArray(arabic.offset_em) && arabic.offset_em.length === 2 ? arabic.offset_em : defaults.arabic.offset_em,
+                        optional: arabic.optional !== false
+                    }
+                };
+            }
+
+            function ensureRiyadhRoadLabelsFromCatalog(catalog) {
+                const cfg = sanitizeLabelingConfig(catalog && catalog.road_labeling ? catalog.road_labeling : null);
+                const beforeLayerId = map.getLayer(HOVER_LAYER_ID) ? HOVER_LAYER_ID : undefined;
+                const minZoomForAnyLabel = Math.min(cfg.min_zoom_en, cfg.min_zoom_ar);
+                const maxZoomForAnyLabel = Math.max(cfg.max_zoom, minZoomForAnyLabel);
+                if (!map.getSource(LABELS_SOURCE_ID)) {
+                    map.addSource(LABELS_SOURCE_ID, {
+                        type: 'geojson',
+                        data: { type: 'FeatureCollection', features: [] }
+                    });
+                }
+                if (!cfg.enabled) {
+                    [LABEL_LAYER_ID_EN, LABEL_LAYER_ID_AR].forEach(function(layerId) {
+                        if (map.getLayer(layerId)) {
+                            map.removeLayer(layerId);
+                        }
+                    });
+                    const src = map.getSource(LABELS_SOURCE_ID);
+                    if (src && typeof src.setData === 'function') {
+                        src.setData({ type: 'FeatureCollection', features: [] });
+                    }
                     return;
                 }
+
+                const textSizeExpression = [
+                    'interpolate',
+                    ['linear'],
+                    ['zoom'],
+                    10, cfg.text_size.base,
+                    13, cfg.text_size.mid,
+                    16, cfg.text_size.high
+                ];
+
+                const englishText = [
+                    'coalesce',
+                    ['to-string', ['get', cfg.english.field]],
+                    ''
+                ];
+                const arabicText = [
+                    'coalesce',
+                    ['to-string', ['get', cfg.arabic.field]],
+                    ''
+                ];
+
+                const commonLayout = {
+                    'symbol-placement': cfg.placement === 'line' ? 'line' : 'line-center',
+                    'symbol-spacing': cfg.symbol_spacing,
+                    'text-size': textSizeExpression,
+                    'text-max-angle': cfg.max_angle,
+                    'text-keep-upright': true,
+                    'text-allow-overlap': !!cfg.allow_overlap,
+                    'text-ignore-placement': !!cfg.ignore_placement,
+                    'text-padding': cfg.padding
+                };
+                const commonPaint = {
+                    'text-color': cfg.text_color,
+                    'text-halo-color': cfg.halo_color,
+                    'text-halo-width': cfg.halo_width,
+                    'text-halo-blur': cfg.halo_blur
+                };
+
+                const enFilter = ['!=', englishText, ''];
+                const arFilter = ['!=', arabicText, ''];
+
+                if (!map.getLayer(LABEL_LAYER_ID_EN)) {
+                    map.addLayer({
+                        id: LABEL_LAYER_ID_EN,
+                        type: 'symbol',
+                        source: LABELS_SOURCE_ID,
+                        filter: enFilter,
+                        layout: {
+                            ...commonLayout,
+                            'text-field': englishText,
+                            'text-font': cfg.english.font_stack,
+                            'text-offset': cfg.english.offset_em,
+                            'text-optional': !!cfg.english.optional
+                        },
+                        paint: commonPaint
+                    }, beforeLayerId);
+                    map.setLayerZoomRange(LABEL_LAYER_ID_EN, cfg.min_zoom_en, cfg.max_zoom);
+                } else {
+                    map.setFilter(LABEL_LAYER_ID_EN, enFilter);
+                    map.setLayerZoomRange(LABEL_LAYER_ID_EN, cfg.min_zoom_en, cfg.max_zoom);
+                    map.setLayoutProperty(LABEL_LAYER_ID_EN, 'text-field', englishText);
+                    map.setLayoutProperty(LABEL_LAYER_ID_EN, 'text-font', cfg.english.font_stack);
+                    map.setLayoutProperty(LABEL_LAYER_ID_EN, 'text-offset', cfg.english.offset_em);
+                    map.setLayoutProperty(LABEL_LAYER_ID_EN, 'text-size', textSizeExpression);
+                    map.setLayoutProperty(LABEL_LAYER_ID_EN, 'symbol-spacing', cfg.symbol_spacing);
+                    map.setLayoutProperty(LABEL_LAYER_ID_EN, 'text-max-angle', cfg.max_angle);
+                    map.setPaintProperty(LABEL_LAYER_ID_EN, 'text-color', cfg.text_color);
+                    map.setPaintProperty(LABEL_LAYER_ID_EN, 'text-halo-color', cfg.halo_color);
+                    map.setPaintProperty(LABEL_LAYER_ID_EN, 'text-halo-width', cfg.halo_width);
+                    map.setPaintProperty(LABEL_LAYER_ID_EN, 'text-halo-blur', cfg.halo_blur);
+                }
+
+                if (!map.getLayer(LABEL_LAYER_ID_AR)) {
+                    map.addLayer({
+                        id: LABEL_LAYER_ID_AR,
+                        type: 'symbol',
+                        source: LABELS_SOURCE_ID,
+                        filter: arFilter,
+                        layout: {
+                            ...commonLayout,
+                            'text-field': arabicText,
+                            'text-font': cfg.arabic.font_stack,
+                            'text-offset': cfg.arabic.offset_em,
+                            'text-optional': !!cfg.arabic.optional
+                        },
+                        paint: commonPaint
+                    }, beforeLayerId);
+                    map.setLayerZoomRange(LABEL_LAYER_ID_AR, cfg.min_zoom_ar, cfg.max_zoom);
+                } else {
+                    map.setFilter(LABEL_LAYER_ID_AR, arFilter);
+                    map.setLayerZoomRange(LABEL_LAYER_ID_AR, cfg.min_zoom_ar, cfg.max_zoom);
+                    map.setLayoutProperty(LABEL_LAYER_ID_AR, 'text-field', arabicText);
+                    map.setLayoutProperty(LABEL_LAYER_ID_AR, 'text-font', cfg.arabic.font_stack);
+                    map.setLayoutProperty(LABEL_LAYER_ID_AR, 'text-offset', cfg.arabic.offset_em);
+                    map.setLayoutProperty(LABEL_LAYER_ID_AR, 'text-size', textSizeExpression);
+                    map.setLayoutProperty(LABEL_LAYER_ID_AR, 'symbol-spacing', cfg.symbol_spacing);
+                    map.setLayoutProperty(LABEL_LAYER_ID_AR, 'text-max-angle', cfg.max_angle);
+                    map.setPaintProperty(LABEL_LAYER_ID_AR, 'text-color', cfg.text_color);
+                    map.setPaintProperty(LABEL_LAYER_ID_AR, 'text-halo-color', cfg.halo_color);
+                    map.setPaintProperty(LABEL_LAYER_ID_AR, 'text-halo-width', cfg.halo_width);
+                    map.setPaintProperty(LABEL_LAYER_ID_AR, 'text-halo-blur', cfg.halo_blur);
+                }
+
+                if (!window.__riyadhRoadLabelsRuntime) {
+                    window.__riyadhRoadLabelsRuntime = {
+                        abortController: null,
+                        debounceHandle: null,
+                        config: null
+                    };
+                }
+                const runtime = window.__riyadhRoadLabelsRuntime;
+                runtime.config = { minZoomForAnyLabel, maxZoomForAnyLabel };
+
+                function setLabelsData(featureCollection) {
+                    const src = map.getSource(LABELS_SOURCE_ID);
+                    if (src && typeof src.setData === 'function') {
+                        src.setData(featureCollection);
+                    }
+                }
+
+                function clearLabelsData() {
+                    setLabelsData({ type: 'FeatureCollection', features: [] });
+                }
+
+                async function fetchAndSetLabels() {
+                    if (!map.getSource(LABELS_SOURCE_ID)) {
+                        return;
+                    }
+                    const currentConfig = runtime.config || {};
+                    const minZoom = Number(currentConfig.minZoomForAnyLabel ?? 12);
+                    const maxZoom = Number(currentConfig.maxZoomForAnyLabel ?? 22);
+                    const z = Number(map.getZoom());
+                    if (Number.isNaN(z) || z < minZoom || z > maxZoom) {
+                        clearLabelsData();
+                        return;
+                    }
+                    const b = map.getBounds();
+                    if (!b) {
+                        return;
+                    }
+                    const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]
+                        .map(function(v) { return Number(v).toFixed(6); })
+                        .join(',');
+                    const limit = z >= 14 ? 3500 : (z >= 12 ? 2400 : 1600);
+                    if (runtime.abortController && !runtime.fetchPending) {
+                        runtime.abortController = null;
+                    }
+                    if (runtime.abortController && runtime.fetchPending) {
+                        runtime.abortController.abort();
+                    }
+                    runtime.abortController = new AbortController();
+                    runtime.fetchPending = true;
+                    try {
+                        const resp = await fetch(`/mapping/api/riyadh-road-labels/?bbox=${encodeURIComponent(bbox)}&limit=${limit}`, {
+                            method: 'GET',
+                            headers: { 'Accept': 'application/json' },
+                            signal: runtime.abortController.signal,
+                        });
+                        if (!resp.ok) {
+                            throw new Error(`Failed to load road labels (${resp.status})`);
+                        }
+                        const data = await resp.json();
+                        const features = data && Array.isArray(data.features) ? data.features : [];
+                        setLabelsData({ type: 'FeatureCollection', features: features });
+                    } catch (err) {
+                        if (!(err && err.name === 'AbortError')) {
+                            clearLabelsData();
+                        }
+                    } finally {
+                        runtime.fetchPending = false;
+                    }
+                }
+
+                function scheduleLabelsRefresh() {
+                    if (runtime.debounceHandle) {
+                        clearTimeout(runtime.debounceHandle);
+                    }
+                    runtime.debounceHandle = setTimeout(function() {
+                        runtime.debounceHandle = null;
+                        fetchAndSetLabels();
+                    }, 120);
+                }
+
+                if (!window.__riyadhRoadLabelsBound) {
+                    window.__riyadhRoadLabelsBound = true;
+                    map.on('moveend', scheduleLabelsRefresh);
+                    map.on('zoomend', scheduleLabelsRefresh);
+                }
+                scheduleLabelsRefresh();
+            }
+
+            function requestCatalog() {
                 if (window.symbologyCatalog) {
                     ensureRiyadhRoadLayerFromCatalog(window.symbologyCatalog);
+                    ensureRiyadhRoadLabelsFromCatalog(window.symbologyCatalog);
                     reapplyRiyadhRoadDbFclassFeatureStates();
                     return;
                 }
@@ -889,18 +1166,18 @@ map.on('load', () => {
                             window.dispatchEvent(new CustomEvent('symbology:catalogLoaded', { detail: catalog }));
                         } catch (e) {}
                         ensureRiyadhRoadLayerFromCatalog(catalog);
+                        ensureRiyadhRoadLabelsFromCatalog(catalog);
                         reapplyRiyadhRoadDbFclassFeatureStates();
                     })
                     .catch(function() {});
             }
 
-            if (IS_AUTHENTICATED) {
-                window.addEventListener('symbology:catalogLoaded', function(e) {
-                    const catalog = e && e.detail ? e.detail : window.symbologyCatalog;
-                    ensureRiyadhRoadLayerFromCatalog(catalog);
-                    reapplyRiyadhRoadDbFclassFeatureStates();
-                });
-            }
+            window.addEventListener('symbology:catalogLoaded', function(e) {
+                const catalog = e && e.detail ? e.detail : window.symbologyCatalog;
+                ensureRiyadhRoadLayerFromCatalog(catalog);
+                ensureRiyadhRoadLabelsFromCatalog(catalog);
+                reapplyRiyadhRoadDbFclassFeatureStates();
+            });
             requestCatalog();
 
             /**
@@ -957,13 +1234,19 @@ map.on('load', () => {
                     })();
 
                     // Remove layers first (MapLibre requires this before removing a source).
-                    [SELECTED_LAYER_ID, RING_LAYER_ID, OUTLINE_LAYER_ID, HOVER_LAYER_ID, STYLED_LAYER_ID, PUBLIC_LAYER_ID].forEach((layerId) => {
+                    [LABEL_LAYER_ID_AR, LABEL_LAYER_ID_EN, SELECTED_LAYER_ID, RING_LAYER_ID, OUTLINE_LAYER_ID, HOVER_LAYER_ID, STYLED_LAYER_ID, PUBLIC_LAYER_ID].forEach((layerId) => {
                         try {
                             if (map.getLayer(layerId)) {
                                 map.removeLayer(layerId);
                             }
                         } catch (e) {}
                     });
+
+                    try {
+                        if (map.getSource(LABELS_SOURCE_ID)) {
+                            map.removeSource(LABELS_SOURCE_ID);
+                        }
+                    } catch (e0) {}
 
                     try {
                         if (map.getSource(SOURCE_ID)) {
@@ -989,6 +1272,7 @@ map.on('load', () => {
                     try {
                         const catalog = window.symbologyCatalog || null;
                         ensureRiyadhRoadLayerFromCatalog(catalog);
+                        ensureRiyadhRoadLabelsFromCatalog(catalog);
                     } catch (e2) {}
 
                     // Restore selection filter if we had one.

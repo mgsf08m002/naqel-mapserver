@@ -1,0 +1,33 @@
+{
+  "enabled": true,
+  "min_zoom_en": 11.0,
+  "min_zoom_ar": 11.8,
+  "max_zoom": 22.0,
+  "text_size": {
+    "base": 11.0,
+    "mid": 13.0,
+    "high": 15.0
+  },
+  "text_color": "#0f172a",
+  "halo_color": "#ffffff",
+  "halo_width": 1.8,
+  "halo_blur": 0.4,
+  "placement": "line-center",
+  "allow_overlap": true,
+  "ignore_placement": true,
+  "symbol_spacing": 480.0,
+  "max_angle": 35.0,
+  "padding": 3.0,
+  "english": {
+    "field": "name_en",
+    "font_stack": ["Open Sans Regular", "Noto Sans Regular"],
+    "offset_em": [0.0, -0.85],
+    "optional": true
+  },
+  "arabic": {
+    "field": "name_ar",
+    "font_stack": ["Noto Sans Arabic Regular", "Open Sans Regular"],
+    "offset_em": [0.0, 0.85],
+    "optional": true
+  }
+}

@@ -11,6 +11,7 @@ urlpatterns = [
         name='riyadh_roads_tile_proxy',
     ),
     path('api/save-line-edit/', views.save_line_edit_request, name='save_line_edit'),
+    path('api/riyadh-road-labels/', views.riyadh_road_labels, name='riyadh_road_labels'),
     path('api/request/delete/', views.create_delete_request, name='create_delete_request'),
     path('api/set-road-closure/', views.set_road_closure, name='set_road_closure'),
     path('api/riyadh-road/<int:road_gid>/', views.get_riyadh_road_details, name='get_riyadh_road_details'),
