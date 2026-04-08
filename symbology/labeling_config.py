@@ -7,7 +7,6 @@ import json
 
 class RoadLabelingConfig(TypedDict):
     enabled: bool
-    enabled_basemaps: list[str]
     min_zoom_en: float
     min_zoom_ar: float
     max_zoom: float
@@ -42,7 +41,6 @@ def get_road_labeling_config() -> RoadLabelingConfig:
 
     defaults: Dict[str, Any] = {
         "enabled": True,
-        "enabled_basemaps": ["esri-satellite"],
         "min_zoom_en": 11.0,
         "min_zoom_ar": 11.8,
         "max_zoom": 22.0,
@@ -90,11 +88,6 @@ def get_road_labeling_config() -> RoadLabelingConfig:
         cfg["fetch_limits"] = dict(defaults["fetch_limits"])
     else:
         cfg["fetch_limits"] = {**defaults["fetch_limits"], **cfg["fetch_limits"]}
-    if not isinstance(cfg.get("enabled_basemaps"), list):
-        cfg["enabled_basemaps"] = list(defaults["enabled_basemaps"])
-    else:
-        cfg["enabled_basemaps"] = [str(x) for x in cfg["enabled_basemaps"] if str(x).strip()]
-
     for lang in ("english", "arabic"):
         lang_raw = cfg.get(lang)
         if not isinstance(lang_raw, dict):

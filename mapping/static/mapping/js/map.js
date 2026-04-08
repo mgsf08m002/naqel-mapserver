@@ -202,9 +202,6 @@ function setBasemapVisibility(targetId) {
     });
 
     currentBasemapId = targetId;
-    try {
-        window.dispatchEvent(new CustomEvent('basemap:changed', { detail: { id: targetId } }));
-    } catch (e) {}
 }
 
 const BASEMAP_SELECTED_CLASSES = ['ring-2', 'ring-blue-500', 'shadow-lg', 'border-blue-500'];
@@ -368,8 +365,8 @@ map.on('mousemove', (e) => {
 
 map.on('load', () => {
     setBasemapVisibility(currentBasemapId);
-    if (HAS_RIYADH_ROADS_TILES && RIYADH_ROADS_TILE_URL) {
-        try {
+    try {
+            const HAS_RIYADH_TILE_SOURCE = HAS_RIYADH_ROADS_TILES && !!RIYADH_ROADS_TILE_URL;
             const SOURCE_ID = 'riyadh-roads';
             const PUBLIC_LAYER_ID = 'riyadh-roads-public-layer';
             const STYLED_LAYER_ID = 'riyadh-roads-layer';
@@ -451,6 +448,9 @@ map.on('load', () => {
             }
 
             function ensureRiyadhRoadsSource(version) {
+                if (!HAS_RIYADH_TILE_SOURCE) {
+                    return;
+                }
                 if (map.getSource(SOURCE_ID)) {
                     return;
                 }
@@ -464,12 +464,12 @@ map.on('load', () => {
                 });
             }
 
-            if (!map.getSource('riyadh-roads')) {
+            if (HAS_RIYADH_TILE_SOURCE && !map.getSource('riyadh-roads')) {
                 ensureRiyadhRoadsSource(window.__riyadhTilesVersion);
             }
 
             // Public layer shows the Riyadh road network in a single neutral color for all users.
-            if (!map.getLayer(PUBLIC_LAYER_ID)) {
+            if (HAS_RIYADH_TILE_SOURCE && !map.getLayer(PUBLIC_LAYER_ID)) {
                 map.addLayer({
                     id: PUBLIC_LAYER_ID,
                     type: 'line',
@@ -516,6 +516,9 @@ map.on('load', () => {
             }
 
             function ensureRiyadhRoadLayerFromCatalog(catalog) {
+                if (!HAS_RIYADH_TILE_SOURCE || !map.getSource(SOURCE_ID)) {
+                    return;
+                }
                 const stylesByLabel = catalog && catalog.styles_by_label ? catalog.styles_by_label : null;
                 const fclassToLabel = catalog && catalog.riyadh_fclass_to_label ? catalog.riyadh_fclass_to_label : null;
                 const fclassKeys = catalog && catalog.riyadh_fclass_keys ? catalog.riyadh_fclass_keys : null;
@@ -888,7 +891,6 @@ map.on('load', () => {
                 if (!fetchLimits || typeof fetchLimits !== 'object') return null;
                 if (!english || typeof english !== 'object') return null;
                 if (!arabic || typeof arabic !== 'object') return null;
-                if (!Array.isArray(raw.enabled_basemaps) || !raw.enabled_basemaps.length) return null;
                 if (!Array.isArray(english.font_stack) || !english.font_stack.length) return null;
                 if (!Array.isArray(arabic.font_stack) || !arabic.font_stack.length) return null;
                 if (!Array.isArray(english.offset_em) || english.offset_em.length !== 2) return null;
@@ -896,7 +898,6 @@ map.on('load', () => {
 
                 const cfg = {
                     enabled: raw.enabled === true,
-                    enabled_basemaps: raw.enabled_basemaps.map(function(x) { return String(x); }),
                     min_zoom_en: Number(raw.min_zoom_en),
                     min_zoom_ar: Number(raw.min_zoom_ar),
                     max_zoom: Number(raw.max_zoom),
@@ -1264,6 +1265,7 @@ map.on('load', () => {
 
             window.reloadRiyadhRoadsSource = function(tilesVersion) {
                 if (typeof map === 'undefined' || !map) return;
+                if (!HAS_RIYADH_TILE_SOURCE) return;
 
                 try {
                     const resolved = getRiyadhTilesVersionOrDefault(tilesVersion);
@@ -1350,8 +1352,7 @@ map.on('load', () => {
                     });
                 } catch (e) {}
             };
-        } catch (e) {}
-    }
+    } catch (e) {}
 
     if (!map.hasImage('road-closure')) {
         map.loadImage('/static/images/icons/road_closure.png', (error, image) => {

@@ -1,11 +1,5 @@
 {
   "enabled": true,
-  "enabled_basemaps": [
-    "esri-satellite",
-    "maptiler-streets",
-    "maptiler-outdoor",
-    "maptiler-dark"
-  ],
   "min_zoom_en": 11.0,
   "min_zoom_ar": 11.8,
   "max_zoom": 22.0,
