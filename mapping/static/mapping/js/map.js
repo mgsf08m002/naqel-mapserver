@@ -76,6 +76,22 @@ const MAP_GLYPHS_URL = HAS_MAPTILER
     ? `https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_API_KEY}`
     : 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf';
 const PUBLIC_ROAD_COLOR = '#fb9a99';
+const RTL_TEXT_PLUGIN_URL = 'https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.2.3/mapbox-gl-rtl-text.js';
+
+function ensureRtlTextPluginLoaded() {
+    try {
+        if (
+            typeof maplibregl !== 'undefined' &&
+            maplibregl &&
+            typeof maplibregl.setRTLTextPlugin === 'function'
+        ) {
+            // Required for proper Arabic shaping (joining, bidi order).
+            maplibregl.setRTLTextPlugin(RTL_TEXT_PLUGIN_URL, null, true);
+        }
+    } catch (e) {}
+}
+
+ensureRtlTextPluginLoaded();
 
 const BASEMAP_DEFINITIONS = (() => {
     const definitions = [
@@ -186,6 +202,9 @@ function setBasemapVisibility(targetId) {
     });
 
     currentBasemapId = targetId;
+    try {
+        window.dispatchEvent(new CustomEvent('basemap:changed', { detail: { id: targetId } }));
+    } catch (e) {}
 }
 
 const BASEMAP_SELECTED_CLASSES = ['ring-2', 'ring-blue-500', 'shadow-lg', 'border-blue-500'];
@@ -860,76 +879,89 @@ map.on('load', () => {
             }
 
             function sanitizeLabelingConfig(raw) {
-                const defaults = {
-                    enabled: true,
-                    min_zoom_en: 11.5,
-                    min_zoom_ar: 12.0,
-                    max_zoom: 22,
-                    text_size: { base: 11, mid: 13, high: 15 },
-                    text_color: '#0f172a',
-                    halo_color: '#ffffff',
-                    halo_width: 1.6,
-                    halo_blur: 0.4,
-                    placement: 'line-center',
-                    allow_overlap: true,
-                    ignore_placement: true,
-                    symbol_spacing: 500,
-                    max_angle: 35,
-                    padding: 3,
-                    english: {
-                        field: 'name_en',
-                        font_stack: ['Open Sans Regular', 'Noto Sans Regular'],
-                        offset_em: [0, -0.85],
-                        optional: true
-                    },
-                    arabic: {
-                        field: 'name_ar',
-                        font_stack: ['Noto Sans Arabic Regular', 'Open Sans Regular'],
-                        offset_em: [0, 0.85],
-                        optional: true
-                    }
-                };
-                const cfg = raw && typeof raw === 'object' ? raw : {};
-                const textSize = cfg.text_size && typeof cfg.text_size === 'object' ? cfg.text_size : {};
-                const english = cfg.english && typeof cfg.english === 'object' ? cfg.english : {};
-                const arabic = cfg.arabic && typeof cfg.arabic === 'object' ? cfg.arabic : {};
-                return {
-                    enabled: cfg.enabled !== false,
-                    min_zoom_en: Number(cfg.min_zoom_en ?? defaults.min_zoom_en),
-                    min_zoom_ar: Number(cfg.min_zoom_ar ?? defaults.min_zoom_ar),
-                    max_zoom: Number(cfg.max_zoom ?? defaults.max_zoom),
+                if (!raw || typeof raw !== 'object') return null;
+                const textSize = raw.text_size;
+                const fetchLimits = raw.fetch_limits;
+                const english = raw.english;
+                const arabic = raw.arabic;
+                if (!textSize || typeof textSize !== 'object') return null;
+                if (!fetchLimits || typeof fetchLimits !== 'object') return null;
+                if (!english || typeof english !== 'object') return null;
+                if (!arabic || typeof arabic !== 'object') return null;
+                if (!Array.isArray(raw.enabled_basemaps) || !raw.enabled_basemaps.length) return null;
+                if (!Array.isArray(english.font_stack) || !english.font_stack.length) return null;
+                if (!Array.isArray(arabic.font_stack) || !arabic.font_stack.length) return null;
+                if (!Array.isArray(english.offset_em) || english.offset_em.length !== 2) return null;
+                if (!Array.isArray(arabic.offset_em) || arabic.offset_em.length !== 2) return null;
+
+                const cfg = {
+                    enabled: raw.enabled === true,
+                    enabled_basemaps: raw.enabled_basemaps.map(function(x) { return String(x); }),
+                    min_zoom_en: Number(raw.min_zoom_en),
+                    min_zoom_ar: Number(raw.min_zoom_ar),
+                    max_zoom: Number(raw.max_zoom),
                     text_size: {
-                        base: Number(textSize.base ?? defaults.text_size.base),
-                        mid: Number(textSize.mid ?? defaults.text_size.mid),
-                        high: Number(textSize.high ?? defaults.text_size.high)
+                        base: Number(textSize.base),
+                        mid: Number(textSize.mid),
+                        high: Number(textSize.high)
                     },
-                    text_color: String(cfg.text_color || defaults.text_color),
-                    halo_color: String(cfg.halo_color || defaults.halo_color),
-                    halo_width: Number(cfg.halo_width ?? defaults.halo_width),
-                    halo_blur: Number(cfg.halo_blur ?? defaults.halo_blur),
-                    placement: String(cfg.placement || defaults.placement),
-                    allow_overlap: cfg.allow_overlap !== false,
-                    ignore_placement: cfg.ignore_placement !== false,
-                    symbol_spacing: Number(cfg.symbol_spacing ?? defaults.symbol_spacing),
-                    max_angle: Number(cfg.max_angle ?? defaults.max_angle),
-                    padding: Number(cfg.padding ?? defaults.padding),
+                    text_color: String(raw.text_color),
+                    halo_color: String(raw.halo_color),
+                    halo_width: Number(raw.halo_width),
+                    halo_blur: Number(raw.halo_blur),
+                    fetch_debounce_ms: Math.max(0, Number(raw.fetch_debounce_ms)),
+                    fetch_limits: {
+                        z12: Math.max(200, Number(fetchLimits.z12)),
+                        z14: Math.max(300, Number(fetchLimits.z14)),
+                        z16: Math.max(400, Number(fetchLimits.z16)),
+                    },
+                    placement: String(raw.placement),
+                    allow_overlap: raw.allow_overlap === true,
+                    ignore_placement: raw.ignore_placement === true,
+                    symbol_spacing: Number(raw.symbol_spacing),
+                    max_angle: Number(raw.max_angle),
+                    padding: Number(raw.padding),
                     english: {
-                        field: String(english.field || defaults.english.field),
-                        font_stack: Array.isArray(english.font_stack) && english.font_stack.length ? english.font_stack : defaults.english.font_stack,
-                        offset_em: Array.isArray(english.offset_em) && english.offset_em.length === 2 ? english.offset_em : defaults.english.offset_em,
-                        optional: english.optional !== false
+                        field: String(english.field),
+                        font_stack: english.font_stack,
+                        offset_em: english.offset_em,
+                        optional: english.optional === true
                     },
                     arabic: {
-                        field: String(arabic.field || defaults.arabic.field),
-                        font_stack: Array.isArray(arabic.font_stack) && arabic.font_stack.length ? arabic.font_stack : defaults.arabic.font_stack,
-                        offset_em: Array.isArray(arabic.offset_em) && arabic.offset_em.length === 2 ? arabic.offset_em : defaults.arabic.offset_em,
-                        optional: arabic.optional !== false
+                        field: String(arabic.field),
+                        font_stack: arabic.font_stack,
+                        offset_em: arabic.offset_em,
+                        optional: arabic.optional === true
                     }
                 };
+
+                const requiredNumbers = [
+                    cfg.min_zoom_en, cfg.min_zoom_ar, cfg.max_zoom,
+                    cfg.text_size.base, cfg.text_size.mid, cfg.text_size.high,
+                    cfg.halo_width, cfg.halo_blur, cfg.symbol_spacing,
+                    cfg.max_angle, cfg.padding, cfg.fetch_debounce_ms,
+                    cfg.fetch_limits.z12, cfg.fetch_limits.z14, cfg.fetch_limits.z16
+                ];
+                if (requiredNumbers.some(function(v) { return Number.isNaN(v); })) return null;
+                if (!cfg.english.field || !cfg.arabic.field) return null;
+                if (!cfg.text_color || !cfg.halo_color) return null;
+                return cfg;
             }
 
             function ensureRiyadhRoadLabelsFromCatalog(catalog) {
                 const cfg = sanitizeLabelingConfig(catalog && catalog.road_labeling ? catalog.road_labeling : null);
+                if (!cfg) {
+                    [LABEL_LAYER_ID_EN, LABEL_LAYER_ID_AR].forEach(function(layerId) {
+                        if (map.getLayer(layerId)) {
+                            map.setLayoutProperty(layerId, 'visibility', 'none');
+                        }
+                    });
+                    const src = map.getSource(LABELS_SOURCE_ID);
+                    if (src && typeof src.setData === 'function') {
+                        src.setData({ type: 'FeatureCollection', features: [] });
+                    }
+                    return;
+                }
                 const beforeLayerId = map.getLayer(HOVER_LAYER_ID) ? HOVER_LAYER_ID : undefined;
                 const minZoomForAnyLabel = Math.min(cfg.min_zoom_en, cfg.min_zoom_ar);
                 const maxZoomForAnyLabel = Math.max(cfg.max_zoom, minZoomForAnyLabel);
@@ -942,7 +974,7 @@ map.on('load', () => {
                 if (!cfg.enabled) {
                     [LABEL_LAYER_ID_EN, LABEL_LAYER_ID_AR].forEach(function(layerId) {
                         if (map.getLayer(layerId)) {
-                            map.removeLayer(layerId);
+                            map.setLayoutProperty(layerId, 'visibility', 'none');
                         }
                     });
                     const src = map.getSource(LABELS_SOURCE_ID);
@@ -1009,6 +1041,7 @@ map.on('load', () => {
                     }, beforeLayerId);
                     map.setLayerZoomRange(LABEL_LAYER_ID_EN, cfg.min_zoom_en, cfg.max_zoom);
                 } else {
+                    map.setLayoutProperty(LABEL_LAYER_ID_EN, 'visibility', 'visible');
                     map.setFilter(LABEL_LAYER_ID_EN, enFilter);
                     map.setLayerZoomRange(LABEL_LAYER_ID_EN, cfg.min_zoom_en, cfg.max_zoom);
                     map.setLayoutProperty(LABEL_LAYER_ID_EN, 'text-field', englishText);
@@ -1040,6 +1073,7 @@ map.on('load', () => {
                     }, beforeLayerId);
                     map.setLayerZoomRange(LABEL_LAYER_ID_AR, cfg.min_zoom_ar, cfg.max_zoom);
                 } else {
+                    map.setLayoutProperty(LABEL_LAYER_ID_AR, 'visibility', 'visible');
                     map.setFilter(LABEL_LAYER_ID_AR, arFilter);
                     map.setLayerZoomRange(LABEL_LAYER_ID_AR, cfg.min_zoom_ar, cfg.max_zoom);
                     map.setLayoutProperty(LABEL_LAYER_ID_AR, 'text-field', arabicText);
@@ -1054,92 +1088,103 @@ map.on('load', () => {
                     map.setPaintProperty(LABEL_LAYER_ID_AR, 'text-halo-blur', cfg.halo_blur);
                 }
 
-                if (!window.__riyadhRoadLabelsRuntime) {
-                    window.__riyadhRoadLabelsRuntime = {
-                        abortController: null,
-                        debounceHandle: null,
-                        config: null
-                    };
-                }
+                window.__riyadhRoadLabelsRuntime = window.__riyadhRoadLabelsRuntime || {
+                    abortController: null,
+                    debounceHandle: null,
+                    config: null,
+                    fetchPending: false,
+                    requestSeq: 0,
+                    lastAppliedRequestSeq: 0,
+                    lastRequestKey: null,
+                };
                 const runtime = window.__riyadhRoadLabelsRuntime;
-                runtime.config = { minZoomForAnyLabel, maxZoomForAnyLabel };
-
-                function setLabelsData(featureCollection) {
-                    const src = map.getSource(LABELS_SOURCE_ID);
-                    if (src && typeof src.setData === 'function') {
-                        src.setData(featureCollection);
-                    }
-                }
-
-                function clearLabelsData() {
-                    setLabelsData({ type: 'FeatureCollection', features: [] });
-                }
-
-                async function fetchAndSetLabels() {
-                    if (!map.getSource(LABELS_SOURCE_ID)) {
-                        return;
-                    }
-                    const currentConfig = runtime.config || {};
-                    const minZoom = Number(currentConfig.minZoomForAnyLabel ?? 12);
-                    const maxZoom = Number(currentConfig.maxZoomForAnyLabel ?? 22);
-                    const z = Number(map.getZoom());
-                    if (Number.isNaN(z) || z < minZoom || z > maxZoom) {
-                        clearLabelsData();
-                        return;
-                    }
-                    const b = map.getBounds();
-                    if (!b) {
-                        return;
-                    }
-                    const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]
-                        .map(function(v) { return Number(v).toFixed(6); })
-                        .join(',');
-                    const limit = z >= 14 ? 3500 : (z >= 12 ? 2400 : 1600);
-                    if (runtime.abortController && !runtime.fetchPending) {
-                        runtime.abortController = null;
-                    }
-                    if (runtime.abortController && runtime.fetchPending) {
-                        runtime.abortController.abort();
-                    }
-                    runtime.abortController = new AbortController();
-                    runtime.fetchPending = true;
-                    try {
-                        const resp = await fetch(`/mapping/api/riyadh-road-labels/?bbox=${encodeURIComponent(bbox)}&limit=${limit}`, {
-                            method: 'GET',
-                            headers: { 'Accept': 'application/json' },
-                            signal: runtime.abortController.signal,
-                        });
-                        if (!resp.ok) {
-                            throw new Error(`Failed to load road labels (${resp.status})`);
+                runtime.config = {
+                    minZoomForAnyLabel,
+                    maxZoomForAnyLabel,
+                    fetchDebounceMs: cfg.fetch_debounce_ms,
+                    fetchLimits: cfg.fetch_limits,
+                };
+                if (!runtime.setLabelsData) {
+                    runtime.setLabelsData = function(featureCollection) {
+                        const src = map.getSource(LABELS_SOURCE_ID);
+                        if (src && typeof src.setData === 'function') {
+                            src.setData(featureCollection);
                         }
-                        const data = await resp.json();
-                        const features = data && Array.isArray(data.features) ? data.features : [];
-                        setLabelsData({ type: 'FeatureCollection', features: features });
-                    } catch (err) {
-                        if (!(err && err.name === 'AbortError')) {
-                            clearLabelsData();
+                    };
+                    runtime.clearLabelsData = function() {
+                        runtime.setLabelsData({ type: 'FeatureCollection', features: [] });
+                    };
+                    runtime.fetchAndSetLabels = async function() {
+                        if (!map.getSource(LABELS_SOURCE_ID)) return;
+                        const currentConfig = runtime.config || {};
+                        const minZoom = Number(currentConfig.minZoomForAnyLabel ?? 12);
+                        const maxZoom = Number(currentConfig.maxZoomForAnyLabel ?? 22);
+                        const limits = currentConfig.fetchLimits || { z12: 1200, z14: 1800, z16: 2600 };
+                        const z = Number(map.getZoom());
+                        if (Number.isNaN(z) || z < minZoom || z > maxZoom) {
+                            runtime.lastRequestKey = null;
+                            runtime.clearLabelsData();
+                            return;
                         }
-                    } finally {
-                        runtime.fetchPending = false;
-                    }
-                }
-
-                function scheduleLabelsRefresh() {
-                    if (runtime.debounceHandle) {
-                        clearTimeout(runtime.debounceHandle);
-                    }
-                    runtime.debounceHandle = setTimeout(function() {
-                        runtime.debounceHandle = null;
-                        fetchAndSetLabels();
-                    }, 120);
+                        const b = map.getBounds();
+                        if (!b) return;
+                        const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]
+                            .map(function(v) { return Number(v).toFixed(6); })
+                            .join(',');
+                        const limit = z >= 16
+                            ? Number(limits.z16 || 2600)
+                            : (z >= 14 ? Number(limits.z14 || 1800) : Number(limits.z12 || 1200));
+                        const requestKey = `${bbox}|${limit}`;
+                        if (requestKey === runtime.lastRequestKey && runtime.lastAppliedRequestSeq > 0) {
+                            return;
+                        }
+                        runtime.lastRequestKey = requestKey;
+                        const requestSeq = ++runtime.requestSeq;
+                        if (runtime.abortController && runtime.fetchPending) {
+                            runtime.abortController.abort();
+                        }
+                        runtime.abortController = new AbortController();
+                        runtime.fetchPending = true;
+                        try {
+                            const resp = await fetch(`/mapping/api/riyadh-road-labels/?bbox=${encodeURIComponent(bbox)}&limit=${limit}`, {
+                                method: 'GET',
+                                headers: { 'Accept': 'application/json' },
+                                signal: runtime.abortController.signal,
+                            });
+                            if (!resp.ok) {
+                                throw new Error(`Failed to load road labels (${resp.status})`);
+                            }
+                            const data = await resp.json();
+                            const features = data && Array.isArray(data.features) ? data.features : [];
+                            if (requestSeq < runtime.lastAppliedRequestSeq) {
+                                return;
+                            }
+                            runtime.lastAppliedRequestSeq = requestSeq;
+                            runtime.setLabelsData({ type: 'FeatureCollection', features: features });
+                        } catch (err) {
+                            if (!(err && err.name === 'AbortError')) {
+                                runtime.clearLabelsData();
+                            }
+                        } finally {
+                            runtime.fetchPending = false;
+                        }
+                    };
+                    runtime.scheduleLabelsRefresh = function() {
+                        if (runtime.debounceHandle) clearTimeout(runtime.debounceHandle);
+                        const debounceMs = Math.max(0, Number((runtime.config && runtime.config.fetchDebounceMs) || 120));
+                        runtime.debounceHandle = setTimeout(function() {
+                            runtime.debounceHandle = null;
+                            runtime.fetchAndSetLabels();
+                        }, debounceMs);
+                    };
                 }
 
                 if (!window.__riyadhRoadLabelsBound) {
                     window.__riyadhRoadLabelsBound = true;
-                    map.on('moveend', scheduleLabelsRefresh);
-                    map.on('zoomend', scheduleLabelsRefresh);
+                    map.on('moveend', runtime.scheduleLabelsRefresh);
+                    map.on('zoomend', runtime.scheduleLabelsRefresh);
                 }
-                scheduleLabelsRefresh();
+                runtime.fetchAndSetLabels();
             }
 
             function requestCatalog() {
