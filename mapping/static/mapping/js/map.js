@@ -1,4 +1,14 @@
 // KSA Map Editing Module
+function isUserAuthenticated() {
+    try {
+        if (typeof IS_AUTHENTICATED !== 'undefined') return !!IS_AUTHENTICATED;
+    } catch (e) {}
+    const mapElement = document.getElementById('map');
+    if (!mapElement) return false;
+    return mapElement.getAttribute('data-is-authenticated') !== 'false';
+}
+
+const IS_AUTHENTICATED = isUserAuthenticated();
 function getMaptilerApiKey() {
     const mapElement = document.getElementById('map');
     if (!mapElement) {
@@ -75,7 +85,7 @@ const HAS_RIYADH_ROADS_TILES = !!RIYADH_ROADS_TILE_URL;
 const MAP_GLYPHS_URL = HAS_MAPTILER
     ? `https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_API_KEY}`
     : 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf';
-const PUBLIC_ROAD_COLOR = '#fb9a99';
+const PUBLIC_ROAD_COLOR = IS_AUTHENTICATED ? '#e3d1a3' : '#e3d1a3';
 const RTL_TEXT_PLUGIN_URL = 'https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.2.3/mapbox-gl-rtl-text.js';
 
 function ensureRtlTextPluginLoaded() {
@@ -1189,6 +1199,9 @@ map.on('load', () => {
             }
 
             function requestCatalog() {
+                if (!IS_AUTHENTICATED) {
+                    return;
+                }
                 if (window.symbologyCatalog) {
                     ensureRiyadhRoadLayerFromCatalog(window.symbologyCatalog);
                     ensureRiyadhRoadLabelsFromCatalog(window.symbologyCatalog);
@@ -1219,12 +1232,17 @@ map.on('load', () => {
             }
 
             window.addEventListener('symbology:catalogLoaded', function(e) {
+                if (!IS_AUTHENTICATED) {
+                    return;
+                }
                 const catalog = e && e.detail ? e.detail : window.symbologyCatalog;
                 ensureRiyadhRoadLayerFromCatalog(catalog);
                 ensureRiyadhRoadLabelsFromCatalog(catalog);
                 reapplyRiyadhRoadDbFclassFeatureStates();
             });
-            requestCatalog();
+            if (IS_AUTHENTICATED) {
+                requestCatalog();
+            }
 
             /**
              * While editing geometry, hide the vector-tile rendition of this road
