@@ -631,14 +631,47 @@
         });
     }
 
+    function isDraftRoadClosureChangeActive() {
+        const initial =
+            typeof window.initialRoadClosureState === 'boolean'
+                ? window.initialRoadClosureState
+                : null;
+        const current =
+            typeof window.currentRoadClosureState === 'boolean'
+                ? window.currentRoadClosureState
+                : null;
+        return initial !== null && current !== null ? initial !== current : !!current;
+    }
+
+    function hideSelectedOverlayPaint() {
+        if (typeof map === 'undefined' || !map) {
+            return;
+        }
+        try {
+            if (map.getLayer(SELECTED_OVERLAY_GRADIENT_LAYER_ID)) {
+                map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-opacity', 0);
+            }
+            if (map.getLayer(SELECTED_OVERLAY_OUTLINE_LAYER_ID)) {
+                map.setPaintProperty(SELECTED_OVERLAY_OUTLINE_LAYER_ID, 'line-opacity', 0);
+            }
+            if (map.getLayer(SELECTED_OVERLAY_RING_LAYER_ID)) {
+                map.setPaintProperty(SELECTED_OVERLAY_RING_LAYER_ID, 'line-opacity', 0);
+            }
+            if (map.getLayer(SELECTED_OVERLAY_LINE_LAYER_ID)) {
+                map.setPaintProperty(SELECTED_OVERLAY_LINE_LAYER_ID, 'line-opacity', 0);
+            }
+        } catch (eHide) {}
+    }
+
     function syncRiyadhTileSelectionSuppressionForDraftClosure() {
         if (typeof window.setRiyadhTileSelectionSuppressedForOverlay !== 'function') {
             return;
         }
         const ext = window.approvedLineBeingEdited || window.selectedRiyadhRoad || null;
         const closureStyleReady = !!getVisualizationStyle('Road Closure');
+        const isDraftChange = isDraftRoadClosureChangeActive();
         const suppress =
-            !!window.currentRoadClosureState &&
+            isDraftChange &&
             !!(ext && ext.is_riyadh_road && ext.geometry) &&
             closureStyleReady;
         try {
@@ -4244,6 +4277,16 @@
         const geomEditActive =
             typeof window.__roadGeometryEditActiveId !== 'undefined' &&
             window.__roadGeometryEditActiveId != null;
+        const isDraftChange = isDraftRoadClosureChangeActive();
+
+        // If the road is already closed in DB (not a draft toggle) and we're not in
+        // vertex-edit mode, keep the basemap/tiles as the source of truth and do not
+        // draw the GeoJSON overlay (prevents "selected road disappears" artifacts).
+        if (!geomEditActive && !isDraftChange) {
+            hideSelectedOverlayPaint();
+            syncRiyadhTileSelectionSuppressionForDraftClosure();
+            return;
+        }
         try {
             if (map.getLayer(SELECTED_OVERLAY_GRADIENT_LAYER_ID)) {
                 map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-color', c);
