@@ -370,6 +370,15 @@
         };
     }
 
+    function isValidRoadLabelInput(value) {
+        const text = (value || '').trim();
+        if (!text) {
+            return false;
+        }
+        // Require at least one Arabic, English, or numeric character.
+        return /[\u0600-\u06FFA-Za-z0-9]/.test(text);
+    }
+
     function showSaveOutcomeUI(opts) {
         const autoApproved = !!(opts && opts.autoApproved);
         const pendingSubmitted = !!(opts && opts.pendingSubmitted);
@@ -458,6 +467,16 @@
         if (!editData) {
             alert('Please draw a line first before saving.');
             return;
+        }
+
+        if (editData.is_riyadh_road) {
+            const roadLabel = editData.fields_data && editData.fields_data.name != null
+                ? String(editData.fields_data.name)
+                : '';
+            if (!isValidRoadLabelInput(roadLabel)) {
+                alert('Road Label is required and must contain valid Arabic or English text.');
+                return;
+            }
         }
 
         if (saveBtn) {

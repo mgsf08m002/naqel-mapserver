@@ -2519,7 +2519,7 @@
         const existingFieldsContainer = document.createElement('div');
         existingFieldsContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-3';
 
-        const nameField = createFieldItem('Name', false, true, true);
+        const nameField = createFieldItem('Road Label', false, true, true);
         existingFieldsContainer.appendChild(nameField);
 
         const commonNameInput = document.createElement('input');

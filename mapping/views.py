@@ -12,6 +12,7 @@ from decimal import Decimal
 import json
 import logging
 import math
+import re
 import time
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -26,8 +27,7 @@ logger = logging.getLogger(__name__)
 RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS = frozenset({"name", "road_closure"})
 # Client payload duplicates / UI-only keys (not riyadh_roads columns) — must not force manager review.
 RIYADH_FIELDS_UI_ONLY = frozenset({"common_name", "multilingual_names"})
-# Read-only metadata mirrored in sidebar payloads; these are not editable remote
-# attributes and must never trigger manager review.
+
 RIYADH_FIELDS_NON_REVIEWABLE = frozenset({"gid", "id", "objectid"})
 RIYADH_REMOTE_FIELD_KEYS = frozenset(
     {
@@ -47,6 +47,110 @@ RIYADH_REMOTE_FIELD_KEYS = frozenset(
 )
 # Never emit these as tag rows (sidebar or UI mirrors); keeps fields_data ↔ tags_data aligned with the client.
 RIYADH_FIELDS_OMIT_FROM_TAGS = RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS | RIYADH_FIELDS_UI_ONLY
+ARABIC_CHAR_PATTERN = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
+LATIN_CHAR_PATTERN = re.compile(r"[A-Za-z]")
+ROAD_LABEL_VALID_CHAR_PATTERN = re.compile(r"[\u0600-\u06FFA-Za-z0-9]")
+
+
+def _detect_road_label_language(label_text: str) -> str:
+    """
+    Detect whether a free-text road label is Arabic or English.
+    Returns: 'ar', 'en', or 'unknown'.
+    """
+    text = (label_text or "").strip()
+    if not text:
+        return "unknown"
+
+    has_ar = bool(ARABIC_CHAR_PATTERN.search(text))
+    has_latin = bool(LATIN_CHAR_PATTERN.search(text))
+
+    if has_ar and not has_latin:
+        return "ar"
+    if has_latin and not has_ar:
+        return "en"
+    return "unknown"
+
+
+def _is_valid_road_label_text(label_text: str) -> bool:
+    text = (label_text or "").strip()
+    if not text:
+        return False
+    return bool(ROAD_LABEL_VALID_CHAR_PATTERN.search(text))
+
+
+def _derive_bilingual_label_values(label_text: str, current_en: str = "", current_ar: str = ""):
+    """
+    Split one Road Label input into bilingual DB values.
+    Arabic-only -> updates name_ar
+    English-only -> updates name_en
+    Unknown/mixed -> defaults to name_en
+    """
+    raw_label = (label_text or "").strip()
+    if not raw_label:
+        return current_en, current_ar
+
+    lang = _detect_road_label_language(raw_label)
+    if lang == "ar":
+        return current_en, raw_label
+    return raw_label, current_ar
+
+
+def _get_riyadh_road_bilingual_names_by_gid(gid_value):
+    """Fetch (name_en, name_ar) directly from remote DB by gid."""
+    if gid_value is None:
+        return "", ""
+    with connections["riyadh_roads"].cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                COALESCE(NULLIF(TRIM(name_en), ''), '') AS name_en,
+                COALESCE(NULLIF(TRIM(name_ar), ''), '') AS name_ar
+            FROM public.riyadh_roads
+            WHERE gid = %s
+            LIMIT 1
+            """,
+            [int(gid_value)],
+        )
+        row = cursor.fetchone()
+    if not row:
+        return "", ""
+    return (row[0] or "").strip(), (row[1] or "").strip()
+
+
+def _persist_riyadh_road_label_columns(road, label_text):
+    """
+    Persist editor Road Label to remote bilingual columns.
+    - English input updates name_en
+    - Arabic input updates name_ar
+    - Unknown/mixed input falls back to name_en
+    Also keeps `name` aligned for legacy consumers.
+    """
+    if not road:
+        return
+
+    gid_value = getattr(road, "gid", None)
+    if gid_value is None:
+        return
+
+    raw_label = (label_text or "").strip()
+    if not raw_label:
+        return
+
+    current_en, current_ar = _get_riyadh_road_bilingual_names_by_gid(gid_value)
+    next_en, next_ar = _derive_bilingual_label_values(raw_label, current_en, current_ar)
+
+    with connections["riyadh_roads"].cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE public.riyadh_roads
+            SET
+                name = %s,
+                name_en = %s,
+                name_ar = %s
+            WHERE gid = %s
+            """,
+            [raw_label, next_en or None, next_ar or None, int(gid_value)],
+        )
 
 
 def _tiles_version_ms():
@@ -520,6 +624,17 @@ def save_line_edit_request(request):
         tags_data = data.get("tags_data") or []
         relations_data = data.get("relations_data") or []
 
+        if is_riyadh_road:
+            road_label = str((fields_data or {}).get("name") or "").strip()
+            if not _is_valid_road_label_text(road_label):
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": "Road Label is required and must contain valid Arabic or English text.",
+                    },
+                    status=400,
+                )
+
         original_geometry = None
         geometry_changed = False
         road = None
@@ -780,6 +895,7 @@ def _apply_riyadh_edit_to_base_network(edit_request):
 
     road.road_closure = edit_request.road_closure or 0
     road.save(using="riyadh_roads")
+    _persist_riyadh_road_label_columns(road, fields.get("name") or "")
 
 
 def _apply_manual_approval_to_remote_network(edit_request):
@@ -828,12 +944,13 @@ def _apply_manual_approval_to_remote_network(edit_request):
         tunnel = fields.get("tunnel") or ""
         layer = fields.get("layer")
         road_closure = edit_request.road_closure or 0
+        name_en, name_ar = _derive_bilingual_label_values(name, "", "")
 
         with connections["riyadh_roads"].cursor() as cursor:
             cursor.execute(
                 """
                 INSERT INTO public.riyadh_roads
-                    (id, geom, name, ref, fclass, oneway, maxspeed, code, bridge, tunnel, layer, road_closure)
+                    (id, geom, name, name_en, name_ar, ref, fclass, oneway, maxspeed, code, bridge, tunnel, layer, road_closure)
                 VALUES
                     (
                         %s,
@@ -843,13 +960,15 @@ def _apply_manual_approval_to_remote_network(edit_request):
                                 3857
                             )
                         ),
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                 """,
                 [
                     float(next_id),
                     geometry_geojson,
                     name,
+                    name_en,
+                    name_ar,
                     ref,
                     fclass,
                     oneway,
@@ -1509,12 +1628,15 @@ def get_riyadh_road_details(request, road_gid):
         except (TypeError, ValueError):
             road_closure_int = 0
 
+        name_en_db, name_ar_db = _get_riyadh_road_bilingual_names_by_gid(getattr(road, "gid", None))
+        display_label = name_en_db or name_ar_db or (road.name or "").strip()
+
         fields_data = {
             "gid": getattr(road, "gid", None),
             # The stable identifier used by vector tiles / MapLibre promoteId.
             "id": _sanitize_number(getattr(road, "id", None)),
             "objectid": str(road.objectid) if getattr(road, "objectid", None) is not None else "",
-            "name": (road.name or "").strip(),
+            "name": display_label,
             "ref": road.ref or "",
             "fclass": road.fclass or "",
             "oneway": road.oneway or "",
