@@ -2,199 +2,566 @@
   "version": 1,
   "styles_by_label": {
     "Line": {
-      "lineColor": "#94a3b8",
+      "lineColor": "#64748b",
       "glowColor": "#cbd5e1",
-      "lineWidth": 3.0,
-      "glowWidth": 8.0,
-      "glowOpacity": 0.5,
+      "lineWidth": 2.8,
+      "glowWidth": 7.2,
+      "glowOpacity": 0.42,
       "markerColor": "#f8fafc",
-      "markerGlowColor": "#94a3b8"
+      "markerGlowColor": "#64748b"
     },
     "Motorway": {
+      "lineColor": "#1d4ed8",
+      "glowColor": "#60a5fa",
+      "lineWidth": 6.2,
+      "glowWidth": 11.8,
+      "glowOpacity": 0.58,
+      "markerColor": "#eff6ff",
+      "markerGlowColor": "#1d4ed8"
+    },
+    "Motorway Link": {
       "lineColor": "#2563eb",
-      "glowColor": "#2563eb",
-      "lineWidth": 6.0,
-      "glowWidth": 12.0,
-      "glowOpacity": 0.65,
-      "markerColor": "#ffffff",
+      "glowColor": "#93c5fd",
+      "lineWidth": 5.2,
+      "glowWidth": 10.2,
+      "glowOpacity": 0.54,
+      "markerColor": "#eff6ff",
       "markerGlowColor": "#2563eb"
     },
     "Trunk Road": {
-      "lineColor": "#059669",
-      "glowColor": "#059669",
-      "lineWidth": 6.0,
-      "glowWidth": 12.0,
-      "glowOpacity": 0.65,
-      "markerColor": "#ffffff",
-      "markerGlowColor": "#059669"
+      "lineColor": "#0f766e",
+      "glowColor": "#5eead4",
+      "lineWidth": 5.8,
+      "glowWidth": 11.0,
+      "glowOpacity": 0.56,
+      "markerColor": "#ecfeff",
+      "markerGlowColor": "#0f766e"
+    },
+    "Trunk Link": {
+      "lineColor": "#0d9488",
+      "glowColor": "#99f6e4",
+      "lineWidth": 5.0,
+      "glowWidth": 9.8,
+      "glowOpacity": 0.52,
+      "markerColor": "#ecfeff",
+      "markerGlowColor": "#0d9488"
     },
     "Primary Road": {
+      "lineColor": "#c2410c",
+      "glowColor": "#fb923c",
+      "lineWidth": 5.3,
+      "glowWidth": 10.3,
+      "glowOpacity": 0.54,
+      "markerColor": "#fff7ed",
+      "markerGlowColor": "#c2410c"
+    },
+    "Primary Link": {
       "lineColor": "#ea580c",
-      "glowColor": "#ea580c",
-      "lineWidth": 5.0,
-      "glowWidth": 10.0,
-      "glowOpacity": 0.55,
-      "markerColor": "#ffffff",
+      "glowColor": "#fdba74",
+      "lineWidth": 4.8,
+      "glowWidth": 9.4,
+      "glowOpacity": 0.5,
+      "markerColor": "#fff7ed",
       "markerGlowColor": "#ea580c"
     },
     "Secondary Road": {
-      "lineColor": "#eab308",
-      "glowColor": "#eab308",
-      "lineWidth": 5.0,
-      "glowWidth": 10.0,
-      "glowOpacity": 0.55,
-      "markerColor": "#ffffff",
-      "markerGlowColor": "#eab308"
-    },
-    "Tertiary Road": {
-      "lineColor": "#a855f7",
-      "glowColor": "#a855f7",
-      "lineWidth": 4.0,
-      "glowWidth": 9.0,
+      "lineColor": "#ca8a04",
+      "glowColor": "#facc15",
+      "lineWidth": 4.8,
+      "glowWidth": 9.4,
       "glowOpacity": 0.5,
-      "markerColor": "#ffffff",
-      "markerGlowColor": "#a855f7"
-    },
-    "Motorway Link": {
-      "lineColor": "#38bdf8",
-      "glowColor": "#38bdf8",
-      "lineWidth": 5.0,
-      "glowWidth": 10.0,
-      "glowOpacity": 0.55,
-      "markerColor": "#ffffff",
-      "markerGlowColor": "#38bdf8"
-    },
-    "Trunk Link": {
-      "lineColor": "#22c55e",
-      "glowColor": "#22c55e",
-      "lineWidth": 5.0,
-      "glowWidth": 10.0,
-      "glowOpacity": 0.55,
-      "markerColor": "#ffffff",
-      "markerGlowColor": "#22c55e"
-    },
-    "Primary Link": {
-      "lineColor": "#f97316",
-      "glowColor": "#f97316",
-      "lineWidth": 5.0,
-      "glowWidth": 10.0,
-      "glowOpacity": 0.55,
-      "markerColor": "#ffffff",
-      "markerGlowColor": "#f97316"
+      "markerColor": "#fffbeb",
+      "markerGlowColor": "#ca8a04"
     },
     "Secondary Link": {
-      "lineColor": "#facc15",
-      "glowColor": "#facc15",
-      "lineWidth": 4.0,
-      "glowWidth": 9.0,
+      "lineColor": "#d97706",
+      "glowColor": "#fde68a",
+      "lineWidth": 4.2,
+      "glowWidth": 8.6,
+      "glowOpacity": 0.48,
+      "markerColor": "#fffbeb",
+      "markerGlowColor": "#d97706"
+    },
+    "Tertiary Road": {
+      "lineColor": "#6d28d9",
+      "glowColor": "#c4b5fd",
+      "lineWidth": 4.3,
+      "glowWidth": 8.7,
       "glowOpacity": 0.5,
-      "markerColor": "#ffffff",
-      "markerGlowColor": "#facc15"
-    },
-    "Residential Road": {
-      "lineColor": "#3b82f6",
-      "glowColor": "#93c5fd",
-      "lineWidth": 3.0,
-      "glowWidth": 8.0,
-      "glowOpacity": 0.6,
-      "markerColor": "#eff6ff",
-      "markerGlowColor": "#3b82f6"
-    },
-    "Living Street": {
-      "lineColor": "#10b981",
-      "glowColor": "#6ee7b7",
-      "lineWidth": 3.0,
-      "glowWidth": 8.0,
-      "glowOpacity": 0.6,
-      "markerColor": "#ecfdf5",
-      "markerGlowColor": "#10b981"
-    },
-    "Service Road": {
-      "lineColor": "#0ea5e9",
-      "glowColor": "#7dd3fc",
-      "lineWidth": 2.5,
-      "glowWidth": 7.0,
-      "glowOpacity": 0.55,
-      "markerColor": "#e0f2fe",
-      "markerGlowColor": "#0ea5e9"
-    },
-    "Unclassified Road": {
-      "lineColor": "#6b7280",
-      "glowColor": "#9ca3af",
-      "lineWidth": 2.5,
-      "glowWidth": 7.0,
-      "glowOpacity": 0.5,
-      "markerColor": "#f3f4f6",
-      "markerGlowColor": "#6b7280"
+      "markerColor": "#f5f3ff",
+      "markerGlowColor": "#6d28d9"
     },
     "Tertiary Link": {
-      "lineColor": "#c026d3",
-      "glowColor": "#e879f9",
-      "lineWidth": 4.0,
-      "glowWidth": 9.0,
-      "glowOpacity": 0.5,
-      "markerColor": "#fdf4ff",
-      "markerGlowColor": "#c026d3"
+      "lineColor": "#7c3aed",
+      "glowColor": "#ddd6fe",
+      "lineWidth": 3.9,
+      "glowWidth": 8.1,
+      "glowOpacity": 0.46,
+      "markerColor": "#f5f3ff",
+      "markerGlowColor": "#7c3aed"
+    },
+    "Residential Road": {
+      "lineColor": "#0284c7",
+      "glowColor": "#7dd3fc",
+      "lineWidth": 3.5,
+      "glowWidth": 7.8,
+      "glowOpacity": 0.48,
+      "markerColor": "#f0f9ff",
+      "markerGlowColor": "#0284c7"
+    },
+    "Living Street": {
+      "lineColor": "#0891b2",
+      "glowColor": "#67e8f9",
+      "lineWidth": 3.2,
+      "glowWidth": 7.2,
+      "glowOpacity": 0.46,
+      "markerColor": "#ecfeff",
+      "markerGlowColor": "#0891b2"
+    },
+    "Service Road": {
+      "lineColor": "#475569",
+      "glowColor": "#cbd5e1",
+      "lineWidth": 2.8,
+      "glowWidth": 6.6,
+      "glowOpacity": 0.42,
+      "markerColor": "#f8fafc",
+      "markerGlowColor": "#475569"
+    },
+    "Unclassified Road": {
+      "lineColor": "#52525b",
+      "glowColor": "#d4d4d8",
+      "lineWidth": 2.8,
+      "glowWidth": 6.6,
+      "glowOpacity": 0.42,
+      "markerColor": "#fafafa",
+      "markerGlowColor": "#52525b"
+    },
+    "Minor/Unclassified Road": {
+      "lineColor": "#6366f1",
+      "glowColor": "#c7d2fe",
+      "lineWidth": 3.0,
+      "glowWidth": 6.9,
+      "glowOpacity": 0.44,
+      "markerColor": "#eef2ff",
+      "markerGlowColor": "#6366f1"
     },
     "Track / Land-Access Road": {
       "lineColor": "#92400e",
-      "glowColor": "#ca8a04",
-      "lineWidth": 3.0,
-      "glowWidth": 8.0,
-      "glowOpacity": 0.55,
+      "glowColor": "#fbbf24",
+      "lineWidth": 2.9,
+      "glowWidth": 6.9,
+      "glowOpacity": 0.44,
       "markerColor": "#fffbeb",
       "markerGlowColor": "#92400e",
-      "lineDasharray": [2, 1.5]
+      "lineDasharray": [2.6, 1.8]
     },
-    "Footway": {
-      "lineColor": "#64748b",
-      "glowColor": "#94a3b8",
-      "lineWidth": 2.0,
-      "glowWidth": 6.0,
-      "glowOpacity": 0.45,
+    "Train Track": {
+      "lineColor": "#1f2937",
+      "glowColor": "#9ca3af",
+      "lineWidth": 3.0,
+      "glowWidth": 7.3,
+      "glowOpacity": 0.48,
       "markerColor": "#f8fafc",
-      "markerGlowColor": "#64748b",
-      "lineDasharray": [4, 3]
+      "markerGlowColor": "#1f2937",
+      "lineDasharray": [2.2, 1.2]
     },
-    "Steps": {
-      "lineColor": "#78716c",
-      "glowColor": "#a8a29e",
+    "Disused Railway": {
+      "lineColor": "#4b5563",
+      "glowColor": "#d1d5db",
       "lineWidth": 2.5,
-      "glowWidth": 6.5,
-      "glowOpacity": 0.5,
-      "markerColor": "#fafaf9",
-      "markerGlowColor": "#78716c",
-      "lineDasharray": [1.2, 1.2]
+      "glowWidth": 6.4,
+      "glowOpacity": 0.4,
+      "markerColor": "#fafafa",
+      "markerGlowColor": "#4b5563",
+      "lineDasharray": [1.8, 2.8]
+    },
+    "Tram Track": {
+      "lineColor": "#334155",
+      "glowColor": "#94a3b8",
+      "lineWidth": 2.6,
+      "glowWidth": 6.6,
+      "glowOpacity": 0.44,
+      "markerColor": "#f8fafc",
+      "markerGlowColor": "#334155",
+      "lineDasharray": [2.4, 1.6]
+    },
+    "Underground Railway Track": {
+      "lineColor": "#111827",
+      "glowColor": "#6b7280",
+      "lineWidth": 2.8,
+      "glowWidth": 6.8,
+      "glowOpacity": 0.45,
+      "markerColor": "#f9fafb",
+      "markerGlowColor": "#111827",
+      "lineDasharray": [1.2, 2.6]
+    },
+    "Narrow Guage Track": {
+      "lineColor": "#52525b",
+      "glowColor": "#a1a1aa",
+      "lineWidth": 2.3,
+      "glowWidth": 6.1,
+      "glowOpacity": 0.4,
+      "markerColor": "#fafafa",
+      "markerGlowColor": "#52525b",
+      "lineDasharray": [1.5, 1.8]
+    },
+    "Light Rail Track": {
+      "lineColor": "#0f766e",
+      "glowColor": "#5eead4",
+      "lineWidth": 2.7,
+      "glowWidth": 6.9,
+      "glowOpacity": 0.46,
+      "markerColor": "#f0fdfa",
+      "markerGlowColor": "#0f766e",
+      "lineDasharray": [2.6, 1.5]
+    },
+    "Monorail Track": {
+      "lineColor": "#7c3aed",
+      "glowColor": "#c4b5fd",
+      "lineWidth": 2.6,
+      "glowWidth": 6.7,
+      "glowOpacity": 0.45,
+      "markerColor": "#f5f3ff",
+      "markerGlowColor": "#7c3aed",
+      "lineDasharray": [3, 1.8]
+    },
+    "Funicular Track": {
+      "lineColor": "#9f1239",
+      "glowColor": "#fda4af",
+      "lineWidth": 2.6,
+      "glowWidth": 6.7,
+      "glowOpacity": 0.45,
+      "markerColor": "#fff1f2",
+      "markerGlowColor": "#9f1239",
+      "lineDasharray": [2.1, 1.2]
     },
     "Path": {
       "lineColor": "#57534e",
-      "glowColor": "#a8a29e",
-      "lineWidth": 2.5,
-      "glowWidth": 7.0,
-      "glowOpacity": 0.5,
+      "glowColor": "#d6d3d1",
+      "lineWidth": 2.4,
+      "glowWidth": 6.2,
+      "glowOpacity": 0.4,
       "markerColor": "#fafaf9",
       "markerGlowColor": "#57534e",
-      "lineDasharray": [3, 2.5]
+      "lineDasharray": [3.2, 2.6]
+    },
+    "Footway": {
+      "lineColor": "#64748b",
+      "glowColor": "#cbd5e1",
+      "lineWidth": 2.1,
+      "glowWidth": 5.8,
+      "glowOpacity": 0.38,
+      "markerColor": "#f8fafc",
+      "markerGlowColor": "#64748b",
+      "lineDasharray": [4.2, 3.2]
+    },
+    "Foot Path": {
+      "lineColor": "#6b7280",
+      "glowColor": "#d1d5db",
+      "lineWidth": 2.0,
+      "glowWidth": 5.6,
+      "glowOpacity": 0.36,
+      "markerColor": "#f9fafb",
+      "markerGlowColor": "#6b7280",
+      "lineDasharray": [4.3, 3.3]
+    },
+    "Marked Crossing": {
+      "lineColor": "#f59e0b",
+      "glowColor": "#fde68a",
+      "lineWidth": 2.3,
+      "glowWidth": 6.0,
+      "glowOpacity": 0.44,
+      "markerColor": "#fffbeb",
+      "markerGlowColor": "#f59e0b",
+      "lineDasharray": [0.8, 1.0]
+    },
+    "Pavement": {
+      "lineColor": "#71717a",
+      "glowColor": "#e4e4e7",
+      "lineWidth": 2.0,
+      "glowWidth": 5.7,
+      "glowOpacity": 0.36,
+      "markerColor": "#fafafa",
+      "markerGlowColor": "#71717a",
+      "lineDasharray": [3.5, 2.7]
+    },
+    "Informal Path": {
+      "lineColor": "#78716c",
+      "glowColor": "#e7e5e4",
+      "lineWidth": 1.9,
+      "glowWidth": 5.5,
+      "glowOpacity": 0.34,
+      "markerColor": "#fafaf9",
+      "markerGlowColor": "#78716c",
+      "lineDasharray": [2.8, 3.2]
+    },
+    "Steps": {
+      "lineColor": "#6b7280",
+      "glowColor": "#d1d5db",
+      "lineWidth": 2.3,
+      "glowWidth": 5.9,
+      "glowOpacity": 0.4,
+      "markerColor": "#fafafa",
+      "markerGlowColor": "#6b7280",
+      "lineDasharray": [1.1, 1.1]
     },
     "Cycleway": {
+      "lineColor": "#0f766e",
+      "glowColor": "#99f6e4",
+      "lineWidth": 2.8,
+      "glowWidth": 6.8,
+      "glowOpacity": 0.45,
+      "markerColor": "#f0fdfa",
+      "markerGlowColor": "#0f766e",
+      "lineDasharray": [5.0, 2.4]
+    },
+    "Cycle Path": {
       "lineColor": "#0d9488",
-      "glowColor": "#2dd4bf",
-      "lineWidth": 3.0,
-      "glowWidth": 8.0,
-      "glowOpacity": 0.55,
-      "markerColor": "#ecfdf5",
+      "glowColor": "#a7f3d0",
+      "lineWidth": 2.7,
+      "glowWidth": 6.6,
+      "glowOpacity": 0.44,
+      "markerColor": "#f0fdfa",
       "markerGlowColor": "#0d9488",
-      "lineDasharray": [5, 2.5]
+      "lineDasharray": [5.2, 2.8]
+    },
+    "Bridle Way": {
+      "lineColor": "#92400e",
+      "glowColor": "#fcd34d",
+      "lineWidth": 2.4,
+      "glowWidth": 6.2,
+      "glowOpacity": 0.42,
+      "markerColor": "#fffbeb",
+      "markerGlowColor": "#92400e",
+      "lineDasharray": [3.0, 2.4]
+    },
+    "Pedestrian Street": {
+      "lineColor": "#0284c7",
+      "glowColor": "#bae6fd",
+      "lineWidth": 2.7,
+      "glowWidth": 6.5,
+      "glowOpacity": 0.43,
+      "markerColor": "#f0f9ff",
+      "markerGlowColor": "#0284c7",
+      "lineDasharray": [3.2, 2.0]
+    },
+    "Stream": {
+      "lineColor": "#0ea5e9",
+      "glowColor": "#7dd3fc",
+      "lineWidth": 2.3,
+      "glowWidth": 6.2,
+      "glowOpacity": 0.45,
+      "markerColor": "#e0f2fe",
+      "markerGlowColor": "#0ea5e9",
+      "lineDasharray": [2.4, 1.8]
+    },
+    "Drain": {
+      "lineColor": "#0284c7",
+      "glowColor": "#67e8f9",
+      "lineWidth": 2.1,
+      "glowWidth": 5.9,
+      "glowOpacity": 0.42,
+      "markerColor": "#e0f2fe",
+      "markerGlowColor": "#0284c7",
+      "lineDasharray": [1.9, 1.7]
+    },
+    "River": {
+      "lineColor": "#1d4ed8",
+      "glowColor": "#93c5fd",
+      "lineWidth": 3.6,
+      "glowWidth": 8.5,
+      "glowOpacity": 0.52,
+      "markerColor": "#dbeafe",
+      "markerGlowColor": "#1d4ed8"
+    },
+    "Canal": {
+      "lineColor": "#2563eb",
+      "glowColor": "#bfdbfe",
+      "lineWidth": 3.1,
+      "glowWidth": 7.7,
+      "glowOpacity": 0.48,
+      "markerColor": "#dbeafe",
+      "markerGlowColor": "#2563eb",
+      "lineDasharray": [3.2, 1.8]
+    },
+    "Ditch": {
+      "lineColor": "#0369a1",
+      "glowColor": "#7dd3fc",
+      "lineWidth": 2.0,
+      "glowWidth": 5.6,
+      "glowOpacity": 0.4,
+      "markerColor": "#e0f2fe",
+      "markerGlowColor": "#0369a1",
+      "lineDasharray": [1.5, 1.5]
+    },
+    "Fence": {
+      "lineColor": "#7c2d12",
+      "glowColor": "#fdba74",
+      "lineWidth": 2.0,
+      "glowWidth": 5.7,
+      "glowOpacity": 0.4,
+      "markerColor": "#fff7ed",
+      "markerGlowColor": "#7c2d12",
+      "lineDasharray": [1.3, 1.2]
+    },
+    "Guard Rail": {
+      "lineColor": "#be123c",
+      "glowColor": "#fda4af",
+      "lineWidth": 2.4,
+      "glowWidth": 6.3,
+      "glowOpacity": 0.44,
+      "markerColor": "#fff1f2",
+      "markerGlowColor": "#be123c",
+      "lineDasharray": [2.2, 1.4]
+    },
+    "Wall": {
+      "lineColor": "#9f1239",
+      "glowColor": "#fecdd3",
+      "lineWidth": 2.6,
+      "glowWidth": 6.5,
+      "glowOpacity": 0.46,
+      "markerColor": "#fff1f2",
+      "markerGlowColor": "#9f1239"
+    },
+    "Retaining Wall": {
+      "lineColor": "#881337",
+      "glowColor": "#fda4af",
+      "lineWidth": 2.8,
+      "glowWidth": 6.8,
+      "glowOpacity": 0.48,
+      "markerColor": "#fff1f2",
+      "markerGlowColor": "#881337",
+      "lineDasharray": [2.5, 1.5]
+    },
+    "Kerb": {
+      "lineColor": "#9a3412",
+      "glowColor": "#fdba74",
+      "lineWidth": 1.8,
+      "glowWidth": 5.1,
+      "glowOpacity": 0.36,
+      "markerColor": "#fff7ed",
+      "markerGlowColor": "#9a3412",
+      "lineDasharray": [0.9, 1.1]
+    },
+    "Gate": {
+      "lineColor": "#b91c1c",
+      "glowColor": "#fca5a5",
+      "lineWidth": 2.2,
+      "glowWidth": 6.0,
+      "glowOpacity": 0.42,
+      "markerColor": "#fef2f2",
+      "markerGlowColor": "#b91c1c",
+      "lineDasharray": [1.8, 1.5]
+    },
+    "Hedge": {
+      "lineColor": "#166534",
+      "glowColor": "#86efac",
+      "lineWidth": 2.1,
+      "glowWidth": 5.9,
+      "glowOpacity": 0.4,
+      "markerColor": "#f0fdf4",
+      "markerGlowColor": "#166534",
+      "lineDasharray": [2.2, 1.9]
+    },
+    "Trench": {
+      "lineColor": "#78350f",
+      "glowColor": "#fcd34d",
+      "lineWidth": 2.2,
+      "glowWidth": 6.0,
+      "glowOpacity": 0.42,
+      "markerColor": "#fffbeb",
+      "markerGlowColor": "#78350f",
+      "lineDasharray": [3.2, 1.7]
+    },
+    "Barrier": {
+      "lineColor": "#7f1d1d",
+      "glowColor": "#fca5a5",
+      "lineWidth": 2.5,
+      "glowWidth": 6.4,
+      "glowOpacity": 0.45,
+      "markerColor": "#fef2f2",
+      "markerGlowColor": "#7f1d1d",
+      "lineDasharray": [1.3, 1.2]
+    },
+    "Coast Line": {
+      "lineColor": "#1e40af",
+      "glowColor": "#93c5fd",
+      "lineWidth": 3.2,
+      "glowWidth": 7.9,
+      "glowOpacity": 0.5,
+      "markerColor": "#eff6ff",
+      "markerGlowColor": "#1e40af",
+      "lineDasharray": [4.0, 2.2]
+    },
+    "Tree Row": {
+      "lineColor": "#15803d",
+      "glowColor": "#86efac",
+      "lineWidth": 2.4,
+      "glowWidth": 6.2,
+      "glowOpacity": 0.43,
+      "markerColor": "#f0fdf4",
+      "markerGlowColor": "#15803d",
+      "lineDasharray": [1.7, 1.6]
+    },
+    "Cliff": {
+      "lineColor": "#7c2d12",
+      "glowColor": "#fdba74",
+      "lineWidth": 2.9,
+      "glowWidth": 6.9,
+      "glowOpacity": 0.47,
+      "markerColor": "#fff7ed",
+      "markerGlowColor": "#7c2d12",
+      "lineDasharray": [2.8, 1.9]
+    },
+    "Power Line": {
+      "lineColor": "#7e22ce",
+      "glowColor": "#d8b4fe",
+      "lineWidth": 2.7,
+      "glowWidth": 6.8,
+      "glowOpacity": 0.45,
+      "markerColor": "#faf5ff",
+      "markerGlowColor": "#7e22ce",
+      "lineDasharray": [6.0, 2.6]
+    },
+    "Minor Power Line": {
+      "lineColor": "#9333ea",
+      "glowColor": "#e9d5ff",
+      "lineWidth": 2.2,
+      "glowWidth": 6.1,
+      "glowOpacity": 0.4,
+      "markerColor": "#faf5ff",
+      "markerGlowColor": "#9333ea",
+      "lineDasharray": [5.2, 2.9]
+    },
+    "Pipeline": {
+      "lineColor": "#0f766e",
+      "glowColor": "#99f6e4",
+      "lineWidth": 2.5,
+      "glowWidth": 6.3,
+      "glowOpacity": 0.42,
+      "markerColor": "#f0fdfa",
+      "markerGlowColor": "#0f766e",
+      "lineDasharray": [3.8, 2.3]
+    },
+    "Power Cable": {
+      "lineColor": "#6d28d9",
+      "glowColor": "#c4b5fd",
+      "lineWidth": 2.2,
+      "glowWidth": 6.0,
+      "glowOpacity": 0.4,
+      "markerColor": "#f5f3ff",
+      "markerGlowColor": "#6d28d9",
+      "lineDasharray": [4.4, 2.5]
     },
     "Road Closure": {
-      "lineColor": "#ff3b30",
-      "glowColor": "#ff3b30",
-      "lineWidth": 7.0,
-      "glowWidth": 8.0,
-      "glowOpacity": 0.6,
-      "markerColor": "#ff3b30",
-      "markerGlowColor": "#ff3b30",
-      "lineDasharray": [4, 3]
+      "lineColor": "#dc2626",
+      "glowColor": "#fca5a5",
+      "lineWidth": 6.8,
+      "glowWidth": 8.6,
+      "glowOpacity": 0.62,
+      "markerColor": "#fee2e2",
+      "markerGlowColor": "#dc2626",
+      "lineDasharray": [4.2, 2.8]
     }
   }
 }

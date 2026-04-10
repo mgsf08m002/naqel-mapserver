@@ -492,9 +492,8 @@ map.on('load', () => {
             }
 
             /** Symbology match: catalog from riyadh_fclass.py; see block comment above. */
-            function buildMatchExpressionForStyle(stylesByLabel, fclassToLabel, fclassKeys, propName, defaultValue, transform) {
-                const keys = Array.isArray(fclassKeys) ? fclassKeys : Object.keys(fclassToLabel || {});
-                const effectiveFclass = [
+            function buildEffectiveFclassExpression() {
+                return [
                     'downcase',
                     [
                         'to-string',
@@ -506,6 +505,11 @@ map.on('load', () => {
                         ]
                     ]
                 ];
+            }
+
+            function buildMatchExpressionForStyle(stylesByLabel, fclassToLabel, fclassKeys, propName, defaultValue, transform) {
+                const keys = Array.isArray(fclassKeys) ? fclassKeys : Object.keys(fclassToLabel || {});
+                const effectiveFclass = buildEffectiveFclassExpression();
                 const expression = ['match', effectiveFclass];
                 keys.forEach(function(raw) {
                     const label = (fclassToLabel && fclassToLabel[raw]) || 'Line';
@@ -529,6 +533,27 @@ map.on('load', () => {
                     return [1, 0];
                 }
                 return [a, b];
+            }
+
+            function buildEffectiveRoadClosureExpression() {
+                return [
+                    'to-number',
+                    [
+                        'coalesce',
+                        ['feature-state', 'db_road_closure'],
+                        ['get', 'road_closure'],
+                        0
+                    ]
+                ];
+            }
+
+            function applySymbologyPaintToLayer(layerId, colorExpression, widthExpression, dashExpression) {
+                if (!map.getLayer(layerId)) {
+                    return;
+                }
+                map.setPaintProperty(layerId, 'line-color', colorExpression);
+                map.setPaintProperty(layerId, 'line-width', widthExpression);
+                map.setPaintProperty(layerId, 'line-dasharray', dashExpression);
             }
 
             function ensureRiyadhRoadLayerFromCatalog(catalog) {
@@ -563,29 +588,16 @@ map.on('load', () => {
                 );
 
                 const baseDashExpression = (() => {
-                    const keys = Array.isArray(fclassKeys) ? fclassKeys : Object.keys(fclassToLabel || {});
-                    const effectiveFclass = [
-                        'downcase',
-                        [
-                            'to-string',
-                            [
-                                'coalesce',
-                                ['feature-state', 'db_fclass'],
-                                ['get', 'fclass'],
-                                ''
-                            ]
-                        ]
-                    ];
-                    const expression = ['match', effectiveFclass];
-                    keys.forEach(function(raw) {
-                        const label = (fclassToLabel && fclassToLabel[raw]) || 'Line';
-                        const style = stylesByLabel[label] || stylesByLabel['Line'] || null;
-                        const dash = style && style.lineDasharray ? normalizeDashArray(style.lineDasharray) : [1, 0];
-                        expression.push(raw);
-                        expression.push(['literal', dash]);
-                    });
-                    expression.push(['literal', [1, 0]]);
-                    return expression;
+                    return buildMatchExpressionForStyle(
+                        stylesByLabel,
+                        fclassToLabel,
+                        fclassKeys,
+                        'lineDasharray',
+                        [1, 0],
+                        function(v) {
+                            return ['literal', normalizeDashArray(v)];
+                        }
+                    );
                 })();
 
                 const closureStyle = stylesByLabel['Road Closure'] || null;
@@ -593,15 +605,7 @@ map.on('load', () => {
                 const closureColor = closureStyle && closureStyle.lineColor ? closureStyle.lineColor : defaultColor;
                 const closureWidth = closureStyle && closureStyle.lineWidth != null ? Number(closureStyle.lineWidth) : defaultWidth;
 
-                const effectiveRoadClosure = [
-                    'to-number',
-                    [
-                        'coalesce',
-                        ['feature-state', 'db_road_closure'],
-                        ['get', 'road_closure'],
-                        0
-                    ]
-                ];
+                const effectiveRoadClosure = buildEffectiveRoadClosureExpression();
                 const isClosedExpr = ['==', effectiveRoadClosure, 1];
 
                 const colorExpression = ['case', isClosedExpr, closureColor, baseColorExpression];
@@ -944,17 +948,11 @@ map.on('load', () => {
                     }
                 } else {
                     try {
-                        map.setPaintProperty(STYLED_LAYER_ID, 'line-color', colorExpression);
-                        map.setPaintProperty(STYLED_LAYER_ID, 'line-width', widthExpression);
-                        map.setPaintProperty(STYLED_LAYER_ID, 'line-dasharray', dashExpression);
+                        applySymbologyPaintToLayer(STYLED_LAYER_ID, colorExpression, widthExpression, dashExpression);
                         if (map.getLayer(HOVER_LAYER_ID)) {
                             map.setPaintProperty(HOVER_LAYER_ID, 'line-width', ['+', widthExpression, 2]);
                         }
-                        if (map.getLayer(SELECTED_LAYER_ID)) {
-                            map.setPaintProperty(SELECTED_LAYER_ID, 'line-color', colorExpression);
-                            map.setPaintProperty(SELECTED_LAYER_ID, 'line-width', widthExpression);
-                            map.setPaintProperty(SELECTED_LAYER_ID, 'line-dasharray', dashExpression);
-                        }
+                        applySymbologyPaintToLayer(SELECTED_LAYER_ID, colorExpression, widthExpression, dashExpression);
                         if (map.getLayer(OUTLINE_LAYER_ID)) {
                             map.setPaintProperty(
                                 OUTLINE_LAYER_ID,

@@ -291,6 +291,14 @@
         const ref = String(fd.ref || '').trim();
         const fclassRaw = String(fd.fclass || '').trim();
         const fclassLower = fclassRaw.toLowerCase();
+        const catalog = window.symbologyCatalog || {};
+        const fclassToLabel = catalog.riyadh_fclass_to_label && typeof catalog.riyadh_fclass_to_label === 'object'
+            ? catalog.riyadh_fclass_to_label
+            : null;
+        const rawLabel = String(lineData.current_feature_label || lineData.feature_type || '').trim();
+        const fclassLabel = fclassRaw
+            ? (fclassToLabel && fclassToLabel[fclassLower] ? String(fclassToLabel[fclassLower]) : fclassRaw.replace(/_/g, ' ').replace(/\b\w/g, function(ch) { return ch.toUpperCase(); }))
+            : '';
         const parts = [];
         if (name) {
             parts.push(name);
@@ -298,8 +306,9 @@
         if (ref) {
             parts.push('Ref ' + ref);
         }
-        if (fclassRaw && fclassLower !== 'unclassified') {
-            parts.push(fclassRaw);
+        // Keep sidebar metadata aligned with the human-readable feature label.
+        if (fclassLabel && fclassLower !== 'unclassified' && (!rawLabel || rawLabel.toLowerCase() !== fclassLabel.toLowerCase())) {
+            parts.push(fclassLabel);
         }
         if (!parts.length) {
             el.textContent = '';
@@ -504,10 +513,11 @@
         if (external && external.geometry) {
             return external.geometry;
         }
-        if (window.approvedLineBeingEdited && window.approvedLineBeingEdited.geometry) {
-            return window.approvedLineBeingEdited.geometry;
-        }
         return null;
+    }
+
+    function getCurrentExternalEditingFeature() {
+        return window.selectedRiyadhRoad || window.approvedLineBeingEdited || null;
     }
 
     function normalizeFeatureLabel(label) {
@@ -720,10 +730,34 @@
     }
 
     function dasharrayToSvg(style) {
+        const lineDasharray = getStyleDashArray(style);
+        if (!lineDasharray) {
+            return null;
+        }
+        return lineDasharray.map(function(x) { return String(x); }).join(',');
+    }
+
+    function getStyleDashArray(style) {
         if (!style || !style.lineDasharray || !Array.isArray(style.lineDasharray)) {
             return null;
         }
-        return style.lineDasharray.map(function(x) { return String(x); }).join(',');
+        return style.lineDasharray;
+    }
+
+    function getEffectiveDashArray(style) {
+        return getStyleDashArray(style) || [1, 0];
+    }
+
+    function hasDashGap(lineDasharray) {
+        return !!(
+            Array.isArray(lineDasharray) &&
+            lineDasharray.length >= 2 &&
+            Number(lineDasharray[1]) > 0
+        );
+    }
+
+    function getCasingOptionsForDash(lineDasharray) {
+        return hasDashGap(lineDasharray) ? { dashOnlyOnCore: true } : undefined;
     }
 
     /** SVG previews: stack outline → ring → core to match map selection (no blur glow). */
@@ -1610,8 +1644,8 @@
 
         // Always keep the sidepanel previews in sync, regardless of whether
         // the user is editing a drawn line, an approved line, or a tile road.
+        const external = getCurrentExternalEditingFeature();
         try {
-            const external = window.selectedRiyadhRoad || window.approvedLineBeingEdited || null;
             if (external && external.geometry) {
                 updateLineVisualizationFromGeometry(external.geometry, currentFeatureLabel);
             } else {
@@ -1623,8 +1657,12 @@
 
         // Update map symbology for approved lines / tile roads being edited.
         try {
-            const external = window.selectedRiyadhRoad || window.approvedLineBeingEdited || null;
             if (external && external.is_riyadh_road) {
+                if (!external._original_feature_label) {
+                    external._original_feature_label = external.current_feature_label || external.feature_type || currentFeatureLabel;
+                }
+                external.current_feature_label = currentFeatureLabel;
+                external.feature_type = currentFeatureLabel;
                 const roadId = external.riyadh_road_id != null ? external.riyadh_road_id : external.id;
                 if (roadId != null && external.geometry) {
                     updateRiyadhRoadVisualization(roadId, currentFeatureLabel, external.geometry);
@@ -1703,8 +1741,8 @@
             if (!mapLineSelection()) {
                 return;
             }
-            const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
-            const casingOpts = isRoadClosedForCurrentContext() ? { dashOnlyOnCore: true } : undefined;
+            const lineDasharray = getEffectiveDashArray(style);
+            const casingOpts = getCasingOptionsForDash(lineDasharray);
 
             const existingSource = map.getSource(sourceId);
             const existingOutline = map.getLayer(outlineLayerId);
@@ -4184,12 +4222,12 @@
         const isClosed = isRoadClosedForCurrentContext();
         const closureCatalog = getVisualizationStyle('Road Closure');
         const baseCatalog = getVisualizationStyle(label);
+        const baseDasharray = getEffectiveDashArray(style);
         const lineDasharray =
             isClosed && closureCatalog && closureCatalog.lineDasharray && Array.isArray(closureCatalog.lineDasharray)
                 ? closureCatalog.lineDasharray
-                : style.lineDasharray && Array.isArray(style.lineDasharray)
-                  ? style.lineDasharray
-                  : [1, 0];
+                : baseDasharray;
+        const casingOpts = getCasingOptionsForDash(lineDasharray);
         const w = Number(style.lineWidth) || 4;
         const c = style.lineColor || '#52525b';
         const coreW = Math.max(2, Math.min(8, w * 0.45));
@@ -4212,17 +4250,16 @@
                 map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-width', coreLineW);
                 map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-opacity', 1);
                 map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-dasharray', lineDasharray);
-                const dashHasGap = lineDasharray.length >= 2 && Number(lineDasharray[1]) > 0;
                 try {
                     map.setLayoutProperty(
                         SELECTED_OVERLAY_GRADIENT_LAYER_ID,
                         'line-cap',
-                        dashHasGap ? 'butt' : 'round'
+                        hasDashGap(lineDasharray) ? 'butt' : 'round'
                     );
                     map.setLayoutProperty(
                         SELECTED_OVERLAY_GRADIENT_LAYER_ID,
                         'line-join',
-                        dashHasGap ? 'miter' : 'round'
+                        hasDashGap(lineDasharray) ? 'miter' : 'round'
                     );
                 } catch (eLay) {}
             }
@@ -4239,7 +4276,8 @@
                     SELECTED_OVERLAY_OUTLINE_LAYER_ID,
                     SELECTED_OVERLAY_RING_LAYER_ID,
                     coreLineW,
-                    lineDasharray
+                    lineDasharray,
+                    casingOpts
                 );
             }
             if (map.getLayer(SELECTED_OVERLAY_LINE_LAYER_ID)) {
@@ -4564,7 +4602,10 @@
 
         const roadId = lineFeatureData.id || 'riyadh-road-' + Date.now();
         const featureLabel = lineFeatureData.current_feature_label || lineFeatureData.feature_type || 'Line';
-        window.approvedLineBeingEdited = Object.assign({}, lineFeatureData, { id: roadId });
+        window.approvedLineBeingEdited = Object.assign({}, lineFeatureData, {
+            id: roadId,
+            _original_feature_label: lineFeatureData._original_feature_label || featureLabel
+        });
         normalizeRiyadhRoadTagsFromFields(window.approvedLineBeingEdited);
 
         showEditFeatureScreen({
