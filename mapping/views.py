@@ -26,6 +26,25 @@ logger = logging.getLogger(__name__)
 RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS = frozenset({"name", "road_closure"})
 # Client payload duplicates / UI-only keys (not riyadh_roads columns) — must not force manager review.
 RIYADH_FIELDS_UI_ONLY = frozenset({"common_name", "multilingual_names"})
+# Read-only metadata mirrored in sidebar payloads; these are not editable remote
+# attributes and must never trigger manager review.
+RIYADH_FIELDS_NON_REVIEWABLE = frozenset({"gid", "id", "objectid"})
+RIYADH_REMOTE_FIELD_KEYS = frozenset(
+    {
+        "name",
+        "ref",
+        "fclass",
+        "oneway",
+        "maxspeed",
+        "osm_id",
+        "code",
+        "bridge",
+        "tunnel",
+        "layer",
+        "shape_length",
+        "road_closure",
+    }
+)
 # Never emit these as tag rows (sidebar or UI mirrors); keeps fields_data ↔ tags_data aligned with the client.
 RIYADH_FIELDS_OMIT_FROM_TAGS = RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS | RIYADH_FIELDS_UI_ONLY
 
@@ -316,12 +335,83 @@ def _geometries_equivalent_wgs84(geom_a, geom_b) -> bool:
         return True
     if geom_a is None or geom_b is None:
         return False
+
+    def _extract_primary_line_coords(geometry):
+        if not isinstance(geometry, dict):
+            return None
+        gtype = geometry.get("type")
+        coords = geometry.get("coordinates")
+
+        if gtype == "LineString":
+            if isinstance(coords, list) and len(coords) >= 2:
+                return coords
+            return None
+
+        if gtype == "MultiLineString":
+            if not isinstance(coords, list):
+                return None
+            for part in coords:
+                if isinstance(part, list) and len(part) >= 2:
+                    return part
+            return None
+
+        if gtype == "GeometryCollection":
+            geoms = geometry.get("geometries") or []
+            if isinstance(geoms, list):
+                for child in geoms:
+                    found = _extract_primary_line_coords(child)
+                    if found:
+                        return found
+            return None
+
+        return None
+
+    def _coords_match_with_tolerance(a_coords, b_coords, tol=1e-5):
+        if not isinstance(a_coords, list) or not isinstance(b_coords, list):
+            return False
+        if len(a_coords) != len(b_coords):
+            return False
+        for idx in range(len(a_coords)):
+            pa = a_coords[idx]
+            pb = b_coords[idx]
+            if not isinstance(pa, (list, tuple)) or not isinstance(pb, (list, tuple)):
+                return False
+            if len(pa) < 2 or len(pb) < 2:
+                return False
+            try:
+                ax = float(pa[0])
+                ay = float(pa[1])
+                bx = float(pb[0])
+                by = float(pb[1])
+            except (TypeError, ValueError):
+                return False
+            if abs(ax - bx) > tol or abs(ay - by) > tol:
+                return False
+        return True
+
     try:
         g1 = GEOSGeometry(json.dumps(geom_a), srid=4326)
         g2 = GEOSGeometry(json.dumps(geom_b), srid=4326)
-        return g1.equals(g2)
+        if g1.equals(g2):
+            return True
+        try:
+            # Accept tiny transform/serialization drift as equivalent.
+            return float(g1.distance(g2)) <= 1e-5
+        except Exception:
+            pass
     except Exception:
+        pass
+
+    # Fallback for representational drift (e.g., LineString vs single-part
+    # MultiLineString with identical coordinates) that can occur in client/server
+    # round-trips without a real geometry edit.
+    a_line = _extract_primary_line_coords(geom_a)
+    b_line = _extract_primary_line_coords(geom_b)
+    if not a_line or not b_line:
         return False
+    if _coords_match_with_tolerance(a_line, b_line):
+        return True
+    return _coords_match_with_tolerance(a_line, list(reversed(b_line)))
 
 
 def _validate_line_geojson_for_edit(geometry) -> None:
@@ -432,7 +522,27 @@ def save_line_edit_request(request):
 
         original_geometry = None
         geometry_changed = False
+        road = None
         if is_riyadh_road and riyadh_road_id_int is not None:
+            road = _resolve_riyadh_road(riyadh_road_id_int)
+            if not road:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": "Riyadh road not found after update.",
+                    },
+                    status=404,
+                )
+
+            # Derive closure drift from DB truth so closure-only saves remain
+            # correct even when the client-side `closure_changed` flag is stale.
+            try:
+                current_db_closure = int(getattr(road, "road_closure", 0) or 0)
+            except (TypeError, ValueError):
+                current_db_closure = 0
+            current_db_closure = 1 if current_db_closure == 1 else 0
+            closure_changed = bool(closure_changed or (current_db_closure != road_closure))
+
             original_geometry = _get_riyadh_road_geometry_wgs84(riyadh_road_id_int)
             if original_geometry is None:
                 return JsonResponse(
@@ -461,21 +571,23 @@ def save_line_edit_request(request):
                     status=500,
                 )
 
+        edit_request_create_kwargs = {
+            "requester": request.user,
+            "geometry": normalized_geometry,
+            "original_geometry": original_geometry,
+            "geometry_changed": geometry_changed,
+            "feature_type": data.get("feature_type", ""),
+            "current_feature_label": data.get("current_feature_label", "Line"),
+            "fields_data": fields_data,
+            "tags_data": tags_data,
+            "relations_data": relations_data,
+            "road_closure": road_closure,
+            "is_riyadh_road": is_riyadh_road,
+            "riyadh_road_id": riyadh_road_id_int,
+        }
+
         if is_manager:
-            edit_request = LineEditRequest.objects.create(
-                requester=request.user,
-                geometry=normalized_geometry,
-                original_geometry=original_geometry,
-                geometry_changed=geometry_changed,
-                feature_type=data.get("feature_type", ""),
-                current_feature_label=data.get("current_feature_label", "Line"),
-                fields_data=fields_data,
-                tags_data=tags_data,
-                relations_data=relations_data,
-                road_closure=road_closure,
-                is_riyadh_road=is_riyadh_road,
-                riyadh_road_id=riyadh_road_id_int,
-            )
+            edit_request = LineEditRequest.objects.create(**edit_request_create_kwargs)
             created_request_id = edit_request.id
             remote_road_id = None
             try:
@@ -520,20 +632,7 @@ def save_line_edit_request(request):
             )
 
         if not is_riyadh_road:
-            edit_request = LineEditRequest.objects.create(
-                requester=request.user,
-                geometry=normalized_geometry,
-                original_geometry=original_geometry,
-                geometry_changed=geometry_changed,
-                feature_type=data.get("feature_type", ""),
-                current_feature_label=data.get("current_feature_label", "Line"),
-                fields_data=fields_data,
-                tags_data=tags_data,
-                relations_data=relations_data,
-                road_closure=road_closure,
-                is_riyadh_road=is_riyadh_road,
-                riyadh_road_id=riyadh_road_id_int,
-            )
+            edit_request = LineEditRequest.objects.create(**edit_request_create_kwargs)
             return JsonResponse(
                 {
                     "success": True,
@@ -547,15 +646,16 @@ def save_line_edit_request(request):
                 }
             )
 
-        road = _resolve_riyadh_road(riyadh_road_id_int)
         if not road:
-            return JsonResponse(
-                {
-                    "success": False,
-                    "message": "Riyadh road not found after update.",
-                },
-                status=404,
-            )
+            road = _resolve_riyadh_road(riyadh_road_id_int)
+            if not road:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": "Riyadh road not found after update.",
+                    },
+                    status=404,
+                )
 
         needs_review = _riyadh_needs_manager_review(
             fields_data,
@@ -565,7 +665,6 @@ def save_line_edit_request(request):
             geometry_changed,
             closure_changed,
         )
-
         if not needs_review:
             return JsonResponse(
                 {
@@ -579,25 +678,16 @@ def save_line_edit_request(request):
                 }
             )
 
-        edit_request = LineEditRequest.objects.create(
-            requester=request.user,
-            geometry=normalized_geometry,
-            original_geometry=original_geometry,
-            geometry_changed=geometry_changed,
-            feature_type=data.get("feature_type", ""),
-            current_feature_label=data.get("current_feature_label", "Line"),
-            fields_data=fields_data,
-            tags_data=tags_data,
-            relations_data=relations_data,
-            road_closure=road_closure,
-            is_riyadh_road=is_riyadh_road,
-            riyadh_road_id=riyadh_road_id_int,
-        )
+        edit_request = LineEditRequest.objects.create(**edit_request_create_kwargs)
+
+        pending_message = "Your edit has been submitted for manager review."
+        if closure_changed:
+            pending_message += " Road closure is already live if you changed it."
 
         return JsonResponse(
             {
                 "success": True,
-                "message": "Your edit has been submitted for manager review. Road closure is already live if you changed it.",
+                "message": pending_message,
                 "request_id": edit_request.id,
                 "auto_approved": False,
                 "pending_submitted": True,
@@ -837,7 +927,9 @@ def _riyadh_effective_fields_when_closure_changed(fields_data, road):
     return {
         "name": pick("name"),
         "ref": pick("ref"),
-        "fclass": pick("fclass"),
+        # For closure-only flow, treat style/classification as unchanged to avoid
+        # false manager-review triggers from label↔fclass serialization drift.
+        "fclass": getattr(road, "fclass", None),
         "oneway": pick("oneway"),
         "maxspeed": pick("maxspeed"),
         "osm_id": pick("osm_id"),
@@ -845,7 +937,8 @@ def _riyadh_effective_fields_when_closure_changed(fields_data, road):
         "bridge": pick("bridge"),
         "tunnel": pick("tunnel"),
         "layer": pick("layer"),
-        "shape_length": pick("shape_length"),
+        # DB-derived geometry metric; not a user edit in closure flow.
+        "shape_length": getattr(road, "shape_length", None),
         "road_closure": pick("road_closure"),
     }
 
@@ -885,28 +978,14 @@ def _riyadh_fields_match_remote(fields_data, road) -> bool:
     return True
 
 
-def _riyadh_remote_field_keys():
-    return {
-        "name",
-        "ref",
-        "fclass",
-        "oneway",
-        "maxspeed",
-        "osm_id",
-        "code",
-        "bridge",
-        "tunnel",
-        "layer",
-        "shape_length",
-        "road_closure",
-    }
-
-
 def _riyadh_extra_fields_require_review(fields_data) -> bool:
     fd = fields_data or {}
-    allowed = _riyadh_remote_field_keys()
     for k, v in fd.items():
-        if k in allowed or k in RIYADH_FIELDS_UI_ONLY:
+        if (
+            k in RIYADH_REMOTE_FIELD_KEYS
+            or k in RIYADH_FIELDS_UI_ONLY
+            or k in RIYADH_FIELDS_NON_REVIEWABLE
+        ):
             continue
         if v in (None, "", [], {}):
             continue
@@ -937,6 +1016,31 @@ def _riyadh_tags_match_client(tags_data, fields_data) -> bool:
     return tuple(canon_pairs) == tuple(client_pairs)
 
 
+def _is_closure_only_no_review_candidate(
+    relations_data,
+    geometry_changed: bool,
+    closure_changed: bool,
+    has_extra_fields: bool,
+    fields_match_remote: bool,
+) -> bool:
+    """
+    Return True when the request is effectively a closure-only change.
+
+    In this mode, road_closure is written live for all roles and should not be
+    blocked by passive payload-vs-DB drift in mirrored sidebar attributes.
+    """
+    if not (
+        closure_changed
+        and not geometry_changed
+        and not relations_data
+        and not has_extra_fields
+        and fields_match_remote
+    ):
+        return False
+
+    return True
+
+
 def _riyadh_needs_manager_review(
     fields_data,
     tags_data,
@@ -945,18 +1049,31 @@ def _riyadh_needs_manager_review(
     geometry_changed: bool,
     closure_changed: bool,
 ) -> bool:
-    if geometry_changed:
-        return True
-    if relations_data:
-        return True
-    if _riyadh_extra_fields_require_review(fields_data):
-        return True
+    has_extra_fields = _riyadh_extra_fields_require_review(fields_data)
     effective_fields = (
         _riyadh_effective_fields_when_closure_changed(fields_data, road)
         if closure_changed
         else fields_data
     )
-    if not _riyadh_fields_match_remote(effective_fields, road):
+    fields_match_remote = _riyadh_fields_match_remote(effective_fields, road)
+
+    # Product rule: road closure changes are live immediately for all roles.
+    if _is_closure_only_no_review_candidate(
+        relations_data,
+        geometry_changed,
+        closure_changed,
+        has_extra_fields,
+        fields_match_remote,
+    ):
+        return False
+
+    if geometry_changed:
+        return True
+    if relations_data:
+        return True
+    if has_extra_fields:
+        return True
+    if not fields_match_remote:
         return True
     if not _riyadh_tags_match_client(tags_data, fields_data):
         return True

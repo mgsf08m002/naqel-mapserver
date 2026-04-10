@@ -455,7 +455,6 @@
         }
 
         const editData = collectLineEditData();
-
         if (!editData) {
             alert('Please draw a line first before saving.');
             return;
