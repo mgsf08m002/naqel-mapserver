@@ -18,6 +18,13 @@
     let symbologyStylesByLabel = null;
     let symbologyCatalogRequested = false;
 
+    const RIYADH_FIELD_KEYS_OMIT_FROM_TAGS = {
+        name: true,
+        road_closure: true,
+        common_name: true,
+        multilingual_names: true
+    };
+
     /** Shared selection casing helpers; see map-line-selection.js */
     function mapLineSelection() {
         return typeof window.MapLineSelection !== 'undefined' ? window.MapLineSelection : null;
@@ -50,8 +57,6 @@
         }
         if (type === 'error') {
             alert(message);
-        } else {
-            
         }
     }
 
@@ -257,10 +262,9 @@
         }
         const fd = road.fields_data && typeof road.fields_data === 'object' ? road.fields_data : {};
         road.fields_data = fd;
-        const skip = { name: true, road_closure: true };
         const tags = [];
         Object.keys(fd).forEach(function (k) {
-            if (skip[k]) {
+            if (RIYADH_FIELD_KEYS_OMIT_FROM_TAGS[k]) {
                 return;
             }
             const v = fd[k];
@@ -354,6 +358,7 @@
                         window.selectedRiyadhRoad = null;
                         window.approvedLineBeingEdited = null;
                         setSelectedOverlayGeometry(null);
+                        syncRiyadhTileSelectionSuppressionForDraftClosure();
                     } catch (e) {}
                     setTimeout(function () {
                         if (typeof window.triggerRiyadhTilesReload === 'function') {
@@ -397,7 +402,6 @@
                 map.addSource(SELECTED_OVERLAY_SOURCE_ID, {
                     type: 'geojson',
                     data: { type: 'FeatureCollection', features: [] },
-                    lineMetrics: true,
                 });
             }
         } catch (e) {
@@ -438,30 +442,17 @@
                 });
             }
             if (!map.getLayer(SELECTED_OVERLAY_GRADIENT_LAYER_ID)) {
-                try {
-                    map.addLayer({
-                        id: SELECTED_OVERLAY_GRADIENT_LAYER_ID,
-                        type: 'line',
-                        source: SELECTED_OVERLAY_SOURCE_ID,
-                        layout: { 'line-join': 'round', 'line-cap': 'round' },
-                        paint: {
-                            /* Placeholder; applySelectedOverlaySymbologyPaint replaces with feature color. */
-                            'line-gradient': [
-                                'interpolate',
-                                ['linear'],
-                                ['line-progress'],
-                                0,
-                                '#94a3b8',
-                                1,
-                                '#94a3b8',
-                            ],
-                            'line-width': 4,
-                            'line-opacity': 0.95,
-                        },
-                    });
-                } catch (eGrad) {
-                    // line-gradient requires LineString + lineMetrics; skip if unsupported geometry
-                }
+                map.addLayer({
+                    id: SELECTED_OVERLAY_GRADIENT_LAYER_ID,
+                    type: 'line',
+                    source: SELECTED_OVERLAY_SOURCE_ID,
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: {
+                        'line-color': '#94a3b8',
+                        'line-width': 4,
+                        'line-opacity': 0.95,
+                    },
+                });
             }
             if (!map.getLayer(SELECTED_OVERLAY_LINE_LAYER_ID)) {
                 map.addLayer({
@@ -478,32 +469,7 @@
                 });
             }
 
-            const style = map.getStyle && map.getStyle();
-            if (style && Array.isArray(style.layers) && style.layers.length) {
-                const lastId = style.layers[style.layers.length - 1].id;
-                if (lastId) {
-                    try {
-                        if (map.getLayer(SELECTED_OVERLAY_OUTLINE_LAYER_ID)) {
-                            map.moveLayer(SELECTED_OVERLAY_OUTLINE_LAYER_ID, lastId);
-                        }
-                    } catch (e2) {}
-                    try {
-                        if (map.getLayer(SELECTED_OVERLAY_RING_LAYER_ID)) {
-                            map.moveLayer(SELECTED_OVERLAY_RING_LAYER_ID, lastId);
-                        }
-                    } catch (e2r) {}
-                    try {
-                        if (map.getLayer(SELECTED_OVERLAY_GRADIENT_LAYER_ID)) {
-                            map.moveLayer(SELECTED_OVERLAY_GRADIENT_LAYER_ID, lastId);
-                        }
-                    } catch (e2b) {}
-                    try {
-                        if (map.getLayer(SELECTED_OVERLAY_LINE_LAYER_ID)) {
-                            map.moveLayer(SELECTED_OVERLAY_LINE_LAYER_ID, lastId);
-                        }
-                    } catch (e3) {}
-                }
-            }
+            bringSelectedOverlayLayersToFront();
         } catch (e) {
             // Non-critical
         }
@@ -521,6 +487,7 @@
             }
             if (!geometry) {
                 src.setData({ type: 'FeatureCollection', features: [] });
+                syncRiyadhTileSelectionSuppressionForDraftClosure();
                 return;
             }
             src.setData({
@@ -629,14 +596,54 @@
     }
 
     function getEffectiveVisualizationStyle(featureLabel) {
-        const isClosed = isRoadClosedForCurrentContext();
-        if (isClosed) {
-            const closureStyle = getVisualizationStyle('Road Closure');
-            if (closureStyle) {
-                return closureStyle;
-            }
+        if (isRoadClosedForCurrentContext()) {
+            return getVisualizationStyle('Road Closure');
         }
         return getVisualizationStyle(featureLabel);
+    }
+
+    function bringSelectedOverlayLayersToFront() {
+        if (typeof map === 'undefined' || !map || !map.getLayer) {
+            return;
+        }
+        const ids = [
+            SELECTED_OVERLAY_OUTLINE_LAYER_ID,
+            SELECTED_OVERLAY_RING_LAYER_ID,
+            SELECTED_OVERLAY_GRADIENT_LAYER_ID,
+            SELECTED_OVERLAY_LINE_LAYER_ID
+        ];
+        ids.forEach(function (id) {
+            if (map.getLayer(id)) {
+                try {
+                    map.moveLayer(id);
+                } catch (eMove) {}
+            }
+        });
+    }
+
+    function syncRiyadhTileSelectionSuppressionForDraftClosure() {
+        if (typeof window.setRiyadhTileSelectionSuppressedForOverlay !== 'function') {
+            return;
+        }
+        const ext = window.approvedLineBeingEdited || window.selectedRiyadhRoad || null;
+        const closureStyleReady = !!getVisualizationStyle('Road Closure');
+        const suppress =
+            !!window.currentRoadClosureState &&
+            !!(ext && ext.is_riyadh_road && ext.geometry) &&
+            closureStyleReady;
+        try {
+            window.setRiyadhTileSelectionSuppressedForOverlay(suppress);
+        } catch (e) {}
+        try {
+            if (typeof window.setRiyadhRoadBasemapHiddenForClosureOverlay === 'function') {
+                const rid = ext && (ext.riyadh_road_id != null ? ext.riyadh_road_id : ext.id);
+                if (suppress && rid != null) {
+                    window.setRiyadhRoadBasemapHiddenForClosureOverlay(rid, true);
+                } else {
+                    window.setRiyadhRoadBasemapHiddenForClosureOverlay(null, false);
+                }
+            }
+        } catch (eBase) {}
     }
 
     function parseRoadClosurePayloadValue(raw) {
@@ -696,6 +703,7 @@
             try {
                 const rid = ext.riyadh_road_id != null ? ext.riyadh_road_id : ext.id;
                 if (rid != null) {
+                    setSelectedOverlayGeometry(ext.geometry);
                     updateRiyadhRoadVisualization(rid, lbl, ext.geometry);
                     updateLineVisualizationFromGeometry(ext.geometry, lbl);
                     updated = true;
@@ -708,6 +716,7 @@
                 updateFeatureTypeVisualization();
             } catch (e3) {}
         }
+        syncRiyadhTileSelectionSuppressionForDraftClosure();
     }
 
     function dasharrayToSvg(style) {
@@ -838,6 +847,17 @@
             setupLineDrawingListeners();
             setupFeatureSearch();
             startHidingDefaultRendering();
+
+            try {
+                if (!window.__naqelSymbologyClosureListener) {
+                    window.__naqelSymbologyClosureListener = true;
+                    window.addEventListener('symbology:catalogLoaded', function () {
+                        if (window.currentRoadClosureState) {
+                            refreshSymbologyAfterRoadClosureChange();
+                        }
+                    });
+                }
+            } catch (eSym) {}
             
             // Ensure TerraDraw is in select mode for viewing features (works even when edit mode is disabled)
             // This allows users to click on drawn lines to view them in the sidebar
@@ -1140,6 +1160,7 @@
                 window.setRiyadhRoadSelectedId(null);
             }
             setSelectedOverlayGeometry(null);
+            syncRiyadhTileSelectionSuppressionForDraftClosure();
         } catch (eClear) {}
 
         if (hadRiyadhContext && typeof window.setCurrentRoadClosure === 'function') {
@@ -1673,11 +1694,17 @@
             }
             
             const style = getEffectiveVisualizationStyle(currentFeatureLabel);
-            if (!style) { return; }
+            if (!style) {
+                rerenderOnCatalogLoaded(function () {
+                    renderLineAsMapLibreLayer(id);
+                });
+                return;
+            }
             if (!mapLineSelection()) {
                 return;
             }
             const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
+            const casingOpts = isRoadClosedForCurrentContext() ? { dashOnlyOnCore: true } : undefined;
 
             const existingSource = map.getSource(sourceId);
             const existingOutline = map.getLayer(outlineLayerId);
@@ -1691,7 +1718,7 @@
                         features: [feature]
                     });
 
-                    mapLineSelection().applyGeoJsonCasingFromCoreWidth(map, outlineLayerId, ringLayerId, style.lineWidth, lineDasharray);
+                    mapLineSelection().applyGeoJsonCasingFromCoreWidth(map, outlineLayerId, ringLayerId, style.lineWidth, lineDasharray, casingOpts);
                     
                     map.setPaintProperty(layerId, 'line-color', style.lineColor);
                     map.setPaintProperty(layerId, 'line-width', style.lineWidth);
@@ -1730,7 +1757,7 @@
             });
             
             (function () {
-                const pair = mapLineSelection().maplibreSelectionCasingPaintPair(style.lineWidth, lineDasharray);
+                const pair = mapLineSelection().maplibreSelectionCasingPaintPair(style.lineWidth, lineDasharray, casingOpts);
                 map.addLayer({
                     id: outlineLayerId,
                     type: 'line',
@@ -4147,17 +4174,32 @@
             return;
         }
         ensureSelectedOverlayLayers();
+        bringSelectedOverlayLayersToFront();
         const label = featureLabel || getCurrentFeatureLabel();
         const style = getEffectiveVisualizationStyle(label);
         if (!style) {
+            syncRiyadhTileSelectionSuppressionForDraftClosure();
             return;
         }
+        const isClosed = isRoadClosedForCurrentContext();
+        const closureCatalog = getVisualizationStyle('Road Closure');
+        const baseCatalog = getVisualizationStyle(label);
         const lineDasharray =
-            style.lineDasharray && Array.isArray(style.lineDasharray) ? style.lineDasharray : [1, 0];
+            isClosed && closureCatalog && closureCatalog.lineDasharray && Array.isArray(closureCatalog.lineDasharray)
+                ? closureCatalog.lineDasharray
+                : style.lineDasharray && Array.isArray(style.lineDasharray)
+                  ? style.lineDasharray
+                  : [1, 0];
         const w = Number(style.lineWidth) || 4;
         const c = style.lineColor || '#52525b';
         const coreW = Math.max(2, Math.min(8, w * 0.45));
-        const coreLineW = w;
+        const coreLineW =
+            isClosed && closureCatalog
+                ? Math.max(
+                      Number(closureCatalog.lineWidth) || 3,
+                      baseCatalog ? Number(baseCatalog.lineWidth) || 0 : 0
+                  )
+                : w;
         const mls = mapLineSelection();
         // White inner stroke is only for vertex-edit mode; otherwise it reads as wrong symbology
         // (thick casing + white core) after "Done editing".
@@ -4166,20 +4208,32 @@
             window.__roadGeometryEditActiveId != null;
         try {
             if (map.getLayer(SELECTED_OVERLAY_GRADIENT_LAYER_ID)) {
-                map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-gradient', [
-                    'interpolate',
-                    ['linear'],
-                    ['line-progress'],
-                    0,
-                    c,
-                    1,
-                    c,
-                ]);
+                map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-color', c);
                 map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-width', coreLineW);
                 map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-opacity', 1);
                 map.setPaintProperty(SELECTED_OVERLAY_GRADIENT_LAYER_ID, 'line-dasharray', lineDasharray);
+                const dashHasGap = lineDasharray.length >= 2 && Number(lineDasharray[1]) > 0;
+                try {
+                    map.setLayoutProperty(
+                        SELECTED_OVERLAY_GRADIENT_LAYER_ID,
+                        'line-cap',
+                        dashHasGap ? 'butt' : 'round'
+                    );
+                    map.setLayoutProperty(
+                        SELECTED_OVERLAY_GRADIENT_LAYER_ID,
+                        'line-join',
+                        dashHasGap ? 'miter' : 'round'
+                    );
+                } catch (eLay) {}
             }
-            if (mls) {
+            if (isClosed) {
+                if (map.getLayer(SELECTED_OVERLAY_OUTLINE_LAYER_ID)) {
+                    map.setPaintProperty(SELECTED_OVERLAY_OUTLINE_LAYER_ID, 'line-opacity', 0);
+                }
+                if (map.getLayer(SELECTED_OVERLAY_RING_LAYER_ID)) {
+                    map.setPaintProperty(SELECTED_OVERLAY_RING_LAYER_ID, 'line-opacity', 0);
+                }
+            } else if (mls) {
                 mls.applyGeoJsonCasingFromCoreWidth(
                     map,
                     SELECTED_OVERLAY_OUTLINE_LAYER_ID,
@@ -4201,6 +4255,7 @@
         } catch (e) {
             // Non-critical
         }
+        syncRiyadhTileSelectionSuppressionForDraftClosure();
     }
 
     /** Prefer fields_data.fclass (remote DB); else label→fclass from catalog (riyadh_label_to_fclass). */
@@ -4250,6 +4305,8 @@
 
         if (geometry && typeof map !== 'undefined' && map) {
             applySelectedOverlaySymbologyPaint(newFeatureLabel);
+        } else {
+            syncRiyadhTileSelectionSuppressionForDraftClosure();
         }
     }
 

@@ -45,11 +45,6 @@ function getRiyadhRoadsTileUrl() {
 
 window.__riyadhTilesVersion = null;
 
-function getStoredRiyadhTilesVersion() {
-    // Keep versioning purely in-memory to avoid browser storage restrictions.
-    return null;
-}
-
 function getDefaultRiyadhTilesVersion() {
     return String(Date.now());
 }
@@ -59,7 +54,7 @@ function getRiyadhTilesVersionOrDefault(version) {
         const trimmed = String(version).trim();
         if (trimmed.length) return trimmed;
     }
-    return window.__riyadhTilesVersion || getStoredRiyadhTilesVersion() || getDefaultRiyadhTilesVersion();
+    return window.__riyadhTilesVersion || getDefaultRiyadhTilesVersion();
 }
 
 function buildCacheBustedUrl(baseUrl, version) {
@@ -85,7 +80,8 @@ const HAS_RIYADH_ROADS_TILES = !!RIYADH_ROADS_TILE_URL;
 const MAP_GLYPHS_URL = HAS_MAPTILER
     ? `https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_API_KEY}`
     : 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf';
-const PUBLIC_ROAD_COLOR = IS_AUTHENTICATED ? '#e3d1a3' : '#e3d1a3';
+/** Neutral basemap color for the Riyadh MVT public layer (all users). */
+const RIYADH_PUBLIC_ROAD_LINE_COLOR = '#e3d1a3';
 const RTL_TEXT_PLUGIN_URL = 'https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.2.3/mapbox-gl-rtl-text.js';
 
 function ensureRtlTextPluginLoaded() {
@@ -184,7 +180,7 @@ BASEMAP_DEFINITIONS.forEach((def) => {
 // Ensure each page load starts with a fresh tile version so browser/CDN caches
 // cannot keep serving stale vector tiles after road mutations.
 if (!window.__riyadhTilesVersion) {
-    window.__riyadhTilesVersion = getStoredRiyadhTilesVersion() || getDefaultRiyadhTilesVersion();
+    window.__riyadhTilesVersion = getDefaultRiyadhTilesVersion();
 }
 
 const map = new maplibregl.Map({
@@ -376,7 +372,6 @@ map.on('mousemove', (e) => {
 map.on('load', () => {
     setBasemapVisibility(currentBasemapId);
     try {
-            const HAS_RIYADH_TILE_SOURCE = HAS_RIYADH_ROADS_TILES && !!RIYADH_ROADS_TILE_URL;
             const SOURCE_ID = 'riyadh-roads';
             const PUBLIC_LAYER_ID = 'riyadh-roads-public-layer';
             const STYLED_LAYER_ID = 'riyadh-roads-layer';
@@ -433,32 +428,31 @@ map.on('load', () => {
             function reapplyRiyadhRoadDbFclassFeatureStates() {
                 const o = window.__riyadhRoadDbFclassById || {};
                 const ids = Object.keys(o);
-                if (!ids.length) {
-                    return;
+                if (ids.length) {
+                    try {
+                        if (map.getSource(SOURCE_ID)) {
+                            ids.forEach(function(k) {
+                                const idNum = parseInt(k, 10);
+                                if (Number.isNaN(idNum)) {
+                                    return;
+                                }
+                                try {
+                                    map.setFeatureState(
+                                        { source: SOURCE_ID, sourceLayer: SOURCE_LAYER, id: idNum },
+                                        { db_fclass: o[k] }
+                                    );
+                                } catch (e2) {}
+                            });
+                        }
+                    } catch (e) {}
                 }
                 try {
-                    if (!map.getSource(SOURCE_ID)) {
-                        return;
-                    }
-                } catch (e) {
-                    return;
-                }
-                ids.forEach(function(k) {
-                    const idNum = parseInt(k, 10);
-                    if (Number.isNaN(idNum)) {
-                        return;
-                    }
-                    try {
-                        map.setFeatureState(
-                            { source: SOURCE_ID, sourceLayer: SOURCE_LAYER, id: idNum },
-                            { db_fclass: o[k] }
-                        );
-                    } catch (e2) {}
-                });
+                    reapplyRiyadhRoadClosureOverlayBasemapHide();
+                } catch (eR) {}
             }
 
             function ensureRiyadhRoadsSource(version) {
-                if (!HAS_RIYADH_TILE_SOURCE) {
+                if (!HAS_RIYADH_ROADS_TILES) {
                     return;
                 }
                 if (map.getSource(SOURCE_ID)) {
@@ -474,12 +468,12 @@ map.on('load', () => {
                 });
             }
 
-            if (HAS_RIYADH_TILE_SOURCE && !map.getSource('riyadh-roads')) {
+            if (HAS_RIYADH_ROADS_TILES && !map.getSource(SOURCE_ID)) {
                 ensureRiyadhRoadsSource(window.__riyadhTilesVersion);
             }
 
             // Public layer shows the Riyadh road network in a single neutral color for all users.
-            if (HAS_RIYADH_TILE_SOURCE && !map.getLayer(PUBLIC_LAYER_ID)) {
+            if (HAS_RIYADH_ROADS_TILES && !map.getLayer(PUBLIC_LAYER_ID)) {
                 map.addLayer({
                     id: PUBLIC_LAYER_ID,
                     type: 'line',
@@ -490,7 +484,7 @@ map.on('load', () => {
                         'line-join': 'round'
                     },
                     paint: {
-                        'line-color': PUBLIC_ROAD_COLOR,
+                        'line-color': RIYADH_PUBLIC_ROAD_LINE_COLOR,
                         'line-width': 2,
                         'line-opacity': 1
                     }
@@ -525,8 +519,20 @@ map.on('load', () => {
                 return expression;
             }
 
+            function normalizeDashArray(rawDash) {
+                if (!rawDash || !Array.isArray(rawDash) || rawDash.length < 2) {
+                    return [1, 0];
+                }
+                const a = Number(rawDash[0]);
+                const b = Number(rawDash[1]);
+                if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b < 0) {
+                    return [1, 0];
+                }
+                return [a, b];
+            }
+
             function ensureRiyadhRoadLayerFromCatalog(catalog) {
-                if (!HAS_RIYADH_TILE_SOURCE || !map.getSource(SOURCE_ID)) {
+                if (!HAS_RIYADH_ROADS_TILES || !map.getSource(SOURCE_ID)) {
                     return;
                 }
                 const stylesByLabel = catalog && catalog.styles_by_label ? catalog.styles_by_label : null;
@@ -540,14 +546,14 @@ map.on('load', () => {
                 const defaultColor = defaultStyle.lineColor;
                 const defaultWidth = defaultStyle.lineWidth;
 
-                const colorExpression = buildMatchExpressionForStyle(
+                const baseColorExpression = buildMatchExpressionForStyle(
                     stylesByLabel,
                     fclassToLabel,
                     fclassKeys,
                     'lineColor',
                     defaultColor
                 );
-                const widthExpression = buildMatchExpressionForStyle(
+                const baseWidthExpression = buildMatchExpressionForStyle(
                     stylesByLabel,
                     fclassToLabel,
                     fclassKeys,
@@ -556,6 +562,52 @@ map.on('load', () => {
                     function(v) { return Number(v) || defaultWidth; }
                 );
 
+                const baseDashExpression = (() => {
+                    const keys = Array.isArray(fclassKeys) ? fclassKeys : Object.keys(fclassToLabel || {});
+                    const effectiveFclass = [
+                        'downcase',
+                        [
+                            'to-string',
+                            [
+                                'coalesce',
+                                ['feature-state', 'db_fclass'],
+                                ['get', 'fclass'],
+                                ''
+                            ]
+                        ]
+                    ];
+                    const expression = ['match', effectiveFclass];
+                    keys.forEach(function(raw) {
+                        const label = (fclassToLabel && fclassToLabel[raw]) || 'Line';
+                        const style = stylesByLabel[label] || stylesByLabel['Line'] || null;
+                        const dash = style && style.lineDasharray ? normalizeDashArray(style.lineDasharray) : [1, 0];
+                        expression.push(raw);
+                        expression.push(['literal', dash]);
+                    });
+                    expression.push(['literal', [1, 0]]);
+                    return expression;
+                })();
+
+                const closureStyle = stylesByLabel['Road Closure'] || null;
+                const closureDash = closureStyle ? normalizeDashArray(closureStyle.lineDasharray) : [1, 0];
+                const closureColor = closureStyle && closureStyle.lineColor ? closureStyle.lineColor : defaultColor;
+                const closureWidth = closureStyle && closureStyle.lineWidth != null ? Number(closureStyle.lineWidth) : defaultWidth;
+
+                const effectiveRoadClosure = [
+                    'to-number',
+                    [
+                        'coalesce',
+                        ['feature-state', 'db_road_closure'],
+                        ['get', 'road_closure'],
+                        0
+                    ]
+                ];
+                const isClosedExpr = ['==', effectiveRoadClosure, 1];
+
+                const colorExpression = ['case', isClosedExpr, closureColor, baseColorExpression];
+                const widthExpression = ['case', isClosedExpr, closureWidth, baseWidthExpression];
+                const dashExpression = ['case', isClosedExpr, ['literal', closureDash], baseDashExpression];
+
                 if (!map.getLayer(STYLED_LAYER_ID)) {
                     map.addLayer({
                         id: STYLED_LAYER_ID,
@@ -563,12 +615,14 @@ map.on('load', () => {
                         source: SOURCE_ID,
                         'source-layer': SOURCE_LAYER,
                         layout: {
-                            'line-cap': 'round',
+                            // Use butt caps so dashed symbology stays crisp (especially Road Closure).
+                            'line-cap': 'butt',
                             'line-join': 'round'
                         },
                         paint: {
                             'line-color': colorExpression,
                             'line-width': widthExpression,
+                            'line-dasharray': dashExpression,
                             'line-opacity': 1
                         }
                     });
@@ -643,12 +697,13 @@ map.on('load', () => {
                             'source-layer': SOURCE_LAYER,
                             filter: ['==', ['get', 'id'], -1],
                             layout: {
-                                'line-cap': 'round',
+                                'line-cap': 'butt',
                                 'line-join': 'round'
                             },
                             paint: {
                                 'line-color': colorExpression,
                                 'line-width': widthExpression,
+                                'line-dasharray': dashExpression,
                                 'line-opacity': 1
                             }
                         });
@@ -680,6 +735,25 @@ map.on('load', () => {
                                 }
                             } catch (e) {
                             }
+                        };
+
+                        /**
+                         * While the GeoJSON selection overlay shows draft road-closure symbology, hide the
+                         * MVT outline/ring/core so motorway colors are not painted on top of the overlay.
+                         */
+                        window.setRiyadhTileSelectionSuppressedForOverlay = function (suppressed) {
+                            try {
+                                const opacity = suppressed ? 0 : 1;
+                                if (map.getLayer(OUTLINE_LAYER_ID)) {
+                                    map.setPaintProperty(OUTLINE_LAYER_ID, 'line-opacity', opacity);
+                                }
+                                if (map.getLayer(RING_LAYER_ID)) {
+                                    map.setPaintProperty(RING_LAYER_ID, 'line-opacity', opacity);
+                                }
+                                if (map.getLayer(SELECTED_LAYER_ID)) {
+                                    map.setPaintProperty(SELECTED_LAYER_ID, 'line-opacity', opacity);
+                                }
+                            } catch (eSup) {}
                         };
                     }
 
@@ -769,7 +843,13 @@ map.on('load', () => {
                                 if (dbFclass && typeof window.applyRiyadhRoadDbFclassFromDatabase === 'function') {
                                     window.applyRiyadhRoadDbFclassFromDatabase(roadId, dbFclass);
                                 }
-                                const skipTags = { name: true, road_closure: true };
+                                // Align with line-drawing.js RIYADH_FIELD_KEYS_OMIT_FROM_TAGS / views RIYADH_FIELDS_OMIT_FROM_TAGS.
+                                const skipTags = {
+                                    name: true,
+                                    road_closure: true,
+                                    common_name: true,
+                                    multilingual_names: true
+                                };
                                 data.road.tags_data = [];
                                 Object.keys(fd).forEach(function (k) {
                                     if (skipTags[k]) {
@@ -866,12 +946,14 @@ map.on('load', () => {
                     try {
                         map.setPaintProperty(STYLED_LAYER_ID, 'line-color', colorExpression);
                         map.setPaintProperty(STYLED_LAYER_ID, 'line-width', widthExpression);
+                        map.setPaintProperty(STYLED_LAYER_ID, 'line-dasharray', dashExpression);
                         if (map.getLayer(HOVER_LAYER_ID)) {
                             map.setPaintProperty(HOVER_LAYER_ID, 'line-width', ['+', widthExpression, 2]);
                         }
                         if (map.getLayer(SELECTED_LAYER_ID)) {
                             map.setPaintProperty(SELECTED_LAYER_ID, 'line-color', colorExpression);
                             map.setPaintProperty(SELECTED_LAYER_ID, 'line-width', widthExpression);
+                            map.setPaintProperty(SELECTED_LAYER_ID, 'line-dasharray', dashExpression);
                         }
                         if (map.getLayer(OUTLINE_LAYER_ID)) {
                             map.setPaintProperty(
@@ -1281,9 +1363,67 @@ map.on('load', () => {
                 } catch (e3) {}
             };
 
+            /** MVT road id to hide on public + styled layers (draft closure GeoJSON overlay replaces it). */
+            window.__riyadhClosureOverlayHiddenRoadId = null;
+
+            function opacityZeroForRoadIdExpression(roadId) {
+                const n = parseInt(String(roadId), 10);
+                if (Number.isNaN(n)) {
+                    return 1;
+                }
+                return [
+                    'case',
+                    [
+                        'any',
+                        ['==', ['get', 'id'], n],
+                        ['==', ['to-string', ['get', 'id']], String(n)],
+                        ['==', ['to-number', ['get', 'id']], n],
+                    ],
+                    0,
+                    1,
+                ];
+            }
+
+            window.setRiyadhRoadBasemapHiddenForClosureOverlay = function (roadId, hidden) {
+                try {
+                    if (!map.getLayer(STYLED_LAYER_ID) || !map.getLayer(PUBLIC_LAYER_ID)) {
+                        return;
+                    }
+                    const op =
+                        hidden && roadId != null && roadId !== ''
+                            ? opacityZeroForRoadIdExpression(roadId)
+                            : 1;
+                    map.setPaintProperty(STYLED_LAYER_ID, 'line-opacity', op);
+                    map.setPaintProperty(PUBLIC_LAYER_ID, 'line-opacity', op);
+                    if (hidden && roadId != null && roadId !== '') {
+                        const parsed = parseInt(String(roadId), 10);
+                        window.__riyadhClosureOverlayHiddenRoadId = Number.isNaN(parsed) ? null : parsed;
+                    } else {
+                        window.__riyadhClosureOverlayHiddenRoadId = null;
+                    }
+                    if (
+                        !hidden &&
+                        window.__roadGeometryEditActiveId != null &&
+                        typeof window.setRiyadhRoadBasemapHiddenForEdit === 'function'
+                    ) {
+                        window.setRiyadhRoadBasemapHiddenForEdit(window.__roadGeometryEditActiveId, true);
+                    }
+                } catch (eCl) {}
+            };
+
+            function reapplyRiyadhRoadClosureOverlayBasemapHide() {
+                const rid = window.__riyadhClosureOverlayHiddenRoadId;
+                if (rid == null || typeof window.setRiyadhRoadBasemapHiddenForClosureOverlay !== 'function') {
+                    return;
+                }
+                try {
+                    window.setRiyadhRoadBasemapHiddenForClosureOverlay(rid, true);
+                } catch (eRe) {}
+            }
+
             window.reloadRiyadhRoadsSource = function(tilesVersion) {
                 if (typeof map === 'undefined' || !map) return;
-                if (!HAS_RIYADH_TILE_SOURCE) return;
+                if (!HAS_RIYADH_ROADS_TILES) return;
 
                 try {
                     const resolved = getRiyadhTilesVersionOrDefault(tilesVersion);
@@ -1329,7 +1469,7 @@ map.on('load', () => {
                             source: SOURCE_ID,
                             'source-layer': SOURCE_LAYER,
                             layout: { 'line-cap': 'round', 'line-join': 'round' },
-                            paint: { 'line-color': PUBLIC_ROAD_COLOR, 'line-width': 2, 'line-opacity': 1 }
+                            paint: { 'line-color': RIYADH_PUBLIC_ROAD_LINE_COLOR, 'line-width': 2, 'line-opacity': 1 }
                         });
                     }
 

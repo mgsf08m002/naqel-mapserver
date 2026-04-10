@@ -22,8 +22,12 @@ from .riyadh_fclass import feature_label_from_riyadh_fclass, riyadh_fclass_from_
 
 logger = logging.getLogger(__name__)
 
-# Riyadh sidebar: these keys use Fields / closure toggle; the rest are shown as tags.
+# Riyadh sidebar: name + closure use dedicated controls; the rest are shown as tags.
 RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS = frozenset({"name", "road_closure"})
+# Client payload duplicates / UI-only keys (not riyadh_roads columns) — must not force manager review.
+RIYADH_FIELDS_UI_ONLY = frozenset({"common_name", "multilingual_names"})
+# Never emit these as tag rows (sidebar or UI mirrors); keeps fields_data ↔ tags_data aligned with the client.
+RIYADH_FIELDS_OMIT_FROM_TAGS = RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS | RIYADH_FIELDS_UI_ONLY
 
 
 def _tiles_version_ms():
@@ -370,9 +374,9 @@ def save_line_edit_request(request):
 
     Managers: apply immediately to the remote network (no pending row left).
 
-    Editors / admins: Riyadh road closure updates apply immediately on the remote
-    DB; geometry and attribute changes create a pending LineEditRequest for
-    manager approval only. Closure-only riyadh saves skip creating a request.
+    All roles: Riyadh ``road_closure`` changes apply immediately on the remote DB
+    (no manager approval). Pending requests are created only when geometry,
+    relations, extra fields, or other attribute drift still require review.
     """
     try:
         data = json.loads(request.body.decode("utf-8"))
@@ -559,6 +563,7 @@ def save_line_edit_request(request):
             relations_data,
             road,
             geometry_changed,
+            closure_changed,
         )
 
         if not needs_review:
@@ -812,6 +817,39 @@ def _riyadh_num_eq(a, b) -> bool:
     return math.isclose(fa, fb, rel_tol=0, abs_tol=1e-5)
 
 
+def _riyadh_effective_fields_when_closure_changed(fields_data, road):
+    """
+    Merge client fields with DB for review checks after an immediate closure write.
+
+    Omitted or empty payload keys are treated as unchanged so a closure-only save is
+    not forced into manager review when the client did not send every column.
+    """
+    fd = fields_data or {}
+
+    def pick(field):
+        if field not in fd:
+            return getattr(road, field, None)
+        v = fd[field]
+        if v is None or v == "" or v == []:
+            return getattr(road, field, None)
+        return v
+
+    return {
+        "name": pick("name"),
+        "ref": pick("ref"),
+        "fclass": pick("fclass"),
+        "oneway": pick("oneway"),
+        "maxspeed": pick("maxspeed"),
+        "osm_id": pick("osm_id"),
+        "code": pick("code"),
+        "bridge": pick("bridge"),
+        "tunnel": pick("tunnel"),
+        "layer": pick("layer"),
+        "shape_length": pick("shape_length"),
+        "road_closure": pick("road_closure"),
+    }
+
+
 def _riyadh_fields_match_remote(fields_data, road) -> bool:
     """Compare editable riyadh columns to payload (after any immediate closure write)."""
     fd = fields_data or {}
@@ -834,6 +872,15 @@ def _riyadh_fields_match_remote(fields_data, road) -> bool:
     if _norm_str_edit(fd.get("tunnel")) != _norm_str_edit(road.tunnel):
         return False
     if not _riyadh_num_eq(fd.get("layer"), road.layer):
+        return False
+    try:
+        rc_payload = int(fd.get("road_closure") or 0)
+    except (TypeError, ValueError):
+        rc_payload = 0
+    rc_payload = 1 if rc_payload == 1 else 0
+    rc_db = int(getattr(road, "road_closure", 0) or 0)
+    rc_db = 1 if rc_db == 1 else 0
+    if rc_payload != rc_db:
         return False
     return True
 
@@ -859,7 +906,7 @@ def _riyadh_extra_fields_require_review(fields_data) -> bool:
     fd = fields_data or {}
     allowed = _riyadh_remote_field_keys()
     for k, v in fd.items():
-        if k in allowed:
+        if k in allowed or k in RIYADH_FIELDS_UI_ONLY:
             continue
         if v in (None, "", [], {}):
             continue
@@ -869,12 +916,13 @@ def _riyadh_extra_fields_require_review(fields_data) -> bool:
 
 def _riyadh_tags_match_client(tags_data, fields_data) -> bool:
     """Tags must match fields_data for keys that are not exclusive to other sidebar controls."""
+    skip_keys = RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS | RIYADH_FIELDS_UI_ONLY
     canon_pairs = []
     fd = fields_data or {}
     for key, value in fd.items():
-        if key in RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS:
+        if key in skip_keys:
             continue
-        if value is None or value == "":
+        if value in (None, "", [], {}):
             continue
         canon_pairs.append((key, str(value)))
     canon_pairs.sort()
@@ -884,7 +932,7 @@ def _riyadh_tags_match_client(tags_data, fields_data) -> bool:
             str(t.get("value", "")),
         )
         for t in (tags_data or [])
-        if t.get("key") not in RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS
+        if t.get("key") not in skip_keys
     )
     return tuple(canon_pairs) == tuple(client_pairs)
 
@@ -895,6 +943,7 @@ def _riyadh_needs_manager_review(
     relations_data,
     road,
     geometry_changed: bool,
+    closure_changed: bool,
 ) -> bool:
     if geometry_changed:
         return True
@@ -902,7 +951,12 @@ def _riyadh_needs_manager_review(
         return True
     if _riyadh_extra_fields_require_review(fields_data):
         return True
-    if not _riyadh_fields_match_remote(fields_data, road):
+    effective_fields = (
+        _riyadh_effective_fields_when_closure_changed(fields_data, road)
+        if closure_changed
+        else fields_data
+    )
+    if not _riyadh_fields_match_remote(effective_fields, road):
         return True
     if not _riyadh_tags_match_client(tags_data, fields_data):
         return True
@@ -1359,9 +1413,9 @@ def get_riyadh_road_details(request, road_gid):
 
         tags_data = []
         for key, value in fields_data.items():
-            if key in RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS:
+            if key in RIYADH_FIELDS_OMIT_FROM_TAGS:
                 continue
-            if value is None or value == "":
+            if value in (None, "", [], {}):
                 continue
             tags_data.append({"key": key, "value": str(value)})
 

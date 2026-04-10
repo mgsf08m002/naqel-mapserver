@@ -65,32 +65,41 @@
         };
     }
 
-    function maplibreSelectionCasingPaintPair(coreLineWidth, lineDasharray) {
+    /**
+     * When dashOnlyOnCore is true, outline/ring use a solid stroke ([1, 0]) while the core stays dashed.
+     * Applying the same dasharray to all three layers mis-phases strokes at different widths (moiré, zebra).
+     */
+    function maplibreSelectionCasingPaintPair(coreLineWidth, lineDasharray, options) {
+        options = options || {};
         var dash = normalizeDash(lineDasharray);
         var w = Number(coreLineWidth) || 4;
+        var casingDash = dash;
+        if (options.dashOnlyOnCore && dash.length >= 2 && dash[1] > 0) {
+            casingDash = [1, 0];
+        }
         return {
             outline: {
                 'line-color': OUTLINE_COLOR,
                 'line-width': casingWidthFromCore(w, OUTLINE_WIDTH_ADD),
                 'line-opacity': OUTLINE_OPACITY,
                 'line-blur': OUTLINE_BLUR,
-                'line-dasharray': dash,
+                'line-dasharray': casingDash,
             },
             ring: {
                 'line-color': RING_COLOR,
                 'line-width': casingWidthFromCore(w, RING_WIDTH_ADD),
                 'line-opacity': RING_OPACITY,
                 'line-blur': RING_BLUR,
-                'line-dasharray': dash,
+                'line-dasharray': casingDash,
             },
         };
     }
 
-    function applyGeoJsonCasingFromCoreWidth(map, outlineLayerId, ringLayerId, coreLineWidth, lineDasharray) {
+    function applyGeoJsonCasingFromCoreWidth(map, outlineLayerId, ringLayerId, coreLineWidth, lineDasharray, options) {
         if (!map) {
             return;
         }
-        var pair = maplibreSelectionCasingPaintPair(coreLineWidth, lineDasharray);
+        var pair = maplibreSelectionCasingPaintPair(coreLineWidth, lineDasharray, options);
         try {
             if (map.getLayer(outlineLayerId)) {
                 map.setPaintProperty(outlineLayerId, 'line-color', pair.outline['line-color']);

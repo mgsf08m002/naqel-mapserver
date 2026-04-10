@@ -1,6 +1,13 @@
-// Save line edit: persists geometry, feature type, attributes, road closure. Manager saves auto-approve; others create pending requests.
+// Persists line edits; Riyadh road_closure is written to the network immediately for every role.
 (function() {
     'use strict';
+
+    const RIYADH_MERGE_TAGS_INTO_FIELDS_SKIP = {
+        name: true,
+        road_closure: true,
+        common_name: true,
+        multilingual_names: true
+    };
 
     let currentLineId = null;
     let drawInstance = null;
@@ -341,7 +348,7 @@
                     return;
                 }
                 const k = t.key != null ? String(t.key).trim() : '';
-                if (!k || k === 'name' || k === 'road_closure') {
+                if (!k || RIYADH_MERGE_TAGS_INTO_FIELDS_SKIP[k]) {
                     return;
                 }
                 fieldsPayload[k] = t.value != null ? t.value : '';
@@ -363,12 +370,6 @@
         };
     }
 
-    /**
-     * Notify user after save based on server flags:
-     * - Manager: applied live (toast).
-     * - Editor/admin: pending review (modal) + optional toast if closure already applied.
-     * - Closure-only riyadh: toast only.
-     */
     function showSaveOutcomeUI(opts) {
         const autoApproved = !!(opts && opts.autoApproved);
         const pendingSubmitted = !!(opts && opts.pendingSubmitted);
@@ -422,25 +423,21 @@
         }
 
         if (pendingSubmitted) {
-            if (closureApplied && typeof roadClosure === 'number') {
-                toast(
-                    roadClosure === 1
-                        ? 'Road closure is already live on the network for everyone.'
-                        : 'Road is shown as open on the network for everyone.',
-                    'success'
-                );
-            }
-            openReviewModal(
-                serverMessage || 'A manager will review your geometry and attribute changes. They will appear on the map after approval.'
-            );
+            const defaultPending =
+                closureApplied && typeof roadClosure === 'number'
+                    ? roadClosure === 1
+                        ? 'Road closure is already live for everyone. A manager will review your other changes before they appear on the map.'
+                        : 'The road is shown as open for everyone. A manager will review your other changes before they appear on the map.'
+                    : 'A manager will review your geometry and attribute changes. They will appear on the map after approval.';
+            openReviewModal(serverMessage || defaultPending);
             return;
         }
 
         if (closureApplied && typeof roadClosure === 'number') {
             toast(
                 roadClosure === 1
-                    ? 'Road closure saved. No other changes required review.'
-                    : 'Road reopening saved. No other changes required review.',
+                    ? 'Road closure saved. Nothing else requires review.'
+                    : 'Road reopening saved. Nothing else requires review.',
                 'success'
             );
             return;

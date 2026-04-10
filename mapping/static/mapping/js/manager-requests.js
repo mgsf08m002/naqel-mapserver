@@ -733,7 +733,11 @@
             return;
         }
         var mls = window.MapLineSelection;
-        var pair = mls.maplibreSelectionCasingPaintPair(style.lineWidth, lineDasharray);
+        var pair = mls.maplibreSelectionCasingPaintPair(
+            style.lineWidth,
+            lineDasharray,
+            isRoadClosed ? { dashOnlyOnCore: true } : undefined
+        );
 
         try {
             if (map.getLayer(layerId)) {
