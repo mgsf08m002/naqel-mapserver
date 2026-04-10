@@ -716,7 +716,9 @@
         const ringLayerId = 'request-line-ring-' + featureId;
         const layerId = 'request-line-layer-' + featureId;
 
-        const isRoadClosed = request.road_closure === 1 || request.road_closure === true || request.road_closure === '1';
+        const isRoadClosed =
+            typeof window.parseRoadClosurePayloadValue === "function" &&
+            window.parseRoadClosurePayloadValue(request.road_closure);
         const getStyle = window.getVisualizationStyle;
         const closureStyle = typeof getStyle === "function" ? getStyle("Road Closure") : null;
         const featureStyle = typeof getStyle === "function" ? getStyle(request.current_feature_label || "Line") : null;
@@ -1045,7 +1047,8 @@
             if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showEditFeatureScreen === 'function') {
                 window.lineDrawingHandler.showEditFeatureScreen({
                     hideBackButton: true,
-                    requestGeometry: request.geometry
+                    requestGeometry: request.geometry,
+                    lineData: { road_closure: request.road_closure },
                 });
             }
             setTimeout(function() {

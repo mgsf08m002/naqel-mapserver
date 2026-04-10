@@ -1371,16 +1371,6 @@ map.on('load', () => {
                 } catch (e) {}
             };
     } catch (e) {}
-
-    if (!map.hasImage('road-closure')) {
-        map.loadImage('/static/images/icons/road_closure.png', (error, image) => {
-            if (error || !image) {
-                console.error('Failed to load road-closure icon from /static/images/icons/road_closure.png', error);
-            } else if (!map.hasImage('road-closure')) {
-                map.addImage('road-closure', image);
-            }
-        });
-    }
 });
 
 if (document.readyState === 'loading') {

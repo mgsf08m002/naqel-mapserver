@@ -395,6 +395,7 @@ def save_line_edit_request(request):
             road_closure = int(raw_road_closure)
         except (TypeError, ValueError):
             road_closure = 0
+        road_closure = 1 if road_closure == 1 else 0
 
         is_riyadh_road = bool(data.get("is_riyadh_road"))
         riyadh_road_id = data.get("riyadh_road_id")
@@ -508,6 +509,7 @@ def save_line_edit_request(request):
                     "auto_approved": True,
                     "pending_submitted": False,
                     "closure_applied": bool(closure_changed),
+                    "road_closure": road_closure,
                     "remote_road_id": remote_road_id,
                     "tiles_version": _tiles_version_ms() or closure_tiles_version,
                 }
@@ -536,6 +538,7 @@ def save_line_edit_request(request):
                     "auto_approved": False,
                     "pending_submitted": True,
                     "closure_applied": False,
+                    "road_closure": road_closure,
                     "tiles_version": None,
                 }
             )
@@ -566,6 +569,7 @@ def save_line_edit_request(request):
                     "auto_approved": False,
                     "pending_submitted": False,
                     "closure_applied": bool(closure_changed),
+                    "road_closure": road_closure,
                     "tiles_version": closure_tiles_version,
                 }
             )
@@ -593,6 +597,7 @@ def save_line_edit_request(request):
                 "auto_approved": False,
                 "pending_submitted": True,
                 "closure_applied": bool(closure_changed),
+                "road_closure": road_closure,
                 "tiles_version": closure_tiles_version,
             }
         )
@@ -1063,84 +1068,6 @@ def create_delete_request(request):
 
 
 @login_required
-@require_http_methods(["POST"])
-@csrf_exempt
-def set_road_closure(request):
-    try:
-        data = json.loads(request.body.decode("utf-8"))
-    except json.JSONDecodeError:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": "Invalid JSON data",
-            },
-            status=400,
-        )
-
-    target_type = data.get("target_type")
-    target_gid = data.get("target_id")
-    raw_closure = data.get("road_closure", 0)
-
-    if target_type != "riyadh_road":
-        return JsonResponse(
-            {
-                "success": False,
-                "message": "Invalid target_type. Use 'riyadh_road'.",
-            },
-            status=400,
-        )
-
-    try:
-        target_gid_int = int(target_gid)
-    except (TypeError, ValueError):
-        return JsonResponse(
-            {
-                "success": False,
-                "message": "Invalid or missing target_id.",
-            },
-            status=400,
-        )
-
-    try:
-        road_closure = int(raw_closure)
-    except (TypeError, ValueError):
-        road_closure = 0
-
-    road_closure = 1 if road_closure == 1 else 0
-
-    try:
-        road = _resolve_riyadh_road(int(target_gid_int))
-        if not road:
-            return JsonResponse(
-                {
-                    "success": False,
-                    "message": "Riyadh road not found for the given id.",
-                },
-                status=404,
-            )
-        road.road_closure = road_closure
-        road.save(using="riyadh_roads", update_fields=["road_closure"])
-
-        return JsonResponse(
-            {
-                "success": True,
-                "target_type": target_type,
-                "target_id": target_gid_int,
-                "road_closure": road_closure,
-                "tiles_version": _tiles_version_ms(),
-            }
-        )
-    except Exception as e:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": f"Error updating road closure: {str(e)}",
-            },
-            status=500,
-        )
-
-
-@login_required
 def list_pending_requests(request):
     """Return all pending line edit requests for manager review."""
     if not _get_user_is_manager(request.user):
@@ -1405,6 +1332,12 @@ def get_riyadh_road_details(request, road_gid):
                 raw_geometry = None
             geometry = _ensure_wgs84_geometry(raw_geometry, source_srid=3857)
 
+        _rc_raw = _sanitize_number(getattr(road, "road_closure", 0)) or 0
+        try:
+            road_closure_int = 1 if int(_rc_raw) == 1 else 0
+        except (TypeError, ValueError):
+            road_closure_int = 0
+
         fields_data = {
             "gid": getattr(road, "gid", None),
             # The stable identifier used by vector tiles / MapLibre promoteId.
@@ -1421,7 +1354,7 @@ def get_riyadh_road_details(request, road_gid):
             "tunnel": road.tunnel or "",
             "layer": _sanitize_number(road.layer),
             "shape_length": _sanitize_number(getattr(road, "shape_length", None)),
-            "road_closure": _sanitize_number(getattr(road, "road_closure", 0)),
+            "road_closure": road_closure_int,
         }
 
         tags_data = []
@@ -1441,7 +1374,7 @@ def get_riyadh_road_details(request, road_gid):
             "riyadh_road_id": road_identifier,
             "is_riyadh_road": True,
             "geometry": geometry,
-            "road_closure": _sanitize_number(getattr(road, "road_closure", 0)) or 0,
+            "road_closure": road_closure_int,
             "feature_type": feature_label,
             "current_feature_label": feature_label,
             "fields_data": fields_data,

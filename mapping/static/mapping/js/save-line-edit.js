@@ -495,9 +495,18 @@
             const autoApproved = !!data.auto_approved;
             const pendingSubmitted = !!data.pending_submitted;
             const closureApplied = !!data.closure_applied;
+            const roadClosureFromServer =
+                data.road_closure !== undefined && data.road_closure !== null
+                    ? data.road_closure
+                    : editData.road_closure;
 
-            if (typeof editData.road_closure === 'number' && (closureApplied || autoApproved)) {
-                window.initialRoadClosureState = (editData.road_closure === 1);
+            if (
+                data.road_closure !== undefined &&
+                data.road_closure !== null &&
+                (editData.is_riyadh_road || !pendingSubmitted) &&
+                typeof window.syncRoadClosureStateAfterPersist === 'function'
+            ) {
+                window.syncRoadClosureStateAfterPersist(data.road_closure);
             }
 
             // Keep MVT symbology aligned with remote DB before/while new tiles propagate (tiles_version).
@@ -531,7 +540,7 @@
                 autoApproved: autoApproved,
                 pendingSubmitted: pendingSubmitted,
                 closureApplied: closureApplied,
-                roadClosure: editData.road_closure,
+                roadClosure: roadClosureFromServer,
                 serverMessage: data.message || ''
             });
 

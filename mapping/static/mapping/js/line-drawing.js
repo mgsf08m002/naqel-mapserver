@@ -619,20 +619,13 @@
     }
 
     function isRoadClosedForCurrentContext() {
-        if (typeof window.getCurrentRoadClosure === 'function') {
-            try {
+        try {
+            if (typeof window.getCurrentRoadClosure === 'function') {
                 return !!window.getCurrentRoadClosure();
-            } catch (e) {
-                // fall through
             }
-        }
-
-        const data = window.approvedLineBeingEdited || window.selectedRiyadhRoad || null;
-        if (!data) {
-            return false;
-        }
-        const rc = data.road_closure;
-        return rc === 1 || rc === true || rc === '1';
+        } catch (e) {}
+        const data = window.approvedLineBeingEdited || window.selectedRiyadhRoad;
+        return !!data && parseRoadClosurePayloadValue(data.road_closure);
     }
 
     function getEffectiveVisualizationStyle(featureLabel) {
@@ -644,6 +637,77 @@
             }
         }
         return getVisualizationStyle(featureLabel);
+    }
+
+    function parseRoadClosurePayloadValue(raw) {
+        return raw === 1 || raw === true || raw === '1' || (typeof raw === 'string' && String(raw).trim() === '1');
+    }
+
+    function applyRoadClosureDraftAndInitialFromRaw(raw) {
+        if (raw === undefined || raw === null) {
+            return;
+        }
+        const closed = parseRoadClosurePayloadValue(raw);
+        window.currentRoadClosureState = closed;
+        window.initialRoadClosureState = closed;
+    }
+
+    function patchRoadClosureOnSelectionContext(closed) {
+        const v = closed ? 1 : 0;
+        function mergeSnap(snap) {
+            const fd = Object.assign({}, snap.fields_data || {}, { road_closure: v });
+            return Object.assign({}, snap, { road_closure: v, fields_data: fd });
+        }
+        if (window.approvedLineBeingEdited) {
+            window.approvedLineBeingEdited = mergeSnap(window.approvedLineBeingEdited);
+        }
+        if (window.selectedRiyadhRoad) {
+            window.selectedRiyadhRoad = mergeSnap(window.selectedRiyadhRoad);
+        }
+    }
+
+    function syncRoadClosureStateAfterPersist(roadClosureRaw) {
+        const closed = parseRoadClosurePayloadValue(roadClosureRaw);
+        window.currentRoadClosureState = closed;
+        window.initialRoadClosureState = closed;
+        patchRoadClosureOnSelectionContext(closed);
+        if (typeof window.__paintRoadClosureToggle === 'function') {
+            try {
+                window.__paintRoadClosureToggle();
+            } catch (eSync) {}
+        }
+        refreshSymbologyAfterRoadClosureChange();
+    }
+
+    function refreshSymbologyAfterRoadClosureChange() {
+        const lbl = getCurrentFeatureLabel();
+        let updated = false;
+
+        if (currentLineId) {
+            try {
+                renderLineAsMapLibreLayer(currentLineId);
+                updateLineVisualization();
+                updated = true;
+            } catch (e) {}
+        }
+
+        const ext = window.approvedLineBeingEdited || window.selectedRiyadhRoad || null;
+        if (ext && ext.is_riyadh_road && ext.geometry) {
+            try {
+                const rid = ext.riyadh_road_id != null ? ext.riyadh_road_id : ext.id;
+                if (rid != null) {
+                    updateRiyadhRoadVisualization(rid, lbl, ext.geometry);
+                    updateLineVisualizationFromGeometry(ext.geometry, lbl);
+                    updated = true;
+                }
+            } catch (e2) {}
+        }
+
+        if (updated) {
+            try {
+                updateFeatureTypeVisualization();
+            } catch (e3) {}
+        }
     }
 
     function dasharrayToSvg(style) {
@@ -743,6 +807,28 @@
                 setTimeout(function() { initLineDrawing(); }, 100);
                 return;
             }
+
+            if (typeof window.currentRoadClosureState === 'undefined') {
+                window.currentRoadClosureState = false;
+            }
+            if (typeof window.initialRoadClosureState === 'undefined') {
+                window.initialRoadClosureState = false;
+            }
+            window.getCurrentRoadClosure = function () {
+                return !!window.currentRoadClosureState;
+            };
+            window.setCurrentRoadClosure = function (value, options) {
+                options = options || {};
+                window.currentRoadClosureState = !!value;
+                if (options.syncInitial !== false) {
+                    window.initialRoadClosureState = window.currentRoadClosureState;
+                }
+                if (!options.skipPaint && typeof window.__paintRoadClosureToggle === 'function') {
+                    try {
+                        window.__paintRoadClosureToggle();
+                    } catch (eRc) {}
+                }
+            };
 
             sidePanel = document.getElementById('editSidePanel');
             sidePanelContent = document.getElementById('sidePanelContent');
@@ -970,6 +1056,10 @@
                     clearVertexMarkers();
                     setMapContainerDrawnLineSelectionAttr(id);
                     updateLineVisualization();
+
+                    if (typeof window.setCurrentRoadClosure === 'function') {
+                        window.setCurrentRoadClosure(false);
+                    }
                     
                     setTimeout(function() {
                         hideDefaultRendering();
@@ -1037,6 +1127,23 @@
         // - opens side panel and renders preview
         if (!drawInstance || !id) {
             return;
+        }
+
+        const hadRiyadhContext =
+            !!(window.selectedRiyadhRoad ||
+                (window.approvedLineBeingEdited && window.approvedLineBeingEdited.is_riyadh_road));
+
+        try {
+            window.selectedRiyadhRoad = null;
+            window.approvedLineBeingEdited = null;
+            if (typeof window.setRiyadhRoadSelectedId === 'function') {
+                window.setRiyadhRoadSelectedId(null);
+            }
+            setSelectedOverlayGeometry(null);
+        } catch (eClear) {}
+
+        if (hadRiyadhContext && typeof window.setCurrentRoadClosure === 'function') {
+            window.setCurrentRoadClosure(false);
         }
 
         selectedLineId = id;
@@ -1834,6 +1941,10 @@
         const requestGeometry = options.requestGeometry || null;
         const lineData = options.lineData || null;
 
+        if (lineData != null && lineData.road_closure != null) {
+            applyRoadClosureDraftAndInitialFromRaw(lineData.road_closure);
+        }
+
         initMapSidePanelChrome();
         applyMapSidePanelOpen(true);
 
@@ -2448,77 +2559,40 @@
 
         roadClosureToggleButton.appendChild(roadClosureToggleKnob);
 
-        // Global shared state so other modules (e.g. save-line-edit.js, map.js)
-        // can read and write the current road closure flag for the feature
-        // being viewed/edited in the sidebar.
-        if (typeof window.currentRoadClosureState === 'undefined') {
-            window.currentRoadClosureState = false;
-        }
-
-        let isRoadClosed = !!window.currentRoadClosureState;
-
-        // When the road-closure toggle is first created, capture the initial
-        // value so that the save handler can reliably detect whether the user
-        // has changed the closure state, even for newly created features.
-        if (typeof window.initialRoadClosureState === 'undefined') {
-            window.initialRoadClosureState = isRoadClosed;
-        }
-
-        function updateRoadClosureToggleVisualState() {
-            if (isRoadClosed) {
+        function paintRoadClosureToggle() {
+            const closed = !!window.currentRoadClosureState;
+            if (closed) {
                 roadClosureToggleButton.classList.remove('bg-zinc-300');
-                roadClosureToggleButton.classList.add('bg-green-500');
+                roadClosureToggleButton.classList.add('bg-red-600');
                 roadClosureToggleKnob.classList.remove('translate-x-0');
                 roadClosureToggleKnob.classList.add('translate-x-5');
                 roadClosureToggleButton.setAttribute('aria-pressed', 'true');
                 roadClosureNoLabel.classList.remove('text-zinc-800');
                 roadClosureNoLabel.classList.add('text-zinc-400');
                 roadClosureYesLabel.classList.remove('text-zinc-400');
-                roadClosureYesLabel.classList.add('text-zinc-900');
+                roadClosureYesLabel.classList.add('text-red-700');
             } else {
-                roadClosureToggleButton.classList.remove('bg-green-500');
+                roadClosureToggleButton.classList.remove('bg-red-600');
                 roadClosureToggleButton.classList.add('bg-zinc-300');
                 roadClosureToggleKnob.classList.remove('translate-x-5');
                 roadClosureToggleKnob.classList.add('translate-x-0');
                 roadClosureToggleButton.setAttribute('aria-pressed', 'false');
                 roadClosureNoLabel.classList.remove('text-zinc-400');
                 roadClosureNoLabel.classList.add('text-zinc-800');
-                roadClosureYesLabel.classList.remove('text-zinc-900');
+                roadClosureYesLabel.classList.remove('text-red-700');
                 roadClosureYesLabel.classList.add('text-zinc-400');
             }
         }
 
-        function setRoadClosureFromExternal(value) {
-            isRoadClosed = !!value;
-            window.currentRoadClosureState = isRoadClosed;
-            // Track the initial value loaded from the backend so that the save
-            // handler can distinguish between a real closure change and a no-op.
-            window.initialRoadClosureState = isRoadClosed;
-            updateRoadClosureToggleVisualState();
-        }
-
-        // Expose shared getter/setter so other scripts can synchronize the
-        // toggle with feature data when selection changes or edits are saved.
-        window.setCurrentRoadClosure = setRoadClosureFromExternal;
-        if (typeof window.getCurrentRoadClosure !== 'function') {
-            window.getCurrentRoadClosure = function () {
-                return !!window.currentRoadClosureState;
-            };
-        }
+        window.__paintRoadClosureToggle = paintRoadClosureToggle;
 
         roadClosureToggleButton.addEventListener('click', function (e) {
             e.preventDefault();
-            isRoadClosed = !isRoadClosed;
-            window.currentRoadClosureState = isRoadClosed;
-            updateRoadClosureToggleVisualState();
-            const ext = window.approvedLineBeingEdited || window.selectedRiyadhRoad;
-            if (ext && ext.is_riyadh_road && ext.geometry) {
-                const rid = ext.riyadh_road_id != null ? ext.riyadh_road_id : ext.id;
-                const lbl = getCurrentFeatureLabel();
-                updateRiyadhRoadVisualization(rid, lbl, ext.geometry);
-                updateFeatureTypeVisualization();
-                updateLineVisualizationFromGeometry(ext.geometry, lbl);
-            }
+            const next = !window.getCurrentRoadClosure();
+            window.currentRoadClosureState = next;
+            paintRoadClosureToggle();
+            patchRoadClosureOnSelectionContext(next);
+            refreshSymbologyAfterRoadClosureChange();
         });
 
         roadClosureToggleRow.appendChild(roadClosureNoLabel);
@@ -2527,11 +2601,7 @@
 
         roadClosureSection.appendChild(roadClosureToggleRow);
 
-        // Initialize visual state from shared global flag so that when the
-        // sidebar is reconstructed (e.g. when switching features) the toggle
-        // always reflects the actual closure value of the currently selected
-        // feature.
-        updateRoadClosureToggleVisualState();
+        paintRoadClosureToggle();
 
         fieldsContainer.appendChild(roadClosureSection);
         content.appendChild(fieldsContainer);
@@ -4223,6 +4293,8 @@
     window.addMultilingualNameField = addMultilingualNameField;
     
     window.getVisualizationStyle = getVisualizationStyle;
+    window.parseRoadClosurePayloadValue = parseRoadClosurePayloadValue;
+    window.syncRoadClosureStateAfterPersist = syncRoadClosureStateAfterPersist;
     window.removeMapLibreLineLayer = removeMapLibreLineLayer;
     window.clearVertexMarkers = clearVertexMarkers;
     window.clearCurrentLine = function() {
@@ -4438,23 +4510,18 @@
         window.approvedLineBeingEdited = Object.assign({}, lineFeatureData, { id: roadId });
         normalizeRiyadhRoadTagsFromFields(window.approvedLineBeingEdited);
 
+        showEditFeatureScreen({
+            hideBackButton: false,
+            requestGeometry: lineFeatureData.geometry || null,
+            lineData: window.approvedLineBeingEdited,
+        });
+
         if (lineFeatureData.geometry && typeof map !== 'undefined' && map) {
             updateRiyadhRoadVisualization(roadId, featureLabel, lineFeatureData.geometry);
         }
 
         try {
             updateCurrentFeatureLabel(featureLabel);
-
-            showEditFeatureScreen({
-                hideBackButton: false,
-                requestGeometry: lineFeatureData.geometry || null,
-                lineData: window.approvedLineBeingEdited
-            });
-
-            if (typeof window.setCurrentRoadClosure === 'function') {
-                const rc = window.approvedLineBeingEdited.road_closure;
-                window.setCurrentRoadClosure(rc === 1 || rc === true || rc === '1');
-            }
 
             const snap = window.approvedLineBeingEdited || {};
             const fieldsData = snap.fields_data || {};
