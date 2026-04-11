@@ -4656,6 +4656,12 @@
         try {
             updateCurrentFeatureLabel(featureLabel);
         } catch (e) {}
+
+        if (window.autoEnterEditModeOnRoadSelection) {
+            setTimeout(function() {
+                window.autoEnterEditModeOnRoadSelection();
+            }, 0);
+        }
     }
 
     window.showRiyadhRoadAsLineFeature = showRiyadhRoadAsLineFeature;

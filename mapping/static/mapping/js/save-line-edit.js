@@ -444,12 +444,10 @@
         toast(serverMessage || 'Saved.', 'info');
     }
 
-    // Handle save button click.
     function handleSave() {
-        // Prevent duplicate calls
         const saveBtn = document.getElementById('saveBtn');
         if (saveBtn && saveBtn.disabled) {
-            return; // Already processing
+            return;
         }
 
         const editData = collectLineEditData();
@@ -566,6 +564,10 @@
                     }
                 } catch (e) {}
             }
+
+            if (window.exitEditModeAfterSuccessfulSave) {
+                window.exitEditModeAfterSuccessfulSave();
+            }
         })
         .catch(function(error) {
             alert('Error saving edit request. Please try again.');
@@ -602,8 +604,7 @@
         if (saveBtn) {
             const newSaveBtn = saveBtn.cloneNode(true);
             saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-            
-            // Add our listener
+
             newSaveBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
