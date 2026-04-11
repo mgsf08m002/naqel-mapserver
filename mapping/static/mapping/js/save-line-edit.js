@@ -1,4 +1,3 @@
-// Persists line edits; Riyadh road_closure is written to the network immediately for every role.
 (function() {
     'use strict';
 
@@ -514,9 +513,6 @@
                 window.syncRoadClosureStateAfterPersist(data.road_closure);
             }
 
-            // Keep MVT symbology aligned with remote DB before/while new tiles propagate (tiles_version).
-            // Do not apply proposed fclass while the edit is pending approval — the map must keep
-            // showing the pre-submit network state until a manager approves (revert runs next).
             if (
                 !pendingSubmitted &&
                 editData.is_riyadh_road &&

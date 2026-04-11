@@ -1,4 +1,3 @@
-// Line drawing, MapLibre rendering, and sidepanel UI behavior.
 (function() {
     'use strict';
 
@@ -76,7 +75,6 @@
         const opts = options || {};
         const lineData = opts.lineData || null;
 
-        // If the edit screen was opened for a Riyadh road (tile feature), it should be in the snapshot.
         if (lineData && typeof lineData === 'object' && lineData.is_riyadh_road) {
             const id = lineData.riyadh_road_id != null ? lineData.riyadh_road_id : lineData.id;
             if (id != null) {
@@ -252,7 +250,6 @@
     window.refreshRiyadhGeometryEditToolbar = refreshRiyadhGeometryEditToolbar;
     window.hideRiyadhGeometryEditToolbar = hideRiyadhGeometryEditToolbar;
 
-    /** Keep tags_data in sync with fields_data (exclude keys that have their own UI). */
     function normalizeRiyadhRoadTagsFromFields(road) {
         if (!road || !road.is_riyadh_road) {
             return;
@@ -303,7 +300,6 @@
         if (ref) {
             parts.push('Ref ' + ref);
         }
-        // Prefer the current feature-type label (live dropdown) over stale DB fclass until save.
         var classification = '';
         if (rawLabel && rawLabel.toLowerCase() !== 'line') {
             classification = rawLabel;
@@ -1666,12 +1662,9 @@
             svgContainer.appendChild(svg);
 
         } catch (e) {
-            // Error updating line visualization
         }
     }
 
-    // Set current feature type and update map symbology immediately.
-    // Map display updates without Save; persistence and approval happen on Save.
     function updateCurrentFeatureLabel(featureType) {
         featureType = featureType || "Line";
         currentFeatureLabel = featureType;
@@ -1690,8 +1683,6 @@
             clearVertexMarkers();
         }
 
-        // Always keep the sidepanel previews in sync, regardless of whether
-        // the user is editing a drawn line, an approved line, or a tile road.
         const external = getCurrentExternalEditingFeature();
         try {
             if (external && external.geometry) {
@@ -1700,10 +1691,8 @@
                 updateLineVisualization();
             }
         } catch (e) {
-            // Non-critical
         }
 
-        // Update map symbology for approved lines / tile roads being edited.
         try {
             if (external && external.is_riyadh_road) {
                 if (!external._original_feature_label) {
@@ -1718,17 +1707,14 @@
                 }
             }
         } catch (e) {
-            // Non-critical
         }
 
         updateFeatureTypeVisualization();
 
-        // Ensure all Feature Type label displays (selector + header) stay in sync.
         if (typeof updateFeatureTypeLabelDisplay === 'function') {
             try {
                 updateFeatureTypeLabelDisplay();
             } catch (e) {
-                // Non-critical UI sync failure.
             }
         }
 
@@ -1744,7 +1730,6 @@
             try {
                 marker.remove();
             } catch (e) {
-                // Error removing marker
             }
         });
         vertexMarkers = [];
@@ -4263,16 +4248,11 @@
                   )
                 : w;
         const mls = mapLineSelection();
-        // White inner stroke is only for vertex-edit mode; otherwise it reads as wrong symbology
-        // (thick casing + white core) after "Done editing".
         const geomEditActive =
             typeof window.__roadGeometryEditActiveId !== 'undefined' &&
             window.__roadGeometryEditActiveId != null;
         const isDraftChange = isDraftRoadClosureChangeActive();
 
-        // If the road is already closed in DB (not a draft toggle) and we're not in
-        // vertex-edit mode, keep the basemap/tiles as the source of truth and do not
-        // draw the GeoJSON overlay (prevents "selected road disappears" artifacts).
         if (!geomEditActive && !isDraftChange) {
             hideSelectedOverlayPaint();
             syncRiyadhTileSelectionSuppressionForDraftClosure();
@@ -4325,12 +4305,10 @@
                 }
             }
         } catch (e) {
-            // Non-critical
         }
         syncRiyadhTileSelectionSuppressionForDraftClosure();
     }
 
-    /** Label→fclass for MVT feature-state; falls back to fields_data.fclass if unmapped. */
     function resolveRiyadhFclassForFeatureState(featureLabel) {
         const labIn = (featureLabel != null ? String(featureLabel) : '').trim();
         const cat = window.symbologyCatalog;
@@ -4621,7 +4599,6 @@
         relationsLabel.textContent = 'Relations (' + count + ')';
     }
 
-    /** Fill Fields / Tags / Relations after the edit panel DOM is (re)built. */
     function applyEditScreenDataFromLineData(lineData) {
         if (!lineData) {
             return;
@@ -4683,7 +4660,6 @@
 
     window.showRiyadhRoadAsLineFeature = showRiyadhRoadAsLineFeature;
 
-    // Expose selection utilities for other scripts (approved lines / tile roads).
     window.setSelectedOverlayGeometry = setSelectedOverlayGeometry;
 
     try {

@@ -1,4 +1,3 @@
-// Draggable vertices for Riyadh road geometry — polished UX, rAF-throttled map sync.
 (function() {
     'use strict';
 
@@ -43,7 +42,6 @@
     }
 
     function normalizeGeometry(geom) {
-        // Centralized normalization (Geometry / Feature / FeatureCollection → LineString).
         if (window.GeometryNormalize && window.GeometryNormalize.normalizeToLineStringGeometry) {
             return window.GeometryNormalize.normalizeToLineStringGeometry(geom);
         }
@@ -74,9 +72,6 @@
         return label;
     }
 
-    /**
-     * "New" legend swatch: SVG line using the same catalog style as the map overlay for this road.
-     */
     function paintNewLegendSwatch() {
         var host = document.getElementById('road-geometry-new-legend-swatch');
         if (!host) {
@@ -144,7 +139,6 @@
         host.appendChild(svg);
     }
 
-    /** Map layers + midpoint handle positions (keeps + buttons on segments while dragging). */
     function pushMapVisualizationOnly() {
         var lineGeom = buildLineStringGeoJson();
         if (!lineGeom) {
@@ -188,7 +182,6 @@
         });
     }
 
-    /** Full sync: globals, edit screen geometry attribute, map overlay, details preview. */
     function pushStateToGlobals() {
         var lineGeom = buildLineStringGeoJson();
         if (!lineGeom) {
@@ -247,7 +240,6 @@
         }
     }
 
-    /** Snapshot-only reference line (server state). Stays fixed while the cyan overlay moves. */
     function removeOriginalGhostLayer(mapRef) {
         var m = mapRef || mapInstance;
         if (!m) {
@@ -343,12 +335,6 @@
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
             '<path d="M6 9l6 6 6-6"/>' +
             '</svg>';
-        var lineIconSvg =
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
-            '<path d="M4 12c2.5-4 6-6 8-2s5 4 8-2"/>' +
-            '<circle cx="7" cy="11" r="1.5" fill="currentColor" stroke="none"/>' +
-            '<circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/>' +
-            '</svg>';
 
         hintElement.innerHTML =
             '<div class="road-geometry-edit-hint__panel">' +
@@ -356,9 +342,6 @@
             (expanded ? 'true' : 'false') +
             '" aria-controls="road-geometry-edit-hint-body" title="Show or hide editing guide">' +
             '<span class="road-geometry-edit-hint__toggle-main">' +
-            '<span class="road-geometry-edit-hint__icon">' +
-            lineIconSvg +
-            '</span>' +
             '<span class="road-geometry-edit-hint__titles">' +
             '<span class="road-geometry-edit-hint__title">Road shape</span>' +
             '<span class="road-geometry-edit-hint__subtitle">Original vs new</span>' +
@@ -371,19 +354,24 @@
             '<div id="road-geometry-edit-hint-body" class="road-geometry-edit-hint__body">' +
             '<div class="road-geometry-edit-hint__strip">' +
             '<div class="road-geometry-edit-hint__strip-item">' +
+            '<div class="road-geometry-edit-hint__strip-line-wrap">' +
             '<span class="road-geometry-edit-hint__strip-line road-geometry-edit-hint__strip-line--ghost"></span>' +
+            '</div>' +
             '<span class="road-geometry-edit-hint__strip-label">Original</span>' +
             '</div>' +
             '<div class="road-geometry-edit-hint__strip-item">' +
+            '<div class="road-geometry-edit-hint__strip-line-wrap">' +
             '<span id="road-geometry-new-legend-swatch" class="road-geometry-edit-hint__strip-swatch"></span>' +
+            '</div>' +
             '<span class="road-geometry-edit-hint__strip-label">New</span>' +
             '</div>' +
             '</div>' +
-            '<p class="road-geometry-edit-hint__strip-hint">Dashed line: published geometry on the network. Colored line: your new shape (matches this road\'s feature type). Save submits for review or applies if you have permission. While pending approval, the map shows the published line until approved.</p>' +
+            '<p class="road-geometry-edit-hint__note"><strong>Dashed line:</strong> published geometry on the network. <strong>Colored line:</strong> your new shape.</p>' +
+            '<p class="road-geometry-edit-hint__actions-heading">On the map</p>' +
             '<ul class="road-geometry-edit-hint__list">' +
-            '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--drag" aria-hidden="true"></span><span>Drag nodes to move the line</span></li>' +
-            '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--plus" aria-hidden="true">+</span><span>Click <strong>+</strong> on a segment to add a node</span></li>' +
-            '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--key" aria-hidden="true"><kbd>⇧</kbd></span><span><kbd>Shift</kbd>+click a node to remove it</span></li>' +
+            '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--drag" aria-hidden="true"></span><span class="road-geometry-edit-hint__list-text">Drag nodes to move the line</span></li>' +
+            '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--plus" aria-hidden="true">+</span><span class="road-geometry-edit-hint__list-text">Click <kbd class="road-geometry-edit-hint__kbd-inline">+</kbd> on a segment to add a node</span></li>' +
+            '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--shift" aria-hidden="true"><kbd class="road-geometry-edit-hint__kbd-chip">Shift</kbd></span><span class="road-geometry-edit-hint__list-text">+click a node to remove it</span></li>' +
             '</ul>' +
             '</div>' +
             '</div>';
@@ -677,7 +665,6 @@
         try {
             window.__roadGeometryEditActiveId = roadId;
         } catch (eR) {}
-        // Must set active id before map/overlay sync so selection paint uses edit-mode styling.
         pushStateToGlobals();
         if (typeof window.setRiyadhRoadBasemapHiddenForEdit === 'function') {
             window.setRiyadhRoadBasemapHiddenForEdit(roadId, true);
