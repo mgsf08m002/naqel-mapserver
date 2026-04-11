@@ -548,18 +548,19 @@
         }
 
         if (pendingSubmitted) {
-            let dialogBody;
             if (closureApplied && typeof roadClosure === 'number') {
-                dialogBody =
+                showToastNotification(
                     roadClosure === 1
-                        ? 'Road closure is already live for everyone. A manager will review your other changes before they appear on the map.'
-                        : 'The road is shown as open for everyone. A manager will review your other changes before they appear on the map.';
-            } else {
-                const inferred = inferPendingReviewBody(editDataForReview, {
-                    reviewKind: opts.pendingReviewMeta && opts.pendingReviewMeta.reviewKind
-                });
-                dialogBody = inferred || serverMessage || RIYADH_PENDING_BODY_GENERIC;
+                        ? 'Road closure is already live for everyone.'
+                        : 'The road is shown as open for everyone.',
+                    'success'
+                );
+                return;
             }
+            const inferred = inferPendingReviewBody(editDataForReview, {
+                reviewKind: opts.pendingReviewMeta && opts.pendingReviewMeta.reviewKind
+            });
+            const dialogBody = inferred || serverMessage || RIYADH_PENDING_BODY_GENERIC;
             openPendingReviewDialog(dialogBody, opts.pendingReviewMeta || {});
             return;
         }
