@@ -78,21 +78,25 @@ def _is_valid_road_label_text(label_text: str) -> bool:
     return bool(ROAD_LABEL_VALID_CHAR_PATTERN.search(text))
 
 
-def _derive_bilingual_label_values(label_text: str, current_en: str = "", current_ar: str = ""):
+def _derive_bilingual_label_values(label_text: str):
     """
-    Split one Road Label input into bilingual DB values.
-    Arabic-only -> updates name_ar
-    English-only -> updates name_en
-    Unknown/mixed -> defaults to name_en
+    Map the single editor Road Label field to (name_en, name_ar).
+
+    The UI has one authoritative name per save. The opposite language column is
+    cleared so a rename does not leave a stale label visible on the other
+    language layer.
     """
     raw_label = (label_text or "").strip()
     if not raw_label:
-        return current_en, current_ar
+        return "", ""
 
     lang = _detect_road_label_language(raw_label)
     if lang == "ar":
-        return current_en, raw_label
-    return raw_label, current_ar
+        return "", raw_label
+    if lang == "en":
+        return raw_label, ""
+    # Mixed or unknown script: store once in name_en; clear name_ar to avoid duplicates.
+    return raw_label, ""
 
 
 def _get_riyadh_road_bilingual_names_by_gid(gid_value):
@@ -136,8 +140,7 @@ def _persist_riyadh_road_label_columns(road, label_text):
     if not raw_label:
         return
 
-    current_en, current_ar = _get_riyadh_road_bilingual_names_by_gid(gid_value)
-    next_en, next_ar = _derive_bilingual_label_values(raw_label, current_en, current_ar)
+    next_en, next_ar = _derive_bilingual_label_values(raw_label)
 
     with connections["riyadh_roads"].cursor() as cursor:
         cursor.execute(
@@ -944,7 +947,7 @@ def _apply_manual_approval_to_remote_network(edit_request):
         tunnel = fields.get("tunnel") or ""
         layer = fields.get("layer")
         road_closure = edit_request.road_closure or 0
-        name_en, name_ar = _derive_bilingual_label_values(name, "", "")
+        name_en, name_ar = _derive_bilingual_label_values(name)
 
         with connections["riyadh_roads"].cursor() as cursor:
             cursor.execute(
