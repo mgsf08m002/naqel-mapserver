@@ -943,7 +943,13 @@ map.on('load', () => {
                                         feature_label: originalLabel,
                                         geometry: data.road.geometry
                                             ? JSON.parse(JSON.stringify(data.road.geometry))
-                                            : null
+                                            : null,
+                                        fields_data: fd && typeof fd === 'object'
+                                            ? JSON.parse(JSON.stringify(fd))
+                                            : {},
+                                        tags_data: Array.isArray(data.road.tags_data)
+                                            ? JSON.parse(JSON.stringify(data.road.tags_data))
+                                            : []
                                     };
                                     data.road._original_feature_label = originalLabel;
                                 } catch (e2) {}

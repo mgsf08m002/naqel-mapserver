@@ -69,19 +69,68 @@
         return null;
     }
 
-    function getDeleteTargetFromEditScreenOptions(options) {
-        const opts = options || {};
-        const lineData = opts.lineData || null;
-
-        if (lineData && typeof lineData === 'object' && lineData.is_riyadh_road) {
-            const id = lineData.riyadh_road_id != null ? lineData.riyadh_road_id : lineData.id;
-            if (id != null) {
-                return { target_type: 'riyadh_road', target_id: id, snapshot: lineData };
-            }
-        }
-
-        return null;
+    function clearRiyadhRoadDeleteIntent() {
+        window.__riyadhRoadDeleteIntent = false;
+        syncRiyadhRoadDeleteToolbarButton();
     }
+
+    function syncRiyadhRoadDeleteToolbarButton() {
+        const btn = document.getElementById('riyadhRoadDeleteToggleBtn');
+        if (!btn) {
+            return;
+        }
+        const armed = !!window.__riyadhRoadDeleteIntent;
+        btn.setAttribute('aria-pressed', armed ? 'true' : 'false');
+        if (armed) {
+            btn.classList.add('bg-red-50', 'ring-2', 'ring-red-600');
+            btn.classList.remove('hover:bg-gray-100');
+        } else {
+            btn.classList.remove('bg-red-50', 'ring-2', 'ring-red-600');
+            btn.classList.add('hover:bg-gray-100');
+        }
+    }
+
+    function toggleRiyadhRoadDeleteIntent() {
+        const wasArmed = !!window.__riyadhRoadDeleteIntent;
+        const next = !wasArmed;
+        window.__riyadhRoadDeleteIntent = next;
+        if (next) {
+            if (window.__roadGeometryEditActiveId != null && window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
+                window.roadGeometryEdit.stop();
+            }
+            if (typeof window.syncRiyadhGeometryEditToolbarButton === 'function') {
+                window.syncRiyadhGeometryEditToolbarButton();
+            }
+            syncRiyadhRoadMapOverlayFromContext();
+        }
+        syncRiyadhRoadDeleteToolbarButton();
+        if (next && !wasArmed && typeof window.showToastNotification === 'function') {
+            window.showToastNotification('Delete road is armed — press Save to submit the request.', 'info');
+        }
+    }
+
+    function buildRiyadhRoadDeleteRequestPayload() {
+        const target = getDeleteTargetFromContext();
+        if (!target) {
+            return null;
+        }
+        const snapshot = target.snapshot || {};
+        return {
+            target_type: target.target_type,
+            target_id: target.target_id,
+            geometry: snapshot.geometry || null,
+            feature_type: snapshot.feature_type || snapshot.current_feature_label || 'Line',
+            current_feature_label: snapshot.current_feature_label || snapshot.feature_type || 'Line',
+            fields_data: snapshot.fields_data || {},
+            tags_data: snapshot.tags_data || [],
+            relations_data: snapshot.relations_data || []
+        };
+    }
+
+    window.__riyadhRoadDeleteIntent = false;
+    window.clearRiyadhRoadDeleteIntent = clearRiyadhRoadDeleteIntent;
+    window.syncRiyadhRoadDeleteToolbarButton = syncRiyadhRoadDeleteToolbarButton;
+    window.buildRiyadhRoadDeleteRequestPayload = buildRiyadhRoadDeleteRequestPayload;
 
     const SIDE_PANEL_WIDTH_PX = 320;
     let mapSidePanelChromeReady = false;
@@ -182,6 +231,7 @@
         if (group) {
             group.classList.add('hidden');
         }
+        clearRiyadhRoadDeleteIntent();
     }
 
     function syncRiyadhGeometryEditToolbarButton() {
@@ -217,6 +267,7 @@
         }
         group.classList.remove('hidden');
         syncRiyadhGeometryEditToolbarButton();
+        syncRiyadhRoadDeleteToolbarButton();
     }
 
     function refreshRiyadhGeometryEditToolbar() {
@@ -230,12 +281,28 @@
     }
 
     function setupRiyadhGeometryEditToolbarOnce() {
+        const delBtnEarly = document.getElementById('riyadhRoadDeleteToggleBtn');
+        if (delBtnEarly && delBtnEarly.getAttribute('data-bound') !== '1') {
+            delBtnEarly.setAttribute('data-bound', '1');
+            delBtnEarly.addEventListener('click', function () {
+                const target = getDeleteTargetFromContext();
+                if (!target) {
+                    notify('Select a road first.', 'warning');
+                    return;
+                }
+                toggleRiyadhRoadDeleteIntent();
+            });
+        }
+
         const btn = document.getElementById('riyadhGeometryEditToggleBtn');
         if (!btn || btn.getAttribute('data-bound') === '1') {
             return;
         }
         btn.setAttribute('data-bound', '1');
         btn.addEventListener('click', function() {
+            if (window.__riyadhRoadDeleteIntent) {
+                clearRiyadhRoadDeleteIntent();
+            }
             if (window.__roadGeometryEditActiveId != null) {
                 if (window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
                     window.roadGeometryEdit.stop();
@@ -323,66 +390,6 @@
     window.syncRiyadhRoadMapOverlayFromContext = syncRiyadhRoadMapOverlayFromContext;
     window.applyMapSidePanelOpen = applyMapSidePanelOpen;
     window.initMapSidePanelChrome = initMapSidePanelChrome;
-
-    function requestDeleteForCurrentFeature() {
-        const target = getDeleteTargetFromContext();
-        if (!target) {
-            notify('Select a road first.', 'warning');
-            return;
-        }
-
-        if (!confirm('Are you sure you want to request deletion of this road?')) {
-            return;
-        }
-
-        const snapshot = target.snapshot || {};
-        const payload = {
-            target_type: target.target_type,
-            target_id: target.target_id,
-            geometry: snapshot.geometry || null,
-            feature_type: snapshot.feature_type || snapshot.current_feature_label || 'Line',
-            current_feature_label: snapshot.current_feature_label || snapshot.feature_type || 'Line',
-            fields_data: snapshot.fields_data || {},
-            tags_data: snapshot.tags_data || [],
-            relations_data: snapshot.relations_data || [],
-        };
-
-        fetch('/mapping/api/request/delete/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken'),
-            },
-            body: JSON.stringify(payload),
-        })
-            .then(function (resp) { return resp.json(); })
-            .then(function (data) {
-                if (!data || !data.success) {
-                    notify((data && data.message) ? data.message : 'Failed to submit delete request.', 'error');
-                    return;
-                }
-
-                if (data.auto_approved) {
-                    notify('Road deleted successfully.', 'success');
-                    try {
-                        window.selectedRiyadhRoad = null;
-                        window.approvedLineBeingEdited = null;
-                        setSelectedOverlayGeometry(null);
-                        syncRiyadhTileSelectionSuppressionForDraftClosure();
-                    } catch (e) {}
-                    setTimeout(function () {
-                        if (typeof window.triggerRiyadhTilesReload === 'function') {
-                            window.triggerRiyadhTilesReload(data.tiles_version);
-                        }
-                    }, 500);
-                } else {
-                    notify('Delete request sent for approval.', 'success');
-                }
-            })
-            .catch(function () {
-                notify('Failed to submit delete request.', 'error');
-            });
-    }
 
     // Selected-feature overlay (GeoJSON): same selection chrome as tile roads / drawn lines.
     const SELECTED_OVERLAY_SOURCE_ID = 'selected-road-overlay-v2';
@@ -2165,21 +2172,6 @@
         title.className = 'text-base font-semibold text-zinc-900 flex-1 text-center';
         title.textContent = 'Edit feature';
 
-        // Resolve delete target from the explicit options first (works even before the edit screen DOM exists).
-        const deleteTarget = getDeleteTargetFromEditScreenOptions({ lineData: lineData }) || getDeleteTargetFromContext();
-        const deleteButton = document.createElement('button');
-        deleteButton.className = 'p-2 hover:bg-zinc-100 rounded-lg transition-colors flex-shrink-0';
-        deleteButton.setAttribute('aria-label', 'Request delete');
-        deleteButton.innerHTML = '<svg class="w-5 h-5 text-zinc-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m3 0V4a1 1 0 011-1h6a1 1 0 011 1v3m-9 0h10"></path></svg>';
-        if (!deleteTarget) {
-            deleteButton.style.display = 'none';
-        } else {
-            deleteButton.addEventListener('click', function (e) {
-                e.stopPropagation();
-                requestDeleteForCurrentFeature();
-            });
-        }
-
         const closeButton = document.createElement('button');
         closeButton.className = 'p-2 hover:bg-zinc-100 rounded-lg transition-colors flex-shrink-0';
         closeButton.innerHTML = '<svg class="w-5 h-5 text-zinc-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
@@ -2195,7 +2187,6 @@
 
         header.appendChild(backButton);
         header.appendChild(title);
-        header.appendChild(deleteButton);
         header.appendChild(closeButton);
         editScreen.appendChild(header);
 
@@ -4735,6 +4726,7 @@
     window.showRiyadhRoadAsLineFeature = showRiyadhRoadAsLineFeature;
 
     window.setSelectedOverlayGeometry = setSelectedOverlayGeometry;
+    window.syncRiyadhTileSelectionSuppressionForDraftClosure = syncRiyadhTileSelectionSuppressionForDraftClosure;
 
     try {
         if (window.symbologyCatalog && window.symbologyCatalog.styles_by_label) {

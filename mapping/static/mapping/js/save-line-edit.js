@@ -382,13 +382,73 @@
         };
     }
 
+    function sortedJsonForFields(fields) {
+        const f = fields && typeof fields === 'object' ? fields : {};
+        const keys = Object.keys(f).sort();
+        const out = {};
+        keys.forEach(function (k) {
+            out[k] = f[k];
+        });
+        return JSON.stringify(out);
+    }
+
+    /**
+     * Explains what kind of edit is waiting for manager review (non-closure cases).
+     * @param {object} editData - Payload from collectLineEditData.
+     * @param {{ reviewKind?: string }} meta - e.g. reviewKind 'delete' from delete flow.
+     */
+    function inferPendingReviewBody(editData, meta) {
+        meta = meta || {};
+        if (meta.reviewKind === 'delete') {
+            return 'Your road deletion request is in the manager review queue. It will take effect only after approval.';
+        }
+        if (!editData || !editData.is_riyadh_road) {
+            return 'Your new road has been submitted for manager review. It will appear on the map after approval.';
+        }
+        const snap = getRiyadhRoadOriginalSnapshot(editData);
+        if (!snap) {
+            return 'Your road updates are in the manager review queue. They will appear on the map after approval.';
+        }
+        const hasGeom =
+            JSON.stringify(editData.geometry || null) !== JSON.stringify(snap.geometry || null);
+        const hasFeat =
+            String(editData.current_feature_label || editData.feature_type || '').trim() !==
+            String(snap.feature_label || '').trim();
+        const hasAttr =
+            sortedJsonForFields(editData.fields_data) !== sortedJsonForFields(snap.fields_data) ||
+            JSON.stringify(editData.tags_data || []) !== JSON.stringify(snap.tags_data || []);
+        const count = (hasGeom ? 1 : 0) + (hasFeat ? 1 : 0) + (hasAttr ? 1 : 0);
+        if (count === 0) {
+            return 'Your road updates are in the manager review queue. They will appear on the map after approval.';
+        }
+        if (count === 1) {
+            if (hasGeom) {
+                return 'Your road shape changes are in the manager review queue. They will appear on the map after approval.';
+            }
+            if (hasFeat) {
+                return 'Your road classification change is in the manager review queue. It will appear on the map after approval.';
+            }
+            return 'Your road attribute updates are in the manager review queue. They will appear on the map after approval.';
+        }
+        if (count === 2) {
+            if (hasGeom && hasFeat) {
+                return 'Your road shape and classification changes are in the manager review queue. They will appear on the map after approval.';
+            }
+            if (hasGeom && hasAttr) {
+                return 'Your road shape and attribute changes are in the manager review queue. They will appear on the map after approval.';
+            }
+            return 'Your road classification and attribute updates are in the manager review queue. They will appear on the map after approval.';
+        }
+        return 'Your road edits are in the manager review queue. They will appear on the map after approval.';
+    }
+
     /**
      * Minimal dialog after a non-manager save that entered the manager review queue.
      * @param {string} bodyText - Primary message (server copy or default).
-     * @param {{ isRiyadhRoad: boolean, featureLabel: string }} context - Subtitle only.
+     * @param {{ reviewKind?: string }} [meta] - e.g. reviewKind 'delete' for title only.
      */
-    function openPendingReviewDialog(bodyText, context) {
-        const ctx = context || { isRiyadhRoad: false, featureLabel: '' };
+    function openPendingReviewDialog(bodyText, meta) {
+        const m = meta || {};
 
         const backdrop = document.createElement('div');
         backdrop.setAttribute('role', 'dialog');
@@ -410,16 +470,8 @@
         title.id = 'pendingReviewDialogTitle';
         title.className =
             'mt-5 text-center text-[1.65rem] font-semibold leading-[1.2] tracking-[-0.02em] text-zinc-950 sm:text-[1.75rem]';
-        title.textContent = 'Edit sent for review';
-
-        const contextLine = document.createElement('p');
-        contextLine.className = 'mt-3 text-center text-[13px] font-medium leading-snug text-zinc-500';
-        if (ctx.isRiyadhRoad) {
-            const ft = String(ctx.featureLabel || '').trim();
-            contextLine.textContent = ft ? 'Riyadh road · ' + ft : 'Riyadh road';
-        } else {
-            contextLine.textContent = 'Line feature';
-        }
+        title.textContent =
+            m.reviewKind === 'delete' ? 'Deletion sent for review' : 'Edit sent for review';
 
         const message = document.createElement('p');
         message.className = 'mt-8 text-center text-[15px] leading-[1.65] text-zinc-600';
@@ -433,7 +485,6 @@
 
         card.appendChild(eyebrow);
         card.appendChild(title);
-        card.appendChild(contextLine);
         card.appendChild(message);
         card.appendChild(doneBtn);
         backdrop.appendChild(card);
@@ -470,7 +521,8 @@
         const closureApplied = !!opts.closureApplied;
         const roadClosure = opts.roadClosure;
         const serverMessage = opts.serverMessage ? String(opts.serverMessage) : '';
-        const pendingCtx = opts.pendingReviewContext || null;
+        const pendingMeta = opts.pendingReviewMeta || null;
+        const editDataForReview = opts.editDataForReview || null;
 
         if (autoApproved) {
             showToastNotification(
@@ -481,15 +533,22 @@
         }
 
         if (pendingSubmitted) {
-            const defaultPending =
-                closureApplied && typeof roadClosure === 'number'
-                    ? roadClosure === 1
+            let defaultPending;
+            if (closureApplied && typeof roadClosure === 'number') {
+                defaultPending =
+                    roadClosure === 1
                         ? 'Road closure is already live for everyone. A manager will review your other changes before they appear on the map.'
-                        : 'The road is shown as open for everyone. A manager will review your other changes before they appear on the map.'
-                    : pendingCtx && pendingCtx.isRiyadhRoad
-                        ? 'Your road changes are in the review queue. They will appear on the map after a manager approves them.'
-                        : 'Your line changes are in the review queue. They will appear on the map after a manager approves them.';
-            openPendingReviewDialog(serverMessage || defaultPending, pendingCtx || { isRiyadhRoad: false, featureLabel: '' });
+                        : 'The road is shown as open for everyone. A manager will review your other changes before they appear on the map.';
+            } else {
+                const inferred =
+                    inferPendingReviewBody(editDataForReview, {
+                        reviewKind: pendingMeta && pendingMeta.reviewKind
+                    }) || '';
+                defaultPending =
+                    inferred ||
+                    'Your road changes are in the review queue. They will appear on the map after a manager approves them.';
+            }
+            openPendingReviewDialog(serverMessage || defaultPending, pendingMeta || {});
             return;
         }
 
@@ -506,9 +565,150 @@
         showToastNotification(serverMessage || 'Saved.', 'info');
     }
 
+    function applySuccessfulSaveSideEffects(editData, pendingSubmitted) {
+        if (window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
+            window.roadGeometryEdit.stop();
+        }
+        if (typeof window.syncRiyadhGeometryEditToolbarButton === 'function') {
+            window.syncRiyadhGeometryEditToolbarButton();
+        }
+        if (typeof window.syncRiyadhRoadDeleteToolbarButton === 'function') {
+            window.syncRiyadhRoadDeleteToolbarButton();
+        }
+
+        if (pendingSubmitted && editData) {
+            revertPendingApprovalVisualization(editData);
+            try {
+                if (currentLineId && typeof window.removeMapLibreLineLayer === 'function') {
+                    window.removeMapLibreLineLayer(currentLineId);
+                }
+                if (typeof window.clearVertexMarkers === 'function') {
+                    window.clearVertexMarkers();
+                }
+            } catch (e) {}
+        }
+
+        if (window.exitEditModeAfterSuccessfulSave) {
+            window.exitEditModeAfterSuccessfulSave();
+        }
+    }
+
     function handleSave() {
         const saveBtn = document.getElementById('saveBtn');
         if (saveBtn && saveBtn.disabled) {
+            return;
+        }
+
+        function finishSaveUi() {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                const labelSpan = saveBtn.querySelector('span');
+                if (labelSpan) {
+                    labelSpan.textContent = saveBtn.dataset.originalLabel || 'Save';
+                }
+            }
+        }
+
+        function setSavingUi(active) {
+            if (!saveBtn) {
+                return;
+            }
+            saveBtn.disabled = !!active;
+            const labelSpan = saveBtn.querySelector('span');
+            if (labelSpan) {
+                if (!saveBtn.dataset.originalLabel) {
+                    saveBtn.dataset.originalLabel = labelSpan.textContent || 'Save';
+                }
+                labelSpan.textContent = active ? 'Saving...' : saveBtn.dataset.originalLabel || 'Save';
+            }
+        }
+
+        if (window.__riyadhRoadDeleteIntent) {
+            const payload =
+                typeof window.buildRiyadhRoadDeleteRequestPayload === 'function'
+                    ? window.buildRiyadhRoadDeleteRequestPayload()
+                    : null;
+            if (!payload) {
+                showToastNotification('Select a road to delete.', 'warning');
+                return;
+            }
+            setSavingUi(true);
+            fetch('/mapping/api/request/delete/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(payload)
+            })
+                .then(function (response) {
+                    return response.json();
+                })
+                .then(function (data) {
+                    if (!data || !data.success) {
+                        showToastNotification(
+                            (data && data.message) || 'Failed to submit delete request.',
+                            'error'
+                        );
+                        return;
+                    }
+
+                    if (typeof window.clearRiyadhRoadDeleteIntent === 'function') {
+                        window.clearRiyadhRoadDeleteIntent();
+                    }
+
+                    const autoApproved = !!data.auto_approved;
+                    const pendingSubmitted =
+                        !!data.pending_submitted || (!autoApproved && !!data.success);
+
+                    if (autoApproved && data.tiles_version != null && typeof window.triggerRiyadhTilesReload === 'function') {
+                        setTimeout(function () {
+                            window.triggerRiyadhTilesReload(data.tiles_version);
+                        }, 500);
+                    }
+
+                    const deleteEditStub = {
+                        is_riyadh_road: true,
+                        riyadh_road_id: payload.target_id,
+                        id: payload.target_id
+                    };
+
+                    if (autoApproved) {
+                        showToastNotification(
+                            data.message || 'Road deleted successfully.',
+                            'success'
+                        );
+                        try {
+                            window.selectedRiyadhRoad = null;
+                            window.approvedLineBeingEdited = null;
+                            if (typeof window.setSelectedOverlayGeometry === 'function') {
+                                window.setSelectedOverlayGeometry(null);
+                            }
+                            if (typeof window.syncRiyadhTileSelectionSuppressionForDraftClosure === 'function') {
+                                window.syncRiyadhTileSelectionSuppressionForDraftClosure();
+                            }
+                        } catch (eClear) {}
+                    } else {
+                        showSaveOutcomeUI({
+                            autoApproved: false,
+                            pendingSubmitted: pendingSubmitted,
+                            closureApplied: false,
+                            roadClosure: 0,
+                            serverMessage: data.message || '',
+                            pendingReviewMeta: { reviewKind: 'delete' },
+                            editDataForReview: null
+                        });
+                    }
+
+                    applySuccessfulSaveSideEffects(
+                        pendingSubmitted ? deleteEditStub : null,
+                        pendingSubmitted
+                    );
+                })
+                .catch(function () {
+                    showToastNotification('Failed to submit delete request.', 'error');
+                })
+                .finally(finishSaveUi);
             return;
         }
 
@@ -524,16 +724,7 @@
             return;
         }
 
-        if (saveBtn) {
-            saveBtn.disabled = true;
-            const labelSpan = saveBtn.querySelector('span');
-            if (labelSpan) {
-                if (!saveBtn.dataset.originalLabel) {
-                    saveBtn.dataset.originalLabel = labelSpan.textContent || 'Save';
-                }
-                labelSpan.textContent = 'Saving...';
-            }
-        }
+        setSavingUi(true);
 
         fetch('/mapping/api/save-line-edit/', {
             method: 'POST',
@@ -543,109 +734,77 @@
             },
             body: JSON.stringify(editData)
         })
-        .then(function(response) {
-            return response.json();
-        })
-        .then(function(data) {
-            if (!data || !data.success) {
-                alert('Error: ' + (data && data.message ? data.message : 'Failed to save edit request'));
-                return;
-            }
-
-            const autoApproved = !!data.auto_approved;
-            const pendingSubmitted = !!data.pending_submitted;
-            const closureApplied = !!data.closure_applied;
-            const roadClosureFromServer =
-                data.road_closure !== undefined && data.road_closure !== null
-                    ? data.road_closure
-                    : editData.road_closure;
-
-            if (
-                data.road_closure !== undefined &&
-                data.road_closure !== null &&
-                (editData.is_riyadh_road || !pendingSubmitted) &&
-                typeof window.syncRoadClosureStateAfterPersist === 'function'
-            ) {
-                window.syncRoadClosureStateAfterPersist(data.road_closure);
-            }
-
-            if (
-                !pendingSubmitted &&
-                editData.is_riyadh_road &&
-                editData.riyadh_road_id != null &&
-                typeof window.resolveRiyadhFclassForFeatureState === 'function'
-            ) {
-                const fc = window.resolveRiyadhFclassForFeatureState(
-                    editData.current_feature_label || editData.feature_type
-                );
-                if (fc) {
-                    if (typeof window.applyRiyadhRoadDbFclassFromDatabase === 'function') {
-                        window.applyRiyadhRoadDbFclassFromDatabase(editData.riyadh_road_id, fc);
-                    }
-                } else if (typeof window.clearRiyadhRoadDbFclassFromDatabase === 'function') {
-                    window.clearRiyadhRoadDbFclassFromDatabase(editData.riyadh_road_id);
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (data) {
+                if (!data || !data.success) {
+                    showToastNotification(
+                        'Error: ' + (data && data.message ? data.message : 'Failed to save edit request'),
+                        'error'
+                    );
+                    return;
                 }
-            }
 
-            if (data.tiles_version != null && typeof window.triggerRiyadhTilesReload === 'function') {
-                setTimeout(function() {
-                    window.triggerRiyadhTilesReload(data.tiles_version);
-                }, autoApproved ? 900 : 400);
-            }
+                const autoApproved = !!data.auto_approved;
+                const pendingSubmitted = !!data.pending_submitted;
+                const closureApplied = !!data.closure_applied;
+                const roadClosureFromServer =
+                    data.road_closure !== undefined && data.road_closure !== null
+                        ? data.road_closure
+                        : editData.road_closure;
 
-            const outcomeOpts = {
-                autoApproved: autoApproved,
-                pendingSubmitted: pendingSubmitted,
-                closureApplied: closureApplied,
-                roadClosure: roadClosureFromServer,
-                serverMessage: data.message || ''
-            };
-            if (pendingSubmitted) {
-                outcomeOpts.pendingReviewContext = {
-                    isRiyadhRoad: !!editData.is_riyadh_road,
-                    featureLabel: String(
-                        editData.current_feature_label || editData.feature_type || ''
-                    ).trim()
+                if (
+                    data.road_closure !== undefined &&
+                    data.road_closure !== null &&
+                    (editData.is_riyadh_road || !pendingSubmitted) &&
+                    typeof window.syncRoadClosureStateAfterPersist === 'function'
+                ) {
+                    window.syncRoadClosureStateAfterPersist(data.road_closure);
+                }
+
+                if (
+                    !pendingSubmitted &&
+                    editData.is_riyadh_road &&
+                    editData.riyadh_road_id != null &&
+                    typeof window.resolveRiyadhFclassForFeatureState === 'function'
+                ) {
+                    const fc = window.resolveRiyadhFclassForFeatureState(
+                        editData.current_feature_label || editData.feature_type
+                    );
+                    if (fc) {
+                        if (typeof window.applyRiyadhRoadDbFclassFromDatabase === 'function') {
+                            window.applyRiyadhRoadDbFclassFromDatabase(editData.riyadh_road_id, fc);
+                        }
+                    } else if (typeof window.clearRiyadhRoadDbFclassFromDatabase === 'function') {
+                        window.clearRiyadhRoadDbFclassFromDatabase(editData.riyadh_road_id);
+                    }
+                }
+
+                if (data.tiles_version != null && typeof window.triggerRiyadhTilesReload === 'function') {
+                    setTimeout(function () {
+                        window.triggerRiyadhTilesReload(data.tiles_version);
+                    }, autoApproved ? 900 : 400);
+                }
+
+                const outcomeOpts = {
+                    autoApproved: autoApproved,
+                    pendingSubmitted: pendingSubmitted,
+                    closureApplied: closureApplied,
+                    roadClosure: roadClosureFromServer,
+                    serverMessage: data.message || ''
                 };
-            }
-            showSaveOutcomeUI(outcomeOpts);
-
-            if (window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
-                window.roadGeometryEdit.stop();
-            }
-            if (typeof window.syncRiyadhGeometryEditToolbarButton === 'function') {
-                window.syncRiyadhGeometryEditToolbarButton();
-            }
-
-            if (pendingSubmitted) {
-                revertPendingApprovalVisualization(editData);
-                try {
-                    if (currentLineId && typeof window.removeMapLibreLineLayer === 'function') {
-                        window.removeMapLibreLineLayer(currentLineId);
-                    }
-                    if (typeof window.clearVertexMarkers === 'function') {
-                        window.clearVertexMarkers();
-                    }
-                } catch (e) {}
-            }
-
-            if (window.exitEditModeAfterSuccessfulSave) {
-                window.exitEditModeAfterSuccessfulSave();
-            }
-        })
-        .catch(function(error) {
-            alert('Error saving edit request. Please try again.');
-        })
-        .finally(function() {
-            if (saveBtn) {
-                saveBtn.disabled = false;
-                const labelSpan = saveBtn.querySelector('span');
-                if (labelSpan) {
-                    const originalLabel = saveBtn.dataset.originalLabel || 'Save';
-                    labelSpan.textContent = originalLabel;
+                if (pendingSubmitted) {
+                    outcomeOpts.editDataForReview = editData;
                 }
-            }
-        });
+                showSaveOutcomeUI(outcomeOpts);
+
+                applySuccessfulSaveSideEffects(editData, pendingSubmitted);
+            })
+            .catch(function () {
+                showToastNotification('Error saving edit request. Please try again.', 'error');
+            })
+            .finally(finishSaveUi);
     }
 
     function getCookie(name) {

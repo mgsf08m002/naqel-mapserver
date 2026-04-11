@@ -1360,6 +1360,7 @@ def create_delete_request(request):
             "message": "Delete request submitted." if not auto_approved else "Delete request approved and applied.",
             "request_id": delete_request.id,
             "auto_approved": auto_approved,
+            "pending_submitted": not auto_approved,
             **({"tiles_version": _tiles_version_ms()} if auto_approved else {}),
         }
     )
