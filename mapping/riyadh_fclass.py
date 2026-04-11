@@ -1,30 +1,13 @@
-"""
-Canonical mapping between Riyadh road `fclass` (PostGIS / vector tiles) and
-symbology / UI feature labels.
+"""Riyadh ``fclass`` ↔ UI labels; merged into ``/symbology/api/catalog/`` for MVT paint.
 
-**Source of truth (production contract)**
-
-- Persisted classification lives on the remote `riyadh_roads` database (column
-  `fclass`). The map editor reads/writes it via Django APIs; saves use the
-  same helpers as this module so labels and `fclass` stay consistent in code.
-
-- Vector tiles should be built from that same database (tippecanoe / tileserver).
-  MVT `fclass` should match the DB after each successful publish. Until tiles
-  catch up (CDN, job lag), MVT can be stale; the web client may set MapLibre
-  feature-state `db_fclass` from API payloads so symbology matches the DB
-  immediately.
-
-- Symbology is driven by `/symbology/api/catalog/`, which merges
-  `riyadh_fclass_map_payload()` so the browser uses the same keys and label
-  maps as the server.
-
-`symbology.json` must define `styles_by_label` for every value in
-`RIYADH_FCLASS_TO_LABEL` (plus `Line` and `Road Closure`). This is enforced at
-catalog load by `symbology/feature_catalog.py`.
+Persisted ``fclass`` lives on ``riyadh_roads``; the client may set MapLibre ``db_fclass``
+when tiles lag. ``symbology.json`` must cover every OSM label in ``RIYADH_FCLASS_TO_LABEL``
+plus ``Line`` and ``Road Closure`` (enforced in ``symbology/feature_catalog.py``).
 """
 from __future__ import annotations
 
-from typing import Final
+import re
+from typing import Any, Final
 
 # Stable order for MapLibre `match` (matches typical highway-class ordering).
 RIYADH_FCLASS_KEYS: Final[tuple[str, ...]] = (
@@ -103,10 +86,84 @@ def riyadh_fclass_from_feature_label(label: str | None) -> str | None:
     return _LABEL_TO_FCLASS.get(normalized)
 
 
+def ensure_riyadh_fclass_in_fields(
+    fields: dict[str, Any] | None,
+    *,
+    current_feature_label: str | None,
+    feature_type: str | None,
+) -> None:
+    """When ``fclass`` is missing, set it from the chosen feature label (DB ↔ MVT symbology)."""
+    if not fields or fields.get("fclass"):
+        return
+    effective_label = (current_feature_label or feature_type or "").strip()
+    derived = riyadh_fclass_for_persistence(effective_label)
+    if derived:
+        fields["fclass"] = derived
+
+
+def riyadh_fclass_for_persistence(feature_label: str | None) -> str | None:
+    """
+    Map a sidebar feature label to the value stored in ``riyadh_roads.fclass``:
+    OSM classes plus symbology-only slugs (e.g. Retaining Wall → ``retaining_wall``).
+    Must match ``merged_riyadh_fclass_payload_for_catalog`` / client ``riyadh_label_to_fclass``.
+    """
+    if not feature_label or not str(feature_label).strip():
+        return None
+    osm = riyadh_fclass_from_feature_label(feature_label)
+    if osm is not None:
+        return osm
+    lab = str(feature_label).strip()
+    if lab in ("Line", "Road Closure"):
+        return None
+    slug = _symbology_only_fclass_slug(lab)
+    return slug or None
+
+
 def riyadh_fclass_map_payload() -> dict[str, object]:
     """Merged into `/symbology/api/catalog/` for the map client."""
     return {
         "riyadh_fclass_to_label": dict(RIYADH_FCLASS_TO_LABEL),
         "riyadh_fclass_keys": list(RIYADH_FCLASS_KEYS),
         "riyadh_label_to_fclass": dict(_LABEL_TO_FCLASS),
+    }
+
+
+def _symbology_only_fclass_slug(style_label: str) -> str:
+    """Stable ``fclass`` token for non-OSM feature types (e.g. ``Pipeline`` → ``pipeline``)."""
+    s = (style_label or "").strip().lower()
+    s = re.sub(r"[^a-z0-9]+", "_", s)
+    s = re.sub(r"_+", "_", s).strip("_")
+    return s or "feature"
+
+
+def merged_riyadh_fclass_payload_for_catalog(styles_by_label: dict[str, Any]) -> dict[str, object]:
+    """Extend ``riyadh_fclass_map_payload()`` with slugs for non-OSM ``styles_by_label`` keys (e.g. Pipeline)."""
+    base = riyadh_fclass_map_payload()
+    fclass_to_label: dict[str, str] = dict(base["riyadh_fclass_to_label"])
+    label_to_fclass: dict[str, str] = dict(base["riyadh_label_to_fclass"])
+    known_fclass = set(fclass_to_label.keys())
+    ordered_osm = set(RIYADH_FCLASS_KEYS)
+
+    for style_label in styles_by_label.keys():
+        if not style_label or style_label in ("Line", "Road Closure"):
+            continue
+        if riyadh_fclass_from_feature_label(style_label) is not None:
+            continue
+        base_slug = _symbology_only_fclass_slug(style_label)
+        slug = base_slug
+        suffix = 0
+        while slug in known_fclass and fclass_to_label.get(slug) != style_label:
+            suffix += 1
+            slug = f"{base_slug}_{suffix}"
+        fclass_to_label[slug] = style_label
+        known_fclass.add(slug)
+        label_to_fclass[style_label.strip().lower()] = slug
+
+    extra_keys = sorted(k for k in fclass_to_label.keys() if k not in ordered_osm)
+    merged_keys = list(RIYADH_FCLASS_KEYS) + extra_keys
+
+    return {
+        "riyadh_fclass_to_label": fclass_to_label,
+        "riyadh_fclass_keys": merged_keys,
+        "riyadh_label_to_fclass": label_to_fclass,
     }

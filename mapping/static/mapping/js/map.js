@@ -9,6 +9,44 @@ function isUserAuthenticated() {
 }
 
 const IS_AUTHENTICATED = isUserAuthenticated();
+
+/**
+ * Single shared fetch for `/symbology/api/catalog/` so map layers and line-drawing
+ * (dropdowns, MVT db_fclass, GeoJSON overlay) do not race duplicate requests.
+ * Retries are allowed after failure: the in-flight promise is cleared on error.
+ */
+window.__naqelLoadSymbologyCatalog = function __naqelLoadSymbologyCatalog() {
+    if (window.symbologyCatalog && window.symbologyCatalog.styles_by_label) {
+        return Promise.resolve(window.symbologyCatalog);
+    }
+    if (!window.__naqelSymbologyCatalogPromise) {
+        window.__naqelSymbologyCatalogPromise = fetch('/symbology/api/catalog/', {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        })
+            .then(function (resp) {
+                if (!resp.ok) {
+                    throw new Error('Failed to load symbology catalog');
+                }
+                return resp.json();
+            })
+            .then(function (catalog) {
+                if (!catalog || typeof catalog !== 'object' || !catalog.styles_by_label) {
+                    throw new Error('Invalid symbology catalog payload');
+                }
+                window.symbologyCatalog = catalog;
+                window.__naqelSymbologyCatalogLastError = null;
+                return catalog;
+            })
+            .catch(function (err) {
+                window.__naqelSymbologyCatalogLastError = err;
+                window.__naqelSymbologyCatalogPromise = undefined;
+                throw err;
+            });
+    }
+    return window.__naqelSymbologyCatalogPromise;
+};
+
 function getMaptilerApiKey() {
     const mapElement = document.getElementById('map');
     if (!mapElement) {
@@ -423,6 +461,26 @@ map.on('load', () => {
                         { db_fclass: fc }
                     );
                 } catch (e) {}
+            };
+
+            window.clearRiyadhRoadDbFclassFromDatabase = function(roadId) {
+                const idNum = roadId != null ? parseInt(String(roadId), 10) : NaN;
+                if (Number.isNaN(idNum)) {
+                    return;
+                }
+                const k = String(idNum);
+                if (window.__riyadhRoadDbFclassById) {
+                    delete window.__riyadhRoadDbFclassById[k];
+                }
+                try {
+                    if (!map.getSource(SOURCE_ID)) {
+                        return;
+                    }
+                    map.removeFeatureState(
+                        { source: SOURCE_ID, sourceLayer: SOURCE_LAYER, id: idNum },
+                        'db_fclass'
+                    );
+                } catch (eClr) {}
             };
 
             function reapplyRiyadhRoadDbFclassFeatureStates() {
@@ -843,7 +901,18 @@ map.on('load', () => {
                                     fd.ref = tRef;
                                 }
                                 data.road.fields_data = fd;
-                                const dbFclass = fd.fclass != null ? String(fd.fclass).trim() : '';
+                                const clientLabel =
+                                    data.road.current_feature_label || data.road.feature_type || '';
+                                let dbFclass = '';
+                                if (
+                                    typeof window.resolveRiyadhFclassForFeatureState === 'function' &&
+                                    clientLabel
+                                ) {
+                                    dbFclass = window.resolveRiyadhFclassForFeatureState(clientLabel) || '';
+                                }
+                                if (!dbFclass && fd.fclass != null) {
+                                    dbFclass = String(fd.fclass).trim();
+                                }
                                 if (dbFclass && typeof window.applyRiyadhRoadDbFclassFromDatabase === 'function') {
                                     window.applyRiyadhRoadDbFclassFromDatabase(roadId, dbFclass);
                                 }
@@ -1276,44 +1345,26 @@ map.on('load', () => {
                 if (!IS_AUTHENTICATED) {
                     return;
                 }
-                if (window.symbologyCatalog) {
+                // Require a full catalog (not a partial / corrupted object) so we refetch when needed.
+                if (window.symbologyCatalog && window.symbologyCatalog.styles_by_label) {
                     ensureRiyadhRoadLayerFromCatalog(window.symbologyCatalog);
                     ensureRiyadhRoadLabelsFromCatalog(window.symbologyCatalog);
                     reapplyRiyadhRoadDbFclassFeatureStates();
                     return;
                 }
 
-                fetch('/symbology/api/catalog/', {
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json' }
-                })
-                    .then(function(resp) {
-                        if (!resp.ok) {
-                            throw new Error('Failed to load symbology catalog');
-                        }
-                        return resp.json();
-                    })
-                    .then(function(catalog) {
-                        window.symbologyCatalog = catalog;
-                        try {
-                            window.dispatchEvent(new CustomEvent('symbology:catalogLoaded', { detail: catalog }));
-                        } catch (e) {}
+                window.__naqelLoadSymbologyCatalog()
+                    .then(function (catalog) {
                         ensureRiyadhRoadLayerFromCatalog(catalog);
                         ensureRiyadhRoadLabelsFromCatalog(catalog);
                         reapplyRiyadhRoadDbFclassFeatureStates();
                     })
-                    .catch(function() {});
+                    .catch(function () {});
             }
 
-            window.addEventListener('symbology:catalogLoaded', function(e) {
-                if (!IS_AUTHENTICATED) {
-                    return;
-                }
-                const catalog = e && e.detail ? e.detail : window.symbologyCatalog;
-                ensureRiyadhRoadLayerFromCatalog(catalog);
-                ensureRiyadhRoadLabelsFromCatalog(catalog);
-                reapplyRiyadhRoadDbFclassFeatureStates();
-            });
+            // MVT paint is applied from requestCatalog (initial + prefetch) and after tile reload.
+            // line-drawing dispatches symbology:catalogLoaded only after normalizing styles for the UI;
+            // map layers do not listen here to avoid duplicate ensureRiyadhRoadLayerFromCatalog work.
             if (IS_AUTHENTICATED) {
                 requestCatalog();
             }

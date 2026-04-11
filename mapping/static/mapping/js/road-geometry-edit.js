@@ -78,7 +78,6 @@
             return;
         }
 
-        var stylesByLabel = window.symbologyCatalog && window.symbologyCatalog.styles_by_label;
         var label = currentFeatureLabel() || 'Line';
 
         var closed = false;
@@ -89,10 +88,17 @@
         } catch (e0) {}
 
         var style = null;
-        if (closed && stylesByLabel && stylesByLabel['Road Closure']) {
-            style = stylesByLabel['Road Closure'];
-        } else if (stylesByLabel) {
-            style = stylesByLabel[label] || stylesByLabel['Line'];
+        if (typeof window.getVisualizationStyle === 'function') {
+            if (closed) {
+                style = window.getVisualizationStyle('Road Closure');
+            }
+            if (!style) {
+                style = window.getVisualizationStyle(label);
+            }
+        }
+        if (!style && window.symbologyCatalog && window.symbologyCatalog.styles_by_label) {
+            var sbl = window.symbologyCatalog.styles_by_label;
+            style = (closed && sbl['Road Closure']) ? sbl['Road Closure'] : (sbl[label] || sbl['Line']);
         }
 
         while (host.firstChild) {

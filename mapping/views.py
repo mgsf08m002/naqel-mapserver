@@ -19,7 +19,7 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
 from .models import LineEditRequest, RiyadhRoad
-from .riyadh_fclass import feature_label_from_riyadh_fclass, riyadh_fclass_from_feature_label
+from .riyadh_fclass import ensure_riyadh_fclass_in_fields, feature_label_from_riyadh_fclass
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +47,11 @@ RIYADH_REMOTE_FIELD_KEYS = frozenset(
 )
 # Never emit these as tag rows (sidebar or UI mirrors); keeps fields_data ↔ tags_data aligned with the client.
 RIYADH_FIELDS_OMIT_FROM_TAGS = RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS | RIYADH_FIELDS_UI_ONLY
+
+# save_line_edit_request: sidebar must not use the generic default "Line" placeholder.
+FEATURE_TYPE_REQUIRED_FOR_SAVE_MSG = "Select a feature type for your road"
 ARABIC_CHAR_PATTERN = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
 LATIN_CHAR_PATTERN = re.compile(r"[A-Za-z]")
-ROAD_LABEL_VALID_CHAR_PATTERN = re.compile(r"[\u0600-\u06FFA-Za-z0-9]")
 
 
 def _detect_road_label_language(label_text: str) -> str:
@@ -69,13 +71,6 @@ def _detect_road_label_language(label_text: str) -> str:
     if has_latin and not has_ar:
         return "en"
     return "unknown"
-
-
-def _is_valid_road_label_text(label_text: str) -> bool:
-    text = (label_text or "").strip()
-    if not text:
-        return False
-    return bool(ROAD_LABEL_VALID_CHAR_PATTERN.search(text))
 
 
 def _derive_bilingual_label_values(label_text: str):
@@ -569,6 +564,8 @@ def save_line_edit_request(request):
     """
     Save a line edit.
 
+    Rejects the generic placeholder feature type ``Line``; a real ``current_feature_label`` is required.
+
     Managers: apply immediately to the remote network (no pending row left).
 
     All roles: Riyadh ``road_closure`` changes apply immediately on the remote DB
@@ -627,16 +624,17 @@ def save_line_edit_request(request):
         tags_data = data.get("tags_data") or []
         relations_data = data.get("relations_data") or []
 
-        if is_riyadh_road:
-            road_label = str((fields_data or {}).get("name") or "").strip()
-            if not _is_valid_road_label_text(road_label):
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "message": "Road Label is required and must contain valid Arabic or English text.",
-                    },
-                    status=400,
-                )
+        feature_label = str(
+            data.get("current_feature_label") or data.get("feature_type") or ""
+        ).strip()
+        if not feature_label or feature_label.lower() == "line":
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": FEATURE_TYPE_REQUIRED_FOR_SAVE_MSG,
+                },
+                status=400,
+            )
 
         original_geometry = None
         geometry_changed = False
@@ -859,26 +857,23 @@ def _apply_riyadh_edit_to_base_network(edit_request):
             geom = None
 
         fields = edit_request.fields_data or {}
-
-        # Ensure fclass is populated from the chosen feature label when not
-        # explicitly provided in fields_data so tile symbology is consistent.
-        if not fields.get("fclass"):
-            effective_label = edit_request.current_feature_label or edit_request.feature_type
-            derived_fclass = riyadh_fclass_from_feature_label(effective_label or "")
-            if derived_fclass:
-                fields["fclass"] = derived_fclass
+        ensure_riyadh_fclass_in_fields(
+            fields,
+            current_feature_label=edit_request.current_feature_label,
+            feature_type=edit_request.feature_type,
+        )
 
         road_kwargs = {
             "name": fields.get("name") or "",
             "ref": fields.get("ref") or "",
             "fclass": fields.get("fclass") or "",
-        "oneway": fields.get("oneway") or "",
-        "maxspeed": fields.get("maxspeed"),
-        "code": fields.get("code"),
-        "bridge": fields.get("bridge") or "",
-        "tunnel": fields.get("tunnel") or "",
-        "layer": fields.get("layer"),
-    }
+            "oneway": fields.get("oneway") or "",
+            "maxspeed": fields.get("maxspeed"),
+            "code": fields.get("code"),
+            "bridge": fields.get("bridge") or "",
+            "tunnel": fields.get("tunnel") or "",
+            "layer": fields.get("layer"),
+        }
 
     road = None
     if edit_request.riyadh_road_id is not None:
@@ -922,14 +917,11 @@ def _apply_manual_approval_to_remote_network(edit_request):
         raise
 
     fields = edit_request.fields_data or {}
-
-    # Ensure fclass is populated from the chosen feature label when not
-    # explicitly provided in fields_data for newly created roads.
-    if not fields.get("fclass"):
-        effective_label = edit_request.current_feature_label or edit_request.feature_type
-        derived_fclass = riyadh_fclass_from_feature_label(effective_label or "")
-        if derived_fclass:
-            fields["fclass"] = derived_fclass
+    ensure_riyadh_fclass_in_fields(
+        fields,
+        current_feature_label=edit_request.current_feature_label,
+        feature_type=edit_request.feature_type,
+    )
 
     with transaction.atomic(using="riyadh_roads"):
         max_id = RiyadhRoad.objects.using("riyadh_roads").aggregate(max_id=Max("id")).get("max_id")

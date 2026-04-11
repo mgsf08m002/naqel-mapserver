@@ -82,6 +82,20 @@
         } catch (e) {}
     }
 
+    const FEATURE_TYPE_REQUIRED_MSG = 'Select a feature type for your road';
+
+    function validateFeatureTypeForSave(editData) {
+        const typeLabel = (
+            editData.current_feature_label ||
+            editData.feature_type ||
+            ''
+        ).trim();
+        if (!typeLabel || typeLabel.toLowerCase() === 'line') {
+            return FEATURE_TYPE_REQUIRED_MSG;
+        }
+        return null;
+    }
+
     function showToastNotification(message, type) {
         if (!message) {
             return;
@@ -343,6 +357,15 @@
                 fieldsPayload[k] = t.value != null ? t.value : '';
             });
             fieldsPayload.road_closure = isRoadClosed ? 1 : 0;
+            const labelForFclass = featureLabelToUse || 'Line';
+            if (typeof window.resolveRiyadhFclassForFeatureState === 'function') {
+                const symFc = window.resolveRiyadhFclassForFeatureState(labelForFclass);
+                if (symFc) {
+                    fieldsPayload.fclass = symFc;
+                } else {
+                    delete fieldsPayload.fclass;
+                }
+            }
         }
 
         return {
@@ -357,15 +380,6 @@
             riyadh_road_id: riyadhRoadId,
             closure_changed: closureChanged
         };
-    }
-
-    function isValidRoadLabelInput(value) {
-        const text = (value || '').trim();
-        if (!text) {
-            return false;
-        }
-        // Require at least one Arabic, English, or numeric character.
-        return /[\u0600-\u06FFA-Za-z0-9]/.test(text);
     }
 
     function showSaveOutcomeUI(opts) {
@@ -456,14 +470,10 @@
             return;
         }
 
-        if (editData.is_riyadh_road) {
-            const roadLabel = editData.fields_data && editData.fields_data.name != null
-                ? String(editData.fields_data.name)
-                : '';
-            if (!isValidRoadLabelInput(roadLabel)) {
-                alert('Road Label is required and must contain valid Arabic or English text.');
-                return;
-            }
+        const featureTypeErr = validateFeatureTypeForSave(editData);
+        if (featureTypeErr) {
+            showToastNotification(featureTypeErr, 'warning');
+            return;
         }
 
         if (saveBtn) {
@@ -515,20 +525,17 @@
                 !pendingSubmitted &&
                 editData.is_riyadh_road &&
                 editData.riyadh_road_id != null &&
-                typeof window.applyRiyadhRoadDbFclassFromDatabase === 'function'
+                typeof window.resolveRiyadhFclassForFeatureState === 'function'
             ) {
-                const fd = editData.fields_data || {};
-                let fc = fd.fclass != null ? String(fd.fclass).trim() : '';
-                if (!fc) {
-                    const cat = window.symbologyCatalog;
-                    const inv = cat && cat.riyadh_label_to_fclass;
-                    const lab = (editData.feature_type || editData.current_feature_label || '')
-                        .trim()
-                        .toLowerCase();
-                    fc = inv && inv[lab] ? inv[lab] : '';
-                }
+                const fc = window.resolveRiyadhFclassForFeatureState(
+                    editData.current_feature_label || editData.feature_type
+                );
                 if (fc) {
-                    window.applyRiyadhRoadDbFclassFromDatabase(editData.riyadh_road_id, fc);
+                    if (typeof window.applyRiyadhRoadDbFclassFromDatabase === 'function') {
+                        window.applyRiyadhRoadDbFclassFromDatabase(editData.riyadh_road_id, fc);
+                    }
+                } else if (typeof window.clearRiyadhRoadDbFclassFromDatabase === 'function') {
+                    window.clearRiyadhRoadDbFclassFromDatabase(editData.riyadh_road_id);
                 }
             }
 

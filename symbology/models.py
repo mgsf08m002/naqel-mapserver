@@ -46,7 +46,7 @@ class SymbologyStyle(models.Model):
 
     is_active = models.BooleanField(
         default=True,
-        help_text="Inactive styles are ignored when building the symbology catalog.",
+        help_text="Legacy column; the catalog is built only from symbology.json, not this table.",
     )
 
     class Meta:
