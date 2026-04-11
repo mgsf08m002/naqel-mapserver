@@ -306,9 +306,15 @@
         if (ref) {
             parts.push('Ref ' + ref);
         }
-        // Keep sidebar metadata aligned with the human-readable feature label.
-        if (fclassLabel && fclassLower !== 'unclassified' && (!rawLabel || rawLabel.toLowerCase() !== fclassLabel.toLowerCase())) {
-            parts.push(fclassLabel);
+        // Prefer the current feature-type label (live dropdown) over stale DB fclass until save.
+        var classification = '';
+        if (rawLabel && rawLabel.toLowerCase() !== 'line') {
+            classification = rawLabel;
+        } else if (fclassLabel && fclassLower !== 'unclassified') {
+            classification = fclassLabel;
+        }
+        if (classification) {
+            parts.push(classification);
         }
         if (!parts.length) {
             el.textContent = '';
@@ -2172,31 +2178,16 @@
 
         attachRiyadhGeometryEditRow(editScreen, lineData);
 
-        // Sync Feature Type label immediately so the sidebar never shows empty.
-        (function syncFeatureTypeLabelNow() {
-            const label = getCurrentFeatureLabel();
-            const sel = document.getElementById('selectedFeatureName');
-            const viz = document.getElementById('lineVisualizationFeatureName');
-            if (sel) {
-                sel.textContent = label;
-            }
-            if (viz) {
-                viz.textContent = label;
-            }
-        })();
-
-        updateRiyadhRoadFeatureContextLine(lineData);
+        updateFeatureTypeLabelDisplay();
 
         setTimeout(function() {
-            updateFeatureTypeLabelDisplay();
-            // Update visualization - use request geometry if available
+            applyEditScreenDataFromLineData(lineData);
             if (requestGeometry) {
                 updateFeatureTypeVisualizationFromGeometry(requestGeometry);
             } else {
                 updateFeatureTypeVisualization();
             }
-                                   
-        }, 100);
+        }, 0);
     }
 
     function updateFeatureTypeLabelDisplay() {
@@ -3976,15 +3967,11 @@
                 btn.appendChild(catSpan);
                 btn.addEventListener("click", function() {
                     const label = item.label;
-                    currentFeatureLabel = label;
                     updateCurrentFeatureLabel(label);
                     searchInput.value = "";
                     renderSearchState("");
                     const approved = window.approvedLineBeingEdited;
                     if (approved && approved.id && approved.geometry) {
-                        if (approved.is_riyadh_road) {
-                            updateRiyadhRoadVisualization(approved.id, label, approved.geometry);
-                        }
                         showLineSidePanel();
                     } else if (currentLineId) {
                         showEditFeatureScreen();
@@ -4145,7 +4132,6 @@
             item.addEventListener("click", function() {
                 const selectedValue = option.label || option;
                 if (!selectedValue) return;
-                currentFeatureLabel = selectedValue;
                 updateCurrentFeatureLabel(selectedValue);
 
                 dropdownMenu.classList.add("hidden");
@@ -4161,26 +4147,10 @@
 
                 const activeLineData = window.approvedLineBeingEdited || null;
                 if (activeLineData) {
-                    if (activeLineData.id && activeLineData.is_riyadh_road) {
-                        updateRiyadhRoadVisualization(activeLineData.id, selectedValue, activeLineData.geometry);
-                    }
-                    
-                    // Update side panel visualization if it's visible
-                    const sidePanel = document.getElementById('editSidePanel');
-                    const isSidePanelVisible = sidePanel && !sidePanel.classList.contains('-translate-x-full');
-                    const svgContainer = document.getElementById('lineVisualizationSVG');
-                    
-                    if (isSidePanelVisible && svgContainer && activeLineData.geometry) {
-                        updateLineVisualizationFromGeometry(activeLineData.geometry, selectedValue);
-                    }
-                    
-                    // Preserve existing data when changing feature type
-                    // Store current fields, tags, and relations data before showing edit screen
                     const existingFieldsData = activeLineData.fields_data || {};
                     const existingTagsData = activeLineData.tags_data || [];
                     const existingRelationsData = activeLineData.relations_data || [];
-                    
-                    // Update the feature label in the stored data
+
                     const updatedLineData = Object.assign({}, activeLineData, {
                         current_feature_label: selectedValue,
                         feature_type: selectedValue,
@@ -4188,18 +4158,27 @@
                         tags_data: existingTagsData,
                         relations_data: existingRelationsData
                     });
-                    
-                    // Update the stored active line data (Riyadh road context).
+
                     window.approvedLineBeingEdited = updatedLineData;
-                    
-                    // Show Edit Feature screen with updated feature label and preserved data
+                    if (window.selectedRiyadhRoad) {
+                        const sid = window.selectedRiyadhRoad.riyadh_road_id != null
+                            ? window.selectedRiyadhRoad.riyadh_road_id
+                            : window.selectedRiyadhRoad.id;
+                        const uid = updatedLineData.riyadh_road_id != null
+                            ? updatedLineData.riyadh_road_id
+                            : updatedLineData.id;
+                        if (sid != null && uid != null && String(sid) === String(uid)) {
+                            window.selectedRiyadhRoad = updatedLineData;
+                        }
+                    }
+
                     setTimeout(function() {
                         showEditFeatureScreen({
                             hideBackButton: false,
                             requestGeometry: activeLineData.geometry,
                             lineData: updatedLineData
                         });
-                    }, 10);
+                    }, 0);
                 } else if (currentLineId) {
                     // Normal flow: editing a newly drawn line
                     selectLine(currentLineId);
@@ -4339,26 +4318,24 @@
         syncRiyadhTileSelectionSuppressionForDraftClosure();
     }
 
-    /** Prefer fields_data.fclass (remote DB); else label→fclass from catalog (riyadh_label_to_fclass). */
+    /** Label→fclass for MVT feature-state; falls back to fields_data.fclass if unmapped. */
     function resolveRiyadhFclassForFeatureState(featureLabel) {
+        const labIn = (featureLabel != null ? String(featureLabel) : '').trim();
+        const cat = window.symbologyCatalog;
+        const inv = cat && cat.riyadh_label_to_fclass;
+        if (labIn && inv) {
+            const mapped = inv[labIn.toLowerCase()];
+            if (mapped) {
+                return mapped;
+            }
+        }
         const snap = window.approvedLineBeingEdited || window.selectedRiyadhRoad || {};
         const fd = snap.fields_data && typeof snap.fields_data === 'object' ? snap.fields_data : {};
         const fromDb = String(fd.fclass || '').trim();
-        if (fromDb) {
-            return fromDb;
-        }
-        const cat = window.symbologyCatalog;
-        const inv = cat && cat.riyadh_label_to_fclass;
-        if (!inv) {
-            return null;
-        }
-        const lab = (featureLabel != null ? String(featureLabel) : '').trim().toLowerCase();
-        return inv[lab] || null;
+        return fromDb || null;
     }
 
-    // Update Riyadh road visualization on the map when feature type changes.
     function updateRiyadhRoadVisualization(roadId, newFeatureLabel, geometry) {
-        // Keep the highlight selection in sync with the chosen road id.
         if (typeof window.setRiyadhRoadSelectedId === 'function') {
             if (!geometry) {
                 window.setRiyadhRoadSelectedId(null);
@@ -4379,10 +4356,6 @@
                 }
             }
         } catch (eFs) {}
-
-        // Riyadh tile selection core/outline/ring keep MapLibre data-driven paint (same
-        // expressions as riyadh-roads-layer). db_fclass feature-state + filters provide
-        // symbology; do not paint literals here or the core jumps away from the base road.
 
         if (geometry && typeof map !== 'undefined' && map) {
             applySelectedOverlaySymbologyPaint(newFeatureLabel);
@@ -4636,6 +4609,40 @@
         relationsLabel.textContent = 'Relations (' + count + ')';
     }
 
+    /** Fill Fields / Tags / Relations after the edit panel DOM is (re)built. */
+    function applyEditScreenDataFromLineData(lineData) {
+        if (!lineData) {
+            return;
+        }
+        const fd = lineData.fields_data;
+        if (fd && typeof fd === 'object') {
+            if (typeof window.populateFieldsData === 'function') {
+                window.populateFieldsData(fd);
+            } else {
+                populateFieldsDataFromRoad(fd);
+            }
+        }
+        const tags = lineData.tags_data;
+        if (Array.isArray(tags)) {
+            if (typeof window.populateTagsData === 'function') {
+                window.populateTagsData(tags);
+            } else {
+                populateTagsDataFromRoad(tags);
+            }
+        }
+        const rel = lineData.relations_data;
+        if (Array.isArray(rel)) {
+            if (typeof window.populateRelationsData === 'function') {
+                window.populateRelationsData(rel);
+            } else {
+                populateRelationsDataFromRoad(rel);
+            }
+        }
+        try {
+            updateRiyadhRoadFeatureContextLine(lineData);
+        } catch (eCtx) {}
+    }
+
     function showRiyadhRoadAsLineFeature(lineFeatureData) {
         if (!lineFeatureData) return;
 
@@ -4657,42 +4664,8 @@
             lineData: window.approvedLineBeingEdited,
         });
 
-        if (lineFeatureData.geometry && typeof map !== 'undefined' && map) {
-            updateRiyadhRoadVisualization(roadId, featureLabel, lineFeatureData.geometry);
-        }
-
         try {
             updateCurrentFeatureLabel(featureLabel);
-
-            const snap = window.approvedLineBeingEdited || {};
-            const fieldsData = snap.fields_data || {};
-            const tagsData = snap.tags_data || [];
-            const relationsData = snap.relations_data || [];
-
-            setTimeout(function() {
-                if (fieldsData) {
-                    if (typeof window.populateFieldsData === 'function') {
-                        window.populateFieldsData(fieldsData);
-                    } else {
-                        populateFieldsDataFromRoad(fieldsData);
-                    }
-                }
-                if (tagsData && Array.isArray(tagsData)) {
-                    if (typeof window.populateTagsData === 'function') {
-                        window.populateTagsData(tagsData);
-                    } else {
-                        populateTagsDataFromRoad(tagsData);
-                    }
-                }
-                if (relationsData && Array.isArray(relationsData)) {
-                    if (typeof window.populateRelationsData === 'function') {
-                        window.populateRelationsData(relationsData);
-                    } else {
-                        populateRelationsDataFromRoad(relationsData);
-                    }
-                }
-                updateRiyadhRoadFeatureContextLine(window.approvedLineBeingEdited);
-            }, 300);
         } catch (e) {}
     }
 
