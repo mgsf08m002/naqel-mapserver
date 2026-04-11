@@ -46,13 +46,18 @@
         if (!message) {
             return;
         }
-        if (window.notify) {
-            if (type === 'success' && typeof window.notify.success === 'function') return window.notify.success(message);
-            if (type === 'error' && typeof window.notify.error === 'function') return window.notify.error(message);
-            if (type === 'warning' && typeof window.notify.warning === 'function') return window.notify.warning(message);
-            if (typeof window.notify.info === 'function') return window.notify.info(message);
+        const t = type || 'info';
+        if (window.notify && typeof window.notify.tryShow === 'function') {
+            window.notify.tryShow(message, t, undefined, {
+                onUnavailable: function () {
+                    if (t === 'error') {
+                        alert(message);
+                    }
+                },
+            });
+            return;
         }
-        if (type === 'error') {
+        if (t === 'error') {
             alert(message);
         }
     }

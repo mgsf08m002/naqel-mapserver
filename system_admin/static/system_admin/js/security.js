@@ -53,37 +53,17 @@
         if (newPassword) newPassword.addEventListener('input', updateMatchHint);
         if (confirmPassword) confirmPassword.addEventListener('input', updateMatchHint);
 
-        // Helper function to show notification with retry logic
-        function showNotification(message, type = 'info') {
-            function tryShowNotification(retries = 10) {
-                if (window.notify && window.notify.show) {
-                    if (type === 'success') {
-                        window.notify.success(message);
-                    } else if (type === 'error') {
-                        window.notify.error(message);
-                    } else if (type === 'warning') {
-                        window.notify.warning(message);
-                    } else {
-                        window.notify.info(message);
-                    }
-                } else if (retries > 0) {
-                    setTimeout(() => tryShowNotification(retries - 1), 50);
-                }
-            }
-            tryShowNotification();
-        }
-
         // Password change notifications
         if (notifyNode) {
             const changed = notifyNode.getAttribute('data-password-changed') === 'true';
             const errorsRaw = notifyNode.getAttribute('data-errors');
             if (changed) {
-                showNotification('Password updated successfully. Please sign in again.', 'success');
+                window.notify.tryShow('Password updated successfully. Please sign in again.', 'success');
             }
             if (errorsRaw) {
                 errorsRaw.split('||').forEach(err => {
                     const trimmed = err.trim();
-                    if (trimmed) showNotification(trimmed, 'error');
+                    if (trimmed) window.notify.tryShow(trimmed, 'error');
                 });
             }
         }
@@ -231,7 +211,7 @@
                 if (!response.ok || !data.success) {
                     if (showToastOnError) {
                         const msg = data && data.message ? data.message : 'Unable to load sessions.';
-                        showNotification(msg, 'error');
+                        window.notify.tryShow(msg, 'error');
                     }
                     return;
                 }
@@ -239,7 +219,7 @@
                 renderSessions(data.sessions || []);
             } catch (error) {
                 if (showToastOnError) {
-                    showNotification('Unable to load sessions. Please try again.', 'error');
+                    window.notify.tryShow('Unable to load sessions. Please try again.', 'error');
                 }
             } finally {
                 if (sessionsSkeleton) {
@@ -251,7 +231,7 @@
         async function terminateSession(sessionKey, rowElement) {
             const csrfToken = getCsrfToken();
             if (!csrfToken) {
-                showNotification('CSRF token not found. Please refresh the page.', 'error');
+                window.notify.tryShow('CSRF token not found. Please refresh the page.', 'error');
                 return;
             }
 
@@ -276,7 +256,7 @@
                 const data = await response.json();
 
                 if (response.ok && data.success && data.session_terminated) {
-                    showNotification('Session has been logged out successfully.', 'success');
+                    window.notify.tryShow('Session has been logged out successfully.', 'success');
                     await loadSessions(false);
 
                     if (data.current_session_terminated) {
@@ -286,10 +266,10 @@
                     }
                 } else {
                     const msg = data && data.message ? data.message : 'Unable to terminate session.';
-                    showNotification(msg, 'error');
+                    window.notify.tryShow(msg, 'error');
                 }
             } catch (error) {
-                showNotification('Unable to terminate session. Please try again.', 'error');
+                window.notify.tryShow('Unable to terminate session. Please try again.', 'error');
             } finally {
                 if (rowElement) {
                     rowElement.classList.remove('opacity-60');

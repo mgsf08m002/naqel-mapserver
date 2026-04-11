@@ -7,29 +7,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('loginForm');
     const errorMessage = document.getElementById('errorMessage');
 
-    // Helper function to show notification (with fallback to error message)
     function showNotification(message, type = 'info') {
-        // Wait for notification system to be ready
-        function tryShowNotification(retries = 10) {
-            if (window.notify && window.notify.show) {
-                if (type === 'success') {
-                    window.notify.success(message);
-                } else if (type === 'error') {
-                    window.notify.error(message);
-                } else if (type === 'warning') {
-                    window.notify.warning(message);
-                } else {
-                    window.notify.info(message);
-                }
-            } else if (retries > 0) {
-                // Retry after a short delay
-                setTimeout(() => tryShowNotification(retries - 1), 50);
-            } else {
-                // Fallback to error message display if notification system not available
-                showError(message);
-            }
+        if (window.notify && typeof window.notify.tryShow === 'function') {
+            window.notify.tryShow(message, type, undefined, {
+                onUnavailable: function () {
+                    showError(message);
+                },
+            });
+        } else {
+            showError(message);
         }
-        tryShowNotification();
     }
 
     /**

@@ -1,0 +1,18 @@
+{% load notify_extras %}
+<script>
+(function () {
+    document.addEventListener('DOMContentLoaded', function () {
+        var payload = {% messages_notify_json messages %};
+        function run() {
+            if (!window.notify || typeof window.notify.showMany !== 'function') {
+                setTimeout(run, 50);
+                return;
+            }
+            if (payload.length) {
+                window.notify.showMany(payload, {{ duration|default:7000 }});
+            }
+        }
+        run();
+    });
+})();
+</script>

@@ -114,26 +114,6 @@
             });
         }
 
-        // Helper function to show notification with retry logic
-        function showNotification(message, type = 'info') {
-            function tryShowNotification(retries = 10) {
-                if (window.notify && window.notify.show) {
-                    if (type === 'success') {
-                        window.notify.success(message);
-                    } else if (type === 'error') {
-                        window.notify.error(message);
-                    } else if (type === 'warning') {
-                        window.notify.warning(message);
-                    } else {
-                        window.notify.info(message);
-                    }
-                } else if (retries > 0) {
-                    setTimeout(() => tryShowNotification(retries - 1), 50);
-                }
-            }
-            tryShowNotification();
-        }
-
         // Fire centralized notifications if available
         if (notifyNode) {
             const added = notifyNode.getAttribute('data-added') === 'true';
@@ -141,7 +121,7 @@
             const errorsRaw = notifyNode.getAttribute('data-errors');
             
             if (added && successMessage) {
-                showNotification(successMessage, 'success');
+                window.notify.tryShow(successMessage, 'success');
                 // Reset form after successful addition
                 setTimeout(() => {
                     if (form) {
@@ -160,7 +140,7 @@
             if (errorsRaw) {
                 errorsRaw.split('||').forEach(err => {
                     const trimmed = err.trim();
-                    if (trimmed) showNotification(trimmed, 'error');
+                    if (trimmed) window.notify.tryShow(trimmed, 'error');
                 });
             }
         }

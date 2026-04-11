@@ -146,11 +146,11 @@
                 state.users = data.users;
                 applyFilters();
             } else {
-                showNotification('Failed to load users: ' + data.message, 'error');
+                window.notify.tryShow('Failed to load users: ' + data.message, 'error');
                 hideLoading();
             }
         } catch (error) {
-            showNotification('Error loading users: ' + error.message, 'error');
+            window.notify.tryShow('Error loading users: ' + error.message, 'error');
             hideLoading();
         }
     }
@@ -399,7 +399,7 @@
     function openPermissionModal(userId) {
         const user = state.users.find(u => u.id === userId);
         if (!user) {
-            showNotification('User not found', 'error');
+            window.notify.tryShow('User not found', 'error');
             return;
         }
 
@@ -422,28 +422,6 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
-    }
-
-    /**
-     * Show notification
-     */
-    function showNotification(message, type = 'info') {
-        function tryShowNotification(retries = 10) {
-            if (window.notify && window.notify.show) {
-                if (type === 'success') {
-                    window.notify.success(message);
-                } else if (type === 'error') {
-                    window.notify.error(message);
-                } else if (type === 'warning') {
-                    window.notify.warning(message);
-                } else {
-                    window.notify.info(message);
-                }
-            } else if (retries > 0) {
-                setTimeout(() => tryShowNotification(retries - 1), 50);
-            }
-        }
-        tryShowNotification();
     }
 
     // Expose module functions

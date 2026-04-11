@@ -104,45 +104,9 @@
         if (!message) {
             return;
         }
-
-        const normalizedType = type || 'info';
-
-        function tryDispatch(n) {
-            if (!n) {
-                return false;
-            }
-            if (normalizedType === 'success' && typeof n.success === 'function') {
-                n.success(message);
-                return true;
-            }
-            if (normalizedType === 'error' && typeof n.error === 'function') {
-                n.error(message);
-                return true;
-            }
-            if (normalizedType === 'warning' && typeof n.warning === 'function') {
-                n.warning(message);
-                return true;
-            }
-            if (typeof n.info === 'function') {
-                n.info(message);
-                return true;
-            }
-            return false;
+        if (window.notify && typeof window.notify.tryShow === 'function') {
+            window.notify.tryShow(message, type || 'info');
         }
-
-        function tryShowNotification(retries) {
-            const remaining = typeof retries === 'number' ? retries : 10;
-            if (tryDispatch(window.notify)) {
-                return;
-            }
-            if (remaining > 0) {
-                setTimeout(function () {
-                    tryShowNotification(remaining - 1);
-                }, 50);
-            }
-        }
-
-        tryShowNotification(10);
     }
 
     function getCurrentLineData() {

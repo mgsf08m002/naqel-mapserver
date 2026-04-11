@@ -1,0 +1,28 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'notifications/css/notifications.css' %}">
+<div
+    id="notificationContainer"
+    class="naqel-toast-stack"
+    style="--toast-stack-top: {{ toast_top|default:'5rem' }};"
+    role="region"
+    aria-label="Notifications"
+></div>
+<template id="notificationTemplate">
+    <div class="naqel-toast" data-type="info" role="status" aria-live="polite" aria-atomic="true">
+        <div class="naqel-toast__main">
+            <div class="naqel-toast__icon-wrap notification-icon" aria-hidden="true"></div>
+            <div class="naqel-toast__text">
+                <p class="naqel-toast__label notification-label naqel-sr-only"></p>
+                <p class="naqel-toast__message notification-message"></p>
+            </div>
+            <button type="button" class="naqel-toast__close notification-close" aria-label="Dismiss notification">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="naqel-toast__progress-track notification-progress-track" hidden>
+            <div class="naqel-toast__progress-bar notification-progress-bar"></div>
+        </div>
+    </div>
+</template>

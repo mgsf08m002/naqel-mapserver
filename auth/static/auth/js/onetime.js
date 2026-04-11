@@ -333,14 +333,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 // Show success notification
                 const successMsg = data.notification?.message || data.message || 'System Admin created successfully';
-                showNotificationWithRetry(successMsg, 'success');
+                toastOrFormError(successMsg, 'success');
                 // Move to thank you step
                 currentStep = 5;
                 showStep(5);
             } else {
                 // Show error notification
                 const errorMsg = data.notification?.message || data.message || 'Registration failed. Please try again.';
-                showNotificationWithRetry(errorMsg, 'error');
+                toastOrFormError(errorMsg, 'error');
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
             }
@@ -370,29 +370,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 1000);
     }
 
-    /**
-     * Helper function to show notification with retry logic
-     */
-    function showNotificationWithRetry(message, type = 'info') {
-        function tryShowNotification(retries = 10) {
-            if (window.notify && window.notify.show) {
-                if (type === 'success') {
-                    window.notify.success(message);
-                } else if (type === 'error') {
-                    window.notify.error(message);
-                } else if (type === 'warning') {
-                    window.notify.warning(message);
-                } else {
-                    window.notify.info(message);
-                }
-            } else if (retries > 0) {
-                setTimeout(() => tryShowNotification(retries - 1), 50);
-            } else {
-                // Fallback to error message display if notification system not available
-                showError(message);
-            }
+    function toastOrFormError(message, type = 'info') {
+        if (window.notify && typeof window.notify.tryShow === 'function') {
+            window.notify.tryShow(message, type, undefined, {
+                onUnavailable: function () {
+                    showError(message);
+                },
+            });
+        } else {
+            showError(message);
         }
-        tryShowNotification();
     }
 
     /**

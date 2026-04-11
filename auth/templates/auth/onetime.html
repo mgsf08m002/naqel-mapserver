@@ -180,82 +180,9 @@
             animation: fadeIn 0.6s ease-out forwards;
         }
     </style>
-    <!-- Notification Container -->
-    <div id="notificationContainer" class="fixed top-20 left-1/2 z-50 space-y-3 w-auto max-w-md"></div>
-    
-    <!-- Notification Template -->
-    <template id="notificationTemplate">
-        <div class="notification-item bg-white border-2 border-black rounded-full px-6 py-4 shadow-lg flex items-center justify-between opacity-0 transform -translate-y-full transition-all duration-300 w-full">
-            <div class="flex items-center space-x-3 flex-1">
-                <div class="notification-icon flex-shrink-0"></div>
-                <p class="notification-message text-sm font-medium text-black flex-1"></p>
-            </div>
-            <button class="notification-close ml-4 text-black hover:text-gray-600 transition flex-shrink-0" aria-label="Close">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-        </div>
-    </template>
-    
-    <style>
-        #notificationContainer {
-            transform: translateX(-50%);
-            pointer-events: none;
-        }
-        #notificationContainer > * {
-            pointer-events: auto;
-        }
-        .notification-item {
-            min-width: 320px;
-            max-width: 500px;
-            width: 100%;
-        }
-        .notification-item.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        .notification-item.hide {
-            opacity: 0;
-            transform: translateY(-100%);
-        }
-        @media (max-width: 640px) {
-            #notificationContainer {
-                top: 1rem;
-                left: 1rem;
-                right: 1rem;
-                transform: none;
-                max-width: 100%;
-            }
-        }
-    </style>
-    
+    {% include 'notifications/includes/toast_stack.html' %}
     <script src="{% static 'notifications/js/notifications.js' %}"></script>
-    <script>
-        // Load Django messages as notifications
-        document.addEventListener('DOMContentLoaded', function() {
-            function showDjangoNotifications() {
-                if (window.notify) {
-                    const messages = [
-                        {% for message in messages %}
-                        {
-                            message: "{{ message|escapejs }}",
-                            type: '{% if message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% elif message.tags == "success" %}success{% else %}info{% endif %}'
-                        }{% if not forloop.last %},{% endif %}
-                        {% endfor %}
-                    ];
-                    if (messages.length > 0) {
-                        messages.forEach(function(msg) {
-                            window.notify.show(msg.message, msg.type, 7000);
-                        });
-                    }
-                } else {
-                    setTimeout(showDjangoNotifications, 50);
-                }
-            }
-            showDjangoNotifications();
-        });
-    </script>
+    {% include 'notifications/includes/django_messages_script.html' %}
     <script src="{% static 'auth/js/onetime.js' %}"></script>
 </body>
 </html>

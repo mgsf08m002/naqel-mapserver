@@ -11,28 +11,6 @@
         const notifyNode = document.getElementById('grantPermissionNotify');
 
         /**
-         * Show notification
-         */
-        function showNotification(message, type = 'info') {
-            function tryShowNotification(retries = 10) {
-                if (window.notify && window.notify.show) {
-                    if (type === 'success') {
-                        window.notify.success(message);
-                    } else if (type === 'error') {
-                        window.notify.error(message);
-                    } else if (type === 'warning') {
-                        window.notify.warning(message);
-                    } else {
-                        window.notify.info(message);
-                    }
-                } else if (retries > 0) {
-                    setTimeout(() => tryShowNotification(retries - 1), 50);
-                }
-            }
-            tryShowNotification();
-        }
-
-        /**
          * Handle form submission - allow normal form submission
          * The form will submit normally and Django will handle it
          */
@@ -44,7 +22,7 @@
             const errorsRaw = notifyNode.getAttribute('data-errors');
             
             if (success && successMessage) {
-                showNotification(successMessage, 'success');
+                window.notify.tryShow(successMessage, 'success');
                 // Redirect to permissions page after showing notification
                 setTimeout(() => {
                     window.location.href = '/system-admin/permissions/';
@@ -54,7 +32,7 @@
             if (errorsRaw) {
                 errorsRaw.split('||').forEach(err => {
                     const trimmed = err.trim();
-                    if (trimmed) showNotification(trimmed, 'error');
+                    if (trimmed) window.notify.tryShow(trimmed, 'error');
                 });
             }
         }

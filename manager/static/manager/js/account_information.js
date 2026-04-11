@@ -26,26 +26,6 @@
 
         if (!avatarButton || !fileInput || !imageEl || !initialsEl) return;
 
-        // Helper function to show notification with retry logic
-        function showNotification(message, type = 'info') {
-            function tryShowNotification(retries = 10) {
-                if (window.notify && window.notify.show) {
-                    if (type === 'success') {
-                        window.notify.success(message);
-                    } else if (type === 'error') {
-                        window.notify.error(message);
-                    } else if (type === 'warning') {
-                        window.notify.warning(message);
-                    } else {
-                        window.notify.info(message);
-                    }
-                } else if (retries > 0) {
-                    setTimeout(() => tryShowNotification(retries - 1), 50);
-                }
-            }
-            tryShowNotification();
-        }
-
         const syncHeaderAvatars = (imageUrl) => {
             const headerImage = document.getElementById('headerAvatarImage');
             const headerInitials = document.getElementById('headerAvatarInitials');
@@ -151,7 +131,7 @@
 
             canvas.toBlob((blob) => {
                 if (!blob) {
-                    showNotification('Failed to crop image.', 'error');
+                    window.notify.tryShow('Failed to crop image.', 'error');
                     return;
                 }
 
@@ -182,10 +162,10 @@
                         updatePhotoState(true, data.image_url);
                         closeCropModalHandler();
                         const successMsg = data.notification?.message || data.message || 'Profile photo uploaded successfully.';
-                        showNotification(successMsg, 'success');
+                        window.notify.tryShow(successMsg, 'success');
                     } else {
                         const errorMsg = data.notification?.message || data.message || 'Failed to upload photo.';
-                        showNotification(errorMsg, 'error');
+                        window.notify.tryShow(errorMsg, 'error');
                     }
                 })
                 .catch(error => {
@@ -193,7 +173,7 @@
                         saveCrop.disabled = false;
                         saveCrop.textContent = 'Save Crop';
                     }
-                    showNotification('Failed to upload photo. Please try again.', 'error');
+                    window.notify.tryShow('Failed to upload photo. Please try again.', 'error');
                 });
             }, 'image/jpeg', 0.95);
         };
@@ -202,13 +182,13 @@
             const file = fileInput.files && fileInput.files[0];
             if (!file) {
                 updatePhotoState(false);
-                showNotification('No photo selected.', 'info');
+                window.notify.tryShow('No photo selected.', 'info');
                 return;
             }
 
             // Validate file type
             if (!file.type.startsWith('image/')) {
-                showNotification('Please select an image file.', 'error');
+                window.notify.tryShow('Please select an image file.', 'error');
                 fileInput.value = '';
                 return;
             }
@@ -232,14 +212,14 @@
                     fileInput.value = '';
                     updatePhotoState(false);
                     const successMsg = data.notification?.message || data.message || 'Profile photo removed.';
-                    showNotification(successMsg, 'success');
+                    window.notify.tryShow(successMsg, 'success');
                 } else {
                     const errorMsg = data.notification?.message || data.message || 'Failed to remove photo.';
-                    showNotification(errorMsg, 'error');
+                    window.notify.tryShow(errorMsg, 'error');
                 }
             })
             .catch(error => {
-                showNotification('Failed to remove photo. Please try again.', 'error');
+                window.notify.tryShow('Failed to remove photo. Please try again.', 'error');
             });
         };
 
@@ -285,13 +265,13 @@
             const errorsRaw = notifyNode.getAttribute('data-errors');
 
             if (updated) {
-                showNotification('Profile updated.', 'success');
+                window.notify.tryShow('Profile updated.', 'success');
             }
 
             if (errorsRaw) {
                 errorsRaw.split('||').forEach((err) => {
                     const trimmed = err.trim();
-                    if (trimmed) showNotification(trimmed, 'error');
+                    if (trimmed) window.notify.tryShow(trimmed, 'error');
                 });
             }
         }
