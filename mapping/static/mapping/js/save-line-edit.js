@@ -8,6 +8,10 @@
         multilingual_names: true
     };
 
+    /** Riyadh road: snapshot missing, unchanged diff, or non-classified pending edit. */
+    const RIYADH_PENDING_BODY_GENERIC =
+        'Your road updates are in the manager review queue. They will appear on the map after approval.';
+
     let currentLineId = null;
     let drawInstance = null;
     let currentFeatureLabel = 'Line';
@@ -103,22 +107,34 @@
 
         const normalizedType = type || 'info';
 
+        function tryDispatch(n) {
+            if (!n) {
+                return false;
+            }
+            if (normalizedType === 'success' && typeof n.success === 'function') {
+                n.success(message);
+                return true;
+            }
+            if (normalizedType === 'error' && typeof n.error === 'function') {
+                n.error(message);
+                return true;
+            }
+            if (normalizedType === 'warning' && typeof n.warning === 'function') {
+                n.warning(message);
+                return true;
+            }
+            if (typeof n.info === 'function') {
+                n.info(message);
+                return true;
+            }
+            return false;
+        }
+
         function tryShowNotification(retries) {
             const remaining = typeof retries === 'number' ? retries : 10;
-
-            if (window.notify && window.notify.show) {
-                if (normalizedType === 'success') {
-                    window.notify.success(message);
-                } else if (normalizedType === 'error') {
-                    window.notify.error(message);
-                } else if (normalizedType === 'warning') {
-                    window.notify.warning(message);
-                } else {
-                    window.notify.info(message);
-                }
+            if (tryDispatch(window.notify)) {
                 return;
             }
-
             if (remaining > 0) {
                 setTimeout(function () {
                     tryShowNotification(remaining - 1);
@@ -403,11 +419,11 @@
             return 'Your road deletion request is in the manager review queue. It will take effect only after approval.';
         }
         if (!editData || !editData.is_riyadh_road) {
-            return 'Your new road has been submitted for manager review. It will appear on the map after approval.';
+            return 'Your request for a new road has been submitted for manager review. It will appear on the map after approval.';
         }
         const snap = getRiyadhRoadOriginalSnapshot(editData);
         if (!snap) {
-            return 'Your road updates are in the manager review queue. They will appear on the map after approval.';
+            return RIYADH_PENDING_BODY_GENERIC;
         }
         const hasGeom =
             JSON.stringify(editData.geometry || null) !== JSON.stringify(snap.geometry || null);
@@ -419,7 +435,7 @@
             JSON.stringify(editData.tags_data || []) !== JSON.stringify(snap.tags_data || []);
         const count = (hasGeom ? 1 : 0) + (hasFeat ? 1 : 0) + (hasAttr ? 1 : 0);
         if (count === 0) {
-            return 'Your road updates are in the manager review queue. They will appear on the map after approval.';
+            return RIYADH_PENDING_BODY_GENERIC;
         }
         if (count === 1) {
             if (hasGeom) {
@@ -444,8 +460,8 @@
 
     /**
      * Minimal dialog after a non-manager save that entered the manager review queue.
-     * @param {string} bodyText - Primary message (server copy or default).
-     * @param {{ reviewKind?: string }} [meta] - e.g. reviewKind 'delete' for title only.
+     * @param {string} bodyText - Message shown in the dialog body.
+     * @param {{ reviewKind?: string }} [meta] - reviewKind 'delete' selects the dialog title.
      */
     function openPendingReviewDialog(bodyText, meta) {
         const m = meta || {};
@@ -521,7 +537,6 @@
         const closureApplied = !!opts.closureApplied;
         const roadClosure = opts.roadClosure;
         const serverMessage = opts.serverMessage ? String(opts.serverMessage) : '';
-        const pendingMeta = opts.pendingReviewMeta || null;
         const editDataForReview = opts.editDataForReview || null;
 
         if (autoApproved) {
@@ -533,22 +548,19 @@
         }
 
         if (pendingSubmitted) {
-            let defaultPending;
+            let dialogBody;
             if (closureApplied && typeof roadClosure === 'number') {
-                defaultPending =
+                dialogBody =
                     roadClosure === 1
                         ? 'Road closure is already live for everyone. A manager will review your other changes before they appear on the map.'
                         : 'The road is shown as open for everyone. A manager will review your other changes before they appear on the map.';
             } else {
-                const inferred =
-                    inferPendingReviewBody(editDataForReview, {
-                        reviewKind: pendingMeta && pendingMeta.reviewKind
-                    }) || '';
-                defaultPending =
-                    inferred ||
-                    'Your road changes are in the review queue. They will appear on the map after a manager approves them.';
+                const inferred = inferPendingReviewBody(editDataForReview, {
+                    reviewKind: opts.pendingReviewMeta && opts.pendingReviewMeta.reviewKind
+                });
+                dialogBody = inferred || serverMessage || RIYADH_PENDING_BODY_GENERIC;
             }
-            openPendingReviewDialog(serverMessage || defaultPending, pendingMeta || {});
+            openPendingReviewDialog(dialogBody, opts.pendingReviewMeta || {});
             return;
         }
 
@@ -667,12 +679,6 @@
                         }, 500);
                     }
 
-                    const deleteEditStub = {
-                        is_riyadh_road: true,
-                        riyadh_road_id: payload.target_id,
-                        id: payload.target_id
-                    };
-
                     if (autoApproved) {
                         showToastNotification(
                             data.message || 'Road deleted successfully.',
@@ -694,14 +700,20 @@
                             pendingSubmitted: pendingSubmitted,
                             closureApplied: false,
                             roadClosure: 0,
-                            serverMessage: data.message || '',
+                            serverMessage: '',
                             pendingReviewMeta: { reviewKind: 'delete' },
                             editDataForReview: null
                         });
                     }
 
                     applySuccessfulSaveSideEffects(
-                        pendingSubmitted ? deleteEditStub : null,
+                        pendingSubmitted
+                            ? {
+                                  is_riyadh_road: true,
+                                  riyadh_road_id: payload.target_id,
+                                  id: payload.target_id
+                              }
+                            : null,
                         pendingSubmitted
                     );
                 })
