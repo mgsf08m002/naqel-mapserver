@@ -122,6 +122,7 @@ def _persist_riyadh_road_label_columns(road, label_text):
     - English input updates name_en
     - Arabic input updates name_ar
     - Unknown/mixed input falls back to name_en
+    - Empty input clears name, name_en, and name_ar so map labels disappear
     Also keeps `name` aligned for legacy consumers.
     """
     if not road:
@@ -133,6 +134,18 @@ def _persist_riyadh_road_label_columns(road, label_text):
 
     raw_label = (label_text or "").strip()
     if not raw_label:
+        with connections["riyadh_roads"].cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE public.riyadh_roads
+                SET
+                    name = '',
+                    name_en = NULL,
+                    name_ar = NULL
+                WHERE gid = %s
+                """,
+                [int(gid_value)],
+            )
         return
 
     next_en, next_ar = _derive_bilingual_label_values(raw_label)

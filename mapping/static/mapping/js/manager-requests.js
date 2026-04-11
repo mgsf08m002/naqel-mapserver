@@ -1182,6 +1182,9 @@
                 window.updateAddFieldDisplay();
             }
         }, 200);
+        if (typeof window.syncRemoveRoadLabelButtonVisibility === 'function') {
+            window.syncRemoveRoadLabelButtonVisibility();
+        }
     }
 
     // Add a multilingual-name block under the fields section.

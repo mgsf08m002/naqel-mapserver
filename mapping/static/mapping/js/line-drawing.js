@@ -2562,6 +2562,30 @@
         }
     }
 
+    function syncRiyadhRoadFieldsDataName(nameVal) {
+        const v = nameVal != null ? String(nameVal) : '';
+        [window.approvedLineBeingEdited, window.selectedRiyadhRoad].forEach(function (ctx) {
+            if (!ctx || !ctx.is_riyadh_road) {
+                return;
+            }
+            ctx.fields_data = ctx.fields_data && typeof ctx.fields_data === 'object' ? ctx.fields_data : {};
+            ctx.fields_data.name = v;
+            ctx.fields_data.common_name = v;
+        });
+    }
+
+    function syncRemoveRoadLabelButtonVisibility() {
+        const btn = document.getElementById('sidebar-remove-road-label-btn');
+        if (!btn) {
+            return;
+        }
+        const ctx = window.approvedLineBeingEdited || window.selectedRiyadhRoad || null;
+        const show = !!(ctx && ctx.is_riyadh_road);
+        btn.classList.toggle('hidden', !show);
+    }
+
+    window.syncRemoveRoadLabelButtonVisibility = syncRemoveRoadLabelButtonVisibility;
+
     function createFieldsMenuItem() {
         window.selectedFields = [];
         const container = document.createElement('div');
@@ -2591,6 +2615,29 @@
         existingFieldsContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-3';
 
         const nameField = createFieldItem('Road Label', true, true);
+        const roadLabelActionRow = nameField.children[1];
+        if (roadLabelActionRow) {
+            const removeRoadLabelBtn = document.createElement('button');
+            removeRoadLabelBtn.type = 'button';
+            removeRoadLabelBtn.id = 'sidebar-remove-road-label-btn';
+            removeRoadLabelBtn.className =
+                'hidden shrink-0 text-[11px] font-medium text-zinc-500 hover:text-red-700 px-1.5 py-0.5 rounded transition-colors';
+            removeRoadLabelBtn.textContent = 'Remove label';
+            removeRoadLabelBtn.setAttribute('aria-label', 'Remove road label');
+            removeRoadLabelBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const input = document.getElementById('sidebar-feature-name-input');
+                if (input) {
+                    input.value = '';
+                    try {
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                    } catch (eIn) {}
+                }
+                syncRiyadhRoadFieldsDataName('');
+            });
+            roadLabelActionRow.insertBefore(removeRoadLabelBtn, roadLabelActionRow.firstChild);
+        }
         existingFieldsContainer.appendChild(nameField);
 
         const commonNameInput = document.createElement('input');
@@ -4648,6 +4695,9 @@
         try {
             updateRiyadhRoadFeatureContextLine(lineData);
         } catch (eCtx) {}
+        try {
+            syncRemoveRoadLabelButtonVisibility();
+        } catch (eVis) {}
     }
 
     function showRiyadhRoadAsLineFeature(lineFeatureData) {
