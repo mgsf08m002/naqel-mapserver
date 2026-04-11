@@ -177,58 +177,64 @@
         mapSidePanelChromeReady = true;
     }
 
-    function attachRiyadhGeometryEditRow(editScreen, lineData) {
-        const existing = document.getElementById('riyadhGeometryEditRow');
-        if (existing) {
-            existing.remove();
+    function hideRiyadhGeometryEditToolbar() {
+        const group = document.getElementById('riyadhGeometryEditToolbarGroup');
+        if (group) {
+            group.classList.add('hidden');
         }
+    }
 
-        const readonly = editScreen && editScreen.getAttribute('data-geometry-readonly') === 'true';
-        const content = editScreen && editScreen.querySelector('.flex-1.overflow-y-auto');
-        if (readonly || !content || !lineData || !lineData.is_riyadh_road) {
+    function syncRiyadhGeometryEditToolbarButton() {
+        const btn = document.getElementById('riyadhGeometryEditToggleBtn');
+        if (!btn) {
             return;
         }
-
-        const row = document.createElement('div');
-        row.id = 'riyadhGeometryEditRow';
-        row.className = 'border-b border-zinc-200 px-4 py-3 bg-white';
-
-        const wrap = document.createElement('div');
-        wrap.className = 'flex items-center justify-between gap-3';
-        const copy = document.createElement('div');
-        copy.className = 'min-w-0 flex-1';
-        const title = document.createElement('p');
-        title.className = 'text-xs font-medium text-zinc-800';
-        title.textContent = 'Road geometry';
-        const sub = document.createElement('p');
-        sub.className = 'text-xs text-zinc-500 mt-0.5';
-        sub.textContent = 'Turn on to show vertices and edit the line on the map';
-        copy.appendChild(title);
-        copy.appendChild(sub);
-
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.id = 'riyadhGeometryEditToggleBtn';
-        btn.className =
-            'flex-shrink-0 rounded-lg border border-zinc-300 bg-zinc-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900';
-        btn.setAttribute('aria-pressed', 'false');
-
-        function syncGeometryToggleBtn() {
-            const ctx = window.approvedLineBeingEdited || window.selectedRiyadhRoad;
-            const rid = ctx && (ctx.riyadh_road_id != null ? ctx.riyadh_road_id : ctx.id);
-            const active =
-                window.__roadGeometryEditActiveId != null &&
-                rid != null &&
-                Number(window.__roadGeometryEditActiveId) === Number(rid);
-            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-            btn.textContent = active ? 'Done editing' : 'Edit shape';
-            if (active) {
-                btn.classList.add('border-cyan-500', 'bg-cyan-700', 'ring-1', 'ring-cyan-400/40');
-            } else {
-                btn.classList.remove('border-cyan-500', 'bg-cyan-700', 'ring-1', 'ring-cyan-400/40');
-            }
+        const ctx = window.approvedLineBeingEdited || window.selectedRiyadhRoad;
+        const rid = ctx && (ctx.riyadh_road_id != null ? ctx.riyadh_road_id : ctx.id);
+        const active =
+            window.__roadGeometryEditActiveId != null &&
+            rid != null &&
+            Number(window.__roadGeometryEditActiveId) === Number(rid);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        if (active) {
+            btn.classList.add('bg-gray-200', 'ring-2', 'ring-black');
+            btn.classList.remove('hover:bg-gray-100');
+        } else {
+            btn.classList.remove('bg-gray-200', 'ring-2', 'ring-black');
+            btn.classList.add('hover:bg-gray-100');
         }
+    }
 
+    function syncRiyadhGeometryEditToolbar(editScreen, lineData) {
+        const group = document.getElementById('riyadhGeometryEditToolbarGroup');
+        if (!group) {
+            return;
+        }
+        const readonly = editScreen && editScreen.getAttribute('data-geometry-readonly') === 'true';
+        if (readonly || !lineData || !lineData.is_riyadh_road) {
+            hideRiyadhGeometryEditToolbar();
+            return;
+        }
+        group.classList.remove('hidden');
+        syncRiyadhGeometryEditToolbarButton();
+    }
+
+    function refreshRiyadhGeometryEditToolbar() {
+        const editScreen = document.getElementById('editFeatureScreen');
+        const lineData = window.approvedLineBeingEdited || window.selectedRiyadhRoad;
+        if (!editScreen || !lineData || !lineData.is_riyadh_road) {
+            hideRiyadhGeometryEditToolbar();
+            return;
+        }
+        syncRiyadhGeometryEditToolbar(editScreen, lineData);
+    }
+
+    function setupRiyadhGeometryEditToolbarOnce() {
+        const btn = document.getElementById('riyadhGeometryEditToggleBtn');
+        if (!btn || btn.getAttribute('data-bound') === '1') {
+            return;
+        }
+        btn.setAttribute('data-bound', '1');
         btn.addEventListener('click', function() {
             if (window.__roadGeometryEditActiveId != null) {
                 if (window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
@@ -238,22 +244,13 @@
             } else if (window.roadGeometryEdit && typeof window.roadGeometryEdit.startFromRiyadhContext === 'function') {
                 window.roadGeometryEdit.startFromRiyadhContext();
             }
-            setTimeout(syncGeometryToggleBtn, 0);
+            setTimeout(syncRiyadhGeometryEditToolbarButton, 0);
         });
-
-        wrap.appendChild(copy);
-        wrap.appendChild(btn);
-        row.appendChild(wrap);
-
-        const first = content.firstElementChild;
-        if (first) {
-            first.after(row);
-        } else {
-            content.appendChild(row);
-        }
-
-        syncGeometryToggleBtn();
     }
+
+    window.syncRiyadhGeometryEditToolbarButton = syncRiyadhGeometryEditToolbarButton;
+    window.refreshRiyadhGeometryEditToolbar = refreshRiyadhGeometryEditToolbar;
+    window.hideRiyadhGeometryEditToolbar = hideRiyadhGeometryEditToolbar;
 
     /** Keep tags_data in sync with fields_data (exclude keys that have their own UI). */
     function normalizeRiyadhRoadTagsFromFields(road) {
@@ -766,6 +763,15 @@
             } catch (e3) {}
         }
         syncRiyadhTileSelectionSuppressionForDraftClosure();
+        tryRefreshRoadShapeLegendSwatch();
+    }
+
+    function tryRefreshRoadShapeLegendSwatch() {
+        try {
+            if (typeof window.refreshRoadShapeLegendSwatch === 'function') {
+                window.refreshRoadShapeLegendSwatch();
+            }
+        } catch (e) {}
     }
 
     function dasharrayToSvg(style) {
@@ -916,6 +922,8 @@
             sidePanelContent = document.getElementById('sidePanelContent');
 
             initMapSidePanelChrome();
+
+            setupRiyadhGeometryEditToolbarOnce();
 
             setupLineDrawingListeners();
             setupFeatureSearch();
@@ -1358,6 +1366,7 @@
         if (editScreen) {
             editScreen.remove();
         }
+        hideRiyadhGeometryEditToolbar();
 
         showSidePanelDefaultElements();
 
@@ -1722,6 +1731,8 @@
                 // Non-critical UI sync failure.
             }
         }
+
+        tryRefreshRoadShapeLegendSwatch();
     }
 
     function getCurrentFeatureLabel() {
@@ -2176,7 +2187,8 @@
         editScreen.appendChild(content);
         flexContainer.appendChild(editScreen);
 
-        attachRiyadhGeometryEditRow(editScreen, lineData);
+        setupRiyadhGeometryEditToolbarOnce();
+        syncRiyadhGeometryEditToolbar(editScreen, lineData);
 
         updateFeatureTypeLabelDisplay();
 

@@ -13,26 +13,25 @@
     let drawInstance = null;
     let currentFeatureLabel = 'Line';
 
+    function getRiyadhRoadOriginalSnapshot(editData) {
+        if (!editData || !editData.is_riyadh_road || editData.riyadh_road_id == null || !window.riyadhRoadOriginalState) {
+            return null;
+        }
+        const key = String(editData.riyadh_road_id);
+        return window.riyadhRoadOriginalState[key] || window.riyadhRoadOriginalState[editData.riyadh_road_id] || null;
+    }
+
     function getOriginalFeatureLabelForTarget(editData) {
         if (!editData) {
             return null;
         }
-
-        if (editData.is_riyadh_road && editData.riyadh_road_id != null && window.riyadhRoadOriginalState) {
-            const key = String(editData.riyadh_road_id);
-            const state = window.riyadhRoadOriginalState[key] || window.riyadhRoadOriginalState[editData.riyadh_road_id];
-            if (state && state.feature_label) {
-                return state.feature_label;
-            }
+        const st = getRiyadhRoadOriginalSnapshot(editData);
+        if (st && st.feature_label) {
+            return st.feature_label;
         }
-
-        if (window.approvedLineBeingEdited) {
-            const original = window.approvedLineBeingEdited._original_feature_label;
-            if (original) {
-                return original;
-            }
+        if (window.approvedLineBeingEdited && window.approvedLineBeingEdited._original_feature_label) {
+            return window.approvedLineBeingEdited._original_feature_label;
         }
-
         return null;
     }
 
@@ -57,33 +56,24 @@
                 window.approvedLineBeingEdited.current_feature_label || window.approvedLineBeingEdited.feature_type
             )) || 'Line';
 
-            if (editData.is_riyadh_road && editData.riyadh_road_id != null && window.riyadhRoadOriginalState) {
-                const key = String(editData.riyadh_road_id);
-                const st = window.riyadhRoadOriginalState[key] || window.riyadhRoadOriginalState[editData.riyadh_road_id];
-                if (st && st.geometry) {
-                    const geom = JSON.parse(JSON.stringify(st.geometry));
-                    if (window.approvedLineBeingEdited) {
-                        window.approvedLineBeingEdited = Object.assign({}, window.approvedLineBeingEdited, { geometry: geom });
-                    }
-                    if (window.selectedRiyadhRoad) {
-                        window.selectedRiyadhRoad = Object.assign({}, window.selectedRiyadhRoad, { geometry: geom });
-                    }
-                    if (typeof window.setSelectedOverlayGeometry === 'function') {
-                        window.setSelectedOverlayGeometry(geom);
-                    }
-                    if (editScreen) {
-                        editScreen.setAttribute('data-request-geometry', JSON.stringify(geom));
-                    }
-                    const roadId = (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id) || editData.riyadh_road_id;
-                    if (roadId != null && window.lineDrawingHandler && typeof window.lineDrawingHandler.updateRiyadhRoadVisualization === 'function') {
-                        window.lineDrawingHandler.updateRiyadhRoadVisualization(roadId, labelForMap, geom);
-                    }
-                    const hadGeometryEdit = window.__roadGeometryEditActiveId != null;
-                    if (hadGeometryEdit && window.roadGeometryEdit && typeof window.roadGeometryEdit.startFromRiyadhContext === 'function') {
-                        setTimeout(function() {
-                            window.roadGeometryEdit.startFromRiyadhContext();
-                        }, 80);
-                    }
+            const st = getRiyadhRoadOriginalSnapshot(editData);
+            if (st && st.geometry) {
+                const geom = JSON.parse(JSON.stringify(st.geometry));
+                if (window.approvedLineBeingEdited) {
+                    window.approvedLineBeingEdited = Object.assign({}, window.approvedLineBeingEdited, { geometry: geom });
+                }
+                if (window.selectedRiyadhRoad) {
+                    window.selectedRiyadhRoad = Object.assign({}, window.selectedRiyadhRoad, { geometry: geom });
+                }
+                if (typeof window.setSelectedOverlayGeometry === 'function') {
+                    window.setSelectedOverlayGeometry(geom);
+                }
+                if (editScreen) {
+                    editScreen.setAttribute('data-request-geometry', JSON.stringify(geom));
+                }
+                const roadId = (window.approvedLineBeingEdited && window.approvedLineBeingEdited.id) || editData.riyadh_road_id;
+                if (roadId != null && window.lineDrawingHandler && typeof window.lineDrawingHandler.updateRiyadhRoadVisualization === 'function') {
+                    window.lineDrawingHandler.updateRiyadhRoadVisualization(roadId, labelForMap, geom);
                 }
             }
 
@@ -562,11 +552,14 @@
                 serverMessage: data.message || ''
             });
 
-            if (autoApproved) {
-                if (window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
-                    window.roadGeometryEdit.stop();
-                }
-            } else if (pendingSubmitted) {
+            if (window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
+                window.roadGeometryEdit.stop();
+            }
+            if (typeof window.syncRiyadhGeometryEditToolbarButton === 'function') {
+                window.syncRiyadhGeometryEditToolbarButton();
+            }
+
+            if (pendingSubmitted) {
                 revertPendingApprovalVisualization(editData);
                 try {
                     if (currentLineId && typeof window.removeMapLibreLineLayer === 'function') {

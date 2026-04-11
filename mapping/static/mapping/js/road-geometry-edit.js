@@ -74,6 +74,76 @@
         return label;
     }
 
+    /**
+     * "New" legend swatch: SVG line using the same catalog style as the map overlay for this road.
+     */
+    function paintNewLegendSwatch() {
+        var host = document.getElementById('road-geometry-new-legend-swatch');
+        if (!host) {
+            return;
+        }
+
+        var stylesByLabel = window.symbologyCatalog && window.symbologyCatalog.styles_by_label;
+        var label = currentFeatureLabel() || 'Line';
+
+        var closed = false;
+        try {
+            if (typeof window.getCurrentRoadClosure === 'function') {
+                closed = !!window.getCurrentRoadClosure();
+            }
+        } catch (e0) {}
+
+        var style = null;
+        if (closed && stylesByLabel && stylesByLabel['Road Closure']) {
+            style = stylesByLabel['Road Closure'];
+        } else if (stylesByLabel) {
+            style = stylesByLabel[label] || stylesByLabel['Line'];
+        }
+
+        while (host.firstChild) {
+            host.removeChild(host.firstChild);
+        }
+
+        if (!style) {
+            var fb = document.createElement('span');
+            fb.className = 'road-geometry-edit-hint__strip-line road-geometry-edit-hint__strip-line--fallback';
+            host.appendChild(fb);
+            return;
+        }
+
+        var color = style.lineColor || '#64748b';
+        var w = Number(style.lineWidth) || 4;
+        var wSvg = Math.max(2.2, Math.min(9, w * 0.42));
+
+        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'road-geometry-edit-hint__strip-swatch-svg');
+        svg.setAttribute('viewBox', '0 0 120 16');
+        svg.setAttribute('preserveAspectRatio', 'none');
+        svg.setAttribute('aria-hidden', 'true');
+
+        var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', '0');
+        line.setAttribute('y1', '8');
+        line.setAttribute('x2', '120');
+        line.setAttribute('y2', '8');
+        line.setAttribute('stroke', color);
+        line.setAttribute('stroke-width', String(wSvg));
+        line.setAttribute('stroke-linecap', 'round');
+        line.setAttribute('fill', 'none');
+
+        var dash = style.lineDasharray;
+        if (dash && Array.isArray(dash) && dash.length >= 2) {
+            var a = Number(dash[0]);
+            var b = Number(dash[1]);
+            if (isFinite(a) && isFinite(b) && a > 0) {
+                line.setAttribute('stroke-dasharray', a * 0.42 + ' ' + b * 0.42);
+            }
+        }
+
+        svg.appendChild(line);
+        host.appendChild(svg);
+    }
+
     /** Map layers + midpoint handle positions (keeps + buttons on segments while dragging). */
     function pushMapVisualizationOnly() {
         var lineGeom = buildLineStringGeoJson();
@@ -118,7 +188,7 @@
         });
     }
 
-    /** Full sync: data models, DOM attributes, side-panel preview. */
+    /** Full sync: globals, edit screen geometry attribute, map overlay, details preview. */
     function pushStateToGlobals() {
         var lineGeom = buildLineStringGeoJson();
         if (!lineGeom) {
@@ -146,6 +216,8 @@
         if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateFeatureTypeVisualization === 'function') {
             window.lineDrawingHandler.updateFeatureTypeVisualization();
         }
+
+        paintNewLegendSwatch();
     }
 
     function removeAllMarkers() {
@@ -236,9 +308,9 @@
                 source: GHOST_SOURCE_ID,
                 layout: { 'line-cap': 'round', 'line-join': 'round' },
                 paint: {
-                    'line-color': '#475569',
+                    'line-color': '#64748b',
                     'line-width': 2.5,
-                    'line-opacity': 0.48,
+                    'line-opacity': 0.55,
                     'line-dasharray': [1.25, 2]
                 }
             };
@@ -288,8 +360,8 @@
             lineIconSvg +
             '</span>' +
             '<span class="road-geometry-edit-hint__titles">' +
-            '<span class="road-geometry-edit-hint__title">Shape editing</span>' +
-            '<span class="road-geometry-edit-hint__subtitle">Saved vs draft · shortcuts</span>' +
+            '<span class="road-geometry-edit-hint__title">Road shape</span>' +
+            '<span class="road-geometry-edit-hint__subtitle">Original vs new</span>' +
             '</span>' +
             '</span>' +
             '<span class="road-geometry-edit-hint__chev">' +
@@ -300,14 +372,14 @@
             '<div class="road-geometry-edit-hint__strip">' +
             '<div class="road-geometry-edit-hint__strip-item">' +
             '<span class="road-geometry-edit-hint__strip-line road-geometry-edit-hint__strip-line--ghost"></span>' +
-            '<span class="road-geometry-edit-hint__strip-label">On network (saved)</span>' +
+            '<span class="road-geometry-edit-hint__strip-label">Original</span>' +
             '</div>' +
             '<div class="road-geometry-edit-hint__strip-item">' +
-            '<span class="road-geometry-edit-hint__strip-line road-geometry-edit-hint__strip-line--edit"></span>' +
-            '<span class="road-geometry-edit-hint__strip-label">Your edit (draft)</span>' +
+            '<span id="road-geometry-new-legend-swatch" class="road-geometry-edit-hint__strip-swatch"></span>' +
+            '<span class="road-geometry-edit-hint__strip-label">New</span>' +
             '</div>' +
             '</div>' +
-            '<p class="road-geometry-edit-hint__strip-hint">The dashed path stays fixed as a reference; cyan follows your edits until you save.</p>' +
+            '<p class="road-geometry-edit-hint__strip-hint">Dashed line: published geometry on the network. Colored line: your new shape (matches this road\'s feature type). Save submits for review or applies if you have permission. While pending approval, the map shows the published line until approved.</p>' +
             '<ul class="road-geometry-edit-hint__list">' +
             '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--drag" aria-hidden="true"></span><span>Drag nodes to move the line</span></li>' +
             '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--plus" aria-hidden="true">+</span><span>Click <strong>+</strong> on a segment to add a node</span></li>' +
@@ -317,6 +389,8 @@
             '</div>';
 
         container.appendChild(hintElement);
+
+        paintNewLegendSwatch();
 
         var toggleBtn = hintElement.querySelector('.road-geometry-edit-hint__toggle');
         if (toggleBtn) {
@@ -559,6 +633,9 @@
         if (typeof window.syncRiyadhRoadMapOverlayFromContext === 'function') {
             window.syncRiyadhRoadMapOverlayFromContext();
         }
+        if (typeof window.syncRiyadhGeometryEditToolbarButton === 'function') {
+            window.syncRiyadhGeometryEditToolbarButton();
+        }
     }
 
     function startFromRiyadhContext() {
@@ -639,10 +716,23 @@
             }
         };
         mapInstance.on('dblclick', dblClickHandler);
+
+        if (typeof window.syncRiyadhGeometryEditToolbarButton === 'function') {
+            window.syncRiyadhGeometryEditToolbarButton();
+        }
     }
 
     window.roadGeometryEdit = {
         startFromRiyadhContext: startFromRiyadhContext,
         stop: stop
     };
+
+    window.refreshRoadShapeLegendSwatch = paintNewLegendSwatch;
+
+    if (!window.__roadShapeLegendCatalogListener) {
+        window.__roadShapeLegendCatalogListener = true;
+        window.addEventListener('symbology:catalogLoaded', function() {
+            paintNewLegendSwatch();
+        });
+    }
 })();

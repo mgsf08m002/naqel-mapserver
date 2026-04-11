@@ -105,6 +105,9 @@
         if (editToolbar) {
             editToolbar.classList.remove('hidden');
         }
+        if (typeof window.refreshRiyadhGeometryEditToolbar === 'function') {
+            window.refreshRiyadhGeometryEditToolbar();
+        }
         if (mapContainer && typeof window.applyMapSidePanelOpen !== 'function') {
             mapContainer.style.marginLeft = SIDE_PANEL_WIDTH + 'px';
             mapContainer.style.width = `calc(100% - ${SIDE_PANEL_WIDTH}px)`;
@@ -153,6 +156,9 @@
         }
         if (editToolbar) {
             editToolbar.classList.add('hidden');
+        }
+        if (typeof window.hideRiyadhGeometryEditToolbar === 'function') {
+            window.hideRiyadhGeometryEditToolbar();
         }
         if (zoomOverlay) {
             zoomOverlay.classList.add('hidden');

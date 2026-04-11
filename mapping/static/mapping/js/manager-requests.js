@@ -566,6 +566,9 @@
         if (editToolbar) {
             editToolbar.classList.remove('hidden');
         }
+        if (typeof window.refreshRiyadhGeometryEditToolbar === 'function') {
+            window.refreshRiyadhGeometryEditToolbar();
+        }
         if (typeof map !== 'undefined' && map && map.resize) {
             setTimeout(function() {
                 map.resize();

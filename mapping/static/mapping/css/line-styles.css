@@ -237,23 +237,40 @@
     opacity: 0.75;
 }
 
-.road-geometry-edit-hint__strip-line--edit {
-    background: linear-gradient(90deg, #22d3ee, #06b6d4);
-    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35);
+/* Fallback when symbology catalog is not loaded yet */
+.road-geometry-edit-hint__strip-line--fallback {
+    background: linear-gradient(90deg, #94a3b8, #64748b);
+    height: 4px;
+    border-radius: 2px;
+    opacity: 0.9;
+}
+
+.road-geometry-edit-hint__strip-swatch {
+    display: block;
+    width: 100%;
+    min-height: 14px;
+    line-height: 0;
+}
+
+.road-geometry-edit-hint__strip-swatch-svg {
+    display: block;
+    width: 100%;
+    height: 14px;
+    vertical-align: top;
 }
 
 .road-geometry-edit-hint__strip-label {
-    font-size: 0.625rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: #475569;
-    line-height: 1.2;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: #334155;
+    line-height: 1.25;
 }
 
 .road-geometry-edit-hint__strip-hint {
     margin: 0 0 0.6rem;
     font-size: 0.625rem;
-    line-height: 1.45;
+    line-height: 1.5;
     color: #64748b;
 }
 
