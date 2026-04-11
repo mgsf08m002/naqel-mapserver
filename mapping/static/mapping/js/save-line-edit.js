@@ -382,55 +382,101 @@
         };
     }
 
+    /**
+     * Minimal dialog after a non-manager save that entered the manager review queue.
+     * @param {string} bodyText - Primary message (server copy or default).
+     * @param {{ isRiyadhRoad: boolean, featureLabel: string }} context - Subtitle only.
+     */
+    function openPendingReviewDialog(bodyText, context) {
+        const ctx = context || { isRiyadhRoad: false, featureLabel: '' };
+
+        const backdrop = document.createElement('div');
+        backdrop.setAttribute('role', 'dialog');
+        backdrop.setAttribute('aria-modal', 'true');
+        backdrop.setAttribute('aria-labelledby', 'pendingReviewDialogTitle');
+        backdrop.className =
+            'fixed inset-0 z-[120] flex items-center justify-center p-5 sm:p-8 bg-zinc-950/30 backdrop-blur-xl supports-[backdrop-filter]:bg-zinc-950/25';
+
+        const card = document.createElement('div');
+        card.className =
+            'relative w-full max-w-[26rem] rounded-[1.75rem] border border-zinc-200/80 bg-white px-8 pb-9 pt-10 sm:px-10 sm:pb-10 sm:pt-11 shadow-[0_24px_80px_-20px_rgba(0,0,0,0.14)]';
+
+        const eyebrow = document.createElement('p');
+        eyebrow.className =
+            'text-center text-[10px] font-semibold uppercase tracking-[0.28em] text-zinc-400';
+        eyebrow.textContent = 'Pending review';
+
+        const title = document.createElement('h2');
+        title.id = 'pendingReviewDialogTitle';
+        title.className =
+            'mt-5 text-center text-[1.65rem] font-semibold leading-[1.2] tracking-[-0.02em] text-zinc-950 sm:text-[1.75rem]';
+        title.textContent = 'Edit sent for review';
+
+        const contextLine = document.createElement('p');
+        contextLine.className = 'mt-3 text-center text-[13px] font-medium leading-snug text-zinc-500';
+        if (ctx.isRiyadhRoad) {
+            const ft = String(ctx.featureLabel || '').trim();
+            contextLine.textContent = ft ? 'Riyadh road · ' + ft : 'Riyadh road';
+        } else {
+            contextLine.textContent = 'Line feature';
+        }
+
+        const message = document.createElement('p');
+        message.className = 'mt-8 text-center text-[15px] leading-[1.65] text-zinc-600';
+        message.textContent = bodyText;
+
+        const doneBtn = document.createElement('button');
+        doneBtn.type = 'button';
+        doneBtn.className =
+            'mt-10 w-full rounded-xl bg-zinc-950 py-[0.9rem] text-[15px] font-semibold text-white antialiased transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2';
+        doneBtn.textContent = 'Done';
+
+        card.appendChild(eyebrow);
+        card.appendChild(title);
+        card.appendChild(contextLine);
+        card.appendChild(message);
+        card.appendChild(doneBtn);
+        backdrop.appendChild(card);
+        document.body.appendChild(backdrop);
+
+        function onKeyDown(e) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                dismiss();
+            }
+        }
+
+        function dismiss() {
+            document.removeEventListener('keydown', onKeyDown);
+            backdrop.remove();
+        }
+
+        document.addEventListener('keydown', onKeyDown);
+        doneBtn.addEventListener('click', dismiss);
+        backdrop.addEventListener('click', function (e) {
+            if (e.target === backdrop) {
+                dismiss();
+            }
+        });
+    }
+
     function showSaveOutcomeUI(opts) {
-        const autoApproved = !!(opts && opts.autoApproved);
-        const pendingSubmitted = !!(opts && opts.pendingSubmitted);
-        const closureApplied = !!(opts && opts.closureApplied);
-        const roadClosure = opts && opts.roadClosure;
-        const serverMessage = (opts && opts.serverMessage) ? String(opts.serverMessage) : '';
-
-        function toast(msg, type) {
-            showToastNotification(msg, type || 'info');
+        if (!opts) {
+            return;
         }
 
-        function openReviewModal(bodyText) {
-            const popup = document.createElement('div');
-            popup.id = 'saveConfirmationPopup';
-            popup.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50';
-            const card = document.createElement('div');
-            card.className = 'bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6';
-            const iconWrap = document.createElement('div');
-            iconWrap.className = 'flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-amber-50 rounded-full';
-            iconWrap.innerHTML = '<svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
-            const title = document.createElement('h3');
-            title.className = 'text-lg font-semibold text-gray-900 text-center mb-2';
-            title.textContent = 'Submitted for manager review';
-            const p = document.createElement('p');
-            p.className = 'text-sm text-gray-600 text-center mb-6';
-            p.textContent = bodyText;
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.id = 'closeConfirmationPopup';
-            btn.className = 'w-full px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium';
-            btn.textContent = 'OK';
-            card.appendChild(iconWrap);
-            card.appendChild(title);
-            card.appendChild(p);
-            card.appendChild(btn);
-            popup.appendChild(card);
-            document.body.appendChild(popup);
-            btn.addEventListener('click', function() {
-                popup.remove();
-            });
-            popup.addEventListener('click', function(e) {
-                if (e.target === popup) {
-                    popup.remove();
-                }
-            });
-        }
+        const autoApproved = !!opts.autoApproved;
+        const pendingSubmitted = !!opts.pendingSubmitted;
+        const closureApplied = !!opts.closureApplied;
+        const roadClosure = opts.roadClosure;
+        const serverMessage = opts.serverMessage ? String(opts.serverMessage) : '';
+        const pendingCtx = opts.pendingReviewContext || null;
 
         if (autoApproved) {
-            toast(serverMessage || 'Your edit was applied to the live road network.', 'success');
+            showToastNotification(
+                serverMessage || 'Your edit was applied to the live road network.',
+                'success'
+            );
             return;
         }
 
@@ -440,13 +486,15 @@
                     ? roadClosure === 1
                         ? 'Road closure is already live for everyone. A manager will review your other changes before they appear on the map.'
                         : 'The road is shown as open for everyone. A manager will review your other changes before they appear on the map.'
-                    : 'A manager will review your geometry and attribute changes. They will appear on the map after approval.';
-            openReviewModal(serverMessage || defaultPending);
+                    : pendingCtx && pendingCtx.isRiyadhRoad
+                        ? 'Your road changes are in the review queue. They will appear on the map after a manager approves them.'
+                        : 'Your line changes are in the review queue. They will appear on the map after a manager approves them.';
+            openPendingReviewDialog(serverMessage || defaultPending, pendingCtx || { isRiyadhRoad: false, featureLabel: '' });
             return;
         }
 
         if (closureApplied && typeof roadClosure === 'number') {
-            toast(
+            showToastNotification(
                 roadClosure === 1
                     ? 'Road closure saved. Nothing else requires review.'
                     : 'Road reopening saved. Nothing else requires review.',
@@ -455,7 +503,7 @@
             return;
         }
 
-        toast(serverMessage || 'Saved.', 'info');
+        showToastNotification(serverMessage || 'Saved.', 'info');
     }
 
     function handleSave() {
@@ -545,13 +593,22 @@
                 }, autoApproved ? 900 : 400);
             }
 
-            showSaveOutcomeUI({
+            const outcomeOpts = {
                 autoApproved: autoApproved,
                 pendingSubmitted: pendingSubmitted,
                 closureApplied: closureApplied,
                 roadClosure: roadClosureFromServer,
                 serverMessage: data.message || ''
-            });
+            };
+            if (pendingSubmitted) {
+                outcomeOpts.pendingReviewContext = {
+                    isRiyadhRoad: !!editData.is_riyadh_road,
+                    featureLabel: String(
+                        editData.current_feature_label || editData.feature_type || ''
+                    ).trim()
+                };
+            }
+            showSaveOutcomeUI(outcomeOpts);
 
             if (window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
                 window.roadGeometryEdit.stop();
