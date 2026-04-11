@@ -6,8 +6,6 @@
         const newPassword = document.getElementById('new_password');
         const confirmPassword = document.getElementById('confirm_password');
         const matchHint = document.getElementById('matchHint');
-        const notifyNode = document.getElementById('passwordSetupNotify');
-
         const toggleVisibility = (inputId, button) => {
             const input = document.getElementById(inputId);
             if (!input) return;
@@ -51,21 +49,6 @@
         if (newPassword) newPassword.addEventListener('input', updateMatchHint);
         if (confirmPassword) confirmPassword.addEventListener('input', updateMatchHint);
 
-        if (notifyNode) {
-            const passwordSet = notifyNode.getAttribute('data-password-set') === 'true';
-            const successMessage = notifyNode.getAttribute('data-success-message');
-            const errorsRaw = notifyNode.getAttribute('data-errors');
-            
-            if (passwordSet && successMessage) {
-                window.notify.tryShow(successMessage, 'success');
-            }
-            if (errorsRaw) {
-                errorsRaw.split('||').forEach(err => {
-                    const trimmed = err.trim();
-                    if (trimmed) window.notify.tryShow(trimmed, 'error');
-                });
-            }
-        }
     });
 })();
 

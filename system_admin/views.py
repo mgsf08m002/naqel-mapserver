@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
+from django.urls import reverse
 from django.contrib.auth.models import User
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
@@ -16,8 +18,8 @@ def map_view(request):
     """System Admin Map view - landing page after login."""
     if not request.user.is_superuser:
         logout(request)
-        return redirect('auth:login')
-    return render(request, 'system_admin/map.html')
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
+    return render(request, "system_admin/map.html")
 
 
 @login_required(login_url='/login/')
@@ -26,7 +28,7 @@ def account_information_view(request):
     # Only superusers (system admins) can access this view.
     if not request.user.is_superuser:
         logout(request)
-        return redirect('auth:login')
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
 
     # Ensure a profile record exists for the current admin.
     profile, created = UserProfile.objects.get_or_create(user=request.user)
@@ -70,11 +72,12 @@ def account_information_view(request):
 
                 if old_email != email or old_username != email:
                     logout(request)
-                    return redirect('/login/?email_changed=1')
+                    return redirect("/login/?email_changed=1")
 
-                context['profile_updated'] = True
+                messages.success(request, "Profile updated.")
             else:
-                context['update_errors'] = errors
+                for err in errors:
+                    messages.error(request, err)
 
     return render(request, 'system_admin/account_information.html', context)
 
@@ -85,14 +88,14 @@ def security_view(request):
     # Only superusers (system admins) can access this view.
     if not request.user.is_superuser:
         logout(request)
-        return redirect('auth:login')
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
 
     context = {}
 
-    if request.method == 'POST':
-        intent = request.POST.get('intent')
+    if request.method == "POST":
+        intent = request.POST.get("intent")
 
-        if intent == 'change_password':
+        if intent == "change_password":
             errors = []
             current_password = request.POST.get('current_password', '').strip()
             new_password = request.POST.get('new_password', '').strip()
@@ -117,9 +120,10 @@ def security_view(request):
                 logout(request)
                 return redirect('/login/?password_changed=1')
             else:
-                context['change_errors'] = errors
+                for err in errors:
+                    messages.error(request, err)
 
-    return render(request, 'system_admin/security.html', context)
+    return render(request, "system_admin/security.html", context)
 
 
 @login_required(login_url='/login/')
@@ -128,7 +132,7 @@ def users_view(request):
     # Only superusers (system admins) can access this view.
     if not request.user.is_superuser:
         logout(request)
-        return redirect('auth:login')
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
     
     from django.utils import timezone
     
@@ -156,7 +160,7 @@ def add_user_view(request):
     # Only superusers (system admins) can create new users.
     if not request.user.is_superuser:
         logout(request)
-        return redirect('auth:login')
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
     
     context = {}
     
@@ -233,10 +237,13 @@ def add_user_view(request):
                 )
                 profile.set_account_creation_datetime()
                 
-                context['user_added'] = True
-                context['success_message'] = f'User {full_name} has been added successfully as {role.title()}.'
+                messages.success(
+                    request,
+                    f"User {full_name} has been added successfully as {role.title()}.",
+                )
             else:
-                context['add_errors'] = errors
+                for err in errors:
+                    messages.error(request, err)
     
     return render(request, 'system_admin/add_user.html', context)
 
@@ -247,7 +254,7 @@ def edit_user_view(request):
     # Only superusers (system admins) can edit user accounts.
     if not request.user.is_superuser:
         logout(request)
-        return redirect('auth:login')
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
     
     context = {}
     user_to_edit = None
@@ -258,13 +265,16 @@ def edit_user_view(request):
         if intent == 'search_user':
             email = request.POST.get('search_email', '').strip()
             if not email:
-                context['search_errors'] = ['Email is required to search for a user.']
+                messages.error(request, 'Email is required to search for a user.')
             else:
                 try:
                     user_to_edit = User.objects.get(username=email)
                     # System Admin accounts are immutable via this view.
                     if user_to_edit.is_superuser:
-                        context['search_errors'] = ['System Admin accounts cannot be edited through this page.']
+                        messages.warning(
+                            request,
+                            'System Admin accounts cannot be edited through this page.',
+                        )
                         user_to_edit = None
                     else:
                         # Ensure the user has an associated profile.
@@ -272,27 +282,27 @@ def edit_user_view(request):
                         context['user_to_edit'] = user_to_edit
                         context['user_profile'] = profile
                 except User.DoesNotExist:
-                    context['search_errors'] = ['User with this email does not exist.']
-        
+                    messages.error(request, 'User with this email does not exist.')
+
         elif intent == 'update_user':
             # Look up the selected user by id.
             user_id = request.POST.get('user_id')
             if not user_id:
-                context['update_errors'] = ['User ID is required.']
+                messages.error(request, 'User ID is required.')
             else:
                 try:
                     user_to_edit = User.objects.get(pk=user_id)
                     if user_to_edit.is_superuser:
-                        context['update_errors'] = ['System Admin accounts cannot be edited.']
+                        messages.error(request, 'System Admin accounts cannot be edited.')
                     else:
                         errors = []
                         full_name = request.POST.get('full_name', '').strip()
                         email = request.POST.get('email', '').strip()
                         account_status = request.POST.get('account_status', '').strip()
-                        
+
                         if not full_name:
                             errors.append('Full name is required.')
-                        
+
                         if not email:
                             errors.append('Email is required.')
                         else:
@@ -304,10 +314,10 @@ def edit_user_view(request):
                                 # Prevent duplicate email addresses across users.
                                 if User.objects.filter(username=email).exclude(pk=user_to_edit.pk).exists():
                                     errors.append('A user with this email already exists.')
-                        
+
                         if account_status not in ['active', 'inactive']:
                             errors.append('Invalid account status selected.')
-                        
+
                         if not errors:
                             # Persist basic user changes.
                             user_to_edit.first_name = full_name.split()[0] if full_name.split() else ''
@@ -316,19 +326,22 @@ def edit_user_view(request):
                             user_to_edit.username = email
                             user_to_edit.is_active = (account_status == 'active')
                             user_to_edit.save()
-                            
-                            context['user_updated'] = True
-                            context['success_message'] = f'User {full_name} has been updated successfully.'
+
+                            messages.success(
+                                request,
+                                f'User {full_name} has been updated successfully.',
+                            )
                             context['user_to_edit'] = user_to_edit
                             if hasattr(user_to_edit, 'profile'):
                                 context['user_profile'] = user_to_edit.profile
                         else:
-                            context['update_errors'] = errors
+                            for err in errors:
+                                messages.error(request, err)
                             context['user_to_edit'] = user_to_edit
                             if hasattr(user_to_edit, 'profile'):
                                 context['user_profile'] = user_to_edit.profile
                 except User.DoesNotExist:
-                    context['update_errors'] = ['User not found.']
+                    messages.error(request, 'User not found.')
     
     return render(request, 'system_admin/edit_user.html', context)
 
@@ -339,7 +352,7 @@ def delete_user_view(request):
     # Only superusers (system admins) can delete user accounts.
     if not request.user.is_superuser:
         logout(request)
-        return redirect('auth:login')
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
     
     context = {}
     user_to_delete = None
@@ -350,13 +363,16 @@ def delete_user_view(request):
         if intent == 'search_user':
             email = request.POST.get('search_email', '').strip()
             if not email:
-                context['search_errors'] = ['Email is required to search for a user.']
+                messages.error(request, 'Email is required to search for a user.')
             else:
                 try:
                     user_to_delete = User.objects.get(username=email)
                     # System Admin accounts cannot be deleted from this screen.
                     if user_to_delete.is_superuser:
-                        context['search_errors'] = ['System Admin accounts cannot be deleted through this page.']
+                        messages.warning(
+                            request,
+                            'System Admin accounts cannot be deleted through this page.',
+                        )
                         user_to_delete = None
                     else:
                         # Include profile details when present.
@@ -364,27 +380,29 @@ def delete_user_view(request):
                             context['user_profile'] = user_to_delete.profile
                         context['user_to_delete'] = user_to_delete
                 except User.DoesNotExist:
-                    context['search_errors'] = ['User with this email does not exist.']
-        
+                    messages.error(request, 'User with this email does not exist.')
+
         elif intent == 'delete_user':
             user_id = request.POST.get('user_id')
             if user_id:
                 try:
                     user_to_delete = User.objects.get(pk=user_id)
                     if user_to_delete.is_superuser:
-                        context['delete_errors'] = ['System Admin accounts cannot be deleted.']
+                        messages.error(request, 'System Admin accounts cannot be deleted.')
                     else:
                         # Capture details for the success notification.
                         user_full_name = user_to_delete.get_full_name() or user_to_delete.username
                         user_email = user_to_delete.email
-                        
+
                         # Delete the user; related profile is removed via CASCADE.
                         user_to_delete.delete()
-                        
-                        context['user_deleted'] = True
-                        context['success_message'] = f'User {user_full_name} ({user_email}) has been deleted successfully.'
+
+                        messages.success(
+                            request,
+                            f'User {user_full_name} ({user_email}) has been deleted successfully.',
+                        )
                 except User.DoesNotExist:
-                    context['delete_errors'] = ['User not found.']
+                    messages.error(request, 'User not found.')
     
     return render(request, 'system_admin/delete_user.html', context)
 
@@ -395,7 +413,7 @@ def manage_passwords_view(request):
     # Only superusers (system admins) can access password statistics.
     if not request.user.is_superuser:
         logout(request)
-        return redirect('auth:login')
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
     
     # Placeholder statistics until password-management models are introduced.
     pending_requests = 0
@@ -484,7 +502,7 @@ def all_users_view(request):
     # Only superusers (system admins) can access this overview.
     if not request.user.is_superuser:
         logout(request)
-        return redirect('auth:login')
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
     
     return render(request, 'system_admin/all_users.html')
 
@@ -495,7 +513,7 @@ def view_user_view(request, user_id):
     # Only superusers (system admins) can view detailed user information.
     if not request.user.is_superuser:
         logout(request)
-        return redirect('auth:login')
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
     
     return render(request, 'system_admin/view_user.html')
 
@@ -658,7 +676,7 @@ def permissions_view(request):
     # Only superusers (system admins) can manage permissions.
     if not request.user.is_superuser:
         logout(request)
-        return redirect('auth:login')
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
     
     return render(request, 'system_admin/permissions.html')
 
@@ -669,7 +687,7 @@ def grant_permission_view(request, user_id):
     # Only superusers (system admins) can grant permissions.
     if not request.user.is_superuser:
         logout(request)
-        return redirect('auth:login')
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
     
     try:
         user = User.objects.select_related('profile').get(pk=user_id)
@@ -684,6 +702,10 @@ def grant_permission_view(request, user_id):
         
         # Only managers and editors are eligible for explicit permissions.
         if role not in ['manager', 'editor']:
+            messages.warning(
+                request,
+                'Permissions can only be managed for manager or editor accounts.',
+            )
             return redirect('system_admin:permissions')
         
         context = {
@@ -707,11 +729,14 @@ def grant_permission_view(request, user_id):
                     profile.can_access_account_information = request.POST.get('can_access_account_information') == 'on'
                 
                 profile.save()
-                context['permissions_granted'] = True
-                context['success_message'] = f'Permissions have been granted successfully to {user.get_full_name() or user.email}.'
-        
+                messages.success(
+                    request,
+                    f'Permissions have been granted successfully to {user.get_full_name() or user.email}.',
+                )
+
         return render(request, 'system_admin/grant_permission.html', context)
     except User.DoesNotExist:
+        messages.error(request, 'That user could not be found.')
         return redirect('system_admin:permissions')
 
 
@@ -721,7 +746,7 @@ def check_permission_view(request, user_id):
     # Only superusers (system admins) can review or edit permissions.
     if not request.user.is_superuser:
         logout(request)
-        return redirect('auth:login')
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
     
     try:
         user = User.objects.select_related('profile').get(pk=user_id)
@@ -736,6 +761,10 @@ def check_permission_view(request, user_id):
         
         # Only managers and editors have configurable permissions here.
         if role not in ['manager', 'editor']:
+            messages.warning(
+                request,
+                'Permissions can only be managed for manager or editor accounts.',
+            )
             return redirect('system_admin:permissions')
         
         context = {
@@ -748,7 +777,7 @@ def check_permission_view(request, user_id):
         if request.method == 'POST':
             intent = request.POST.get('intent')
             if intent == 'update_permissions':
-            # Update permission flags based on role.
+                # Update permission flags based on role.
                 if role == 'manager':
                     profile.can_access_dashboard = request.POST.get('can_access_dashboard') == 'on'
                     profile.can_access_security = request.POST.get('can_access_security') == 'on'
@@ -757,13 +786,16 @@ def check_permission_view(request, user_id):
                     profile.can_access_dashboard = False
                     profile.can_access_security = request.POST.get('can_access_security') == 'on'
                     profile.can_access_account_information = request.POST.get('can_access_account_information') == 'on'
-                
+
                 profile.save()
-                context['permissions_updated'] = True
-                context['success_message'] = f'Permissions have been updated successfully for {user.get_full_name() or user.email}.'
-        
+                messages.success(
+                    request,
+                    f'Permissions have been updated successfully for {user.get_full_name() or user.email}.',
+                )
+
         return render(request, 'system_admin/check_permission.html', context)
     except User.DoesNotExist:
+        messages.error(request, 'That user could not be found.')
         return redirect('system_admin:permissions')
 
 

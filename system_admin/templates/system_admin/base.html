@@ -155,6 +155,7 @@
     </style>
     
     <script src="{% static 'notifications/js/notifications.js' %}"></script>
+    {% include 'notifications/includes/django_messages_script.html' %}
     <script src="{% static 'system_admin/js/header.js' %}"></script>
     {% block extra_js %}{% endblock %}
     {% if request.resolver_match.url_name == 'map' %}

@@ -145,6 +145,14 @@
                     }
                     window.notify.error(message);
                 }
+                if (params.get('signed_out') === '1') {
+                    window.notify.info('You have been signed out.');
+                }
+                if (params.get('session_ended') === '1') {
+                    window.notify.warning(
+                        'Your session ended or this area is not available for your account. Please sign in again.'
+                    );
+                }
             }
             run();
         });

@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.http import JsonResponse
@@ -24,9 +25,13 @@ def onetime_view(request):
     """Render the one-time system admin registration page."""
     # Redirect to login once a System Admin already exists.
     if has_system_admin():
-        return redirect('auth:login')
-    
-    return render(request, 'auth/onetime.html')
+        messages.info(
+            request,
+            "A system administrator is already set up. Sign in to continue.",
+        )
+        return redirect("auth:login")
+
+    return render(request, "auth/onetime.html")
 
 
 @csrf_exempt
@@ -226,11 +231,16 @@ def onetime_api(request):
 def password_setup_view(request):
     """First-time password setup view for Manager/Editor users."""
     # Only Manager and Editor roles can use this view.
-    if not hasattr(request.user, 'profile') or not request.user.profile.role:
-        return redirect('auth:login')
-    
-    if request.user.profile.role not in ['manager', 'editor']:
-        return redirect('auth:login')
+    if not hasattr(request.user, "profile") or not request.user.profile.role:
+        messages.error(request, "Please sign in to continue.")
+        return redirect("auth:login")
+
+    if request.user.profile.role not in ["manager", "editor"]:
+        messages.error(
+            request,
+            "This setup page is only for manager or editor accounts.",
+        )
+        return redirect("auth:login")
     
     # If setup is already complete, send the user to the map.
     if request.user.profile.password_setup_completed:
@@ -249,12 +259,16 @@ def password_setup_view(request):
             # Mark password setup as completed even when skipped.
             request.user.profile.password_setup_completed = True
             request.user.profile.save()
-            
+
+            messages.info(
+                request,
+                "You can set a personal password anytime under Security.",
+            )
             # Redirect to the appropriate map after skipping.
-            if request.user.profile.role == 'manager':
-                return redirect('manager:map')
-            elif request.user.profile.role == 'editor':
-                return redirect('editor:map')
+            if request.user.profile.role == "manager":
+                return redirect("manager:map")
+            elif request.user.profile.role == "editor":
+                return redirect("editor:map")
         
         elif intent == 'set_password':
             errors = []
@@ -273,25 +287,26 @@ def password_setup_view(request):
                 # Persist the new password.
                 request.user.set_password(new_password)
                 request.user.save()
-                
+
                 # Record that setup has been completed.
                 request.user.profile.password_setup_completed = True
                 request.user.profile.save()
-                
+
                 # Log the user back in with the new password.
                 from django.contrib.auth import login
+
                 login(request, request.user)
-                
-                context['password_set'] = True
-                context['success_message'] = 'Password has been set successfully!'
-                
+
+                messages.success(request, "Your password has been saved.")
+
                 # Finally redirect to the relevant map view.
-                if request.user.profile.role == 'manager':
-                    return redirect('manager:map')
-                elif request.user.profile.role == 'editor':
-                    return redirect('editor:map')
+                if request.user.profile.role == "manager":
+                    return redirect("manager:map")
+                elif request.user.profile.role == "editor":
+                    return redirect("editor:map")
             else:
-                context['setup_errors'] = errors
+                for err in errors:
+                    messages.error(request, err)
     
     return render(request, 'auth/password_setup.html', context)
 
@@ -300,4 +315,4 @@ def password_setup_view(request):
 def logout_view(request):
     """Handle logout."""
     logout(request)
-    return redirect('auth:login')
+    return redirect(f"{reverse('auth:login')}?signed_out=1")

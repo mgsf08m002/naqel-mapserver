@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
+from django.urls import reverse
 from django.http import JsonResponse
 from system_admin.models import UserProfile
 
@@ -8,11 +10,15 @@ from system_admin.models import UserProfile
 @login_required(login_url='/login/')
 def map_view(request):
     """Editor Map view - landing page after login."""
-    if not hasattr(request.user, 'profile') or request.user.profile.role != 'editor':
+    if not hasattr(request.user, "profile") or request.user.profile.role != "editor":
         logout(request)
-        return redirect('auth:login')
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
     if not request.user.profile.password_setup_completed:
-        return redirect('auth:password_setup')
+        messages.info(
+            request,
+            "Set your password to finish signing in.",
+        )
+        return redirect("auth:password_setup")
     return render(request, 'editor/map.html')
 
 
@@ -20,14 +26,16 @@ def map_view(request):
 def account_information_view(request):
     """Account Information view."""
     # Require an editor profile.
-    if not hasattr(request.user, 'profile') or request.user.profile.role != 'editor':
+    if not hasattr(request.user, "profile") or request.user.profile.role != "editor":
         logout(request)
-        return redirect('auth:login')
-    
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
+
     # Require account-information permission.
     if not request.user.profile.can_access_account_information:
         logout(request)
-        return redirect('auth:login?no_permission=1&permission_type=account_information')
+        return redirect(
+            "auth:login?no_permission=1&permission_type=account_information"
+        )
     
     # Ensure a profile record exists for the current editor.
     profile, created = UserProfile.objects.get_or_create(user=request.user)
@@ -51,12 +59,13 @@ def account_information_view(request):
                 # Editors can update only their display name here.
                 user = request.user
                 user.first_name = full_name
-                user.last_name = ''
+                user.last_name = ""
                 user.save()
 
-                context['profile_updated'] = True
+                messages.success(request, "Profile updated.")
             else:
-                context['update_errors'] = errors
+                for err in errors:
+                    messages.error(request, err)
 
     return render(request, 'editor/account_information.html', context)
 
@@ -65,14 +74,14 @@ def account_information_view(request):
 def security_view(request):
     """Security view."""
     # Require an editor profile.
-    if not hasattr(request.user, 'profile') or request.user.profile.role != 'editor':
+    if not hasattr(request.user, "profile") or request.user.profile.role != "editor":
         logout(request)
-        return redirect('auth:login')
-    
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
+
     # Require security permission.
     if not request.user.profile.can_access_security:
         logout(request)
-        return redirect('auth:login?no_permission=1&permission_type=security')
+        return redirect("auth:login?no_permission=1&permission_type=security")
 
     context = {}
 
@@ -104,9 +113,10 @@ def security_view(request):
                 logout(request)
                 return redirect('/login/?password_changed=1')
             else:
-                context['change_errors'] = errors
+                for err in errors:
+                    messages.error(request, err)
 
-    return render(request, 'editor/security.html', context)
+    return render(request, "editor/security.html", context)
 
 
 @login_required(login_url='/login/')
