@@ -423,6 +423,136 @@ map.on('load', () => {
             const SELECTED_LAYER_ID = MLS ? MLS.RIYADH_CORE_LAYER_ID : 'riyadh-roads-selected-layer';
             const SOURCE_LAYER = 'riyadh_roads';
             const HOVER_NONE_ID = -999999;
+            const ROAD_CLOSURE_ICON_LAYER_ID = 'riyadh-roads-closure-icons';
+            const CLOSURE_ICON_IMAGE_ID = 'road-closure-no-entry';
+            /** Set when symbology paint runs; used for road-closure symbol opacity helpers. */
+            let riyadhIsClosedExprForIcons = null;
+
+            function loadSvgAsHtmlImage(url) {
+                return new Promise(function(resolve, reject) {
+                    const img = new Image();
+                    img.onload = function() {
+                        resolve(img);
+                    };
+                    img.onerror = function() {
+                        reject(new Error('Failed to load ' + url));
+                    };
+                    img.src = url;
+                });
+            }
+
+            function riyadhClosureIconOpacityWhenBasemapRoadHidden(roadIdToHide, hidden, isClosedExpr) {
+                if (!isClosedExpr) {
+                    return ['literal', 0];
+                }
+                if (!hidden || roadIdToHide === null || roadIdToHide === undefined) {
+                    return ['case', isClosedExpr, 1, 0];
+                }
+                const n = parseInt(String(roadIdToHide), 10);
+                if (Number.isNaN(n)) {
+                    return ['case', isClosedExpr, 1, 0];
+                }
+                return [
+                    'case',
+                    [
+                        'any',
+                        ['==', ['get', 'id'], n],
+                        ['==', ['to-string', ['get', 'id']], String(n)],
+                        ['==', ['to-number', ['get', 'id']], n],
+                    ],
+                    0,
+                    ['case', isClosedExpr, 1, 0],
+                ];
+            }
+
+            function ensureRoadClosureIconLayer(isClosedExpr) {
+                if (!HAS_RIYADH_ROADS_TILES || !map.getSource(SOURCE_ID) || !map.getLayer(STYLED_LAYER_ID)) {
+                    return;
+                }
+                if (map.getLayer(ROAD_CLOSURE_ICON_LAYER_ID)) {
+                    try {
+                        map.setPaintProperty(ROAD_CLOSURE_ICON_LAYER_ID, 'icon-opacity', ['case', isClosedExpr, 1, 0]);
+                    } catch (eOp) {}
+                    return;
+                }
+                const mapEl = document.getElementById('map');
+                const rel =
+                    (mapEl && mapEl.getAttribute('data-closure-icon-url')) ||
+                    '/static/mapping/images/road-closure-no-entry.svg';
+                const url = new URL(rel, window.location.href).href;
+                loadSvgAsHtmlImage(url)
+                    .then(function(image) {
+                        if (image && typeof image.decode === 'function') {
+                            return image.decode().then(function() {
+                                return image;
+                            }).catch(function() {
+                                return image;
+                            });
+                        }
+                        return image;
+                    })
+                    .catch(function() {
+                        return null;
+                    })
+                    .then(function(image) {
+                        if (!image || !map.getStyle()) {
+                            return;
+                        }
+                        if (map.getLayer(ROAD_CLOSURE_ICON_LAYER_ID)) {
+                            return;
+                        }
+                        try {
+                            if (!map.hasImage(CLOSURE_ICON_IMAGE_ID)) {
+                                map.addImage(CLOSURE_ICON_IMAGE_ID, image);
+                            }
+                        } catch (eImg) {
+                            return;
+                        }
+                        if (!map.getSource(SOURCE_ID) || map.getLayer(ROAD_CLOSURE_ICON_LAYER_ID)) {
+                            return;
+                        }
+                        let vis = 'visible';
+                        try {
+                            if (
+                                map.getLayer(STYLED_LAYER_ID) &&
+                                map.getLayoutProperty(STYLED_LAYER_ID, 'visibility') === 'none'
+                            ) {
+                                vis = 'none';
+                            }
+                        } catch (eVis) {}
+                        map.addLayer({
+                            id: ROAD_CLOSURE_ICON_LAYER_ID,
+                            type: 'symbol',
+                            source: SOURCE_ID,
+                            'source-layer': SOURCE_LAYER,
+                            layout: {
+                                'icon-image': CLOSURE_ICON_IMAGE_ID,
+                                'icon-size': 0.22,
+                                'symbol-placement': 'line',
+                                'symbol-spacing': 96,
+                                'icon-rotation-alignment': 'map',
+                                'icon-pitch-alignment': 'map',
+                                'icon-allow-overlap': true,
+                                'icon-ignore-placement': true,
+                                visibility: vis,
+                            },
+                            paint: {
+                                'icon-opacity': ['case', isClosedExpr, 1, 0],
+                            },
+                        });
+                        try {
+                            reapplyRiyadhRoadClosureOverlayBasemapHide();
+                        } catch (eRe) {}
+                        try {
+                            if (
+                                window.__roadGeometryEditActiveId != null &&
+                                typeof window.setRiyadhRoadBasemapHiddenForEdit === 'function'
+                            ) {
+                                window.setRiyadhRoadBasemapHiddenForEdit(window.__roadGeometryEditActiveId, true);
+                            }
+                        } catch (eEd) {}
+                    });
+            }
 
             /*
              * Riyadh road styling — keep map, tileserver, and remote DB aligned:
@@ -1038,6 +1168,9 @@ map.on('load', () => {
                         }
                     } catch (e) {}
                 }
+
+                riyadhIsClosedExprForIcons = isClosedExpr;
+                ensureRoadClosureIconLayer(isClosedExpr);
             }
 
             function sanitizeLabelingConfig(raw) {
@@ -1409,6 +1542,15 @@ map.on('load', () => {
                             }
                         } catch (e2) {}
                     });
+                    try {
+                        if (map.getLayer(ROAD_CLOSURE_ICON_LAYER_ID) && riyadhIsClosedExprForIcons) {
+                            map.setPaintProperty(
+                                ROAD_CLOSURE_ICON_LAYER_ID,
+                                'icon-opacity',
+                                riyadhClosureIconOpacityWhenBasemapRoadHidden(roadIdToHide, hidden, riyadhIsClosedExprForIcons)
+                            );
+                        }
+                    } catch (eIcon) {}
                 } catch (e3) {}
             };
 
@@ -1444,6 +1586,15 @@ map.on('load', () => {
                             : 1;
                     map.setPaintProperty(STYLED_LAYER_ID, 'line-opacity', op);
                     map.setPaintProperty(PUBLIC_LAYER_ID, 'line-opacity', op);
+                    try {
+                        if (map.getLayer(ROAD_CLOSURE_ICON_LAYER_ID) && riyadhIsClosedExprForIcons) {
+                            const iconOp =
+                                hidden && roadId != null && roadId !== ''
+                                    ? riyadhClosureIconOpacityWhenBasemapRoadHidden(roadId, hidden, riyadhIsClosedExprForIcons)
+                                    : ['case', riyadhIsClosedExprForIcons, 1, 0];
+                            map.setPaintProperty(ROAD_CLOSURE_ICON_LAYER_ID, 'icon-opacity', iconOp);
+                        }
+                    } catch (eIco) {}
                     if (hidden && roadId != null && roadId !== '') {
                         const parsed = parseInt(String(roadId), 10);
                         window.__riyadhClosureOverlayHiddenRoadId = Number.isNaN(parsed) ? null : parsed;
@@ -1488,7 +1639,7 @@ map.on('load', () => {
                     })();
 
                     // Remove layers first (MapLibre requires this before removing a source).
-                    [LABEL_LAYER_ID_AR, LABEL_LAYER_ID_EN, SELECTED_LAYER_ID, RING_LAYER_ID, OUTLINE_LAYER_ID, HOVER_LAYER_ID, STYLED_LAYER_ID, PUBLIC_LAYER_ID].forEach((layerId) => {
+                    [LABEL_LAYER_ID_AR, LABEL_LAYER_ID_EN, SELECTED_LAYER_ID, RING_LAYER_ID, OUTLINE_LAYER_ID, HOVER_LAYER_ID, ROAD_CLOSURE_ICON_LAYER_ID, STYLED_LAYER_ID, PUBLIC_LAYER_ID].forEach((layerId) => {
                         try {
                             if (map.getLayer(layerId)) {
                                 map.removeLayer(layerId);

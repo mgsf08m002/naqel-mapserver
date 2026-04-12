@@ -61,6 +61,7 @@
             id="map"
             class="w-full h-full"
             data-is-authenticated="false"
+            data-closure-icon-url="{% static 'mapping/images/road-closure-no-entry.svg' %}"
             {% if maptiler_api_key %}data-maptiler-api-key="{{ maptiler_api_key }}"{% endif %}
             {% if riyadh_roads_tile_url %}data-riyadh-roads-tile-url="{{ riyadh_roads_tile_url }}"{% endif %}
         ></div>
