@@ -63,7 +63,11 @@ else:
 # SECURITY WARNING: DEBUG must be False in production.
 DEBUG = _env_bool('DEBUG', True)
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,139.162.60.105").split(",")
+    if h.strip()
+]
 
 # Security flags: production should set these to True behind HTTPS.
 SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", not DEBUG)
