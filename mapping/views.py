@@ -689,6 +689,8 @@ def save_line_edit_request(request):
         if is_riyadh_road and riyadh_road_id_int is not None and closure_changed:
             try:
                 _apply_riyadh_road_closure_remote(riyadh_road_id_int, road_closure)
+                if road:
+                    road.refresh_from_db(using="riyadh_roads")
                 closure_tiles_version = _tiles_version_ms()
             except Exception as e:
                 logger.warning("Immediate road closure update failed: %s", e)
