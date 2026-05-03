@@ -93,6 +93,7 @@ INSTALLED_APPS = [
     'home',
     'security',
     'symbology',
+    'layer_uploader',
 ]
 
 MIDDLEWARE = [

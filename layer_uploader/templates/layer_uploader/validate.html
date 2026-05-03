@@ -1,0 +1,13 @@
+<h2>Validate Layer</h2>
+
+<p><strong>Name:</strong> {{ name }}</p>
+<p><strong>Features:</strong> {{ count }}</p>
+<p><strong>CRS:</strong> {{ crs_name }}</p>
+<p><strong>SRID:</strong> {{ epsg }}</p>
+
+<form method="POST">
+  {% csrf_token %}
+  <button class="bg-green-600 text-white px-4 py-2">
+    Confirm & Save
+  </button>
+</form

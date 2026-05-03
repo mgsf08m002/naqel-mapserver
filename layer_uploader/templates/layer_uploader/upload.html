@@ -1,0 +1,74 @@
+<div class="min-h-screen flex items-center justify-center bg-gray-50">
+  <div class="w-full max-w-2xl bg-white shadow-xl rounded-2xl p-8">
+
+    <h2 class="text-2xl font-semibold text-gray-800 mb-4">
+      Upload Shapefile
+    </h2>
+
+    <!-- Upload Form -->
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <input type="file" name="files" multiple
+        class="block w-full mb-4 text-sm border rounded-lg p-2">
+
+      <button class="bg-blue-600 text-white px-4 py-2 rounded-lg">
+        Upload & Detect
+      </button>
+    </form>
+
+    {% if error %}
+      <div class="mt-4 text-red-600">{{ error }}</div>
+    {% endif %}
+
+    <!-- 🔥 Detected Shapefiles -->
+    {% if shapefiles %}
+      <hr class="my-6">
+
+      <h3 class="text-lg font-semibold mb-4">
+        Detected Shapefiles
+      </h3>
+
+      <form method="POST">
+        {% csrf_token %}
+
+        <div class="space-y-4">
+
+          {% for shp in shapefiles %}
+            <label class="block border rounded-xl p-4 hover:bg-gray-50 cursor-pointer">
+
+              <div class="flex items-start justify-between">
+                <div>
+                  <input type="radio" name="selected" value="{{ shp.name }}" required>
+
+                  <span class="ml-2 font-medium text-gray-800">
+                    {{ shp.name }}
+                  </span>
+
+                  {% if shp.error %}
+                    <p class="text-red-500 text-sm mt-1">
+                      Error: {{ shp.error }}
+                    </p>
+                  {% else %}
+                    <div class="text-sm text-gray-500 mt-1 space-y-1">
+                      <p>📐 CRS: {{ shp.crs_name }}</p>
+                      <p>🧭 SRID: {{ shp.epsg }}</p>
+                      <p>📊 Features: {{ shp.count }}</p>
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+
+            </label>
+          {% endfor %}
+
+        </div>
+
+        <button class="mt-6 w-full bg-green-600 text-white py-2 rounded-lg">
+          Continue
+        </button>
+      </form>
+    {% endif %}
+
+  </div>
+</div>

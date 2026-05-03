@@ -1,0 +1,16 @@
+<h2>Select Shapefile</h2>
+
+<form method="POST">
+  {% csrf_token %}
+
+  {% for opt in options %}
+    <label class="block">
+      <input type="radio" name="selected" value="{{ opt }}" required>
+      {{ opt }}
+    </label>
+  {% endfor %}
+
+  <button class="mt-4 bg-blue-600 text-white px-4 py-2">
+    Continue
+  </button>
+</form>
