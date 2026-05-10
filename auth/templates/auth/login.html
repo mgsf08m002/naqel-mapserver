@@ -142,6 +142,8 @@
                         message = 'You do not have permission to access account information. Please contact your system administrator.';
                     } else if (permissionType === 'security') {
                         message = 'You do not have permission to access security settings. Please contact your system administrator.';
+                    } else if (permissionType === 'layer_uploader') {
+                        message = 'You do not have permission to access the layer uploader. Please contact your system administrator.';
                     }
                     window.notify.error(message);
                 }

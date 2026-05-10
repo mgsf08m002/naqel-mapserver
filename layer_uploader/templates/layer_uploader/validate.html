@@ -1,13 +1,39 @@
-<h2>Validate Layer</h2>
+{% extends 'layer_uploader/base.html' %}
 
-<p><strong>Name:</strong> {{ name }}</p>
-<p><strong>Features:</strong> {{ count }}</p>
-<p><strong>CRS:</strong> {{ crs_name }}</p>
-<p><strong>SRID:</strong> {{ epsg }}</p>
+{% block title %}Validate Layer - Naqel Maps{% endblock %}
 
-<form method="POST">
-  {% csrf_token %}
-  <button class="bg-green-600 text-white px-4 py-2">
-    Confirm & Save
-  </button>
-</form
+{% block layer_content %}
+<section class="mx-auto max-w-4xl">
+  <h1 class="text-3xl font-semibold tracking-tight text-gray-900">Validate layer details</h1>
+  <p class="mt-2 text-sm text-gray-600">Confirm metadata before saving this upload into the system.</p>
+
+  <dl class="mt-8 divide-y divide-gray-200 border-y border-gray-200">
+    <div class="flex items-center justify-between py-4">
+      <dt class="text-sm font-medium text-gray-600">Layer name</dt>
+      <dd class="text-sm font-semibold text-gray-900">{{ name }}</dd>
+    </div>
+    <div class="flex items-center justify-between py-4">
+      <dt class="text-sm font-medium text-gray-600">Feature count</dt>
+      <dd class="text-sm font-semibold text-gray-900">{{ count }}</dd>
+    </div>
+    <div class="flex items-center justify-between py-4">
+      <dt class="text-sm font-medium text-gray-600">CRS</dt>
+      <dd class="text-sm font-semibold text-gray-900">{{ crs_name }}</dd>
+    </div>
+    <div class="flex items-center justify-between py-4">
+      <dt class="text-sm font-medium text-gray-600">SRID</dt>
+      <dd class="text-sm font-semibold text-gray-900">{{ epsg }}</dd>
+    </div>
+  </dl>
+
+  <form method="post" class="mt-6 flex flex-wrap items-center gap-3">
+    {% csrf_token %}
+    <button type="submit" class="inline-flex items-center border-b-2 border-black pb-1 text-sm font-semibold text-black transition hover:text-gray-700">
+      Confirm and save
+    </button>
+    <a href="{% url 'upload' %}" class="inline-flex items-center border-b border-gray-400 pb-1 text-sm font-medium text-gray-700 transition hover:text-black">
+      Start over
+    </a>
+  </form>
+</section>
+{% endblock %}

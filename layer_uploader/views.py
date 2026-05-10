@@ -1,150 +1,210 @@
-import os, zipfile, tempfile
+import os
+import tempfile
+import zipfile
 from collections import defaultdict
-from django.shortcuts import render, redirect
-from .utils import simplify_crs
-REQUIRED_EXTENSIONS = {'.shp', '.shx', '.dbf'}
+
+import fiona
+from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect, render
+from django.urls import reverse
+
+from .models import Layer
+from .utils import simplify_crs
+
+REQUIRED_EXTENSIONS = {".shp", ".shx", ".dbf"}
+
+
+def _resolve_base_template(user):
+    if user.is_superuser:
+        return "system_admin/base.html"
+    profile = getattr(user, "profile", None)
+    if profile and profile.role == "manager":
+        return "manager/base.html"
+    if profile and profile.role == "editor":
+        return "editor/base.html"
+    return "system_admin/base.html"
+
+
+def _has_layer_uploader_access(user):
+    if user.is_superuser:
+        return True
+    profile = getattr(user, "profile", None)
+    if not profile:
+        return False
+    if profile.role not in {"manager", "editor"}:
+        return False
+    return bool(profile.can_access_layer_uploader)
+
+
+def _enforce_layer_uploader_access(request):
+    if _has_layer_uploader_access(request.user):
+        return None
+    logout(request)
+    return redirect(f"{reverse('auth:login')}?no_permission=1&permission_type=layer_uploader")
+
+
+def _find_shapefile_path(temp_dir, base_name):
+    for root, _, files in os.walk(temp_dir):
+        for file_name in files:
+            if file_name.startswith(base_name) and file_name.endswith(".shp"):
+                return os.path.join(root, file_name)
+    return None
+
+
+def _collect_detected_shapefiles(temp_dir):
+    grouped_extensions = defaultdict(set)
+    for root, _, filenames in os.walk(temp_dir):
+        for filename in filenames:
+            base, ext = os.path.splitext(filename)
+            grouped_extensions[base].add(ext.lower())
+
+    valid_sets = [
+        base_name
+        for base_name, exts in grouped_extensions.items()
+        if REQUIRED_EXTENSIONS.issubset(exts)
+    ]
+
+    detected = []
+    for base_name in valid_sets:
+        shp_path = _find_shapefile_path(temp_dir, base_name)
+        if not shp_path:
+            continue
+        try:
+            with fiona.open(shp_path) as source:
+                crs_name, epsg = simplify_crs(source.crs)
+                detected.append(
+                    {
+                        "name": base_name,
+                        "crs_name": crs_name,
+                        "epsg": epsg if epsg else "Not defined",
+                        "count": len(source),
+                    }
+                )
+        except Exception as exc:
+            detected.append({"name": base_name, "error": str(exc)})
+
+    return detected
 
 @login_required
 def upload_view(request):
-    context = {}
+    denied = _enforce_layer_uploader_access(request)
+    if denied:
+        return denied
+    context = {"base_template": _resolve_base_template(request.user)}
 
     if request.method == "POST":
-
-        # If user already selected a shapefile → go to validate
         if "selected" in request.POST:
-            request.session['selected'] = request.POST.get("selected")
-            return redirect('validate')
+            request.session["selected"] = request.POST.get("selected")
+            return redirect("validate")
 
-        # Step 1: Upload + detect
-        files = request.FILES.getlist('files')
+        files = request.FILES.getlist("files")
         temp_dir = tempfile.mkdtemp()
 
-        for f in files:
-            path = os.path.join(temp_dir, f.name)
+        for uploaded_file in files:
+            path = os.path.join(temp_dir, uploaded_file.name)
 
-            with open(path, 'wb+') as dest:
-                for chunk in f.chunks():
+            with open(path, "wb+") as dest:
+                for chunk in uploaded_file.chunks():
                     dest.write(chunk)
 
-            if f.name.endswith('.zip'):
-                with zipfile.ZipFile(path, 'r') as zip_ref:
+            if uploaded_file.name.endswith(".zip"):
+                with zipfile.ZipFile(path, "r") as zip_ref:
                     zip_ref.extractall(temp_dir)
 
-        grouped = defaultdict(set)
-
-        for root, _, filenames in os.walk(temp_dir):
-            for file in filenames:
-                base, ext = os.path.splitext(file)
-                grouped[base].add(ext.lower())
-
-        valid_sets = [
-            base for base, exts in grouped.items()
-            if REQUIRED_EXTENSIONS.issubset(exts)
-        ]
-
-        if not valid_sets:
+        detected_shapefiles = _collect_detected_shapefiles(temp_dir)
+        if not detected_shapefiles:
             context["error"] = "No valid shapefile found."
             return render(request, "layer_uploader/upload.html", context)
 
-        request.session['temp_dir'] = temp_dir
+        request.session["temp_dir"] = temp_dir
+        request.session["options"] = [s["name"] for s in detected_shapefiles if s.get("name")]
+        context["shapefiles"] = detected_shapefiles
 
-        # 🔥 Extract metadata for each shapefile
-        shapefile_info = []
-
-        for base in valid_sets:
-            shp_path = None
-
-            for root, _, files in os.walk(temp_dir):
-                for f in files:
-                    if f.startswith(base) and f.endswith('.shp'):
-                        shp_path = os.path.join(root, f)
-
-            if shp_path:
-                try:
-                    with fiona.open(shp_path) as src:
-                        crs = src.crs
-                        count = len(src)
-
-                        # ✅ NEW: simplified CRS handling
-                        crs_name, epsg = simplify_crs(crs)
-
-                        shapefile_info.append({
-                            "name": base,
-                            "crs_name": crs_name,
-                            "epsg": epsg if epsg else "Not defined",
-                            "count": count
-                        })
-
-                except Exception as e:
-                    shapefile_info.append({
-                        "name": base,
-                        "error": str(e)
-                    })
-
-        context["shapefiles"] = shapefile_info
+        selectable = [s for s in detected_shapefiles if s.get("name") and not s.get("error")]
+        if len(selectable) == 1:
+            request.session["selected"] = selectable[0]["name"]
+            return redirect("validate")
 
     return render(request, "layer_uploader/upload.html", context)
 
+
+@login_required
 def select_view(request):
+    denied = _enforce_layer_uploader_access(request)
+    if denied:
+        return denied
     if request.method == "POST":
-        request.session['selected'] = request.POST.get("selected")
-        return redirect('validate')
+        request.session["selected"] = request.POST.get("selected")
+        return redirect("validate")
 
-    return render(request, "layer_uploader/select_shapefile.html", {
-        "options": request.session.get('options', [])
-    })
+    return render(
+        request,
+        "layer_uploader/select_shapefile.html",
+        {
+            "base_template": _resolve_base_template(request.user),
+            "options": request.session.get("options", []),
+        },
+    )
 
 
-import fiona
-from django.contrib.gis.geos import GEOSGeometry
-from .models import Layer
-
+@login_required
 def validate_view(request):
-    temp_dir = request.session.get('temp_dir')
-    selected = request.session.get('selected')
+    denied = _enforce_layer_uploader_access(request)
+    if denied:
+        return denied
+    base_template = _resolve_base_template(request.user)
+    temp_dir = request.session.get("temp_dir")
+    selected = request.session.get("selected")
+    if not temp_dir or not selected:
+        return render(
+            request,
+            "layer_uploader/upload.html",
+            {"base_template": base_template, "error": "Session expired. Please upload files again."},
+        )
 
-    shp_path = None
-
-    # 🔍 Find shapefile
-    for root, _, files in os.walk(temp_dir):
-        for f in files:
-            if f.startswith(selected) and f.endswith('.shp'):
-                shp_path = os.path.join(root, f)
-
+    shp_path = _find_shapefile_path(temp_dir, selected)
     if not shp_path:
-        return render(request, "layer_uploader/upload.html", {
-            "error": "Shapefile not found."
-        })
+        return render(
+            request,
+            "layer_uploader/upload.html",
+            {"base_template": base_template, "error": "Shapefile not found."},
+        )
 
-    # 📊 Read metadata
-    with fiona.open(shp_path) as src:
-        feature_count = len(src)
-        crs = src.crs
+    with fiona.open(shp_path) as source:
+        feature_count = len(source)
+        crs_name, epsg = simplify_crs(source.crs)
 
-        # ✅ FIX: Use helper instead of manual SRID parsing
-        crs_name, epsg = simplify_crs(crs)
-
-    # 💾 Save layer
     if request.method == "POST":
         Layer.objects.create(
             name=selected,
             uploaded_by=request.user,
-            srid=epsg,  # ✅ correct SRID
+            srid=epsg,
             total_features=feature_count,
-            new_features=feature_count
+            new_features=feature_count,
         )
+        return redirect("success")
 
-        return redirect('success')
+    return render(
+        request,
+        "layer_uploader/validate.html",
+        {
+            "base_template": base_template,
+            "name": selected,
+            "count": feature_count,
+            "crs_name": crs_name,
+            "epsg": epsg if epsg else "Not defined",
+        },
+    )
 
-    # 🎨 Send clean data to template
-    return render(request, "layer_uploader/validate.html", {
-        "name": selected,
-        "count": feature_count,
-        "crs_name": crs_name,
-        "epsg": epsg if epsg else "Not defined"
-    })
 
-
+@login_required
 def success_view(request):
-    return render(request, "layer_uploader/success.html")
+    denied = _enforce_layer_uploader_access(request)
+    if denied:
+        return denied
+    return render(
+        request,
+        "layer_uploader/success.html",
+        {"base_template": _resolve_base_template(request.user)},
+    )

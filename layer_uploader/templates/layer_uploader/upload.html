@@ -1,74 +1,71 @@
-<div class="min-h-screen flex items-center justify-center bg-gray-50">
-  <div class="w-full max-w-2xl bg-white shadow-xl rounded-2xl p-8">
+{% extends 'layer_uploader/base.html' %}
 
-    <h2 class="text-2xl font-semibold text-gray-800 mb-4">
-      Upload Shapefile
-    </h2>
+{% block title %}Upload Layer - Naqel Maps{% endblock %}
 
-    <!-- Upload Form -->
-    <form method="POST" enctype="multipart/form-data">
+{% block layer_content %}
+<section>
+  <h1 class="text-3xl font-semibold tracking-tight text-gray-900">Upload Shapefile</h1>
+  <p class="mt-2 max-w-3xl text-sm text-gray-600">
+      Upload shapefile components (`.shp`, `.shx`, `.dbf`) or a zip archive. We will detect valid layers and show metadata before confirmation.
+  </p>
+
+  <div class="mt-8 grid gap-8 lg:grid-cols-[2fr_1fr]">
+    <form method="post" enctype="multipart/form-data" class="space-y-5">
       {% csrf_token %}
-
-      <input type="file" name="files" multiple
-        class="block w-full mb-4 text-sm border rounded-lg p-2">
-
-      <button class="bg-blue-600 text-white px-4 py-2 rounded-lg">
-        Upload & Detect
+      <div class="border-b border-gray-200 pb-5">
+        <label for="files" class="mb-2 block text-sm font-medium text-gray-700">Files</label>
+        <input id="files" type="file" name="files" multiple required class="block w-full border-b border-gray-300 bg-transparent px-0 py-3 text-sm text-gray-700 file:mr-3 file:rounded-full file:border-0 file:bg-black file:px-4 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-gray-800">
+      </div>
+      <button type="submit" class="inline-flex items-center border-b-2 border-black pb-1 text-sm font-semibold text-black transition hover:text-gray-700">
+        Upload and detect
       </button>
     </form>
 
-    {% if error %}
-      <div class="mt-4 text-red-600">{{ error }}</div>
-    {% endif %}
-
-    <!-- 🔥 Detected Shapefiles -->
-    {% if shapefiles %}
-      <hr class="my-6">
-
-      <h3 class="text-lg font-semibold mb-4">
-        Detected Shapefiles
-      </h3>
-
-      <form method="POST">
-        {% csrf_token %}
-
-        <div class="space-y-4">
-
-          {% for shp in shapefiles %}
-            <label class="block border rounded-xl p-4 hover:bg-gray-50 cursor-pointer">
-
-              <div class="flex items-start justify-between">
-                <div>
-                  <input type="radio" name="selected" value="{{ shp.name }}" required>
-
-                  <span class="ml-2 font-medium text-gray-800">
-                    {{ shp.name }}
-                  </span>
-
-                  {% if shp.error %}
-                    <p class="text-red-500 text-sm mt-1">
-                      Error: {{ shp.error }}
-                    </p>
-                  {% else %}
-                    <div class="text-sm text-gray-500 mt-1 space-y-1">
-                      <p>📐 CRS: {{ shp.crs_name }}</p>
-                      <p>🧭 SRID: {{ shp.epsg }}</p>
-                      <p>📊 Features: {{ shp.count }}</p>
-                    </div>
-                  {% endif %}
-                </div>
-              </div>
-
-            </label>
-          {% endfor %}
-
-        </div>
-
-        <button class="mt-6 w-full bg-green-600 text-white py-2 rounded-lg">
-          Continue
-        </button>
-      </form>
-    {% endif %}
-
-  </div>
+  <aside class="border-l border-gray-200 pl-6">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500">Upload checklist</h2>
+    <ul class="mt-4 space-y-3 text-sm text-gray-600">
+      <li>Include required geometry files.</li>
+      <li>Keep related files with matching names.</li>
+      <li>Use zip for multi-file upload convenience.</li>
+      <li>Review CRS/SRID before final save.</li>
+    </ul>
+  </aside>
 </div>
+</section>
+
+{% if shapefiles %}
+<section class="mt-12 border-t border-gray-200 pt-8">
+  <div class="mb-5 flex items-center justify-between">
+    <h2 class="text-lg font-semibold text-gray-900">Detected shapefiles</h2>
+    <span class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ shapefiles|length }} found</span>
+  </div>
+
+  <form method="post" class="space-y-2">
+    {% csrf_token %}
+    {% for shp in shapefiles %}
+    <label class="block cursor-pointer border-b border-gray-200 py-4 transition hover:bg-gray-50/70">
+      <div class="flex items-start gap-3">
+        <input type="radio" name="selected" value="{{ shp.name }}" required class="mt-1 h-4 w-4 border-gray-300 text-black focus:ring-black">
+        <div class="w-full">
+          <p class="text-sm font-semibold text-gray-900">{{ shp.name }}</p>
+          {% if shp.error %}
+          <p class="mt-2 border-l-2 border-red-500 pl-3 text-sm text-red-700">{{ shp.error }}</p>
+          {% else %}
+          <div class="mt-2 grid gap-2 text-sm text-gray-600 sm:grid-cols-3">
+            <p><span class="font-medium text-gray-800">CRS:</span> {{ shp.crs_name }}</p>
+            <p><span class="font-medium text-gray-800">SRID:</span> {{ shp.epsg }}</p>
+            <p><span class="font-medium text-gray-800">Features:</span> {{ shp.count }}</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </label>
+    {% endfor %}
+
+    <button type="submit" class="mt-5 inline-flex items-center border-b-2 border-black pb-1 text-sm font-semibold text-black transition hover:text-gray-700">
+      Continue to validation
+    </button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

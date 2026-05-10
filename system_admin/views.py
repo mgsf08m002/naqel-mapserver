@@ -207,15 +207,18 @@ def add_user_view(request):
                     can_access_dashboard = request.POST.get('can_access_dashboard') == 'on'
                     can_access_security = request.POST.get('can_access_security') == 'on'
                     can_access_account_information = request.POST.get('can_access_account_information') == 'on'
+                    can_access_layer_uploader = request.POST.get('can_access_layer_uploader') == 'on'
                 # For editors, read the selected permission flags.
                 elif role == 'editor':
                     can_access_dashboard = False  # Editors never receive dashboard access.
                     can_access_security = request.POST.get('can_access_security') == 'on'
                     can_access_account_information = request.POST.get('can_access_account_information') == 'on'
+                    can_access_layer_uploader = request.POST.get('can_access_layer_uploader') == 'on'
                 else:
                     can_access_dashboard = False
                     can_access_security = False
                     can_access_account_information = False
+                    can_access_layer_uploader = False
                 
                 # Create the base Django user.
                 user = User.objects.create_user(
@@ -233,7 +236,8 @@ def add_user_view(request):
                     role=role,
                     can_access_dashboard=can_access_dashboard,
                     can_access_security=can_access_security,
-                    can_access_account_information=can_access_account_information
+                    can_access_account_information=can_access_account_information,
+                    can_access_layer_uploader=can_access_layer_uploader,
                 )
                 profile.set_account_creation_datetime()
                 
@@ -723,10 +727,12 @@ def grant_permission_view(request, user_id):
                     profile.can_access_dashboard = request.POST.get('can_access_dashboard') == 'on'
                     profile.can_access_security = request.POST.get('can_access_security') == 'on'
                     profile.can_access_account_information = request.POST.get('can_access_account_information') == 'on'
+                    profile.can_access_layer_uploader = request.POST.get('can_access_layer_uploader') == 'on'
                 elif role == 'editor':
                     profile.can_access_dashboard = False
                     profile.can_access_security = request.POST.get('can_access_security') == 'on'
                     profile.can_access_account_information = request.POST.get('can_access_account_information') == 'on'
+                    profile.can_access_layer_uploader = request.POST.get('can_access_layer_uploader') == 'on'
                 
                 profile.save()
                 messages.success(
@@ -786,6 +792,7 @@ def check_permission_view(request, user_id):
                     profile.can_access_dashboard = False
                     profile.can_access_security = request.POST.get('can_access_security') == 'on'
                     profile.can_access_account_information = request.POST.get('can_access_account_information') == 'on'
+                profile.can_access_layer_uploader = request.POST.get('can_access_layer_uploader') == 'on'
 
                 profile.save()
                 messages.success(
@@ -831,17 +838,20 @@ def permissions_api_view(request):
             permissions = {
                 'can_access_dashboard': False,
                 'can_access_security': False,
-                'can_access_account_information': False
+                'can_access_account_information': False,
+                'can_access_layer_uploader': False,
             }
             
             if profile and role in ['manager', 'editor']:
                 permissions['can_access_dashboard'] = profile.can_access_dashboard if role == 'manager' else False
                 permissions['can_access_security'] = profile.can_access_security
                 permissions['can_access_account_information'] = profile.can_access_account_information
+                permissions['can_access_layer_uploader'] = profile.can_access_layer_uploader
                 has_permissions = any([
                     permissions['can_access_dashboard'],
                     permissions['can_access_security'],
-                    permissions['can_access_account_information']
+                    permissions['can_access_account_information'],
+                    permissions['can_access_layer_uploader'],
                 ])
             
             user_data = {
@@ -916,6 +926,7 @@ def update_permissions_api_view(request, user_id):
             profile.can_access_dashboard = False
             profile.can_access_security = data.get('can_access_security', False)
             profile.can_access_account_information = data.get('can_access_account_information', False)
+        profile.can_access_layer_uploader = data.get('can_access_layer_uploader', False)
         
         profile.save()
         

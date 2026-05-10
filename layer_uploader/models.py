@@ -32,7 +32,6 @@ class Layer(models.Model):
 #     )
 #
 #     geom = models.GeometryField(srid=4326)
-
 #
 #     def __str__(self):
 #         return f"Feature {self.id} - {self.layer.name}"

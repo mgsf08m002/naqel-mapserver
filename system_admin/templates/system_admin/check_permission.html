@@ -79,6 +79,20 @@
                         <p class="text-xs text-gray-500 mt-0.5">Allow the {{ role }} to access and update account information</p>
                     </div>
                 </label>
+
+                <label class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
+                    <input 
+                        type="checkbox" 
+                        name="can_access_layer_uploader" 
+                        id="can_access_layer_uploader" 
+                        {% if profile.can_access_layer_uploader %}checked{% endif %}
+                        class="w-4 h-4 text-black border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer"
+                    >
+                    <div class="flex-1">
+                        <span class="text-sm font-semibold text-gray-900">Access Layer Uploader</span>
+                        <p class="text-xs text-gray-500 mt-0.5">Allow the {{ role }} to upload and validate GIS layers</p>
+                    </div>
+                </label>
             </div>
 
             <div id="checkPermissionNotify" 
