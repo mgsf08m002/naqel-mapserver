@@ -3,24 +3,29 @@
 {% block title %}Layer Saved - Naqel Maps{% endblock %}
 
 {% block layer_content %}
-<section class="mx-auto max-w-3xl py-4 text-center">
-  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100/70">
-    <svg class="h-7 w-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-    </svg>
-  </div>
-  <h1 class="mt-4 text-3xl font-semibold tracking-tight text-gray-900">Layer uploaded successfully</h1>
-  <p class="mt-2 text-sm text-gray-600">
-    Your layer metadata has been saved. You can upload another layer or return to the main application.
-  </p>
+<div class="bg-white -mx-6 -my-6 px-4 sm:px-6 py-10 sm:py-14 min-h-[calc(100vh-64px)]">
+  <div class="w-full flex items-center justify-center">
+    <div class="w-full max-w-[1000px] text-center">
+      <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
+        <svg class="h-7 w-7 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+      </div>
 
-  <div class="mt-8 flex flex-wrap items-center justify-center gap-6">
-    <a href="{% url 'upload' %}" class="inline-flex items-center border-b-2 border-black pb-1 text-sm font-semibold text-black transition hover:text-gray-700">
-      Upload another layer
-    </a>
-    <a href="/" class="inline-flex items-center border-b border-gray-400 pb-1 text-sm font-medium text-gray-700 transition hover:text-black">
-      Go to dashboard
-    </a>
+      <h1 class="mt-5 text-2xl sm:text-3xl font-semibold text-gray-900">Layer saved</h1>
+      <p class="mt-2 text-xs sm:text-sm text-gray-600 max-w-2xl mx-auto">
+        Metadata has been stored successfully. You can upload another layer or return to the application.
+      </p>
+
+      <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
+        <a href="{% url 'upload' %}" class="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+          Upload another
+        </a>
+        <a href="/" class="rounded-full border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+          Back to app
+        </a>
+      </div>
+    </div>
   </div>
-</section>
+</div>
 {% endblock %}

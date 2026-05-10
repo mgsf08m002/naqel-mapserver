@@ -3,37 +3,51 @@
 {% block title %}Validate Layer - Naqel Maps{% endblock %}
 
 {% block layer_content %}
-<section class="mx-auto max-w-4xl">
-  <h1 class="text-3xl font-semibold tracking-tight text-gray-900">Validate layer details</h1>
-  <p class="mt-2 text-sm text-gray-600">Confirm metadata before saving this upload into the system.</p>
+<div class="bg-white -mx-6 -my-6 px-4 sm:px-6 py-8 sm:py-10 min-h-[calc(100vh-64px)]">
+  <div class="w-full flex items-center justify-center">
+    <div class="w-full max-w-[1200px]">
+      <header class="flex flex-col gap-2">
+        <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
+          <span class="h-px w-6 bg-gray-300"></span>
+          <span>Layer Uploader</span>
+        </div>
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900">Validate layer</h1>
+          <p class="text-xs sm:text-sm text-gray-600">Confirm detected metadata before saving.</p>
+        </div>
+      </header>
 
-  <dl class="mt-8 divide-y divide-gray-200 border-y border-gray-200">
-    <div class="flex items-center justify-between py-4">
-      <dt class="text-sm font-medium text-gray-600">Layer name</dt>
-      <dd class="text-sm font-semibold text-gray-900">{{ name }}</dd>
-    </div>
-    <div class="flex items-center justify-between py-4">
-      <dt class="text-sm font-medium text-gray-600">Feature count</dt>
-      <dd class="text-sm font-semibold text-gray-900">{{ count }}</dd>
-    </div>
-    <div class="flex items-center justify-between py-4">
-      <dt class="text-sm font-medium text-gray-600">CRS</dt>
-      <dd class="text-sm font-semibold text-gray-900">{{ crs_name }}</dd>
-    </div>
-    <div class="flex items-center justify-between py-4">
-      <dt class="text-sm font-medium text-gray-600">SRID</dt>
-      <dd class="text-sm font-semibold text-gray-900">{{ epsg }}</dd>
-    </div>
-  </dl>
+      <section class="mt-8">
+        <div class="divide-y divide-gray-200 border-y border-gray-200">
+          <div class="grid grid-cols-1 gap-2 py-4 sm:grid-cols-3">
+            <div class="text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase sm:col-span-1">Layer name</div>
+            <div class="text-sm font-semibold text-gray-900 sm:col-span-2">{{ name }}</div>
+          </div>
+          <div class="grid grid-cols-1 gap-2 py-4 sm:grid-cols-3">
+            <div class="text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase sm:col-span-1">Features</div>
+            <div class="text-sm font-semibold text-gray-900 sm:col-span-2">{{ count }}</div>
+          </div>
+          <div class="grid grid-cols-1 gap-2 py-4 sm:grid-cols-3">
+            <div class="text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase sm:col-span-1">CRS</div>
+            <div class="text-sm font-semibold text-gray-900 sm:col-span-2">{{ crs_name }}</div>
+          </div>
+          <div class="grid grid-cols-1 gap-2 py-4 sm:grid-cols-3">
+            <div class="text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase sm:col-span-1">SRID</div>
+            <div class="text-sm font-semibold text-gray-900 sm:col-span-2">{{ epsg }}</div>
+          </div>
+        </div>
 
-  <form method="post" class="mt-6 flex flex-wrap items-center gap-3">
-    {% csrf_token %}
-    <button type="submit" class="inline-flex items-center border-b-2 border-black pb-1 text-sm font-semibold text-black transition hover:text-gray-700">
-      Confirm and save
-    </button>
-    <a href="{% url 'upload' %}" class="inline-flex items-center border-b border-gray-400 pb-1 text-sm font-medium text-gray-700 transition hover:text-black">
-      Start over
-    </a>
-  </form>
-</section>
+        <form method="post" class="flex flex-wrap items-center gap-4 pt-6">
+          {% csrf_token %}
+          <button type="submit" class="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+            Confirm & save
+          </button>
+          <a href="{% url 'upload' %}" class="text-sm font-medium text-gray-600 hover:text-gray-900 border-b border-gray-300 hover:border-gray-700">
+            Start over
+          </a>
+        </form>
+      </section>
+    </div>
+  </div>
+</div>
 {% endblock %}

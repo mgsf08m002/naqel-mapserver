@@ -3,31 +3,50 @@
 {% block title %}Select Layer - Naqel Maps{% endblock %}
 
 {% block layer_content %}
-<section class="mx-auto max-w-4xl">
-  <h1 class="text-3xl font-semibold tracking-tight text-gray-900">Select shapefile</h1>
-  <p class="mt-2 text-sm text-gray-600">Choose one detected layer to continue to metadata validation and save.</p>
+<div class="bg-white -mx-6 -my-6 px-4 sm:px-6 py-8 sm:py-10 min-h-[calc(100vh-64px)]">
+  <div class="w-full flex items-center justify-center">
+    <div class="w-full max-w-[1200px]">
+      <header class="flex flex-col gap-2">
+        <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
+          <span class="h-px w-6 bg-gray-300"></span>
+          <span>Layer Uploader</span>
+        </div>
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900">Select a layer</h1>
+          <p class="text-xs sm:text-sm text-gray-600">Choose one detected shapefile to continue.</p>
+        </div>
+      </header>
 
-  {% if options %}
-  <form method="post" class="mt-8 border-t border-gray-200">
-    {% csrf_token %}
-    {% for opt in options %}
-    <label class="flex cursor-pointer items-center gap-3 border-b border-gray-200 px-1 py-4 transition hover:bg-gray-50/70">
-      <input type="radio" name="selected" value="{{ opt }}" required class="h-4 w-4 border-gray-300 text-black focus:ring-black">
-      <span class="text-sm font-medium text-gray-800">{{ opt }}</span>
-    </label>
-    {% endfor %}
+      {% if options %}
+      <form method="post" class="mt-8">
+        {% csrf_token %}
+        <div class="divide-y divide-gray-200 border-y border-gray-200">
+          {% for opt in options %}
+          <label class="flex cursor-pointer items-center gap-3 py-4 hover:bg-gray-50 transition">
+            <input type="radio" name="selected" value="{{ opt }}" required class="h-4 w-4 border-gray-300 text-black focus:ring-black">
+            <span class="text-sm font-semibold text-gray-900">{{ opt }}</span>
+          </label>
+          {% endfor %}
+        </div>
 
-    <button type="submit" class="mt-6 inline-flex items-center border-b-2 border-black pb-1 text-sm font-semibold text-black transition hover:text-gray-700">
-      Continue to validation
-    </button>
-  </form>
-  {% else %}
-  <div class="mt-8 border-l-2 border-amber-500 pl-4 text-sm text-amber-800">
-    No selectable layers were found in this session. Please return to upload and detect files first.
+        <div class="flex items-center gap-4 pt-6">
+          <button type="submit" class="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+            Continue
+          </button>
+          <a href="{% url 'upload' %}" class="text-sm font-medium text-gray-600 hover:text-gray-900 border-b border-gray-300 hover:border-gray-700">
+            Back to upload
+          </a>
+        </div>
+      </form>
+      {% else %}
+      <div class="mt-8 border-l-2 border-amber-500 pl-4 text-sm text-amber-800">
+        No selectable layers were found in this session. Please return to upload and detect files first.
+      </div>
+      <a href="{% url 'upload' %}" class="mt-6 inline-flex items-center border-b border-gray-300 pb-1 text-sm font-medium text-gray-700 transition hover:text-black hover:border-gray-700">
+        Back to upload
+      </a>
+      {% endif %}
+    </div>
   </div>
-  <a href="{% url 'upload' %}" class="mt-6 inline-flex items-center border-b border-gray-400 pb-1 text-sm font-medium text-gray-700 transition hover:text-black">
-    Back to upload
-  </a>
-  {% endif %}
-</section>
+</div>
 {% endblock %}
