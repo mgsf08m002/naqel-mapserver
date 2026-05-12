@@ -25,9 +25,20 @@ class Layer(models.Model):
 
 
 class Feature(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
     layer = models.ForeignKey(Layer,on_delete=models.CASCADE,related_name='features')
     geom = models.GeometryField(srid=4326)
     properties = models.JSONField(null=True, blank=True)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     uploaded_at = models.DateTimeField(auto_now=True)
     uploaded_by = models.ForeignKey(User,on_delete=models.CASCADE,related_name='features')

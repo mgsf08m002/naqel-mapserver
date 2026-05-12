@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import zipfile
@@ -6,8 +7,11 @@ from collections import defaultdict
 import fiona
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.conf import settings
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_http_methods
 
 from .models import Feature, Layer
 from .utils import coerce_epsg, find_new_features_against_riyadh_roads, simplify_crs
@@ -42,6 +46,61 @@ def _enforce_layer_uploader_access(request):
         return None
     logout(request)
     return redirect(f"{reverse('auth:login')}?no_permission=1&permission_type=layer_uploader")
+
+
+def _user_can_access_layer_review(user, layer):
+    if not _has_layer_uploader_access(user):
+        return False
+    if user.is_superuser:
+        return True
+    return layer.uploaded_by_id == user.id
+
+
+def _enforce_layer_review_access(request, layer):
+    if _user_can_access_layer_review(request.user, layer):
+        return None
+    logout(request)
+    return redirect(f"{reverse('auth:login')}?no_permission=1&permission_type=layer_uploader")
+
+
+def _review_json_forbidden():
+    return JsonResponse({"detail": "Forbidden"}, status=403)
+
+
+def _properties_preview(properties, limit=160):
+    if not properties:
+        return ""
+    try:
+        text = json.dumps(properties, ensure_ascii=False)
+    except TypeError:
+        text = str(properties)
+    text = text.replace("\n", " ").strip()
+    if len(text) > limit:
+        return text[: limit - 1] + "…"
+    return text
+
+
+def _feature_row_dict(feature):
+    env = feature.geom.extent
+    cx = (env[0] + env[2]) / 2
+    cy = (env[1] + env[3]) / 2
+    return {
+        "id": feature.pk,
+        "status": feature.status,
+        "properties_preview": _properties_preview(feature.properties),
+        "center": [cx, cy],
+        "bbox": [[env[0], env[1]], [env[2], env[3]]],
+    }
+
+
+def _approved_features_geojson(layer_id):
+    qs = Feature.objects.filter(layer_id=layer_id, status=Feature.Status.APPROVED).order_by("pk")
+    features = []
+    for f in qs:
+        geom = json.loads(f.geom.geojson)
+        props = {"upload_feature_id": f.pk}
+        features.append({"type": "Feature", "id": f.pk, "geometry": geom, "properties": props})
+    return {"type": "FeatureCollection", "features": features}
 
 
 def _find_shapefile_path(temp_dir, base_name):
@@ -118,7 +177,6 @@ def upload_view(request):
             return render(request, "layer_uploader/upload.html", context)
 
         request.session["temp_dir"] = temp_dir
-        request.session["options"] = [s["name"] for s in detected_shapefiles if s.get("name")]
         context["shapefiles"] = detected_shapefiles
 
         selectable = [s for s in detected_shapefiles if s.get("name") and not s.get("error")]
@@ -127,25 +185,6 @@ def upload_view(request):
             return redirect("validate")
 
     return render(request, "layer_uploader/upload.html", context)
-
-
-@login_required
-def select_view(request):
-    denied = _enforce_layer_uploader_access(request)
-    if denied:
-        return denied
-    if request.method == "POST":
-        request.session["selected"] = request.POST.get("selected")
-        return redirect("validate")
-
-    return render(
-        request,
-        "layer_uploader/select_shapefile.html",
-        {
-            "base_template": _resolve_base_template(request.user),
-            "options": request.session.get("options", []),
-        },
-    )
 
 
 @login_required
@@ -206,11 +245,12 @@ def validate_view(request):
                 geom=feat["geom"],
                 properties=feat["properties"],
                 uploaded_by=request.user,
+                status=Feature.Status.PENDING,
             )
             for feat in new_features_data
         ])
 
-        return redirect("success")
+        return redirect("layer_review", layer_id=layer.pk)
 
     return render(request, "layer_uploader/validate.html", context)
 
@@ -225,3 +265,95 @@ def success_view(request):
         "layer_uploader/success.html",
         {"base_template": _resolve_base_template(request.user)},
     )
+
+
+@login_required
+def review_view(request, layer_id):
+    layer = get_object_or_404(Layer, pk=layer_id)
+    denied = _enforce_layer_review_access(request, layer)
+    if denied:
+        return denied
+    base_template = _resolve_base_template(request.user)
+    return render(
+        request,
+        "layer_uploader/review.html",
+        {
+            "base_template": base_template,
+            "layer": layer,
+            "maptiler_api_key": settings.MAPTILER_API_KEY or "",
+            "riyadh_roads_tile_url": settings.RIYADH_ROADS_TILE_URL or "",
+        },
+    )
+
+
+@login_required
+@require_http_methods(["GET"])
+def review_geojson_view(request, layer_id):
+    layer = get_object_or_404(Layer, pk=layer_id)
+    if not _user_can_access_layer_review(request.user, layer):
+        return _review_json_forbidden()
+    payload = _approved_features_geojson(layer_id)
+    return JsonResponse(payload)
+
+
+@login_required
+@require_http_methods(["GET"])
+def review_table_json_view(request, layer_id):
+    layer = get_object_or_404(Layer, pk=layer_id)
+    if not _user_can_access_layer_review(request.user, layer):
+        return _review_json_forbidden()
+    rows = [_feature_row_dict(f) for f in layer.features.all().order_by("pk")]
+    counts = {
+        "pending": sum(1 for r in rows if r["status"] == Feature.Status.PENDING),
+        "approved": sum(1 for r in rows if r["status"] == Feature.Status.APPROVED),
+        "rejected": sum(1 for r in rows if r["status"] == Feature.Status.REJECTED),
+    }
+    return JsonResponse(
+        {
+            "layer": {"id": layer.pk, "name": layer.name},
+            "counts": counts,
+            "features": rows,
+        }
+    )
+
+
+@login_required
+@require_http_methods(["POST"])
+def review_action_view(request, layer_id):
+    layer = get_object_or_404(Layer, pk=layer_id)
+    if not _user_can_access_layer_review(request.user, layer):
+        return _review_json_forbidden()
+
+    try:
+        body = json.loads(request.body.decode() or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    action = body.get("action")
+    feature_id = body.get("feature_id")
+
+    if action == "approve_all":
+        updated = Feature.objects.filter(layer=layer).update(status=Feature.Status.APPROVED)
+        return JsonResponse({"ok": True, "updated": updated})
+
+    if action == "reject_all":
+        updated = Feature.objects.filter(layer=layer).update(status=Feature.Status.REJECTED)
+        return JsonResponse({"ok": True, "updated": updated})
+
+    if action not in ("approve", "reject") or feature_id is None:
+        return JsonResponse({"error": "Unknown action"}, status=400)
+
+    try:
+        feature_id = int(feature_id)
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "Invalid feature_id"}, status=400)
+
+    feature = Feature.objects.filter(pk=feature_id, layer=layer).first()
+    if not feature:
+        return JsonResponse({"error": "Feature not found"}, status=404)
+
+    new_status = Feature.Status.APPROVED if action == "approve" else Feature.Status.REJECTED
+    feature.status = new_status
+    feature.save(update_fields=["status"])
+
+    return JsonResponse({"ok": True})

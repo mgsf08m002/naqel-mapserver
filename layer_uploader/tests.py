@@ -57,10 +57,9 @@ class ValidateViewTests(TestCase):
         ):
             response = self.client.post(reverse("validate"))
 
-        self.assertRedirects(response, reverse("success"))
-        compare_mock.assert_called_once_with("C:\\temp\\naqel-upload\\uploaded_roads.shp")
-
         layer = Layer.objects.get()
+        self.assertRedirects(response, reverse("layer_review", kwargs={"layer_id": layer.pk}))
+        compare_mock.assert_called_once_with("C:\\temp\\naqel-upload\\uploaded_roads.shp")
         self.assertEqual(layer.name, "uploaded_roads")
         self.assertEqual(layer.total_features, 12)
         self.assertEqual(layer.new_features, 4)
@@ -73,6 +72,7 @@ class ValidateViewTests(TestCase):
             self.assertEqual(feat.uploaded_by, self.user)
             self.assertIsNotNone(feat.geom)
             self.assertIn("name", feat.properties)
+            self.assertEqual(feat.status, Feature.Status.PENDING)
 
     def test_validate_post_creates_no_features_when_all_exist(self):
         with (
@@ -82,9 +82,8 @@ class ValidateViewTests(TestCase):
         ):
             response = self.client.post(reverse("validate"))
 
-        self.assertRedirects(response, reverse("success"))
-
         layer = Layer.objects.get()
+        self.assertRedirects(response, reverse("layer_review", kwargs={"layer_id": layer.pk}))
         self.assertEqual(layer.new_features, 0)
         self.assertEqual(Feature.objects.count(), 0)
 

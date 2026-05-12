@@ -1,0 +1,93 @@
+{% extends 'layer_uploader/base.html' %}
+{% load static %}
+
+{% block title %}Review upload · {{ layer.name }}{% endblock %}
+
+{% block layer_content %}
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css" />
+<script src="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js"></script>
+
+<div
+  id="layer-review-root"
+  class="bg-white -mx-6 -my-6 px-4 sm:px-6 py-6 sm:py-8 min-h-[calc(100vh-64px)]"
+  data-layer-id="{{ layer.pk }}"
+  data-geojson-url="{% url 'layer_review_geojson' layer.pk %}"
+  data-table-url="{% url 'layer_review_table' layer.pk %}"
+  data-action-url="{% url 'layer_review_action' layer.pk %}"
+  data-success-url="{% url 'success' %}"
+  {% if maptiler_api_key %}data-maptiler-api-key="{{ maptiler_api_key }}"{% endif %}
+  {% if riyadh_roads_tile_url %}data-riyadh-roads-tile-url="{{ riyadh_roads_tile_url }}"{% endif %}
+>
+  {% csrf_token %}
+
+  <div class="flex flex-col gap-2 mb-4">
+    <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
+      <span class="h-px w-6 bg-gray-300"></span>
+      <span>Layer Uploader</span>
+    </div>
+    <h1 class="text-xl sm:text-2xl font-semibold text-gray-900">Review features · {{ layer.name }}</h1>
+    <p class="text-xs sm:text-sm text-gray-600 max-w-3xl">
+      Only <strong class="font-semibold text-gray-800">approved</strong> features appear on the map. Approve or reject each row, or use bulk actions. Select a row or a map feature to zoom in.
+    </p>
+  </div>
+
+  <div
+    id="review-map"
+    class="w-full rounded-xl border border-gray-200 overflow-hidden shadow-sm bg-gray-100"
+    style="height: 42vh; min-height: 280px;"
+  ></div>
+
+  <div class="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_minmax(240px,280px)] gap-6 items-start">
+    <div class="min-w-0 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <thead class="bg-gray-50 text-[11px] font-semibold uppercase tracking-wide text-gray-600">
+            <tr>
+              <th class="px-4 py-3">#</th>
+              <th class="px-4 py-3">Status</th>
+              <th class="px-4 py-3">Properties</th>
+              <th class="px-4 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="review-feature-rows">
+            <tr>
+              <td colspan="4" class="px-4 py-8 text-center text-gray-500 text-sm">Loading…</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <aside class="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-4 shadow-sm">
+      <div>
+        <h2 class="text-[11px] font-semibold uppercase tracking-wide text-gray-600">Summary</h2>
+        <ul id="review-counts" class="mt-2 space-y-1 text-sm text-gray-800">
+          <li>Pending: <span id="cnt-pending">—</span></li>
+          <li>Approved: <span id="cnt-approved">—</span></li>
+          <li>Rejected: <span id="cnt-rejected">—</span></li>
+        </ul>
+      </div>
+      <div class="flex flex-col gap-2">
+        <button type="button" id="btn-approve-all" class="rounded-full bg-emerald-700 px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-300 transition">
+          Approve all
+        </button>
+        <button type="button" id="btn-reject-all" class="rounded-full bg-red-700 px-4 py-2.5 text-xs font-semibold text-white hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-300 transition">
+          Reject all
+        </button>
+      </div>
+      <div class="pt-2 border-t border-gray-200">
+        <a
+          id="btn-finish"
+          href="{% url 'success' %}"
+          class="inline-flex w-full items-center justify-center rounded-full border border-gray-900 bg-white px-4 py-2.5 text-xs font-semibold text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 transition"
+        >
+          Finish
+        </a>
+        <p class="mt-2 text-[11px] text-gray-500">Opens the completion screen when you are done reviewing.</p>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script src="{% static 'layer_uploader/js/layer_review.js' %}"></script>
+{% endblock %}

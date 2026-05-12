@@ -9,3 +9,7 @@ docker compose up -d
 
 # Start with build and view logs
 docker compose up --build
+
+#For DB
+docker compose exec naqel_maps python manage.py makemigrations
+docker compose exec naqel_maps python manage.py migrate
