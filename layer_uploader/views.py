@@ -67,29 +67,38 @@ def _review_json_forbidden():
     return JsonResponse({"detail": "Forbidden"}, status=403)
 
 
-def _properties_preview(properties, limit=160):
-    if not properties:
-        return ""
-    try:
-        text = json.dumps(properties, ensure_ascii=False)
-    except TypeError:
-        text = str(properties)
-    text = text.replace("\n", " ").strip()
-    if len(text) > limit:
-        return text[: limit - 1] + "…"
-    return text
+def _property_entries(properties, max_rows=24):
+    """Structured rows for the review table (readable vs raw JSON blob)."""
+    if not properties or not isinstance(properties, dict):
+        return []
+    rows = []
+    for key in sorted(properties.keys(), key=lambda k: str(k).lower()):
+        if len(rows) >= max_rows:
+            break
+        val = properties[key]
+        if isinstance(val, (dict, list)):
+            try:
+                val_str = json.dumps(val, ensure_ascii=False)
+            except TypeError:
+                val_str = str(val)
+        else:
+            val_str = "" if val is None else str(val)
+        rows.append({"key": str(key), "value": val_str})
+    return rows
 
 
 def _feature_row_dict(feature):
     env = feature.geom.extent
     cx = (env[0] + env[2]) / 2
     cy = (env[1] + env[3]) / 2
+    geom_json = json.loads(feature.geom.geojson)
     return {
         "id": feature.pk,
         "status": feature.status,
-        "properties_preview": _properties_preview(feature.properties),
+        "property_entries": _property_entries(feature.properties),
         "center": [cx, cy],
         "bbox": [[env[0], env[1]], [env[2], env[3]]],
+        "geometry": geom_json,
     }
 
 
@@ -280,8 +289,8 @@ def review_view(request, layer_id):
         {
             "base_template": base_template,
             "layer": layer,
-            "maptiler_api_key": settings.MAPTILER_API_KEY or "",
             "riyadh_roads_tile_url": settings.RIYADH_ROADS_TILE_URL or "",
+            "maptiler_api_key": settings.MAPTILER_API_KEY or "",
         },
     )
 
@@ -327,7 +336,7 @@ def review_action_view(request, layer_id):
     try:
         body = json.loads(request.body.decode() or "{}")
     except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
+        return JsonResponse({"detail": "Invalid JSON"}, status=400)
 
     action = body.get("action")
     feature_id = body.get("feature_id")
@@ -341,16 +350,16 @@ def review_action_view(request, layer_id):
         return JsonResponse({"ok": True, "updated": updated})
 
     if action not in ("approve", "reject") or feature_id is None:
-        return JsonResponse({"error": "Unknown action"}, status=400)
+        return JsonResponse({"detail": "Unknown action"}, status=400)
 
     try:
         feature_id = int(feature_id)
     except (TypeError, ValueError):
-        return JsonResponse({"error": "Invalid feature_id"}, status=400)
+        return JsonResponse({"detail": "Invalid feature_id"}, status=400)
 
     feature = Feature.objects.filter(pk=feature_id, layer=layer).first()
     if not feature:
-        return JsonResponse({"error": "Feature not found"}, status=404)
+        return JsonResponse({"detail": "Feature not found"}, status=404)
 
     new_status = Feature.Status.APPROVED if action == "approve" else Feature.Status.REJECTED
     feature.status = new_status

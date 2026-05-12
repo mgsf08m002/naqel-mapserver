@@ -7,83 +7,361 @@
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css" />
 <script src="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js"></script>
 
+<style>
+  /* Review page: monochrome shell (scoped via #layer-review-root) */
+  #layer-review-root {
+    --lr-fg: #0a0a0a;
+    --lr-muted: #737373;
+    --lr-border: #e5e5e5;
+    --lr-surface: #fafafa;
+    --lr-selected: #f5f5f5;
+    color: var(--lr-fg);
+  }
+  #layer-review-root .lr-kicker {
+    letter-spacing: 0.2em;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--lr-muted);
+    text-transform: uppercase;
+  }
+  #layer-review-root .lr-title {
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  #layer-review-root .lr-lede {
+    font-size: 0.8125rem;
+    color: var(--lr-muted);
+    max-width: 42rem;
+    line-height: 1.45;
+  }
+  #review-map.review-map-frame {
+    border: 1px solid var(--lr-fg);
+    border-radius: 2px;
+    background: #e5e5e5;
+  }
+  #layer-review-root .lr-basemap-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem 1rem;
+    margin-bottom: 0.65rem;
+  }
+  #layer-review-root .lr-basemap-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--lr-muted);
+  }
+  #layer-review-root .lr-basemap-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  #layer-review-root .lr-basemap-opt {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid var(--lr-border);
+    border-radius: 2px;
+    background: #fff;
+    color: var(--lr-fg);
+    cursor: pointer;
+    transition: border-color 0.12s ease, background 0.12s ease;
+  }
+  #layer-review-root .lr-basemap-opt:hover {
+    border-color: var(--lr-fg);
+    background: var(--lr-surface);
+  }
+  #layer-review-root .lr-basemap-opt.lr-basemap-opt--active {
+    border-color: var(--lr-fg);
+    background: var(--lr-fg);
+    color: #fff;
+  }
+  #layer-review-root .lr-panel {
+    border: 1px solid var(--lr-border);
+    border-radius: 2px;
+    background: #fff;
+  }
+  #layer-review-root .lr-panel-muted {
+    border: 1px solid var(--lr-border);
+    border-radius: 2px;
+    background: var(--lr-surface);
+  }
+  #layer-review-root .lr-table-head {
+    background: var(--lr-surface);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--lr-muted);
+    border-bottom: 1px solid var(--lr-border);
+  }
+  #layer-review-root .lr-table-head th {
+    padding: 0.65rem 1rem;
+    font-weight: 600;
+  }
+  #layer-review-root .lr-table-row {
+    cursor: pointer;
+    border-top: 1px solid var(--lr-border);
+    transition: background 0.12s ease;
+  }
+  #layer-review-root .lr-table-row:hover {
+    background: var(--lr-surface);
+  }
+  #layer-review-root .lr-table-row.lr-row-selected {
+    background: var(--lr-selected);
+    outline: 2px solid var(--lr-fg);
+    outline-offset: -2px;
+  }
+  #layer-review-root .lr-td-num,
+  #layer-review-root .lr-td-status,
+  #layer-review-root .lr-td-props,
+  #layer-review-root .lr-td-actions {
+    padding: 0.65rem 1rem;
+    vertical-align: top;
+    font-size: 0.8125rem;
+  }
+  #layer-review-root .lr-td-num {
+    color: var(--lr-muted);
+    width: 2.5rem;
+  }
+  #layer-review-root .lr-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.45rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid var(--lr-fg);
+    border-radius: 2px;
+    background: #fff;
+    color: var(--lr-fg);
+  }
+  #layer-review-root .lr-badge-approved {
+    background: var(--lr-fg);
+    color: #fff;
+    border-color: var(--lr-fg);
+  }
+  #layer-review-root .lr-badge-rejected {
+    background: #fff;
+    color: var(--lr-muted);
+    border-color: #d4d4d4;
+    text-decoration: line-through;
+    text-decoration-color: #a3a3a3;
+  }
+  #layer-review-root .lr-badge-pending {
+    background: #fff;
+    color: var(--lr-fg);
+  }
+  #layer-review-root .lr-prop-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-width: 28rem;
+  }
+  #layer-review-root .lr-prop-row {
+    display: grid;
+    grid-template-columns: minmax(5rem, 8rem) 1fr;
+    gap: 0.5rem;
+    align-items: baseline;
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+  #layer-review-root .lr-prop-key {
+    font-weight: 600;
+    color: var(--lr-muted);
+    word-break: break-word;
+  }
+  #layer-review-root .lr-prop-val {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.7rem;
+    color: var(--lr-fg);
+    word-break: break-word;
+  }
+  #layer-review-root .lr-prop-fallback {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.7rem;
+    color: var(--lr-fg);
+  }
+  #layer-review-root .lr-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: var(--lr-muted);
+  }
+  #layer-review-root .lr-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    border: 1px solid var(--lr-fg);
+    background: #fff;
+    color: var(--lr-fg);
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  #layer-review-root .lr-btn:hover {
+    background: var(--lr-fg);
+    color: #fff;
+  }
+  #layer-review-root .lr-btn-approve {
+    margin-right: 0.35rem;
+  }
+  #layer-review-root .lr-sidebar-title {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--lr-muted);
+  }
+  #layer-review-root .lr-sidebar-counts {
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    color: var(--lr-fg);
+  }
+  #layer-review-root .lr-sidebar-counts span {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+  #layer-review-root .lr-btn-block {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    border: 1px solid var(--lr-fg);
+    background: #fff;
+    color: var(--lr-fg);
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  #layer-review-root .lr-btn-block:hover {
+    background: var(--lr-fg);
+    color: #fff;
+  }
+  #layer-review-root .lr-btn-finish {
+    display: inline-flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    border: 1px solid var(--lr-border);
+    background: #fff;
+    color: var(--lr-fg);
+    text-decoration: none;
+    transition: border-color 0.12s ease, background 0.12s ease;
+  }
+  #layer-review-root .lr-btn-finish:hover {
+    border-color: var(--lr-fg);
+    background: var(--lr-surface);
+  }
+  #layer-review-root .lr-sidebar-note {
+    font-size: 0.65rem;
+    color: var(--lr-muted);
+    line-height: 1.4;
+  }
+</style>
+
 <div
   id="layer-review-root"
   class="bg-white -mx-6 -my-6 px-4 sm:px-6 py-6 sm:py-8 min-h-[calc(100vh-64px)]"
-  data-layer-id="{{ layer.pk }}"
   data-geojson-url="{% url 'layer_review_geojson' layer.pk %}"
   data-table-url="{% url 'layer_review_table' layer.pk %}"
   data-action-url="{% url 'layer_review_action' layer.pk %}"
-  data-success-url="{% url 'success' %}"
-  {% if maptiler_api_key %}data-maptiler-api-key="{{ maptiler_api_key }}"{% endif %}
   {% if riyadh_roads_tile_url %}data-riyadh-roads-tile-url="{{ riyadh_roads_tile_url }}"{% endif %}
+  {% if maptiler_api_key %}data-maptiler-api-key="{{ maptiler_api_key }}"{% endif %}
 >
   {% csrf_token %}
 
-  <div class="flex flex-col gap-2 mb-4">
-    <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
-      <span class="h-px w-6 bg-gray-300"></span>
-      <span>Layer Uploader</span>
+  <div class="flex flex-col gap-3 mb-5">
+    <div class="flex items-center gap-2">
+      <span class="h-px w-8 bg-neutral-400"></span>
+      <span class="lr-kicker">Layer uploader</span>
     </div>
-    <h1 class="text-xl sm:text-2xl font-semibold text-gray-900">Review features · {{ layer.name }}</h1>
-    <p class="text-xs sm:text-sm text-gray-600 max-w-3xl">
-      Only <strong class="font-semibold text-gray-800">approved</strong> features appear on the map. Approve or reject each row, or use bulk actions. Select a row or a map feature to zoom in.
+    <h1 class="lr-title">Review features · {{ layer.name }}</h1>
+    <p class="lr-lede">
+      Approved features draw on the map in neutral gray. Pending and rejected rows are listed for review only.
+      Select a row or a feature on the map to zoom and highlight the geometry.
     </p>
+  </div>
+
+  <div class="lr-basemap-bar">
+    <span class="lr-basemap-label">Basemap</span>
+    <div id="review-basemap-strip" class="lr-basemap-strip" role="group" aria-label="Basemap"></div>
   </div>
 
   <div
     id="review-map"
-    class="w-full rounded-xl border border-gray-200 overflow-hidden shadow-sm bg-gray-100"
-    style="height: 42vh; min-height: 280px;"
+    class="review-map-frame w-full"
+    style="height: 44vh; min-height: 300px;"
   ></div>
 
-  <div class="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_minmax(240px,280px)] gap-6 items-start">
-    <div class="min-w-0 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+  <div class="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-5 items-start">
+    <div class="lr-panel min-w-0 overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-gray-50 text-[11px] font-semibold uppercase tracking-wide text-gray-600">
+        <table class="min-w-full text-left border-collapse">
+          <thead class="lr-table-head">
             <tr>
-              <th class="px-4 py-3">#</th>
-              <th class="px-4 py-3">Status</th>
-              <th class="px-4 py-3">Properties</th>
-              <th class="px-4 py-3 text-right">Actions</th>
+              <th scope="col">#</th>
+              <th scope="col">Status</th>
+              <th scope="col">Properties</th>
+              <th scope="col" class="text-right">Actions</th>
             </tr>
           </thead>
           <tbody id="review-feature-rows">
             <tr>
-              <td colspan="4" class="px-4 py-8 text-center text-gray-500 text-sm">Loading…</td>
+              <td colspan="4" class="lr-empty">Loading…</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <aside class="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-4 shadow-sm">
+    <aside class="lr-panel-muted p-4 space-y-5">
       <div>
-        <h2 class="text-[11px] font-semibold uppercase tracking-wide text-gray-600">Summary</h2>
-        <ul id="review-counts" class="mt-2 space-y-1 text-sm text-gray-800">
+        <h2 class="lr-sidebar-title">Summary</h2>
+        <ul id="review-counts" class="lr-sidebar-counts mt-2 list-none p-0 space-y-1">
           <li>Pending: <span id="cnt-pending">—</span></li>
           <li>Approved: <span id="cnt-approved">—</span></li>
           <li>Rejected: <span id="cnt-rejected">—</span></li>
         </ul>
       </div>
       <div class="flex flex-col gap-2">
-        <button type="button" id="btn-approve-all" class="rounded-full bg-emerald-700 px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-300 transition">
+        <button type="button" id="btn-approve-all" class="lr-btn-block">
           Approve all
         </button>
-        <button type="button" id="btn-reject-all" class="rounded-full bg-red-700 px-4 py-2.5 text-xs font-semibold text-white hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-300 transition">
+        <button type="button" id="btn-reject-all" class="lr-btn-block">
           Reject all
         </button>
       </div>
-      <div class="pt-2 border-t border-gray-200">
+      <div class="pt-3 border-t border-neutral-200">
         <a
           id="btn-finish"
           href="{% url 'success' %}"
-          class="inline-flex w-full items-center justify-center rounded-full border border-gray-900 bg-white px-4 py-2.5 text-xs font-semibold text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 transition"
+          class="lr-btn-finish"
         >
           Finish
         </a>
-        <p class="mt-2 text-[11px] text-gray-500">Opens the completion screen when you are done reviewing.</p>
+        <p class="lr-sidebar-note mt-2">
+          Continue to the completion screen when you are done.
+        </p>
       </div>
     </aside>
   </div>

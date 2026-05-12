@@ -34,7 +34,7 @@
               <button type="submit" class="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
                 Upload & detect
               </button>
-              <a href="/layer_uploader/" class="text-sm font-medium text-gray-600 hover:text-gray-900 border-b border-gray-300 hover:border-gray-700">
+              <a href="{% url 'upload' %}" class="text-sm font-medium text-gray-600 hover:text-gray-900 border-b border-gray-300 hover:border-gray-700">
                 Reset
               </a>
             </div>
@@ -96,7 +96,7 @@
             <button type="submit" class="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
               Continue
             </button>
-            <a href="/layer_uploader/" class="text-sm font-medium text-gray-600 hover:text-gray-900 border-b border-gray-300 hover:border-gray-700">
+            <a href="{% url 'upload' %}" class="text-sm font-medium text-gray-600 hover:text-gray-900 border-b border-gray-300 hover:border-gray-700">
               Upload again
             </a>
           </div>

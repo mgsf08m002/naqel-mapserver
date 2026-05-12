@@ -124,6 +124,10 @@ if DEBUG:
         "https://api.maptiler.com",
         "https://demotiles.maplibre.org",
         "https://fonts.openmaptiles.org",
+        # Carto Light basemap (layer uploader review map raster tiles).
+        "https://a.basemaps.cartocdn.com",
+        "https://b.basemaps.cartocdn.com",
+        "https://c.basemaps.cartocdn.com",
         RIYADH_ROADS_TILE_ORIGIN,
     ]
     CSP_CONNECT_SRC = [
@@ -136,6 +140,10 @@ if DEBUG:
         "https://fonts.openmaptiles.org",
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",
+        # Carto CDN (MapLibre fetch() for raster tiles).
+        "https://a.basemaps.cartocdn.com",
+        "https://b.basemaps.cartocdn.com",
+        "https://c.basemaps.cartocdn.com",
         RIYADH_ROADS_TILE_ORIGIN,
     ]
     CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers.
@@ -154,6 +162,9 @@ else:
         "https://api.maptiler.com",
         "https://demotiles.maplibre.org",
         "https://fonts.openmaptiles.org",
+        "https://a.basemaps.cartocdn.com",
+        "https://b.basemaps.cartocdn.com",
+        "https://c.basemaps.cartocdn.com",
         RIYADH_ROADS_TILE_ORIGIN,
     ]
     CSP_CONNECT_SRC = [
@@ -166,6 +177,9 @@ else:
         "https://fonts.openmaptiles.org",
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",
+        "https://a.basemaps.cartocdn.com",
+        "https://b.basemaps.cartocdn.com",
+        "https://c.basemaps.cartocdn.com",
         RIYADH_ROADS_TILE_ORIGIN,
     ]
     CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers.
