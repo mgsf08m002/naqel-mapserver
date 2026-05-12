@@ -136,9 +136,6 @@ def find_new_features_against_riyadh_roads(
                 geom.transform(target_srid)
 
             raw_props = feature.get("properties") or {}
-            # Fiona 2.x Properties objects also need conversion to plain dict.
-            if hasattr(raw_props, "__geo_interface__"):
-                raw_props = dict(raw_props.__geo_interface__)
             properties = dict(raw_props)
             rows_to_insert.append((Binary(bytes(geom.wkb)), json.dumps(properties, cls=_SafeJsonEncoder)))
 

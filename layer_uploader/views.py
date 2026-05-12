@@ -301,7 +301,7 @@ def review_geojson_view(request, layer_id):
     layer = get_object_or_404(Layer, pk=layer_id)
     if not _user_can_access_layer_review(request.user, layer):
         return _review_json_forbidden()
-    payload = _approved_features_geojson(layer_id)
+    payload = _approved_features_geojson(layer.pk)
     return JsonResponse(payload)
 
 
@@ -311,12 +311,10 @@ def review_table_json_view(request, layer_id):
     layer = get_object_or_404(Layer, pk=layer_id)
     if not _user_can_access_layer_review(request.user, layer):
         return _review_json_forbidden()
-    rows = [_feature_row_dict(f) for f in layer.features.all().order_by("pk")]
-    counts = {
-        "pending": sum(1 for r in rows if r["status"] == Feature.Status.PENDING),
-        "approved": sum(1 for r in rows if r["status"] == Feature.Status.APPROVED),
-        "rejected": sum(1 for r in rows if r["status"] == Feature.Status.REJECTED),
-    }
+    rows = [_feature_row_dict(f) for f in Feature.objects.filter(layer=layer).order_by("pk")]
+    counts = {"pending": 0, "approved": 0, "rejected": 0}
+    for r in rows:
+        counts[r["status"]] += 1
     return JsonResponse(
         {
             "layer": {"id": layer.pk, "name": layer.name},

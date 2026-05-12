@@ -21,7 +21,10 @@
 
     const RIYADH_LINE_WIDTH = 3;
 
-    const MAP_GLYPHS_URL = 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf';
+    /** Match main map (`mapping/static/mapping/js/map.js`): MapTiler glyphs when key is set. */
+    const MAP_GLYPHS_URL = HAS_MAPTILER
+        ? 'https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=' + MAPTILER_API_KEY
+        : 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf';
 
     const SOURCE_ID_RIYADH = 'riyadh-roads';
     const PUBLIC_LAYER_ID_RIYADH = 'riyadh-roads-public-layer';
@@ -29,31 +32,33 @@
     const SOURCE_UPLOAD = 'lr-upload-approved';
     const SOURCE_SELECTION = 'lr-selection-overlay';
 
+    const GEOM_FILTER_LINE = [
+        'any',
+        ['==', ['geometry-type'], 'LineString'],
+        ['==', ['geometry-type'], 'MultiLineString'],
+    ];
+    const GEOM_FILTER_POLY = [
+        'any',
+        ['==', ['geometry-type'], 'Polygon'],
+        ['==', ['geometry-type'], 'MultiPolygon'],
+    ];
+    const GEOM_FILTER_POINT = ['any', ['==', ['geometry-type'], 'Point'], ['==', ['geometry-type'], 'MultiPoint']];
+
     const bounds = [
         [45.475, 23.981],
         [48.733, 25.664],
     ];
 
+    /** Warm neutral road color (matches main map on imagery); works on Satellite, Streets, Outdoor. */
+    const RIYADH_ROADS_LINE_COLOR = '#e3d1a3';
+
+    const ICON_APPROVE_SVG =
+        '<svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>';
+    const ICON_REJECT_SVG =
+        '<svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+
     function buildBasemapDefinitions() {
         const defs = [
-            {
-                id: 'carto-light',
-                label: 'Light',
-                theme: 'light',
-                sourceId: 'review-bm-carto-light',
-                layerId: 'review-bm-carto-light-layer',
-                tiles: ['https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'],
-                attribution: '© OpenStreetMap © CARTO',
-            },
-            {
-                id: 'carto-dark',
-                label: 'Dark',
-                theme: 'dark',
-                sourceId: 'review-bm-carto-dark',
-                layerId: 'review-bm-carto-dark-layer',
-                tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
-                attribution: '© OpenStreetMap © CARTO',
-            },
             {
                 id: 'esri-satellite',
                 label: 'Satellite',
@@ -87,15 +92,6 @@
                     layerId: 'review-bm-mt-outdoor-layer',
                     tiles: [mb + '/outdoor-v2/256/{z}/{x}/{y}.png?key=' + k],
                     attribution: '© MapTiler © OpenStreetMap contributors',
-                },
-                {
-                    id: 'maptiler-dark',
-                    label: 'Midnight',
-                    theme: 'dark',
-                    sourceId: 'review-bm-mt-dark',
-                    layerId: 'review-bm-mt-dark-layer',
-                    tiles: [mb + '/darkmatter/256/{z}/{x}/{y}.png?key=' + k],
-                    attribution: '© MapTiler © OpenStreetMap contributors',
                 }
             );
         }
@@ -103,7 +99,7 @@
     }
 
     const BASEMAP_DEFINITIONS = buildBasemapDefinitions();
-    let currentBasemapId = 'carto-light';
+    let currentBasemapId = 'esri-satellite';
 
     function buildInitialStyle() {
         const sources = {};
@@ -154,19 +150,9 @@
     );
 
     function overlayPalette(theme) {
-        if (theme === 'dark') {
-            return {
-                riyadh: '#ececec',
-                approved: '#b0b0b0',
-                selHalo: '#121212',
-                selCore: '#fafafa',
-                fillOutline: '#fafafa',
-                pointStroke: '#121212',
-            };
-        }
         if (theme === 'imagery') {
             return {
-                riyadh: '#f5e6b8',
+                riyadh: RIYADH_ROADS_LINE_COLOR,
                 approved: '#e8e8e8',
                 selHalo: '#ffffff',
                 selCore: '#141414',
@@ -175,7 +161,7 @@
             };
         }
         return {
-            riyadh: '#1a1a1a',
+            riyadh: RIYADH_ROADS_LINE_COLOR,
             approved: '#525252',
             selHalo: '#ffffff',
             selCore: '#0a0a0a',
@@ -320,7 +306,7 @@
                 'line-join': 'round',
             },
             paint: {
-                'line-color': '#1a1a1a',
+                'line-color': RIYADH_ROADS_LINE_COLOR,
                 'line-width': RIYADH_LINE_WIDTH,
                 'line-opacity': 1,
             },
@@ -390,7 +376,7 @@
             bb = geom ? boundsFromGeometry(geom) : null;
         }
 
-        if (bb && (boundsArea(bb) < 1e-14 || boundsArea(bb) < 1e-10)) {
+        if (bb && boundsArea(bb) < 1e-10) {
             bb = padBounds(bb, 0.002);
         }
 
@@ -441,23 +427,11 @@
             data: { type: 'FeatureCollection', features: [] },
         });
 
-        const lineFilter = [
-            'any',
-            ['==', ['geometry-type'], 'LineString'],
-            ['==', ['geometry-type'], 'MultiLineString'],
-        ];
-        const polyFilter = [
-            'any',
-            ['==', ['geometry-type'], 'Polygon'],
-            ['==', ['geometry-type'], 'MultiPolygon'],
-        ];
-        const pointFilter = ['any', ['==', ['geometry-type'], 'Point'], ['==', ['geometry-type'], 'MultiPoint']];
-
         map.addLayer({
             id: 'lr-sel-fill',
             type: 'fill',
             source: SOURCE_SELECTION,
-            filter: polyFilter,
+            filter: GEOM_FILTER_POLY,
             paint: {
                 'fill-color': '#0a0a0a',
                 'fill-opacity': 0.22,
@@ -468,7 +442,7 @@
             id: 'lr-sel-line-halo',
             type: 'line',
             source: SOURCE_SELECTION,
-            filter: lineFilter,
+            filter: GEOM_FILTER_LINE,
             layout: { 'line-cap': 'round', 'line-join': 'round' },
             paint: {
                 'line-color': '#ffffff',
@@ -480,7 +454,7 @@
             id: 'lr-sel-line-core',
             type: 'line',
             source: SOURCE_SELECTION,
-            filter: lineFilter,
+            filter: GEOM_FILTER_LINE,
             layout: { 'line-cap': 'round', 'line-join': 'round' },
             paint: {
                 'line-color': '#0a0a0a',
@@ -492,7 +466,7 @@
             id: 'lr-sel-points-halo',
             type: 'circle',
             source: SOURCE_SELECTION,
-            filter: pointFilter,
+            filter: GEOM_FILTER_POINT,
             paint: {
                 'circle-radius': 14,
                 'circle-color': '#ffffff',
@@ -503,7 +477,7 @@
             id: 'lr-sel-points-core',
             type: 'circle',
             source: SOURCE_SELECTION,
-            filter: pointFilter,
+            filter: GEOM_FILTER_POINT,
             paint: {
                 'circle-radius': 7,
                 'circle-color': '#0a0a0a',
@@ -541,24 +515,13 @@
         if (!map.getSource(SOURCE_UPLOAD)) {
             return;
         }
-        const lineFilter = [
-            'any',
-            ['==', ['geometry-type'], 'LineString'],
-            ['==', ['geometry-type'], 'MultiLineString'],
-        ];
-        const polyFilter = [
-            'any',
-            ['==', ['geometry-type'], 'Polygon'],
-            ['==', ['geometry-type'], 'MultiPolygon'],
-        ];
-        const pointFilter = ['any', ['==', ['geometry-type'], 'Point'], ['==', ['geometry-type'], 'MultiPoint']];
 
         if (!map.getLayer('lr-lines')) {
             map.addLayer({
                 id: 'lr-lines',
                 type: 'line',
                 source: SOURCE_UPLOAD,
-                filter: lineFilter,
+                filter: GEOM_FILTER_LINE,
                 paint: {
                     'line-color': '#525252',
                     'line-width': 4,
@@ -571,7 +534,7 @@
                 id: 'lr-fill',
                 type: 'fill',
                 source: SOURCE_UPLOAD,
-                filter: polyFilter,
+                filter: GEOM_FILTER_POLY,
                 paint: {
                     'fill-color': '#525252',
                     'fill-opacity': 0.1,
@@ -584,7 +547,7 @@
                 id: 'lr-points',
                 type: 'circle',
                 source: SOURCE_UPLOAD,
-                filter: pointFilter,
+                filter: GEOM_FILTER_POINT,
                 paint: {
                     'circle-radius': 6,
                     'circle-color': '#525252',
@@ -786,28 +749,32 @@
             tdSt.className = 'lr-td-status';
             tdSt.innerHTML = statusBadge(f.status);
 
-            const tdPrev = document.createElement('td');
-            tdPrev.className = 'lr-td-props';
-            tdPrev.innerHTML = renderPropertiesCell(f);
+            const tdProps = document.createElement('td');
+            tdProps.className = 'lr-td-props';
+            tdProps.innerHTML = renderPropertiesCell(f);
 
             const tdAct = document.createElement('td');
             tdAct.className = 'lr-td-actions';
             const bA = document.createElement('button');
             bA.type = 'button';
-            bA.className = 'lr-btn lr-btn-approve';
+            bA.className = 'lr-action-btn lr-action-btn--approve';
             bA.dataset.fid = String(f.id);
-            bA.textContent = 'Approve';
+            bA.setAttribute('aria-label', 'Approve feature');
+            bA.setAttribute('title', 'Approve');
+            bA.innerHTML = ICON_APPROVE_SVG;
             const bR = document.createElement('button');
             bR.type = 'button';
-            bR.className = 'lr-btn lr-btn-reject';
+            bR.className = 'lr-action-btn lr-action-btn--reject';
             bR.dataset.fid = String(f.id);
-            bR.textContent = 'Reject';
+            bR.setAttribute('aria-label', 'Reject feature');
+            bR.setAttribute('title', 'Reject');
+            bR.innerHTML = ICON_REJECT_SVG;
             tdAct.appendChild(bA);
             tdAct.appendChild(bR);
 
             tr.appendChild(tdNum);
             tr.appendChild(tdSt);
-            tr.appendChild(tdPrev);
+            tr.appendChild(tdProps);
             tr.appendChild(tdAct);
 
             const rowRef = {
@@ -817,7 +784,7 @@
             };
 
             tr.addEventListener('click', function (e) {
-                if (e.target.closest('.lr-btn')) {
+                if (e.target.closest('.lr-action-btn')) {
                     return;
                 }
                 const fid = parseInt(tr.dataset.featureId, 10);

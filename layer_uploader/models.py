@@ -30,7 +30,7 @@ class Feature(models.Model):
         APPROVED = "approved", "Approved"
         REJECTED = "rejected", "Rejected"
 
-    layer = models.ForeignKey(Layer,on_delete=models.CASCADE,related_name='features')
+    layer = models.ForeignKey(Layer, on_delete=models.CASCADE, related_name='features')
     geom = models.GeometryField(srid=4326)
     properties = models.JSONField(null=True, blank=True)
     status = models.CharField(
@@ -41,7 +41,7 @@ class Feature(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     uploaded_at = models.DateTimeField(auto_now=True)
-    uploaded_by = models.ForeignKey(User,on_delete=models.CASCADE,related_name='features')
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='features')
 
     def __str__(self):
         return f"Feature {self.id} - {self.layer.name}"
