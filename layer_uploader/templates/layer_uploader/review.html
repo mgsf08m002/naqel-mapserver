@@ -8,155 +8,219 @@
 <script src="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js"></script>
 
 <style>
-  #layer-review-root {
-    --lr-fg: #0f0f0f;
+  /* White page, neutral UI — no tinted page background */
+  #layer-review-root.lr-shell {
+    --lr-fg: #111827;
     --lr-muted: #6b7280;
-    --lr-border: #e7e7ea;
-    --lr-surface: #f6f6f8;
-    --lr-card: #ffffff;
-    --lr-selected: #eef0f4;
-    --lr-shadow: 0 1px 2px rgba(15, 15, 15, 0.06), 0 4px 12px rgba(15, 15, 15, 0.04);
-    --lr-radius: 12px;
-    --lr-radius-sm: 8px;
+    --lr-border: #e5e7eb;
+    --lr-border-strong: #d1d5db;
+    --lr-map-placeholder: #e5e7eb;
+    --lr-hover: #f9fafb;
+    --lr-selected-bg: #f3f4f6;
+    --lr-selected-bar: #111827;
+    background: #ffffff;
     color: var(--lr-fg);
-    max-width: 1280px;
-    margin-left: auto;
-    margin-right: auto;
   }
 
-  #layer-review-root .lr-page-head {
+  #layer-review-root .lr-head {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    padding-bottom: 1.25rem;
     margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--lr-border);
   }
   @media (min-width: 640px) {
-    #layer-review-root .lr-page-head {
+    #layer-review-root .lr-head {
       flex-direction: row;
       flex-wrap: wrap;
       align-items: flex-start;
       justify-content: space-between;
+      gap: 1rem 2rem;
     }
   }
-  #layer-review-root .lr-page-head-main {
+
+  #layer-review-root .lr-head-main {
     flex: 1;
     min-width: 0;
   }
+
   #layer-review-root .lr-title {
-    font-size: clamp(1.25rem, 2.5vw, 1.625rem);
+    font-size: clamp(1.375rem, 2.5vw, 1.75rem);
     font-weight: 650;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.02em;
     line-height: 1.2;
-    margin: 0 0 0.35rem;
+    margin: 0 0 0.5rem;
   }
-  #layer-review-root .lr-upload-meta {
+
+  #layer-review-root .lr-upload-line {
     font-size: 0.875rem;
-    color: var(--lr-fg);
     margin: 0 0 0.65rem;
-    line-height: 1.4;
+    line-height: 1.45;
   }
-  #layer-review-root .lr-upload-meta-label {
-    font-weight: 600;
+  #layer-review-root .lr-upload-line .lr-upload-label {
     color: var(--lr-muted);
+    font-weight: 500;
     margin-right: 0.35rem;
   }
-  #layer-review-root .lr-upload-meta-value {
+  #layer-review-root .lr-upload-line .lr-upload-name {
     font-weight: 600;
     word-break: break-word;
   }
+
   #layer-review-root .lr-lede {
     font-size: 0.875rem;
     color: var(--lr-muted);
     line-height: 1.55;
-    max-width: 36rem;
+    max-width: 40rem;
     margin: 0;
   }
-  #layer-review-root .lr-head-actions {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-  }
-  #layer-review-root .lr-btn-finish-head {
+
+  #layer-review-root .lr-btn-finish {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 0.5rem 1rem;
     font-size: 0.8125rem;
     font-weight: 600;
-    border-radius: var(--lr-radius-sm);
-    border: 1px solid var(--lr-border);
-    background: var(--lr-card);
     color: var(--lr-fg);
     text-decoration: none;
-    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    border: 1px solid var(--lr-border-strong);
+    border-radius: 6px;
+    background: #fff;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    flex-shrink: 0;
   }
-  #layer-review-root .lr-btn-finish-head:hover {
+  #layer-review-root .lr-btn-finish:hover {
     border-color: var(--lr-fg);
-    background: var(--lr-surface);
-    box-shadow: var(--lr-shadow);
+    background: var(--lr-hover);
   }
 
-  #layer-review-root .lr-layout {
+  /* Main + sidebar */
+  #layer-review-root .lr-body {
     display: grid;
-    gap: 1.25rem;
+    gap: 1.75rem;
     align-items: start;
   }
   @media (min-width: 1024px) {
-    #layer-review-root .lr-layout {
-      grid-template-columns: minmax(0, 1fr) 280px;
+    #layer-review-root .lr-body {
+      grid-template-columns: minmax(0, 1fr) 240px;
+      gap: 2rem;
     }
   }
 
-  #layer-review-root .lr-stack {
+  #layer-review-root .lr-main {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 2rem;
     min-width: 0;
   }
 
-  #layer-review-root .lr-card {
-    background: var(--lr-card);
-    border: 1px solid var(--lr-border);
-    border-radius: var(--lr-radius);
-    box-shadow: var(--lr-shadow);
-    overflow: hidden;
+  #layer-review-root .lr-aside {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding-top: 0.25rem;
   }
-  #layer-review-root .lr-card-hd {
+  @media (min-width: 1024px) {
+    #layer-review-root .lr-aside {
+      padding-left: 1.5rem;
+      border-left: 1px solid var(--lr-border);
+    }
+  }
+
+  #layer-review-root .lr-aside-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  #layer-review-root .lr-aside-label {
+    margin: 0;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--lr-muted);
+  }
+
+  #layer-review-root .lr-stat-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  #layer-review-root .lr-stat {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--lr-border);
+  }
+  #layer-review-root .lr-stat:last-child {
+    border-bottom: none;
+  }
+
+  #layer-review-root .lr-stat-label {
+    font-size: 0.8125rem;
+    color: var(--lr-muted);
+  }
+
+  #layer-review-root .lr-stat-val {
+    font-size: 1.125rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--lr-fg);
+  }
+
+  #layer-review-root .lr-aside-note {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--lr-muted);
+    line-height: 1.45;
+  }
+
+  /* Map */
+  #layer-review-root .lr-map-head {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem 1rem;
-    padding: 0.75rem 1rem;
-    background: linear-gradient(180deg, #fafafb 0%, #f4f4f6 100%);
-    border-bottom: 1px solid var(--lr-border);
+    margin-bottom: 0.75rem;
   }
-  #layer-review-root .lr-card-title {
+
+  #layer-review-root .lr-section-label {
     margin: 0;
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--lr-muted);
   }
+
   #layer-review-root .lr-basemap-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
   }
+
   #layer-review-root .lr-basemap-label {
     font-size: 0.6875rem;
     font-weight: 600;
     color: var(--lr-muted);
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
   }
+
   #layer-review-root .lr-basemap-strip {
     display: flex;
     flex-wrap: wrap;
     gap: 0.375rem;
   }
+
   #layer-review-root .lr-basemap-opt {
     padding: 0.35rem 0.7rem;
     font-size: 0.6875rem;
@@ -171,8 +235,8 @@
     transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
   }
   #layer-review-root .lr-basemap-opt:hover {
-    border-color: #c4c4cc;
-    background: #fff;
+    border-color: var(--lr-border-strong);
+    background: var(--lr-hover);
   }
   #layer-review-root .lr-basemap-opt.lr-basemap-opt--active {
     border-color: var(--lr-fg);
@@ -183,29 +247,34 @@
   #review-map.review-map-frame {
     display: block;
     width: 100%;
-    height: min(48vh, 520px);
+    height: min(46vh, 500px);
     min-height: 280px;
-    background: #dfe2e8;
-    border: none;
+    margin: 0;
+    border: 1px solid var(--lr-border);
+    border-radius: 8px;
+    background: var(--lr-map-placeholder);
   }
 
-  #layer-review-root .lr-table-card .lr-card-hd {
-    justify-content: flex-start;
+  /* Table */
+  #layer-review-root .lr-table-head-row {
+    margin-bottom: 0.65rem;
   }
+
   #layer-review-root .lr-table-wrap {
     overflow-x: auto;
     overflow-y: auto;
     max-height: min(52vh, 560px);
   }
+
   #layer-review-root .lr-table {
     width: 100%;
     min-width: 720px;
     table-layout: fixed;
-    border-collapse: separate;
-    border-spacing: 0;
+    border-collapse: collapse;
     text-align: left;
     font-size: 0.8125rem;
   }
+
   #layer-review-root .lr-col-num {
     width: 2.75rem;
   }
@@ -218,23 +287,24 @@
   #layer-review-root .lr-col-actions {
     width: 10.5rem;
   }
+
   #layer-review-root .lr-table-head th {
     position: sticky;
     top: 0;
     z-index: 2;
-    padding: 0.75rem 1rem;
+    padding: 0.65rem 0.85rem;
     font-size: 0.6875rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    font-weight: 600;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--lr-muted);
-    background: #fbfbfc;
-    border-bottom: 1px solid var(--lr-border);
-    box-shadow: 0 1px 0 rgba(15, 15, 15, 0.04);
+    background: #ffffff;
+    border-bottom: 1px solid var(--lr-border-strong);
   }
   #layer-review-root .lr-table-head th:last-child {
     text-align: right;
   }
+
   #layer-review-root .lr-table-row {
     cursor: pointer;
     transition: background 0.1s ease;
@@ -244,27 +314,26 @@
     vertical-align: top;
   }
   #layer-review-root .lr-table-row:hover {
-    background: rgba(246, 246, 248, 0.85);
+    background: var(--lr-hover);
   }
   #layer-review-root .lr-table-row.lr-row-selected {
-    background: var(--lr-selected);
-    box-shadow: inset 3px 0 0 0 var(--lr-fg);
+    background: var(--lr-selected-bg);
+    box-shadow: inset 3px 0 0 0 var(--lr-selected-bar);
   }
+
   #layer-review-root .lr-td-num {
-    padding: 0.75rem 0.65rem 0.75rem 1rem;
+    padding: 0.75rem 0.65rem 0.75rem 0.5rem;
     font-variant-numeric: tabular-nums;
     color: var(--lr-muted);
     font-weight: 600;
-    vertical-align: top;
+    font-size: 0.75rem;
   }
   #layer-review-root .lr-td-status {
     padding: 0.75rem 0.65rem 0.75rem 0;
     white-space: nowrap;
-    vertical-align: top;
   }
   #layer-review-root .lr-td-props {
     padding: 0.75rem 0.85rem;
-    vertical-align: top;
     word-wrap: break-word;
     overflow-wrap: anywhere;
     min-width: 0;
@@ -274,10 +343,8 @@
     align-items: center;
     justify-content: flex-end;
     gap: 0.5rem;
-    padding: 0.65rem 1rem 0.65rem 0.5rem;
-    text-align: right;
+    padding: 0.65rem 0.5rem 0.65rem 0.5rem;
     white-space: nowrap;
-    vertical-align: top;
   }
 
   #layer-review-root .lr-badge {
@@ -301,14 +368,14 @@
   #layer-review-root .lr-badge-rejected {
     background: #fff;
     color: var(--lr-muted);
-    border-color: #d8d8de;
+    border-color: var(--lr-border-strong);
     text-decoration: line-through;
-    text-decoration-color: #b4b4bc;
+    text-decoration-color: #d1d5db;
   }
   #layer-review-root .lr-badge-pending {
     background: #fff;
     color: var(--lr-fg);
-    border-color: #c8c8d0;
+    border-color: var(--lr-border-strong);
   }
 
   #layer-review-root .lr-prop-list {
@@ -342,8 +409,9 @@
     font-size: 0.6875rem;
     color: var(--lr-muted);
   }
+
   #layer-review-root .lr-empty {
-    padding: 2.5rem 1.5rem;
+    padding: 2.5rem 1rem;
     text-align: center;
     font-size: 0.875rem;
     color: var(--lr-muted);
@@ -356,7 +424,7 @@
     width: 2.25rem;
     height: 2.25rem;
     padding: 0;
-    border-radius: var(--lr-radius-sm);
+    border-radius: 6px;
     border: 1px solid transparent;
     cursor: pointer;
     transition: background 0.12s ease, border-color 0.12s ease, transform 0.08s ease;
@@ -390,14 +458,14 @@
     flex-shrink: 0;
     pointer-events: none;
   }
-  #layer-review-root .lr-actions--bulk {
+
+  #layer-review-root .lr-actions-bulk {
+    display: flex;
     flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0.65rem;
+    gap: 0.5rem;
   }
   #layer-review-root .lr-action-btn--bulk {
-    flex: 1 1 calc(50% - 0.35rem);
-    min-width: 5rem;
+    flex: 1;
     min-height: 2.75rem;
     width: auto;
     height: auto;
@@ -406,80 +474,11 @@
     width: 1.35rem;
     height: 1.35rem;
   }
-
-  #layer-review-root .lr-rail {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-  @media (min-width: 1024px) {
-    #layer-review-root .lr-rail {
-      position: sticky;
-      top: 1rem;
-    }
-  }
-  #layer-review-root .lr-rail-card {
-    background: var(--lr-card);
-    border: 1px solid var(--lr-border);
-    border-radius: var(--lr-radius);
-    box-shadow: var(--lr-shadow);
-    padding: 1rem;
-  }
-  #layer-review-root .lr-rail-title {
-    margin: 0 0 0.75rem;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--lr-muted);
-  }
-  #layer-review-root .lr-stat-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
-  #layer-review-root .lr-stat {
-    text-align: center;
-    padding: 0.65rem 0.4rem;
-    border-radius: var(--lr-radius-sm);
-    border: 1px solid var(--lr-border);
-    background: var(--lr-surface);
-  }
-  #layer-review-root .lr-stat-label {
-    display: block;
-    font-size: 0.625rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--lr-muted);
-    margin-bottom: 0.25rem;
-  }
-  #layer-review-root .lr-stat-val {
-    font-size: 1.25rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.2;
-  }
-  #layer-review-root .lr-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  #layer-review-root .lr-sidebar-note {
-    margin: 0;
-    font-size: 0.6875rem;
-    color: var(--lr-muted);
-    line-height: 1.45;
-  }
-  #layer-review-root .lr-note-em {
-    font-weight: 650;
-    color: var(--lr-fg);
-  }
 </style>
 
 <div
   id="layer-review-root"
-  class="bg-white -mx-6 -my-6 px-4 sm:px-6 py-6 sm:py-8 min-h-[calc(100vh-64px)]"
+  class="lr-shell bg-white -mx-6 -my-6 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 min-h-[calc(100vh-64px)]"
   data-geojson-url="{% url 'layer_review_geojson' layer.pk %}"
   data-table-url="{% url 'layer_review_table' layer.pk %}"
   data-action-url="{% url 'layer_review_action' layer.pk %}"
@@ -488,39 +487,37 @@
 >
   {% csrf_token %}
 
-  <header class="lr-page-head">
-    <div class="lr-page-head-main">
+  <header class="lr-head">
+    <div class="lr-head-main">
       <h1 class="lr-title">Review Features</h1>
-      <p class="lr-upload-meta">
-        <span class="lr-upload-meta-label">Uploaded Shape File :</span>
-        <span class="lr-upload-meta-value">{{ layer.name }}</span>
+      <p class="lr-upload-line">
+        <span class="lr-upload-label">Uploaded Shape File :</span>
+        <span class="lr-upload-name">{{ layer.name }}</span>
       </p>
       <p class="lr-lede">
         Approve rows to show them on the map. Pending and rejected features stay in the list until you decide.
         Click a row or a map feature to zoom and highlight it.
       </p>
     </div>
-    <div class="lr-head-actions">
-      <a id="btn-finish" href="{% url 'success' %}" class="lr-btn-finish-head">Finish &amp; exit</a>
-    </div>
+    <a id="btn-finish" href="{% url 'success' %}" class="lr-btn-finish">Finish &amp; exit</a>
   </header>
 
-  <div class="lr-layout">
-    <div class="lr-stack">
-      <section class="lr-card" aria-labelledby="lr-map-heading">
-        <div class="lr-card-hd">
-          <h2 id="lr-map-heading" class="lr-card-title">Map</h2>
+  <div class="lr-body">
+    <div class="lr-main">
+      <section class="lr-map-section" aria-labelledby="lr-map-heading">
+        <div class="lr-map-head">
+          <h2 id="lr-map-heading" class="lr-section-label">Map</h2>
           <div class="lr-basemap-row">
-            <span class="lr-basemap-label">Satellite, Streets &amp; Outdoor</span>
+            <span class="lr-basemap-label">Basemap</span>
             <div id="review-basemap-strip" class="lr-basemap-strip" role="group" aria-label="Satellite, Streets and Outdoor basemaps"></div>
           </div>
         </div>
         <div id="review-map" class="review-map-frame w-full" role="application" aria-label="Feature map"></div>
       </section>
 
-      <section class="lr-card lr-table-card" aria-labelledby="lr-table-heading">
-        <div class="lr-card-hd">
-          <h2 id="lr-table-heading" class="lr-card-title">Features</h2>
+      <section class="lr-table-section" aria-labelledby="lr-table-heading">
+        <div class="lr-table-head-row">
+          <h2 id="lr-table-heading" class="lr-section-label">Features</h2>
         </div>
         <div class="lr-table-wrap">
           <table class="lr-table">
@@ -548,9 +545,9 @@
       </section>
     </div>
 
-    <aside class="lr-rail" aria-label="Review summary and actions">
-      <div class="lr-rail-card">
-        <h3 class="lr-rail-title">Counts</h3>
+    <aside class="lr-aside" aria-label="Counts and bulk actions">
+      <div class="lr-aside-block">
+        <h3 class="lr-aside-label">Counts</h3>
         <div class="lr-stat-grid" id="review-counts" aria-live="polite">
           <div class="lr-stat">
             <span class="lr-stat-label">Pending</span>
@@ -567,9 +564,9 @@
         </div>
       </div>
 
-      <div class="lr-rail-card">
-        <h3 class="lr-rail-title">Bulk actions</h3>
-        <div class="lr-actions lr-actions--bulk">
+      <div class="lr-aside-block">
+        <h3 class="lr-aside-label">Bulk actions</h3>
+        <div class="lr-actions-bulk">
           <button type="button" id="btn-approve-all" class="lr-action-btn lr-action-btn--approve lr-action-btn--bulk" aria-label="Approve all features" title="Approve all">
             <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
           </button>
@@ -577,15 +574,7 @@
             <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
-        <p class="lr-sidebar-note" style="margin-top: 0.75rem;">
-          Use bulk actions carefully; they apply to every feature in this upload.
-        </p>
-      </div>
-
-      <div class="lr-rail-card">
-        <p class="lr-sidebar-note">
-          When you are done, use <span class="lr-note-em">Finish &amp; exit</span> at the top to close this review.
-        </p>
+        <p class="lr-aside-note">Applies to every feature in this upload.</p>
       </div>
     </aside>
   </div>
