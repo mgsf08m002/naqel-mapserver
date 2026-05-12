@@ -18,6 +18,12 @@
       </header>
 
       <section class="mt-8">
+        {% if error %}
+          <div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {{ error }}
+          </div>
+        {% endif %}
+
         <div class="divide-y divide-gray-200 border-y border-gray-200">
           <div class="grid grid-cols-1 gap-2 py-4 sm:grid-cols-3">
             <div class="text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase sm:col-span-1">Layer name</div>

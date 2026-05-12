@@ -24,14 +24,13 @@ class Layer(models.Model):
         return f"{self.name} ({self.uploaded_by})"
 
 
-# class Feature(models.Model):
-#     layer = models.ForeignKey(
-#         Layer,
-#         on_delete=models.CASCADE,
-#         related_name='features'
-#     )
-#
-#     geom = models.GeometryField(srid=4326)
-#
-#     def __str__(self):
-#         return f"Feature {self.id} - {self.layer.name}"
+class Feature(models.Model):
+    layer = models.ForeignKey(Layer,on_delete=models.CASCADE,related_name='features')
+    geom = models.GeometryField(srid=4326)
+    properties = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    uploaded_at = models.DateTimeField(auto_now=True)
+    uploaded_by = models.ForeignKey(User,on_delete=models.CASCADE,related_name='features')
+
+    def __str__(self):
+        return f"Feature {self.id} - {self.layer.name}"

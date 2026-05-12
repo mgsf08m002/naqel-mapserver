@@ -9,8 +9,8 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
-from .models import Layer
-from .utils import simplify_crs
+from .models import Feature, Layer
+from .utils import coerce_epsg, find_new_features_against_riyadh_roads, simplify_crs
 
 REQUIRED_EXTENSIONS = {".shp", ".shx", ".dbf"}
 
@@ -174,28 +174,45 @@ def validate_view(request):
     with fiona.open(shp_path) as source:
         feature_count = len(source)
         crs_name, epsg = simplify_crs(source.crs)
+    normalized_epsg = coerce_epsg(epsg)
+
+    context = {
+        "base_template": base_template,
+        "name": selected,
+        "count": feature_count,
+        "crs_name": crs_name,
+        "epsg": epsg if epsg else "Not defined",
+    }
 
     if request.method == "POST":
-        Layer.objects.create(
+        try:
+            new_features_data = find_new_features_against_riyadh_roads(shp_path)
+        except Exception as exc:
+            context["error"] = f"Failed to compare uploaded features against Riyadh roads: {exc}"
+            return render(request, "layer_uploader/validate.html", context)
+
+        layer = Layer.objects.create(
             name=selected,
             uploaded_by=request.user,
-            srid=epsg,
+            srid=normalized_epsg,
             total_features=feature_count,
-            new_features=feature_count,
+            new_features=len(new_features_data),
         )
+
+        # Store each new feature linked to this layer.
+        Feature.objects.bulk_create([
+            Feature(
+                layer=layer,
+                geom=feat["geom"],
+                properties=feat["properties"],
+                uploaded_by=request.user,
+            )
+            for feat in new_features_data
+        ])
+
         return redirect("success")
 
-    return render(
-        request,
-        "layer_uploader/validate.html",
-        {
-            "base_template": base_template,
-            "name": selected,
-            "count": feature_count,
-            "crs_name": crs_name,
-            "epsg": epsg if epsg else "Not defined",
-        },
-    )
+    return render(request, "layer_uploader/validate.html", context)
 
 
 @login_required
