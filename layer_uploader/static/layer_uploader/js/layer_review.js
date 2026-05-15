@@ -1,6 +1,6 @@
 /**
- * Layer upload review: selectable raster basemaps, Riyadh MVT roads, approved GeoJSON,
- * and a selection overlay (pending rows use geometry from the review table API).
+ * Layer upload review: basemaps, optional Riyadh roads, approved features on the map,
+ * full-screen zoom mode (all features), and row/map selection overlay.
  */
 (function () {
     const root = document.getElementById('layer-review-root');
@@ -30,7 +30,10 @@
     const PUBLIC_LAYER_ID_RIYADH = 'riyadh-roads-public-layer';
     const SOURCE_LAYER_RIYADH = 'riyadh_roads';
     const SOURCE_UPLOAD = 'lr-upload-approved';
+    const SOURCE_ALL = 'lr-review-all-features';
     const SOURCE_SELECTION = 'lr-selection-overlay';
+    const UPLOAD_LAYER_IDS = ['lr-lines', 'lr-fill', 'lr-points'];
+    const ALL_LAYER_IDS = ['lr-all-lines', 'lr-all-fill', 'lr-all-points'];
 
     const GEOM_FILTER_LINE = [
         'any',
@@ -56,6 +59,15 @@
         '<svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>';
     const ICON_REJECT_SVG =
         '<svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+
+    const mapInlineHome = document.getElementById('lr-map-inline-home');
+    const mapZoomOverlay = document.getElementById('lr-map-zoom-overlay');
+    const mapZoomBody = document.getElementById('lr-map-zoom-body');
+    const mapZoomSub = document.getElementById('lr-map-zoom-sub');
+    const btnMapOpenZoom = document.getElementById('btn-map-open-zoom');
+    const btnMapZoomClose = document.getElementById('btn-map-zoom-close');
+
+    let mapZoomOpen = false;
 
     function buildBasemapDefinitions() {
         const defs = [
@@ -367,10 +379,265 @@
         return Math.abs(dx * dy);
     }
 
+    function resizeMapSoon(afterResize) {
+        requestAnimationFrame(function () {
+            map.resize();
+            if (typeof afterResize === 'function') {
+                afterResize();
+            }
+        });
+    }
+
+    function rowRefFromTr(tr) {
+        if (!tr) {
+            return null;
+        }
+        const fid = parseInt(tr.dataset.featureId, 10);
+        let bbox;
+        let center;
+        if (tr.dataset.bboxEnc && tr.dataset.centerEnc) {
+            try {
+                bbox = JSON.parse(decodeURIComponent(tr.dataset.bboxEnc));
+                center = JSON.parse(decodeURIComponent(tr.dataset.centerEnc));
+            } catch (e) {
+                /* ignore */
+            }
+        }
+        return { bbox: bbox, center: center, geometry: featureGeomById[fid] };
+    }
+
+    function activeFeatureLayerIds() {
+        const ids = mapZoomOpen ? ALL_LAYER_IDS : UPLOAD_LAYER_IDS;
+        return ids.filter(function (id) {
+            return map.getLayer(id);
+        });
+    }
+
+    function focusFeatureFromMapClick(e) {
+        const layers = activeFeatureLayerIds();
+        if (!layers.length) {
+            return;
+        }
+        const hits = map.queryRenderedFeatures(e.point, { layers: layers });
+        if (!hits.length) {
+            return;
+        }
+        const props = hits[0].properties || {};
+        const fid =
+            props.upload_feature_id != null ? parseInt(String(props.upload_feature_id), 10) : NaN;
+        if (Number.isNaN(fid)) {
+            return;
+        }
+        const tr = document.querySelector(
+            '#review-feature-rows tr[data-feature-id="' + String(fid) + '"]'
+        );
+        const ref = rowRefFromTr(tr);
+        if (ref) {
+            focusFeature(fid, ref);
+        }
+    }
+
+    function mergeBounds(bbList) {
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        bbList.forEach(function (bb) {
+            if (!bb || bb.length !== 2) {
+                return;
+            }
+            minX = Math.min(minX, bb[0][0]);
+            minY = Math.min(minY, bb[0][1]);
+            maxX = Math.max(maxX, bb[1][0]);
+            maxY = Math.max(maxY, bb[1][1]);
+        });
+        if (!isFinite(minX)) {
+            return null;
+        }
+        return [
+            [minX, minY],
+            [maxX, maxY],
+        ];
+    }
+
+    function buildAllFeaturesCollection() {
+        const features = [];
+        Object.keys(featureGeomById).forEach(function (k) {
+            const fid = parseInt(k, 10);
+            const geom = featureGeomById[fid];
+            if (!geom) {
+                return;
+            }
+            features.push({
+                type: 'Feature',
+                id: fid,
+                geometry: geom,
+                properties: { upload_feature_id: fid },
+            });
+        });
+        return { type: 'FeatureCollection', features: features };
+    }
+
+    function setLayerGroupVisibility(layerIds, visible) {
+        const vis = visible ? 'visible' : 'none';
+        layerIds.forEach(function (layerId) {
+            if (map.getLayer(layerId)) {
+                map.setLayoutProperty(layerId, 'visibility', vis);
+            }
+        });
+    }
+
+    function ensureAllFeaturesSourceAndLayers() {
+        const data = buildAllFeaturesCollection();
+        const beforeId = map.getLayer('lr-sel-fill') ? 'lr-sel-fill' : undefined;
+        if (!map.getSource(SOURCE_ALL)) {
+            map.addSource(SOURCE_ALL, {
+                type: 'geojson',
+                data: data,
+                promoteId: 'upload_feature_id',
+            });
+            map.addLayer(
+                {
+                    id: 'lr-all-fill',
+                    type: 'fill',
+                    source: SOURCE_ALL,
+                    filter: GEOM_FILTER_POLY,
+                    layout: { visibility: 'none' },
+                    paint: {
+                        'fill-color': '#a3a3a3',
+                        'fill-opacity': 0.18,
+                        'fill-outline-color': '#737373',
+                    },
+                },
+                beforeId
+            );
+            map.addLayer(
+                {
+                    id: 'lr-all-lines',
+                    type: 'line',
+                    source: SOURCE_ALL,
+                    filter: GEOM_FILTER_LINE,
+                    layout: { visibility: 'none', 'line-cap': 'round', 'line-join': 'round' },
+                    paint: {
+                        'line-color': '#737373',
+                        'line-width': 3,
+                        'line-opacity': 0.9,
+                    },
+                },
+                beforeId
+            );
+            map.addLayer(
+                {
+                    id: 'lr-all-points',
+                    type: 'circle',
+                    source: SOURCE_ALL,
+                    filter: GEOM_FILTER_POINT,
+                    layout: { visibility: 'none' },
+                    paint: {
+                        'circle-radius': 5,
+                        'circle-color': '#737373',
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#fafafa',
+                    },
+                },
+                beforeId
+            );
+            bindFeatureLayerHandlers();
+        } else {
+            map.getSource(SOURCE_ALL).setData(data);
+        }
+    }
+
+    function syncMapFeatureLayers() {
+        if (!map.isStyleLoaded()) {
+            return;
+        }
+        ensureAllFeaturesSourceAndLayers();
+        setLayerGroupVisibility(UPLOAD_LAYER_IDS, !mapZoomOpen);
+        setLayerGroupVisibility(ALL_LAYER_IDS, mapZoomOpen);
+    }
+
+    function zoomToAllFeatures() {
+        const bbList = [];
+        Object.keys(featureGeomById).forEach(function (k) {
+            const bb = boundsFromGeometry(featureGeomById[k]);
+            if (bb) {
+                bbList.push(bb);
+            }
+        });
+        const merged = mergeBounds(bbList);
+        if (!merged) {
+            return;
+        }
+        const padded = boundsArea(merged) < 1e-12 ? padBounds(merged, 0.01) : merged;
+        try {
+            map.fitBounds(new maplibregl.LngLatBounds(padded[0], padded[1]), {
+                padding: { top: 80, bottom: 80, left: 80, right: 80 },
+                maxZoom: 16,
+                duration: 900,
+            });
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    function updateZoomModalSubtitle() {
+        if (!mapZoomSub) {
+            return;
+        }
+        if (!mapZoomOpen) {
+            return;
+        }
+        if (selectedFeatureId != null && featureGeomById[selectedFeatureId]) {
+            mapZoomSub.textContent =
+                'Focused on feature #' + String(selectedFeatureId) + '. Select another row to refocus.';
+            return;
+        }
+        mapZoomSub.textContent = 'All features are shown. Select a row in the table to focus the map.';
+    }
+
+    function openMapZoomModal() {
+        if (!mapZoomOverlay || !mapZoomBody || !mapInlineHome || mapZoomOpen) {
+            return;
+        }
+        mapZoomBody.appendChild(mapEl);
+        mapZoomOverlay.hidden = false;
+        mapZoomOverlay.setAttribute('aria-hidden', 'false');
+        mapZoomOpen = true;
+        document.body.style.overflow = 'hidden';
+        syncMapFeatureLayers();
+        updateZoomModalSubtitle();
+        resizeMapSoon(zoomToAllFeatures);
+    }
+
+    function closeMapZoomModal() {
+        if (!mapZoomOverlay || !mapInlineHome || !mapZoomOpen) {
+            return;
+        }
+        mapInlineHome.appendChild(mapEl);
+        mapZoomOverlay.hidden = true;
+        mapZoomOverlay.setAttribute('aria-hidden', 'true');
+        mapZoomOpen = false;
+        document.body.style.overflow = '';
+        syncMapFeatureLayers();
+        resizeMapSoon();
+    }
+
+    function focusFeature(fid, rowRef) {
+        setRowSelected(fid);
+        zoomToFeature(rowRef);
+        if (!mapZoomOpen) {
+            mapEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }
+
     function zoomToFeature(row) {
         let bb = row.bbox;
         const center = row.center;
         const geom = row.geometry;
+        const fitPadding = mapZoomOpen
+            ? { top: 96, bottom: 96, left: 96, right: 96 }
+            : { top: 72, bottom: 72, left: 72, right: 72 };
 
         if (!bb || !Array.isArray(bb) || bb.length !== 2) {
             bb = geom ? boundsFromGeometry(geom) : null;
@@ -381,7 +648,7 @@
         }
 
         if (center && Array.isArray(center) && center.length === 2 && (!bb || boundsArea(bb) < 1e-16)) {
-            map.easeTo({ center: center, zoom: 17, duration: 750 });
+            map.easeTo({ center: center, zoom: mapZoomOpen ? 18 : 17, duration: 750 });
             return;
         }
 
@@ -389,7 +656,7 @@
             try {
                 const lngLatBounds = new maplibregl.LngLatBounds(bb[0], bb[1]);
                 map.fitBounds(lngLatBounds, {
-                    padding: { top: 72, bottom: 72, left: 72, right: 72 },
+                    padding: fitPadding,
                     maxZoom: 18,
                     duration: 850,
                 });
@@ -556,16 +823,12 @@
                 },
             });
         }
-        bindUploadFeatureHoverHandlers();
+        bindFeatureLayerHandlers();
 
         if (HAS_RIYADH_ROADS_TILES && map.getLayer(PUBLIC_LAYER_ID_RIYADH)) {
-            const anchorId = map.getLayer('lr-lines')
-                ? 'lr-lines'
-                : map.getLayer('lr-fill')
-                  ? 'lr-fill'
-                  : map.getLayer('lr-points')
-                    ? 'lr-points'
-                    : null;
+            const anchorId = UPLOAD_LAYER_IDS.find(function (id) {
+                return map.getLayer(id);
+            });
             if (anchorId) {
                 try {
                     map.moveLayer(PUBLIC_LAYER_ID_RIYADH, anchorId);
@@ -576,14 +839,14 @@
         }
     }
 
-    let uploadHoverHandlersBound = false;
+    const boundFeatureLayerHandlers = {};
 
-    function bindUploadFeatureHoverHandlers() {
-        if (uploadHoverHandlersBound) {
-            return;
-        }
-        uploadHoverHandlersBound = true;
-        ['lr-lines', 'lr-fill', 'lr-points'].forEach(function (layerId) {
+    function bindFeatureLayerHandlers() {
+        UPLOAD_LAYER_IDS.concat(ALL_LAYER_IDS).forEach(function (layerId) {
+            if (!map.getLayer(layerId) || boundFeatureLayerHandlers[layerId]) {
+                return;
+            }
+            boundFeatureLayerHandlers[layerId] = true;
             map.on('mouseenter', layerId, function () {
                 map.getCanvas().style.cursor = 'pointer';
             });
@@ -613,8 +876,12 @@
             const id = parseInt(tr.getAttribute('data-feature-id'), 10);
             const on = id === fid;
             tr.classList.toggle('lr-row-selected', on);
+            if (on) {
+                tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
         });
         setSelectionHighlight(fid);
+        updateZoomModalSubtitle();
     }
 
     function getCsrfToken() {
@@ -725,6 +992,7 @@
         if (!feats.length) {
             tbody.innerHTML =
                 '<tr><td colspan="4" class="lr-empty">No new features were found for this upload. You can still finish.</td></tr>';
+            syncMapFeatureLayers();
             return;
         }
 
@@ -788,8 +1056,7 @@
                     return;
                 }
                 const fid = parseInt(tr.dataset.featureId, 10);
-                setRowSelected(fid);
-                zoomToFeature(rowRef);
+                focusFeature(fid, rowRef);
             });
 
             bA.addEventListener('click', function (e) {
@@ -821,6 +1088,13 @@
         const restore = selectedFeatureId;
         if (restore != null && featureGeomById[restore]) {
             setRowSelected(restore);
+            const trRestore = document.querySelector(
+                '#review-feature-rows tr[data-feature-id="' + String(restore) + '"]'
+            );
+            const refRestore = rowRefFromTr(trRestore);
+            if (refRestore) {
+                zoomToFeature(refRestore);
+            }
         } else {
             selectedFeatureId = null;
             document.querySelectorAll('.lr-table-row.lr-row-selected').forEach(function (el) {
@@ -828,6 +1102,8 @@
             });
             setSelectionHighlight(null);
         }
+
+        syncMapFeatureLayers();
     }
 
     function refreshAll() {
@@ -847,41 +1123,19 @@
         ensureRiyadhRoadsSource();
         addRiyadhPublicRoadLayer();
 
-        map.on('click', function (e) {
-            const layers = ['lr-lines', 'lr-fill', 'lr-points'].filter(function (id) {
-                return map.getLayer(id);
-            });
-            if (!layers.length) {
-                return;
-            }
-            const feats = map.queryRenderedFeatures(e.point, { layers: layers });
-            if (!feats.length) {
-                return;
-            }
-            const props = feats[0].properties || {};
-            const fid =
-                props.upload_feature_id != null ? parseInt(String(props.upload_feature_id), 10) : NaN;
-            if (Number.isNaN(fid)) {
-                return;
-            }
-            setRowSelected(fid);
-            const geom = featureGeomById[fid];
-            const tr = document.querySelector('#review-feature-rows tr[data-feature-id="' + String(fid) + '"]');
-            let bbox;
-            let center;
-            if (tr && tr.dataset.bboxEnc && tr.dataset.centerEnc) {
-                try {
-                    bbox = JSON.parse(decodeURIComponent(tr.dataset.bboxEnc));
-                    center = JSON.parse(decodeURIComponent(tr.dataset.centerEnc));
-                } catch (err) {
-                    /* ignore */
-                }
-            }
-            zoomToFeature({ bbox: bbox, center: center, geometry: geom });
-            if (tr) {
-                tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        if (btnMapOpenZoom) {
+            btnMapOpenZoom.addEventListener('click', openMapZoomModal);
+        }
+        if (btnMapZoomClose) {
+            btnMapZoomClose.addEventListener('click', closeMapZoomModal);
+        }
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && mapZoomOpen) {
+                closeMapZoomModal();
             }
         });
+
+        map.on('click', focusFeatureFromMapClick);
 
         refreshAll().then(function () {
             setTimeout(function () {

@@ -244,22 +244,123 @@
     color: #fff;
   }
 
+  #layer-review-root .lr-map-shell {
+    position: relative;
+  }
+
   #review-map.review-map-frame {
     display: block;
     width: 100%;
-    height: min(46vh, 500px);
-    min-height: 280px;
+    height: min(62vh, 720px);
+    min-height: 380px;
     margin: 0;
     border: 1px solid var(--lr-border);
     border-radius: 8px;
     background: var(--lr-map-placeholder);
   }
 
-  /* Table */
+  #layer-review-root .lr-map-head-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+  }
+
+  #layer-review-root .lr-zoom-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--lr-fg);
+    background: #fff;
+    border: 1px solid var(--lr-border-strong);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.12s ease, background 0.12s ease;
+  }
+  #layer-review-root .lr-zoom-btn:hover {
+    border-color: var(--lr-fg);
+    background: var(--lr-hover);
+  }
+  #layer-review-root .lr-zoom-btn-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+  }
+
   #layer-review-root .lr-table-head-row {
     margin-bottom: 0.65rem;
   }
 
+  #layer-review-root .lr-map-zoom-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+  }
+  #layer-review-root .lr-map-zoom-overlay[hidden] {
+    display: none !important;
+  }
+  #layer-review-root .lr-map-zoom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-shrink: 0;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--lr-border);
+    background: #fff;
+  }
+  #layer-review-root .lr-map-zoom-title {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--lr-fg);
+  }
+  #layer-review-root .lr-map-zoom-sub {
+    margin: 0.15rem 0 0;
+    font-size: 0.75rem;
+    color: var(--lr-muted);
+  }
+  #layer-review-root .lr-map-zoom-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--lr-fg);
+    background: #fff;
+    border: 1px solid var(--lr-border-strong);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  #layer-review-root .lr-map-zoom-close:hover {
+    background: var(--lr-hover);
+    border-color: var(--lr-fg);
+  }
+  #layer-review-root .lr-map-zoom-body {
+    flex: 1;
+    min-height: 0;
+    padding: 0;
+    position: relative;
+  }
+  #layer-review-root .lr-map-zoom-body .review-map-frame {
+    width: 100%;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    border: none;
+    border-radius: 0;
+  }
+
+  /* Table */
   #layer-review-root .lr-table-wrap {
     overflow-x: auto;
     overflow-y: auto;
@@ -474,6 +575,7 @@
     width: 1.35rem;
     height: 1.35rem;
   }
+
 </style>
 
 <div
@@ -496,7 +598,7 @@
       </p>
       <p class="lr-lede">
         Approve rows to show them on the map. Pending and rejected features stay in the list until you decide.
-        Click a row or a map feature to zoom and highlight it.
+        Use <strong>Open in zoom</strong> on the map to view every feature, then select a row to focus the map on it.
       </p>
     </div>
     <a id="btn-finish" href="{% url 'success' %}" class="lr-btn-finish">Finish &amp; exit</a>
@@ -507,12 +609,20 @@
       <section class="lr-map-section" aria-labelledby="lr-map-heading">
         <div class="lr-map-head">
           <h2 id="lr-map-heading" class="lr-section-label">Map</h2>
-          <div class="lr-basemap-row">
-            <span class="lr-basemap-label">Basemap</span>
-            <div id="review-basemap-strip" class="lr-basemap-strip" role="group" aria-label="Satellite, Streets and Outdoor basemaps"></div>
+          <div class="lr-map-head-actions">
+            <div class="lr-basemap-row">
+              <span class="lr-basemap-label">Basemap</span>
+              <div id="review-basemap-strip" class="lr-basemap-strip" role="group" aria-label="Satellite, Streets and Outdoor basemaps"></div>
+            </div>
+            <button type="button" id="btn-map-open-zoom" class="lr-zoom-btn" title="Open full-screen map with all features visible">
+              <svg class="lr-zoom-btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              Open in zoom
+            </button>
           </div>
         </div>
-        <div id="review-map" class="review-map-frame w-full" role="application" aria-label="Feature map"></div>
+        <div class="lr-map-shell" id="lr-map-inline-home">
+          <div id="review-map" class="review-map-frame w-full" role="application" aria-label="Feature map"></div>
+        </div>
       </section>
 
       <section class="lr-table-section" aria-labelledby="lr-table-heading">
@@ -577,6 +687,17 @@
         <p class="lr-aside-note">Applies to every feature in this upload.</p>
       </div>
     </aside>
+  </div>
+
+  <div id="lr-map-zoom-overlay" class="lr-map-zoom-overlay" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="lr-map-zoom-title">
+    <div class="lr-map-zoom-bar">
+      <div>
+        <p id="lr-map-zoom-title" class="lr-map-zoom-title">Map zoom</p>
+        <p id="lr-map-zoom-sub" class="lr-map-zoom-sub">All features are shown. Select a row in the table to focus the map.</p>
+      </div>
+      <button type="button" id="btn-map-zoom-close" class="lr-map-zoom-close">Close</button>
+    </div>
+    <div class="lr-map-zoom-body" id="lr-map-zoom-body"></div>
   </div>
 </div>
 
