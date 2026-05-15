@@ -66,8 +66,15 @@
     const mapZoomSub = document.getElementById('lr-map-zoom-sub');
     const btnMapOpenZoom = document.getElementById('btn-map-open-zoom');
     const btnMapZoomClose = document.getElementById('btn-map-zoom-close');
+    const zoomPanel = document.getElementById('lr-zoom-panel');
+    const btnZoomPanelToggle = document.getElementById('lr-zoom-panel-toggle');
+    const zoomFeatureList = document.getElementById('lr-zoom-feature-list');
 
     let mapZoomOpen = false;
+    let zoomPanelOpen = true;
+
+    /** Matches `--lr-zoom-panel-width` (25rem) plus map control margin. */
+    const ZOOM_PANEL_MAP_PADDING_PX = 400;
 
     function buildBasemapDefinitions() {
         const defs = [
@@ -388,22 +395,150 @@
         });
     }
 
-    function rowRefFromTr(tr) {
-        if (!tr) {
+    function rowRefFromElement(el) {
+        if (!el) {
             return null;
         }
-        const fid = parseInt(tr.dataset.featureId, 10);
+        const fid = parseInt(el.dataset.featureId, 10);
         let bbox;
         let center;
-        if (tr.dataset.bboxEnc && tr.dataset.centerEnc) {
+        if (el.dataset.bboxEnc && el.dataset.centerEnc) {
             try {
-                bbox = JSON.parse(decodeURIComponent(tr.dataset.bboxEnc));
-                center = JSON.parse(decodeURIComponent(tr.dataset.centerEnc));
+                bbox = JSON.parse(decodeURIComponent(el.dataset.bboxEnc));
+                center = JSON.parse(decodeURIComponent(el.dataset.centerEnc));
             } catch (e) {
                 /* ignore */
             }
         }
         return { bbox: bbox, center: center, geometry: featureGeomById[fid] };
+    }
+
+    function mapZoomFitPadding() {
+        const side = zoomPanelOpen ? ZOOM_PANEL_MAP_PADDING_PX : 96;
+        return { top: 96, bottom: 96, left: 96, right: side };
+    }
+
+    function featureRowRef(f) {
+        return {
+            bbox: f.bbox,
+            center: f.center,
+            geometry: f.geometry,
+        };
+    }
+
+    function stampFeatureDataset(el, f) {
+        el.dataset.featureId = String(f.id);
+        el.dataset.bboxEnc = encodeURIComponent(JSON.stringify(f.bbox));
+        el.dataset.centerEnc = encodeURIComponent(JSON.stringify(f.center));
+    }
+
+    function appendApproveRejectButtons(container) {
+        const approve = document.createElement('button');
+        approve.type = 'button';
+        approve.className = 'lr-action-btn lr-action-btn--approve';
+        approve.setAttribute('aria-label', 'Approve feature');
+        approve.setAttribute('title', 'Approve');
+        approve.innerHTML = ICON_APPROVE_SVG;
+
+        const reject = document.createElement('button');
+        reject.type = 'button';
+        reject.className = 'lr-action-btn lr-action-btn--reject';
+        reject.setAttribute('aria-label', 'Reject feature');
+        reject.setAttribute('title', 'Reject');
+        reject.innerHTML = ICON_REJECT_SVG;
+
+        container.appendChild(approve);
+        container.appendChild(reject);
+    }
+
+    const STATUS_COUNT_IDS = {
+        pending: ['cnt-pending', 'lr-zoom-cnt-pending'],
+        approved: ['cnt-approved', 'lr-zoom-cnt-approved'],
+        rejected: ['cnt-rejected', 'lr-zoom-cnt-rejected'],
+    };
+
+    function featureListSelector(fid) {
+        return mapZoomOpen
+            ? '.lr-zoom-feature-card[data-feature-id="' + String(fid) + '"]'
+            : '#review-feature-rows tr[data-feature-id="' + String(fid) + '"]';
+    }
+
+    function renderStatusCounts(counts) {
+        const c = counts || {};
+        Object.keys(STATUS_COUNT_IDS).forEach(function (status) {
+            const value = c[status] != null ? String(c[status]) : '0';
+            STATUS_COUNT_IDS[status].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.textContent = value;
+                }
+            });
+        });
+    }
+
+    function renderZoomPanelFeatureCount(featureCount) {
+        const countEl = document.getElementById('lr-zoom-panel-count');
+        if (!countEl) {
+            return;
+        }
+        const n = featureCount != null ? featureCount : 0;
+        countEl.textContent = n === 1 ? '1 feature' : String(n) + ' features';
+    }
+
+    function postFeatureAction(action, featureId, failureLabel) {
+        return postAction({ action: action, feature_id: featureId })
+            .then(function () {
+                return refreshAll();
+            })
+            .catch(function (err) {
+                window.alert(err.message || failureLabel);
+            });
+    }
+
+    function indexFeatureGeometries(feats) {
+        Object.keys(featureGeomById).forEach(function (k) {
+            delete featureGeomById[k];
+        });
+        feats.forEach(function (f) {
+            if (f.geometry) {
+                featureGeomById[f.id] = f.geometry;
+            }
+        });
+    }
+
+    function clearFeatureSelection() {
+        selectedFeatureId = null;
+        document.querySelectorAll('.lr-row-selected').forEach(function (el) {
+            el.classList.remove('lr-row-selected');
+        });
+        setSelectionHighlight(null);
+    }
+
+    function restoreFeatureSelection() {
+        const restore = selectedFeatureId;
+        if (restore == null || !featureGeomById[restore]) {
+            clearFeatureSelection();
+            return;
+        }
+        setRowSelected(restore);
+        const ref = rowRefFromElement(document.querySelector(featureListSelector(restore)));
+        if (ref) {
+            zoomToFeature(ref);
+        }
+    }
+
+    function setZoomPanelOpen(open) {
+        zoomPanelOpen = open;
+        if (zoomPanel) {
+            zoomPanel.classList.toggle('lr-zoom-panel--closed', !open);
+            zoomPanel.dataset.open = open ? 'true' : 'false';
+        }
+        if (btnZoomPanelToggle) {
+            btnZoomPanelToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        if (mapZoomOpen) {
+            resizeMapSoon();
+        }
     }
 
     function activeFeatureLayerIds() {
@@ -428,10 +563,8 @@
         if (Number.isNaN(fid)) {
             return;
         }
-        const tr = document.querySelector(
-            '#review-feature-rows tr[data-feature-id="' + String(fid) + '"]'
-        );
-        const ref = rowRefFromTr(tr);
+        const el = document.querySelector(featureListSelector(fid));
+        const ref = rowRefFromElement(el);
         if (ref) {
             focusFeature(fid, ref);
         }
@@ -572,7 +705,7 @@
         const padded = boundsArea(merged) < 1e-12 ? padBounds(merged, 0.01) : merged;
         try {
             map.fitBounds(new maplibregl.LngLatBounds(padded[0], padded[1]), {
-                padding: { top: 80, bottom: 80, left: 80, right: 80 },
+                padding: mapZoomOpen ? mapZoomFitPadding() : { top: 80, bottom: 80, left: 80, right: 80 },
                 maxZoom: 16,
                 duration: 900,
             });
@@ -590,10 +723,10 @@
         }
         if (selectedFeatureId != null && featureGeomById[selectedFeatureId]) {
             mapZoomSub.textContent =
-                'Focused on feature #' + String(selectedFeatureId) + '. Select another row to refocus.';
+                'Focused on feature #' + String(selectedFeatureId) + '. Select another in the panel to refocus.';
             return;
         }
-        mapZoomSub.textContent = 'All features are shown. Select a row in the table to focus the map.';
+        mapZoomSub.textContent = 'All features are shown. Open the Features panel to select one.';
     }
 
     function openMapZoomModal() {
@@ -605,6 +738,7 @@
         mapZoomOverlay.setAttribute('aria-hidden', 'false');
         mapZoomOpen = true;
         document.body.style.overflow = 'hidden';
+        setZoomPanelOpen(true);
         syncMapFeatureLayers();
         updateZoomModalSubtitle();
         resizeMapSoon(zoomToAllFeatures);
@@ -635,9 +769,7 @@
         let bb = row.bbox;
         const center = row.center;
         const geom = row.geometry;
-        const fitPadding = mapZoomOpen
-            ? { top: 96, bottom: 96, left: 96, right: 96 }
-            : { top: 72, bottom: 72, left: 72, right: 72 };
+        const fitPadding = mapZoomOpen ? mapZoomFitPadding() : { top: 72, bottom: 72, left: 72, right: 72 };
 
         if (!bb || !Array.isArray(bb) || bb.length !== 2) {
             bb = geom ? boundsFromGeometry(geom) : null;
@@ -674,7 +806,7 @@
                 const padded = boundsArea(fromGeom) < 1e-12 ? padBounds(fromGeom, 0.003) : fromGeom;
                 try {
                     map.fitBounds(new maplibregl.LngLatBounds(padded[0], padded[1]), {
-                        padding: 64,
+                        padding: fitPadding,
                         maxZoom: 18,
                         duration: 850,
                     });
@@ -871,17 +1003,123 @@
 
     function setRowSelected(fid) {
         selectedFeatureId = fid;
-        const rows = document.querySelectorAll('#review-feature-rows tr[data-feature-id]');
-        rows.forEach(function (tr) {
-            const id = parseInt(tr.getAttribute('data-feature-id'), 10);
-            const on = id === fid;
-            tr.classList.toggle('lr-row-selected', on);
-            if (on) {
-                tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-            }
-        });
+        document
+            .querySelectorAll('.lr-table-row[data-feature-id], .lr-zoom-feature-card[data-feature-id]')
+            .forEach(function (el) {
+                const id = parseInt(el.getAttribute('data-feature-id'), 10);
+                const on = id === fid;
+                el.classList.toggle('lr-row-selected', on);
+                if (on) {
+                    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                }
+            });
         setSelectionHighlight(fid);
         updateZoomModalSubtitle();
+    }
+
+    function wireFeatureInteractions(el, f, rowRef) {
+        el.addEventListener('click', function (e) {
+            if (e.target.closest('.lr-action-btn')) {
+                return;
+            }
+            focusFeature(f.id, rowRef);
+        });
+
+        const approve = el.querySelector('.lr-action-btn--approve');
+        const reject = el.querySelector('.lr-action-btn--reject');
+        if (approve) {
+            approve.addEventListener('click', function (e) {
+                e.stopPropagation();
+                postFeatureAction('approve', f.id, 'Approve');
+            });
+        }
+        if (reject) {
+            reject.addEventListener('click', function (e) {
+                e.stopPropagation();
+                postFeatureAction('reject', f.id, 'Reject');
+            });
+        }
+    }
+
+    function buildZoomFeatureCard(f, idx) {
+        const card = document.createElement('article');
+        card.className = 'lr-zoom-feature-card';
+        card.setAttribute('role', 'listitem');
+        stampFeatureDataset(card, f);
+
+        const row = document.createElement('div');
+        row.className = 'lr-zoom-card-row';
+
+        const num = document.createElement('span');
+        num.className = 'lr-zoom-card-num';
+        num.textContent = String(idx + 1);
+
+        const statusWrap = document.createElement('div');
+        statusWrap.className = 'lr-zoom-card-status';
+        statusWrap.innerHTML = statusBadge(f.status);
+
+        const actions = document.createElement('div');
+        actions.className = 'lr-zoom-card-actions';
+        appendApproveRejectButtons(actions);
+
+        row.appendChild(num);
+        row.appendChild(statusWrap);
+        row.appendChild(actions);
+
+        const props = document.createElement('div');
+        props.className = 'lr-zoom-card-props';
+        props.innerHTML = renderPropertiesCell(f);
+
+        card.appendChild(row);
+        card.appendChild(props);
+        wireFeatureInteractions(card, f, featureRowRef(f));
+        return card;
+    }
+
+    function renderZoomFeaturePanel(feats, counts) {
+        if (!zoomFeatureList) {
+            return;
+        }
+        renderStatusCounts(counts);
+        renderZoomPanelFeatureCount(feats ? feats.length : 0);
+        zoomFeatureList.innerHTML = '';
+        if (!feats.length) {
+            zoomFeatureList.innerHTML =
+                '<p class="lr-zoom-empty">No features in this upload.</p>';
+            return;
+        }
+        feats.forEach(function (f, idx) {
+            zoomFeatureList.appendChild(buildZoomFeatureCard(f, idx));
+        });
+    }
+
+    function buildTableRow(f, idx) {
+        const tr = document.createElement('tr');
+        tr.className = 'lr-table-row';
+        stampFeatureDataset(tr, f);
+
+        const tdNum = document.createElement('td');
+        tdNum.className = 'lr-td-num';
+        tdNum.textContent = String(idx + 1);
+
+        const tdSt = document.createElement('td');
+        tdSt.className = 'lr-td-status';
+        tdSt.innerHTML = statusBadge(f.status);
+
+        const tdProps = document.createElement('td');
+        tdProps.className = 'lr-td-props';
+        tdProps.innerHTML = renderPropertiesCell(f);
+
+        const tdAct = document.createElement('td');
+        tdAct.className = 'lr-td-actions';
+        appendApproveRejectButtons(tdAct);
+
+        tr.appendChild(tdNum);
+        tr.appendChild(tdSt);
+        tr.appendChild(tdProps);
+        tr.appendChild(tdAct);
+        wireFeatureInteractions(tr, f, featureRowRef(f));
+        return tr;
     }
 
     function getCsrfToken() {
@@ -926,21 +1164,6 @@
         });
     }
 
-    function renderCounts(counts) {
-        const p = document.getElementById('cnt-pending');
-        const a = document.getElementById('cnt-approved');
-        const r = document.getElementById('cnt-rejected');
-        if (p) {
-            p.textContent = counts.pending != null ? String(counts.pending) : '0';
-        }
-        if (a) {
-            a.textContent = counts.approved != null ? String(counts.approved) : '0';
-        }
-        if (r) {
-            r.textContent = counts.rejected != null ? String(counts.rejected) : '0';
-        }
-    }
-
     function statusBadge(status) {
         if (status === 'approved') {
             return '<span class="lr-badge lr-badge-approved">Approved</span>';
@@ -981,128 +1204,25 @@
         if (!tbody) {
             return;
         }
-        renderCounts(payload.counts || {});
-
-        Object.keys(featureGeomById).forEach(function (k) {
-            delete featureGeomById[k];
-        });
+        renderStatusCounts(payload.counts || {});
 
         const feats = payload.features || [];
+        indexFeatureGeometries(feats);
         tbody.innerHTML = '';
         if (!feats.length) {
             tbody.innerHTML =
                 '<tr><td colspan="4" class="lr-empty">No new features were found for this upload. You can still finish.</td></tr>';
+            renderZoomFeaturePanel([], payload.counts || {});
             syncMapFeatureLayers();
             return;
         }
 
-        feats.forEach(function (f) {
-            if (f.geometry) {
-                featureGeomById[f.id] = f.geometry;
-            }
-        });
-
         feats.forEach(function (f, idx) {
-            const tr = document.createElement('tr');
-            tr.className = 'lr-table-row';
-            tr.dataset.featureId = String(f.id);
-            tr.dataset.bboxEnc = encodeURIComponent(JSON.stringify(f.bbox));
-            tr.dataset.centerEnc = encodeURIComponent(JSON.stringify(f.center));
-
-            const tdNum = document.createElement('td');
-            tdNum.className = 'lr-td-num';
-            tdNum.textContent = String(idx + 1);
-
-            const tdSt = document.createElement('td');
-            tdSt.className = 'lr-td-status';
-            tdSt.innerHTML = statusBadge(f.status);
-
-            const tdProps = document.createElement('td');
-            tdProps.className = 'lr-td-props';
-            tdProps.innerHTML = renderPropertiesCell(f);
-
-            const tdAct = document.createElement('td');
-            tdAct.className = 'lr-td-actions';
-            const bA = document.createElement('button');
-            bA.type = 'button';
-            bA.className = 'lr-action-btn lr-action-btn--approve';
-            bA.dataset.fid = String(f.id);
-            bA.setAttribute('aria-label', 'Approve feature');
-            bA.setAttribute('title', 'Approve');
-            bA.innerHTML = ICON_APPROVE_SVG;
-            const bR = document.createElement('button');
-            bR.type = 'button';
-            bR.className = 'lr-action-btn lr-action-btn--reject';
-            bR.dataset.fid = String(f.id);
-            bR.setAttribute('aria-label', 'Reject feature');
-            bR.setAttribute('title', 'Reject');
-            bR.innerHTML = ICON_REJECT_SVG;
-            tdAct.appendChild(bA);
-            tdAct.appendChild(bR);
-
-            tr.appendChild(tdNum);
-            tr.appendChild(tdSt);
-            tr.appendChild(tdProps);
-            tr.appendChild(tdAct);
-
-            const rowRef = {
-                bbox: f.bbox,
-                center: f.center,
-                geometry: f.geometry,
-            };
-
-            tr.addEventListener('click', function (e) {
-                if (e.target.closest('.lr-action-btn')) {
-                    return;
-                }
-                const fid = parseInt(tr.dataset.featureId, 10);
-                focusFeature(fid, rowRef);
-            });
-
-            bA.addEventListener('click', function (e) {
-                e.stopPropagation();
-                const fid = parseInt(bA.dataset.fid, 10);
-                postAction({ action: 'approve', feature_id: fid })
-                    .then(function () {
-                        return refreshAll();
-                    })
-                    .catch(function (err) {
-                        window.alert(err.message || 'Approve failed');
-                    });
-            });
-            bR.addEventListener('click', function (e) {
-                e.stopPropagation();
-                const fid = parseInt(bR.dataset.fid, 10);
-                postAction({ action: 'reject', feature_id: fid })
-                    .then(function () {
-                        return refreshAll();
-                    })
-                    .catch(function (err) {
-                        window.alert(err.message || 'Reject failed');
-                    });
-            });
-
-            tbody.appendChild(tr);
+            tbody.appendChild(buildTableRow(f, idx));
         });
 
-        const restore = selectedFeatureId;
-        if (restore != null && featureGeomById[restore]) {
-            setRowSelected(restore);
-            const trRestore = document.querySelector(
-                '#review-feature-rows tr[data-feature-id="' + String(restore) + '"]'
-            );
-            const refRestore = rowRefFromTr(trRestore);
-            if (refRestore) {
-                zoomToFeature(refRestore);
-            }
-        } else {
-            selectedFeatureId = null;
-            document.querySelectorAll('.lr-table-row.lr-row-selected').forEach(function (el) {
-                el.classList.remove('lr-row-selected');
-            });
-            setSelectionHighlight(null);
-        }
-
+        renderZoomFeaturePanel(feats, payload.counts || {});
+        restoreFeatureSelection();
         syncMapFeatureLayers();
     }
 
@@ -1129,6 +1249,11 @@
         if (btnMapZoomClose) {
             btnMapZoomClose.addEventListener('click', closeMapZoomModal);
         }
+        if (btnZoomPanelToggle) {
+            btnZoomPanelToggle.addEventListener('click', function () {
+                setZoomPanelOpen(!zoomPanelOpen);
+            });
+        }
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && mapZoomOpen) {
                 closeMapZoomModal();
@@ -1149,9 +1274,7 @@
     if (btnAllA) {
         btnAllA.addEventListener('click', function () {
             postAction({ action: 'approve_all' })
-                .then(function () {
-                    return refreshAll();
-                })
+                .then(refreshAll)
                 .catch(function (err) {
                     window.alert(err.message || 'Bulk approve failed');
                 });
@@ -1160,9 +1283,7 @@
     if (btnAllR) {
         btnAllR.addEventListener('click', function () {
             postAction({ action: 'reject_all' })
-                .then(function () {
-                    return refreshAll();
-                })
+                .then(refreshAll)
                 .catch(function (err) {
                     window.alert(err.message || 'Bulk reject failed');
                 });

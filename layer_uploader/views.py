@@ -87,29 +87,39 @@ def _property_entries(properties, max_rows=24):
     return rows
 
 
+def _feature_geometry_json(feature):
+    return json.loads(feature.geom.geojson)
+
+
+def _feature_geojson_feature(feature):
+    return {
+        "type": "Feature",
+        "id": feature.pk,
+        "geometry": _feature_geometry_json(feature),
+        "properties": {"upload_feature_id": feature.pk},
+    }
+
+
 def _feature_row_dict(feature):
     env = feature.geom.extent
     cx = (env[0] + env[2]) / 2
     cy = (env[1] + env[3]) / 2
-    geom_json = json.loads(feature.geom.geojson)
     return {
         "id": feature.pk,
         "status": feature.status,
         "property_entries": _property_entries(feature.properties),
         "center": [cx, cy],
         "bbox": [[env[0], env[1]], [env[2], env[3]]],
-        "geometry": geom_json,
+        "geometry": _feature_geometry_json(feature),
     }
 
 
 def _approved_features_geojson(layer_id):
     qs = Feature.objects.filter(layer_id=layer_id, status=Feature.Status.APPROVED).order_by("pk")
-    features = []
-    for f in qs:
-        geom = json.loads(f.geom.geojson)
-        props = {"upload_feature_id": f.pk}
-        features.append({"type": "Feature", "id": f.pk, "geometry": geom, "properties": props})
-    return {"type": "FeatureCollection", "features": features}
+    return {
+        "type": "FeatureCollection",
+        "features": [_feature_geojson_feature(f) for f in qs],
+    }
 
 
 def _find_shapefile_path(temp_dir, base_name):

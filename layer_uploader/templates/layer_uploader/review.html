@@ -345,10 +345,18 @@
     background: var(--lr-hover);
     border-color: var(--lr-fg);
   }
-  #layer-review-root .lr-map-zoom-body {
+  #layer-review-root .lr-map-zoom-content {
     flex: 1;
     min-height: 0;
-    padding: 0;
+    display: flex;
+    position: relative;
+    --lr-zoom-panel-width: 25rem;
+  }
+
+  #layer-review-root .lr-map-zoom-body {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
     position: relative;
   }
   #layer-review-root .lr-map-zoom-body .review-map-frame {
@@ -360,6 +368,233 @@
     border-radius: 0;
   }
 
+  #layer-review-root .lr-zoom-panel {
+    position: relative;
+    flex-shrink: 0;
+    width: var(--lr-zoom-panel-width);
+    display: flex;
+    background: #fff;
+    border-left: 1px solid var(--lr-border);
+    box-shadow: -6px 0 20px rgba(17, 24, 39, 0.05);
+    transition: width 0.22s ease, box-shadow 0.22s ease;
+  }
+  #layer-review-root .lr-zoom-panel.lr-zoom-panel--closed {
+    width: 0;
+    border-left-color: transparent;
+    box-shadow: none;
+  }
+  #layer-review-root .lr-zoom-panel.lr-zoom-panel--closed .lr-zoom-panel-inner {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #layer-review-root .lr-zoom-panel-toggle {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    z-index: 4;
+    transform: translate(-100%, -50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--lr-fg);
+    background: #fff;
+    border: 1px solid var(--lr-border-strong);
+    border-right: none;
+    border-radius: 6px 0 0 6px;
+    cursor: pointer;
+    box-shadow: -2px 0 10px rgba(17, 24, 39, 0.06);
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+  #layer-review-root .lr-zoom-panel-toggle:hover {
+    background: var(--lr-hover);
+    border-color: var(--lr-fg);
+  }
+  #layer-review-root .lr-zoom-panel-toggle-icon {
+    width: 0.8rem;
+    height: 0.8rem;
+    flex-shrink: 0;
+    transition: transform 0.22s ease;
+  }
+  #layer-review-root .lr-zoom-panel.lr-zoom-panel--closed .lr-zoom-panel-toggle-icon {
+    transform: rotate(180deg);
+  }
+  #layer-review-root .lr-zoom-panel-toggle-label {
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  #layer-review-root .lr-zoom-panel-inner {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    opacity: 1;
+    transition: opacity 0.15s ease;
+  }
+
+  #layer-review-root .lr-zoom-panel-header {
+    flex-shrink: 0;
+    padding: 1rem 1rem 0.85rem;
+    border-bottom: 1px solid var(--lr-border);
+  }
+  #layer-review-root .lr-zoom-panel-head-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
+  }
+  #layer-review-root .lr-zoom-panel-title {
+    margin: 0;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--lr-muted);
+  }
+  #layer-review-root .lr-zoom-panel-count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--lr-fg);
+  }
+  #layer-review-root .lr-zoom-panel-hint {
+    margin: 0 0 0.65rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--lr-muted);
+  }
+
+  #layer-review-root .lr-zoom-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  #layer-review-root .lr-zoom-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.55rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--lr-muted);
+    background: var(--lr-hover);
+    border: 1px solid var(--lr-border);
+    border-radius: 999px;
+  }
+  #layer-review-root .lr-zoom-chip strong {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--lr-fg);
+  }
+
+  #layer-review-root .lr-zoom-feature-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background: var(--lr-hover);
+    scrollbar-width: thin;
+    scrollbar-color: var(--lr-border-strong) transparent;
+  }
+  #layer-review-root .lr-zoom-feature-list::-webkit-scrollbar {
+    width: 5px;
+  }
+  #layer-review-root .lr-zoom-feature-list::-webkit-scrollbar-thumb {
+    background: var(--lr-border-strong);
+    border-radius: 999px;
+  }
+
+  #layer-review-root .lr-zoom-feature-card {
+    border: 1px solid var(--lr-border);
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  }
+  #layer-review-root .lr-zoom-feature-card:hover {
+    border-color: var(--lr-border-strong);
+    box-shadow: 0 1px 4px rgba(17, 24, 39, 0.05);
+  }
+  #layer-review-root .lr-zoom-feature-card.lr-row-selected {
+    border-color: var(--lr-fg);
+    box-shadow: 0 0 0 1px var(--lr-fg);
+  }
+
+  #layer-review-root .lr-zoom-card-row {
+    display: grid;
+    grid-template-columns: 1.625rem 1fr auto;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.6rem 0.7rem;
+  }
+  #layer-review-root .lr-zoom-card-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.625rem;
+    height: 1.625rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--lr-muted);
+    background: var(--lr-hover);
+    border-radius: 6px;
+  }
+  #layer-review-root .lr-zoom-feature-card.lr-row-selected .lr-zoom-card-num {
+    color: #fff;
+    background: var(--lr-fg);
+  }
+  #layer-review-root .lr-zoom-card-status {
+    min-width: 0;
+  }
+  #layer-review-root .lr-zoom-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+  }
+
+  #layer-review-root .lr-zoom-card-props {
+    padding: 0.55rem 0.7rem 0.65rem;
+    border-top: 1px solid var(--lr-border);
+    background: var(--lr-hover);
+  }
+  #layer-review-root .lr-zoom-card-props .lr-prop-list {
+    gap: 0.3rem;
+  }
+  #layer-review-root .lr-zoom-card-props .lr-prop-row {
+    grid-template-columns: minmax(4rem, 5.5rem) 1fr;
+    gap: 0.35rem 0.5rem;
+    font-size: 0.6875rem;
+    line-height: 1.35;
+    padding: 0;
+    border: none;
+  }
+  #layer-review-root .lr-zoom-card-props .lr-prop-fallback {
+    font-size: 0.6875rem;
+    color: var(--lr-muted);
+  }
+
+  #layer-review-root .lr-zoom-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--lr-muted);
+    border: 1px dashed var(--lr-border-strong);
+    border-radius: 8px;
+    background: #fff;
+  }
   /* Table */
   #layer-review-root .lr-table-wrap {
     overflow-x: auto;
@@ -598,7 +833,7 @@
       </p>
       <p class="lr-lede">
         Approve rows to show them on the map. Pending and rejected features stay in the list until you decide.
-        Use <strong>Open in zoom</strong> on the map to view every feature, then select a row to focus the map on it.
+        Use <strong>Open in zoom</strong> to view all features on the map and review them in the side panel.
       </p>
     </div>
     <a id="btn-finish" href="{% url 'success' %}" class="lr-btn-finish">Finish &amp; exit</a>
@@ -693,11 +928,34 @@
     <div class="lr-map-zoom-bar">
       <div>
         <p id="lr-map-zoom-title" class="lr-map-zoom-title">Map zoom</p>
-        <p id="lr-map-zoom-sub" class="lr-map-zoom-sub">All features are shown. Select a row in the table to focus the map.</p>
+        <p id="lr-map-zoom-sub" class="lr-map-zoom-sub">All features are shown. Open the Features panel to select one.</p>
       </div>
       <button type="button" id="btn-map-zoom-close" class="lr-map-zoom-close">Close</button>
     </div>
-    <div class="lr-map-zoom-body" id="lr-map-zoom-body"></div>
+    <div class="lr-map-zoom-content">
+      <div class="lr-map-zoom-body" id="lr-map-zoom-body"></div>
+      <aside id="lr-zoom-panel" class="lr-zoom-panel" aria-label="Features" data-open="true">
+        <button type="button" id="lr-zoom-panel-toggle" class="lr-zoom-panel-toggle" aria-controls="lr-zoom-panel-inner" aria-expanded="true" title="Show or hide features">
+          <svg class="lr-zoom-panel-toggle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          <span class="lr-zoom-panel-toggle-label">Features</span>
+        </button>
+        <div id="lr-zoom-panel-inner" class="lr-zoom-panel-inner">
+          <header class="lr-zoom-panel-header">
+            <div class="lr-zoom-panel-head-row">
+              <h3 class="lr-zoom-panel-title">Features</h3>
+              <span id="lr-zoom-panel-count" class="lr-zoom-panel-count">—</span>
+            </div>
+            <p class="lr-zoom-panel-hint">Select a feature to focus the map</p>
+            <div class="lr-zoom-chips" aria-live="polite">
+              <span class="lr-zoom-chip">Pending <strong id="lr-zoom-cnt-pending">—</strong></span>
+              <span class="lr-zoom-chip">Approved <strong id="lr-zoom-cnt-approved">—</strong></span>
+              <span class="lr-zoom-chip">Rejected <strong id="lr-zoom-cnt-rejected">—</strong></span>
+            </div>
+          </header>
+          <div id="lr-zoom-feature-list" class="lr-zoom-feature-list" role="list"></div>
+        </div>
+      </aside>
+    </div>
   </div>
 </div>
 
