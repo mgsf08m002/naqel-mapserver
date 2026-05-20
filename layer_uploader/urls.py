@@ -1,11 +1,11 @@
 from django.urls import path
+
 from . import views
 
 urlpatterns = [
     path("", views.upload_view, name="upload"),
     path("validate/", views.validate_view, name="validate"),
     path("success/", views.success_view, name="success"),
-    # Uploader staging review (local Docker DB)
     path(
         "review/<int:layer_id>/features.geojson",
         views.review_geojson_view,
@@ -27,7 +27,6 @@ urlpatterns = [
         name="layer_submit",
     ),
     path("review/<int:layer_id>/", views.review_view, name="layer_review"),
-    # Manager approval queue → remote riyadh_roads DB
     path("manager/", views.manager_queue_view, name="layer_manager_queue"),
     path(
         "manager/<int:layer_id>/features.geojson",

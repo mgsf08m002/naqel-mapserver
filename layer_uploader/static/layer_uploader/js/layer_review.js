@@ -1,6 +1,5 @@
 /**
- * Layer upload review (uploader staging or manager approval): map preview, feature table,
- * and nominate / submit / approve / reject actions aligned with backend workflow statuses.
+ * Layer review: map preview, feature table, and per-row / bulk include–exclude actions.
  */
 (function () {
     const root = document.getElementById('layer-review-root');
@@ -443,16 +442,16 @@
         approve.className = 'lr-action-btn lr-action-btn--approve';
         approve.setAttribute(
             'aria-label',
-            isManagerMode ? 'Approve and publish feature' : 'Nominate feature for manager'
+            isManagerMode ? 'Approve feature' : 'Include feature'
         );
-        approve.setAttribute('title', isManagerMode ? 'Approve & publish' : 'Nominate');
+        approve.setAttribute('title', isManagerMode ? 'Approve' : 'Include');
         approve.innerHTML = ICON_APPROVE_SVG;
 
         const reject = document.createElement('button');
         reject.type = 'button';
         reject.className = 'lr-action-btn lr-action-btn--reject';
-        reject.setAttribute('aria-label', isManagerMode ? 'Reject feature' : 'Reject feature locally');
-        reject.setAttribute('title', 'Reject');
+        reject.setAttribute('aria-label', isManagerMode ? 'Decline feature' : 'Exclude feature');
+        reject.setAttribute('title', isManagerMode ? 'Decline' : 'Exclude');
         reject.innerHTML = ICON_REJECT_SVG;
 
         container.appendChild(approve);
@@ -1057,13 +1056,13 @@
         if (approve) {
             approve.addEventListener('click', function (e) {
                 e.stopPropagation();
-                postFeatureAction(approveAction, f.id, isManagerMode ? 'Approve' : 'Nominate');
+                postFeatureAction(approveAction, f.id, isManagerMode ? 'Approve' : 'Include');
             });
         }
         if (reject) {
             reject.addEventListener('click', function (e) {
                 e.stopPropagation();
-                postFeatureAction(rejectAction, f.id, 'Reject');
+                postFeatureAction(rejectAction, f.id, isManagerMode ? 'Decline' : 'Exclude');
             });
         }
     }
@@ -1191,20 +1190,24 @@
         });
     }
 
+    const STATUS_LABELS = {
+        staged: 'New',
+        nominated: 'Included',
+        rejected_upload: 'Excluded',
+        awaiting_manager: 'Pending',
+    };
+
     function statusBadge(status) {
+        const label = STATUS_LABELS[status] || status;
+        let cls = 'lr-badge-staged';
         if (status === 'nominated') {
-            return '<span class="lr-badge lr-badge-nominated">Nominated</span>';
+            cls = 'lr-badge-nominated';
+        } else if (status === 'awaiting_manager') {
+            cls = 'lr-badge-awaiting';
+        } else if (status === 'rejected_upload') {
+            cls = 'lr-badge-rejected';
         }
-        if (status === 'awaiting_manager') {
-            return '<span class="lr-badge lr-badge-awaiting">Awaiting manager</span>';
-        }
-        if (status === 'rejected_upload') {
-            return '<span class="lr-badge lr-badge-rejected">Rejected</span>';
-        }
-        if (status === 'staged') {
-            return '<span class="lr-badge lr-badge-staged">Staged</span>';
-        }
-        return '<span class="lr-badge lr-badge-staged">' + escapeHtml(String(status)) + '</span>';
+        return '<span class="lr-badge ' + cls + '">' + escapeHtml(String(label)) + '</span>';
     }
 
     function renderPropertiesCell(f) {
@@ -1244,7 +1247,7 @@
         tbody.innerHTML = '';
         if (!feats.length) {
             tbody.innerHTML =
-                '<tr><td colspan="4" class="lr-empty">No new features were found for this upload. You can still finish.</td></tr>';
+                '<tr><td colspan="4" class="lr-empty">No roads to review in this layer.</td></tr>';
             renderZoomFeaturePanel([], payload.counts || {});
             syncMapFeatureLayers();
             return;
@@ -1319,7 +1322,7 @@
                     return refreshAll();
                 })
                 .catch(function (err) {
-                    window.alert(err.message || (isManagerMode ? 'Bulk approve failed' : 'Bulk nominate failed'));
+                    window.alert(err.message || (isManagerMode ? 'Could not approve all rows' : 'Could not include all rows'));
                 });
         });
     }
@@ -1334,7 +1337,7 @@
                     return refreshAll();
                 })
                 .catch(function (err) {
-                    window.alert(err.message || 'Bulk reject failed');
+                    window.alert(err.message || (isManagerMode ? 'Could not decline all rows' : 'Could not exclude all rows'));
                 });
         });
     }
@@ -1347,18 +1350,14 @@
             if (!nominatedCount || Number.isNaN(nominatedCount)) {
                 window.alert(
                     isManagerUploader
-                        ? 'Nominate at least one feature before publishing.'
-                        : 'Nominate at least one feature before submitting to the manager.'
+                        ? 'Include at least one road before publishing.'
+                        : 'Include at least one road before submitting.'
                 );
                 return;
             }
             const confirmMsg = isManagerUploader
-                ? 'Publish ' +
-                  nominatedCount +
-                  ' nominated feature(s) to the live road network now? This cannot be undone.'
-                : 'Submit ' +
-                  nominatedCount +
-                  ' nominated feature(s) to the manager for approval? You will not be able to edit this upload afterward.';
+                ? 'Publish ' + nominatedCount + ' included road(s) to the map now? This cannot be undone.'
+                : 'Submit ' + nominatedCount + ' included road(s) for review? You will not be able to edit this layer afterward.';
             if (!window.confirm(confirmMsg)) {
                 return;
             }
@@ -1389,7 +1388,7 @@
                     }
                 })
                 .catch(function (err) {
-                    window.alert(err.message || 'Submit failed');
+                    window.alert(err.message || 'Could not submit layer');
                 });
         });
     }

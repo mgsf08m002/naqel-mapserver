@@ -7,7 +7,7 @@ User = get_user_model()
 class Layer(models.Model):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
-        SUBMITTED = "submitted", "Submitted for manager review"
+        SUBMITTED = "submitted", "Submitted"
         COMPLETED = "completed", "Completed"
 
     name = models.CharField(max_length=255)
@@ -39,10 +39,10 @@ class Layer(models.Model):
 
 class Feature(models.Model):
     class Status(models.TextChoices):
-        STAGED = "staged", "Staged"
-        NOMINATED = "nominated", "Nominated for manager"
-        REJECTED_UPLOAD = "rejected_upload", "Rejected by uploader"
-        AWAITING_MANAGER = "awaiting_manager", "Awaiting manager"
+        STAGED = "staged", "New"
+        NOMINATED = "nominated", "Included"
+        REJECTED_UPLOAD = "rejected_upload", "Excluded"
+        AWAITING_MANAGER = "awaiting_manager", "Pending"
 
     layer = models.ForeignKey(Layer, on_delete=models.CASCADE, related_name="features")
     geom = models.GeometryField(srid=4326)

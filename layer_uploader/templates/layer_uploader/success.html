@@ -1,6 +1,6 @@
 {% extends 'layer_uploader/base.html' %}
 
-{% block title %}Layer Saved - Naqel Maps{% endblock %}
+{% block title %}Layer complete - Naqel Maps{% endblock %}
 
 {% block layer_content %}
 <div class="bg-white -mx-6 -my-6 px-4 sm:px-6 py-10 sm:py-14 min-h-[calc(100vh-64px)]">
@@ -13,23 +13,20 @@
       </div>
 
       <h1 class="mt-5 text-2xl sm:text-3xl font-semibold text-gray-900">
-        {% if auto_published %}Published to live network{% elif submitted_to_manager %}Submitted for manager review{% else %}Upload complete{% endif %}
+        {% if auto_published %}Layer published{% elif submitted_to_manager %}Layer submitted{% else %}Layer saved{% endif %}
       </h1>
       <p class="mt-2 text-xs sm:text-sm text-gray-600 max-w-2xl mx-auto">
         {% if auto_published %}
-        Your nominated features were published to the Riyadh road network and removed from local staging. They should appear on the main map shortly.
+        Your selected roads have been added to the map network.
         {% elif submitted_to_manager %}
-        Your nominated features are in the manager approval queue. A manager will publish them to the live road network after review.
+        Your layer has been sent for review. You will be notified when it is processed.
         {% else %}
-        New features are in the local staging database until you nominate and submit them.
+        Your layer is ready. Open the map to continue working.
         {% endif %}
       </p>
 
       <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
-        <a href="{% url 'upload' %}" class="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
-          Upload another
-        </a>
-        <a href="{{ map_url }}" class="rounded-full border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+        <a href="{{ map_url }}" class="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
           Open map
         </a>
       </div>

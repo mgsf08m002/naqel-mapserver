@@ -835,39 +835,23 @@
 
   <header class="lr-head">
     <div class="lr-head-main">
-      <h1 class="lr-title">{% if review_mode == 'manager' %}Manager approval{% else %}Review upload{% endif %}</h1>
+      <h1 class="lr-title">{% if review_mode == 'manager' %}Approve layer{% else %}Review layer{% endif %}</h1>
       <p class="lr-upload-line">
-        <span class="lr-upload-label">Shapefile :</span>
+        <span class="lr-upload-label">Layer</span>
         <span class="lr-upload-name">{{ layer.name }}</span>
       </p>
-      {% if review_mode == 'manager' %}
-      <p class="lr-lede">
-        Approve features to publish them to the live Riyadh road network (remote database). They will appear on the main map after approval.
-        Rejected features are removed from staging and will not be published.
-      </p>
-      {% else %}
-      <p class="lr-lede">
-        {% if is_manager_uploader %}
-        Features are staged locally. <strong>Nominate</strong> rows to publish, then <strong>Publish to live network</strong> — your upload goes straight to the road database (no approval queue).
-        {% else %}
-        Features are stored in the local staging database. <strong>Nominate</strong> rows you want a manager to publish to the live network.
-        When ready, <strong>Submit to manager</strong>. Rejected rows are excluded from submission.
-        {% endif %}
-      </p>
-      {% endif %}
     </div>
     <div class="flex flex-col gap-2 shrink-0">
       {% if review_mode == 'manager' %}
-      <a href="{% url 'layer_manager_queue' %}" class="lr-btn-finish">Back to queue</a>
+      <a href="{% url 'layer_manager_queue' %}" class="lr-btn-finish">Back to list</a>
       {% else %}
       {% if can_submit %}
       <button type="button" id="btn-submit-manager" class="lr-btn-finish bg-black text-white border-black hover:bg-gray-800">
-        {% if is_manager_uploader %}Publish to live network{% else %}Submit to manager{% endif %}
+        {% if is_manager_uploader %}Publish layer{% else %}Submit layer{% endif %}
       </button>
       {% else %}
-      <a id="btn-finish" href="{% url 'success' %}?submitted=1" class="lr-btn-finish">Submitted — exit</a>
+      <a id="btn-finish" href="{% url 'success' %}?submitted=1" class="lr-btn-finish">Done</a>
       {% endif %}
-      <a href="{% url 'upload' %}" class="lr-btn-finish text-center">Upload another</a>
       {% endif %}
     </div>
   </header>
@@ -929,20 +913,20 @@
         <div class="lr-stat-grid" id="review-counts" aria-live="polite">
           {% if review_mode == 'manager' %}
           <div class="lr-stat">
-            <span class="lr-stat-label">Awaiting</span>
+            <span class="lr-stat-label">Pending</span>
             <span class="lr-stat-val" id="cnt-awaiting_manager">—</span>
           </div>
           {% else %}
           <div class="lr-stat">
-            <span class="lr-stat-label">Staged</span>
+            <span class="lr-stat-label">New</span>
             <span class="lr-stat-val" id="cnt-staged">—</span>
           </div>
           <div class="lr-stat">
-            <span class="lr-stat-label">Nominated</span>
+            <span class="lr-stat-label">Included</span>
             <span class="lr-stat-val" id="cnt-nominated">—</span>
           </div>
           <div class="lr-stat">
-            <span class="lr-stat-label">Rejected</span>
+            <span class="lr-stat-label">Excluded</span>
             <span class="lr-stat-val" id="cnt-rejected_upload">—</span>
           </div>
           {% endif %}
@@ -952,15 +936,15 @@
       <div class="lr-aside-block">
         <h3 class="lr-aside-label">Bulk actions</h3>
         <div class="lr-actions-bulk">
-          <button type="button" id="btn-approve-all" class="lr-action-btn lr-action-btn--approve lr-action-btn--bulk" aria-label="Approve all features" title="Approve all">
+          <button type="button" id="btn-approve-all" class="lr-action-btn lr-action-btn--approve lr-action-btn--bulk" aria-label="Include all" title="Include all">
             <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
           </button>
-          <button type="button" id="btn-reject-all" class="lr-action-btn lr-action-btn--reject lr-action-btn--bulk" aria-label="Reject all features" title="Reject all">
+          <button type="button" id="btn-reject-all" class="lr-action-btn lr-action-btn--reject lr-action-btn--bulk" aria-label="Exclude all" title="Exclude all">
             <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
         <p class="lr-aside-note" id="lr-bulk-hint">
-          {% if review_mode == 'manager' %}Publish or discard every feature awaiting approval.{% else %}Nominate or reject every staged feature in this upload.{% endif %}
+          {% if review_mode == 'manager' %}Apply the same action to every pending row.{% else %}Apply the same action to every new row.{% endif %}
         </p>
       </div>
     </aside>
@@ -990,11 +974,11 @@
             <p class="lr-zoom-panel-hint">Select a feature to focus the map</p>
             <div class="lr-zoom-chips" aria-live="polite">
               {% if review_mode == 'manager' %}
-              <span class="lr-zoom-chip">Awaiting <strong id="lr-zoom-cnt-awaiting_manager">—</strong></span>
+              <span class="lr-zoom-chip">Pending <strong id="lr-zoom-cnt-awaiting_manager">—</strong></span>
               {% else %}
-              <span class="lr-zoom-chip">Staged <strong id="lr-zoom-cnt-staged">—</strong></span>
-              <span class="lr-zoom-chip">Nominated <strong id="lr-zoom-cnt-nominated">—</strong></span>
-              <span class="lr-zoom-chip">Rejected <strong id="lr-zoom-cnt-rejected_upload">—</strong></span>
+              <span class="lr-zoom-chip">New <strong id="lr-zoom-cnt-staged">—</strong></span>
+              <span class="lr-zoom-chip">Included <strong id="lr-zoom-cnt-nominated">—</strong></span>
+              <span class="lr-zoom-chip">Excluded <strong id="lr-zoom-cnt-rejected_upload">—</strong></span>
               {% endif %}
             </div>
           </header>

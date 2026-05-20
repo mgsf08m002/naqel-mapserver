@@ -222,7 +222,7 @@ class UploaderWorkflowTests(TestCase):
             return 99901.0
 
         with patch(
-            "layer_uploader.views.approve_and_publish_feature",
+            "layer_uploader.services.approve_and_publish_feature",
             side_effect=_fake_publish,
         ) as publish_mock:
             response = self.client.post(

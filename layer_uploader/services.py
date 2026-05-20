@@ -1,6 +1,4 @@
-"""
-Layer upload workflow: stage in local PostGIS, manager approval publishes to riyadh_roads.
-"""
+"""Layer upload workflow: local review, manager approval, publish to riyadh_roads."""
 
 from __future__ import annotations
 
@@ -199,18 +197,6 @@ def publish_feature_to_riyadh_roads(feature: Feature) -> float:
     return next_id
 
 
-def publish_feature_list(features) -> tuple[list[float], list[str]]:
-    """Publish a list of staging features; return (remote ids, error messages)."""
-    published_ids: list[float] = []
-    errors: list[str] = []
-    for feature in features:
-        try:
-            published_ids.append(approve_and_publish_feature(feature))
-        except Exception as exc:
-            errors.append(str(exc))
-    return published_ids, errors
-
-
 def approve_and_publish_feature(feature: Feature) -> float:
     """Publish to remote DB and remove the local staging row."""
     remote_id = publish_feature_to_riyadh_roads(feature)
@@ -220,6 +206,18 @@ def approve_and_publish_feature(feature: Feature) -> float:
     logger.info("Removed staging feature %s after publish (remote id=%s)", feature_pk, remote_id)
     refresh_layer_completion(layer)
     return remote_id
+
+
+def publish_feature_list(features) -> tuple[list[float], list[str]]:
+    """Publish features; return (remote ids, error messages)."""
+    published_ids: list[float] = []
+    errors: list[str] = []
+    for feature in features:
+        try:
+            published_ids.append(approve_and_publish_feature(feature))
+        except Exception as exc:
+            errors.append(str(exc))
+    return published_ids, errors
 
 
 def reject_feature_by_manager(feature: Feature) -> None:
@@ -330,14 +328,12 @@ def submit_layer(layer: Layer, submitter: AbstractBaseUser) -> LayerSubmitResult
     - Manager submitter: nominated features publish straight to riyadh_roads.
     """
     if layer.status != Layer.Status.DRAFT:
-        raise ValueError("This upload has already been submitted.")
+        raise ValueError("This layer has already been submitted.")
 
     nominated = layer.features.filter(status=Feature.Status.NOMINATED)
     count = nominated.count()
     if count == 0:
-        raise ValueError(
-            "Nominate at least one feature for manager review before submitting."
-        )
+        raise ValueError("Include at least one road before submitting.")
 
     _discard_unnominated_staged_features(layer)
 
@@ -363,13 +359,95 @@ def map_preview_statuses_manager() -> list[str]:
     return [Feature.Status.AWAITING_MANAGER]
 
 
-def pending_upload_approval_count() -> int:
-    """Layers in the manager queue (submitted, with at least one feature awaiting review)."""
+def layers_pending_manager_review():
+    """Layers submitted by editors that still have roads awaiting a manager decision."""
     return (
         Layer.objects.filter(
             status=Layer.Status.SUBMITTED,
             features__status=Feature.Status.AWAITING_MANAGER,
         )
         .distinct()
-        .count()
+        .order_by("-submitted_at")
     )
+
+
+def pending_manager_layer_count() -> int:
+    return layers_pending_manager_review().count()
+
+
+def apply_uploader_review_action(
+    layer: Layer, action: str, *, feature_id: int | None = None
+) -> dict:
+    """API actions: nominate/reject (single) or nominate_all/reject_all (bulk)."""
+    if action == "nominate_all":
+        updated = layer.features.filter(status=Feature.Status.STAGED).update(
+            status=Feature.Status.NOMINATED
+        )
+        return {"ok": True, "updated": updated}
+
+    if action == "reject_all":
+        updated = layer.features.filter(status=Feature.Status.STAGED).update(
+            status=Feature.Status.REJECTED_UPLOAD
+        )
+        return {"ok": True, "updated": updated}
+
+    if action not in ("nominate", "reject"):
+        raise ValueError("Unknown action")
+
+    if feature_id is None:
+        raise ValueError("Invalid feature_id")
+
+    feature = Feature.objects.filter(pk=feature_id, layer=layer).first()
+    if not feature:
+        raise LookupError("Feature not found")
+
+    if feature.status != Feature.Status.STAGED:
+        raise ValueError("This row cannot be updated")
+
+    feature.status = (
+        Feature.Status.NOMINATED
+        if action == "nominate"
+        else Feature.Status.REJECTED_UPLOAD
+    )
+    feature.save(update_fields=["status"])
+    return {"ok": True}
+
+
+def manager_review_action_result(layer: Layer, *, published: bool = False) -> dict:
+    layer.refresh_from_db()
+    payload = {"ok": True, "layer_completed": layer.status == Layer.Status.COMPLETED}
+    if published:
+        payload["tiles_version"] = tiles_version_ms()
+    return payload
+
+
+def apply_manager_review_action(
+    layer: Layer, action: str, *, feature_id: int | None = None
+) -> dict:
+    """API actions: approve/reject (single) or approve_all/reject_all (bulk)."""
+    if action == "approve_all":
+        result = manager_approve_all_awaiting(layer)
+        return {"ok": True, **result}
+
+    if action == "reject_all":
+        result = manager_reject_all_awaiting(layer)
+        return {"ok": True, **result}
+
+    if action not in ("approve", "reject"):
+        raise ValueError("Unknown action")
+
+    if feature_id is None:
+        raise ValueError("Invalid feature_id")
+
+    feature = Feature.objects.filter(
+        pk=feature_id, layer=layer, status=Feature.Status.AWAITING_MANAGER
+    ).first()
+    if not feature:
+        raise LookupError("Feature not found")
+
+    if action == "approve":
+        approve_and_publish_feature(feature)
+        return manager_review_action_result(layer, published=True)
+
+    reject_feature_by_manager(feature)
+    return manager_review_action_result(layer)
