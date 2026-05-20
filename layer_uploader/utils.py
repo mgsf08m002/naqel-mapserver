@@ -36,28 +36,78 @@ def _geometry_from_db_wkb(wkb_data, *, srid):
     return geom
 
 
+# Friendly labels for common EPSG codes (Fiona often returns only ``EPSG:####``).
+_KNOWN_EPSG_LABELS: dict[int, str] = {
+    3857: "WGS 84 / Pseudo-Mercator (Web Mercator)",
+    4326: "WGS 84",
+    32637: "WGS 84 / UTM zone 37N",
+    32638: "WGS 84 / UTM zone 38N",
+    32639: "WGS 84 / UTM zone 39N",
+}
+
+
+def _crs_epsg_code(crs) -> int | None:
+    """Resolve an integer EPSG code from Fiona CRS, WKT, or legacy dict forms."""
+    if not crs:
+        return None
+
+    to_epsg = getattr(crs, "to_epsg", None)
+    if callable(to_epsg):
+        try:
+            epsg = to_epsg()
+            if epsg:
+                return int(epsg)
+        except Exception:
+            pass
+
+    if isinstance(crs, dict):
+        raw_epsg = crs.get("init") or crs.get("INIT") or crs.get("epsg") or crs.get("EPSG")
+        if isinstance(raw_epsg, str) and ":" in raw_epsg:
+            raw_epsg = raw_epsg.rsplit(":", 1)[-1]
+        epsg = coerce_epsg(raw_epsg)
+        if epsg:
+            return epsg
+
+    crs_str = str(crs).strip()
+
+    epsg_prefix = re.match(r"^EPSG:(\d+)$", crs_str, re.IGNORECASE)
+    if epsg_prefix:
+        return int(epsg_prefix.group(1))
+
+    for pattern in (
+        r'AUTHORITY\["EPSG","(\d+)"\]',
+        r'EPSG","(\d+)"',
+    ):
+        matches = re.findall(pattern, crs_str)
+        if matches:
+            return int(matches[-1])
+
+    return None
+
+
+def _crs_display_name(crs, epsg: int | None) -> str:
+    if epsg and epsg in _KNOWN_EPSG_LABELS:
+        return _KNOWN_EPSG_LABELS[epsg]
+
+    crs_str = str(crs)
+    for pattern in (r'PROJCS\["([^"]+)"', r'GEOGCS\["([^"]+)"'):
+        name_match = re.search(pattern, crs_str)
+        if name_match:
+            return name_match.group(1).replace("_", " ")
+
+    if epsg:
+        return f"EPSG:{epsg}"
+    return "Unknown CRS"
+
+
 def simplify_crs(crs):
-    """
-    Extract readable CRS name and EPSG from WKT or dict
-    """
+    """Return (human-readable CRS name, EPSG code string or None) for UI display."""
     if not crs:
         return "Unknown CRS", None
 
-    crs_str = str(crs)
-
-    # Extract EPSG (last occurrence is usually correct)
-    epsg_match = re.findall(r'EPSG\",\"(\d+)\"', crs_str)
-    epsg = epsg_match[-1] if epsg_match else None
-
-    # Extract projection name
-    name_match = re.search(r'PROJCS\[\"([^\"]+)\"', crs_str)
-
-    if name_match:
-        name = name_match.group(1)
-    else:
-        name = "Unknown CRS"
-
-    return name, epsg
+    epsg = _crs_epsg_code(crs)
+    name = _crs_display_name(crs, epsg)
+    return name, str(epsg) if epsg else None
 
 
 def coerce_epsg(value):
@@ -71,29 +121,7 @@ def coerce_epsg(value):
 
 
 def _extract_source_epsg(crs):
-    if not crs:
-        return None
-
-    try:
-        to_epsg = getattr(crs, "to_epsg", None)
-        if callable(to_epsg):
-            epsg = to_epsg()
-            if epsg:
-                return int(epsg)
-    except Exception:
-        pass
-
-    if isinstance(crs, dict):
-        raw_epsg = crs.get("init") or crs.get("INIT") or crs.get("epsg") or crs.get("EPSG")
-        if isinstance(raw_epsg, str) and ":" in raw_epsg:
-            raw_epsg = raw_epsg.rsplit(":", 1)[-1]
-
-        epsg = coerce_epsg(raw_epsg)
-        if epsg:
-            return epsg
-
-    _, fallback_epsg = simplify_crs(crs)
-    return coerce_epsg(fallback_epsg)
+    return _crs_epsg_code(crs)
 
 
 def find_new_features_against_riyadh_roads(

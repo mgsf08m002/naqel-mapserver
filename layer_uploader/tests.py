@@ -9,7 +9,7 @@ from django.urls import reverse
 from system_admin.models import UserProfile
 
 from .models import Feature, Layer
-from .utils import _geometry_from_db_wkb
+from .utils import _geometry_from_db_wkb, simplify_crs
 
 
 class _StubFionaSource:
@@ -337,6 +337,26 @@ class ManagerAccessTests(TestCase):
         self.client.force_login(self.manager)
         response = self.client.get(reverse("layer_manager_queue"))
         self.assertEqual(response.status_code, 200)
+
+
+class CrsParsingTests(SimpleTestCase):
+    def test_simplify_crs_parses_fiona_epsg_string(self):
+        class _EpsgCrs:
+            def to_epsg(self):
+                return 3857
+
+            def __str__(self):
+                return "EPSG:3857"
+
+        name, epsg = simplify_crs(_EpsgCrs())
+        self.assertEqual(epsg, "3857")
+        self.assertIn("Mercator", name)
+
+    def test_simplify_crs_parses_legacy_wkt(self):
+        wkt = 'PROJCS["WGS 84 / Pseudo-Mercator",AUTHORITY["EPSG","3857"]]'
+        name, epsg = simplify_crs(wkt)
+        self.assertEqual(epsg, "3857")
+        self.assertIn("Pseudo-Mercator", name)
 
 
 class GeometryLoadingTests(SimpleTestCase):
