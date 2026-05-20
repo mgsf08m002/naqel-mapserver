@@ -177,6 +177,7 @@ TEMPLATES = [
                 'system_admin.context_processors.user_profile',
                 'mapping.context_processors.maptiler_api_key',
                 'mapping.context_processors.riyadh_roads_tile_url',
+                'layer_uploader.context_processors.manager_upload_approvals',
             ],
         },
     },

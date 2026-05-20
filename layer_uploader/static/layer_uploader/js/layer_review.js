@@ -1,6 +1,6 @@
 /**
- * Layer upload review: basemaps, optional Riyadh roads, approved features on the map,
- * full-screen zoom mode (all features), and row/map selection overlay.
+ * Layer upload review (uploader staging or manager approval): map preview, feature table,
+ * and nominate / submit / approve / reject actions aligned with backend workflow statuses.
  */
 (function () {
     const root = document.getElementById('layer-review-root');
@@ -9,9 +9,14 @@
         return;
     }
 
+    const reviewMode = (root.dataset.reviewMode || 'uploader').trim();
+    const isManagerMode = reviewMode === 'manager';
     const geojsonUrl = root.dataset.geojsonUrl;
     const tableUrl = root.dataset.tableUrl;
     const actionUrl = root.dataset.actionUrl;
+    const submitUrl = root.dataset.submitUrl || '';
+    const managerQueueUrl = root.dataset.managerQueueUrl || '';
+    const isManagerUploader = root.dataset.isManagerUploader === 'true';
 
     const RIYADH_ROADS_TILE_URL = (root.dataset.riyadhRoadsTileUrl || '').trim();
     const HAS_RIYADH_ROADS_TILES = RIYADH_ROADS_TILE_URL.length > 0;
@@ -29,7 +34,7 @@
     const SOURCE_ID_RIYADH = 'riyadh-roads';
     const PUBLIC_LAYER_ID_RIYADH = 'riyadh-roads-public-layer';
     const SOURCE_LAYER_RIYADH = 'riyadh_roads';
-    const SOURCE_UPLOAD = 'lr-upload-approved';
+    const SOURCE_STAGING = 'lr-upload-staging';
     const SOURCE_ALL = 'lr-review-all-features';
     const SOURCE_SELECTION = 'lr-selection-overlay';
     const UPLOAD_LAYER_IDS = ['lr-lines', 'lr-fill', 'lr-points'];
@@ -172,7 +177,7 @@
         if (theme === 'imagery') {
             return {
                 riyadh: RIYADH_ROADS_LINE_COLOR,
-                approved: '#e8e8e8',
+                staging: '#e8e8e8',
                 selHalo: '#ffffff',
                 selCore: '#141414',
                 fillOutline: '#ffffff',
@@ -181,7 +186,7 @@
         }
         return {
             riyadh: RIYADH_ROADS_LINE_COLOR,
-            approved: '#525252',
+            staging: '#525252',
             selHalo: '#ffffff',
             selCore: '#0a0a0a',
             fillOutline: '#525252',
@@ -203,14 +208,14 @@
                 map.setPaintProperty(PUBLIC_LAYER_ID_RIYADH, 'line-color', pal.riyadh);
             }
             if (map.getLayer('lr-lines')) {
-                map.setPaintProperty('lr-lines', 'line-color', pal.approved);
+                map.setPaintProperty('lr-lines', 'line-color', pal.staging);
             }
             if (map.getLayer('lr-fill')) {
-                map.setPaintProperty('lr-fill', 'fill-color', pal.approved);
-                map.setPaintProperty('lr-fill', 'fill-outline-color', pal.approved);
+                map.setPaintProperty('lr-fill', 'fill-color', pal.staging);
+                map.setPaintProperty('lr-fill', 'fill-outline-color', pal.staging);
             }
             if (map.getLayer('lr-points')) {
-                map.setPaintProperty('lr-points', 'circle-color', pal.approved);
+                map.setPaintProperty('lr-points', 'circle-color', pal.staging);
                 map.setPaintProperty('lr-points', 'circle-stroke-color', pal.pointStroke);
             }
             if (map.getLayer('lr-sel-fill')) {
@@ -436,14 +441,17 @@
         const approve = document.createElement('button');
         approve.type = 'button';
         approve.className = 'lr-action-btn lr-action-btn--approve';
-        approve.setAttribute('aria-label', 'Approve feature');
-        approve.setAttribute('title', 'Approve');
+        approve.setAttribute(
+            'aria-label',
+            isManagerMode ? 'Approve and publish feature' : 'Nominate feature for manager'
+        );
+        approve.setAttribute('title', isManagerMode ? 'Approve & publish' : 'Nominate');
         approve.innerHTML = ICON_APPROVE_SVG;
 
         const reject = document.createElement('button');
         reject.type = 'button';
         reject.className = 'lr-action-btn lr-action-btn--reject';
-        reject.setAttribute('aria-label', 'Reject feature');
+        reject.setAttribute('aria-label', isManagerMode ? 'Reject feature' : 'Reject feature locally');
         reject.setAttribute('title', 'Reject');
         reject.innerHTML = ICON_REJECT_SVG;
 
@@ -451,11 +459,15 @@
         container.appendChild(reject);
     }
 
-    const STATUS_COUNT_IDS = {
-        pending: ['cnt-pending', 'lr-zoom-cnt-pending'],
-        approved: ['cnt-approved', 'lr-zoom-cnt-approved'],
-        rejected: ['cnt-rejected', 'lr-zoom-cnt-rejected'],
-    };
+    const STATUS_COUNT_IDS = isManagerMode
+        ? {
+              awaiting_manager: ['cnt-awaiting_manager', 'lr-zoom-cnt-awaiting_manager'],
+          }
+        : {
+              staged: ['cnt-staged', 'lr-zoom-cnt-staged'],
+              nominated: ['cnt-nominated', 'lr-zoom-cnt-nominated'],
+              rejected_upload: ['cnt-rejected_upload', 'lr-zoom-cnt-rejected_upload'],
+          };
 
     function featureListSelector(fid) {
         return mapZoomOpen
@@ -485,9 +497,22 @@
         countEl.textContent = n === 1 ? '1 feature' : String(n) + ' features';
     }
 
+    function triggerLiveMapTileReload(tilesVersion) {
+        if (typeof window.triggerRiyadhTilesReload === 'function') {
+            window.triggerRiyadhTilesReload(tilesVersion);
+        }
+    }
+
     function postFeatureAction(action, featureId, failureLabel) {
         return postAction({ action: action, feature_id: featureId })
-            .then(function () {
+            .then(function (payload) {
+                if (payload && payload.tiles_version) {
+                    triggerLiveMapTileReload(payload.tiles_version);
+                }
+                if (payload && payload.layer_completed && managerQueueUrl) {
+                    window.location.href = managerQueueUrl;
+                    return;
+                }
                 return refreshAll();
             })
             .catch(function (err) {
@@ -911,7 +936,7 @@
     }
 
     function addUploadOverlayLayers() {
-        if (!map.getSource(SOURCE_UPLOAD)) {
+        if (!map.getSource(SOURCE_STAGING)) {
             return;
         }
 
@@ -919,7 +944,7 @@
             map.addLayer({
                 id: 'lr-lines',
                 type: 'line',
-                source: SOURCE_UPLOAD,
+                source: SOURCE_STAGING,
                 filter: GEOM_FILTER_LINE,
                 paint: {
                     'line-color': '#525252',
@@ -932,7 +957,7 @@
             map.addLayer({
                 id: 'lr-fill',
                 type: 'fill',
-                source: SOURCE_UPLOAD,
+                source: SOURCE_STAGING,
                 filter: GEOM_FILTER_POLY,
                 paint: {
                     'fill-color': '#525252',
@@ -945,7 +970,7 @@
             map.addLayer({
                 id: 'lr-points',
                 type: 'circle',
-                source: SOURCE_UPLOAD,
+                source: SOURCE_STAGING,
                 filter: GEOM_FILTER_POINT,
                 paint: {
                     'circle-radius': 6,
@@ -988,16 +1013,16 @@
         });
     }
 
-    function setUploadSourceData(data) {
-        if (!map.getSource(SOURCE_UPLOAD)) {
-            map.addSource(SOURCE_UPLOAD, {
+    function setStagingSourceData(data) {
+        if (!map.getSource(SOURCE_STAGING)) {
+            map.addSource(SOURCE_STAGING, {
                 type: 'geojson',
                 data: data,
                 promoteId: 'upload_feature_id',
             });
             addUploadOverlayLayers();
         } else {
-            map.getSource(SOURCE_UPLOAD).setData(data);
+            map.getSource(SOURCE_STAGING).setData(data);
         }
     }
 
@@ -1027,16 +1052,18 @@
 
         const approve = el.querySelector('.lr-action-btn--approve');
         const reject = el.querySelector('.lr-action-btn--reject');
+        const approveAction = isManagerMode ? 'approve' : 'nominate';
+        const rejectAction = 'reject';
         if (approve) {
             approve.addEventListener('click', function (e) {
                 e.stopPropagation();
-                postFeatureAction('approve', f.id, 'Approve');
+                postFeatureAction(approveAction, f.id, isManagerMode ? 'Approve' : 'Nominate');
             });
         }
         if (reject) {
             reject.addEventListener('click', function (e) {
                 e.stopPropagation();
-                postFeatureAction('reject', f.id, 'Reject');
+                postFeatureAction(rejectAction, f.id, 'Reject');
             });
         }
     }
@@ -1165,13 +1192,19 @@
     }
 
     function statusBadge(status) {
-        if (status === 'approved') {
-            return '<span class="lr-badge lr-badge-approved">Approved</span>';
+        if (status === 'nominated') {
+            return '<span class="lr-badge lr-badge-nominated">Nominated</span>';
         }
-        if (status === 'rejected') {
+        if (status === 'awaiting_manager') {
+            return '<span class="lr-badge lr-badge-awaiting">Awaiting manager</span>';
+        }
+        if (status === 'rejected_upload') {
             return '<span class="lr-badge lr-badge-rejected">Rejected</span>';
         }
-        return '<span class="lr-badge lr-badge-pending">Pending</span>';
+        if (status === 'staged') {
+            return '<span class="lr-badge lr-badge-staged">Staged</span>';
+        }
+        return '<span class="lr-badge lr-badge-staged">' + escapeHtml(String(status)) + '</span>';
     }
 
     function renderPropertiesCell(f) {
@@ -1229,7 +1262,7 @@
     function refreshAll() {
         return Promise.all([fetchReviewJson(geojsonUrl), fetchReviewJson(tableUrl)])
             .then(function (results) {
-                setUploadSourceData(results[0]);
+                setStagingSourceData(results[0]);
                 renderTable(results[1]);
                 applyOverlayThemeForBasemap(currentBasemapId);
             })
@@ -1271,21 +1304,92 @@
 
     const btnAllA = document.getElementById('btn-approve-all');
     const btnAllR = document.getElementById('btn-reject-all');
+    const bulkApproveAction = isManagerMode ? 'approve_all' : 'nominate_all';
     if (btnAllA) {
         btnAllA.addEventListener('click', function () {
-            postAction({ action: 'approve_all' })
-                .then(refreshAll)
+            postAction({ action: bulkApproveAction })
+                .then(function (payload) {
+                    if (payload && payload.tiles_version) {
+                        triggerLiveMapTileReload(payload.tiles_version);
+                    }
+                    if (payload && payload.layer_completed && managerQueueUrl) {
+                        window.location.href = managerQueueUrl;
+                        return;
+                    }
+                    return refreshAll();
+                })
                 .catch(function (err) {
-                    window.alert(err.message || 'Bulk approve failed');
+                    window.alert(err.message || (isManagerMode ? 'Bulk approve failed' : 'Bulk nominate failed'));
                 });
         });
     }
     if (btnAllR) {
         btnAllR.addEventListener('click', function () {
             postAction({ action: 'reject_all' })
-                .then(refreshAll)
+                .then(function (payload) {
+                    if (payload && payload.layer_completed && managerQueueUrl) {
+                        window.location.href = managerQueueUrl;
+                        return;
+                    }
+                    return refreshAll();
+                })
                 .catch(function (err) {
                     window.alert(err.message || 'Bulk reject failed');
+                });
+        });
+    }
+
+    const btnSubmitManager = document.getElementById('btn-submit-manager');
+    if (btnSubmitManager && submitUrl) {
+        btnSubmitManager.addEventListener('click', function () {
+            const nominated = document.getElementById('cnt-nominated');
+            const nominatedCount = nominated ? parseInt(nominated.textContent, 10) : 0;
+            if (!nominatedCount || Number.isNaN(nominatedCount)) {
+                window.alert(
+                    isManagerUploader
+                        ? 'Nominate at least one feature before publishing.'
+                        : 'Nominate at least one feature before submitting to the manager.'
+                );
+                return;
+            }
+            const confirmMsg = isManagerUploader
+                ? 'Publish ' +
+                  nominatedCount +
+                  ' nominated feature(s) to the live road network now? This cannot be undone.'
+                : 'Submit ' +
+                  nominatedCount +
+                  ' nominated feature(s) to the manager for approval? You will not be able to edit this upload afterward.';
+            if (!window.confirm(confirmMsg)) {
+                return;
+            }
+            fetch(submitUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                    Accept: 'application/json',
+                },
+                body: JSON.stringify({}),
+            })
+                .then(function (r) {
+                    if (!r.ok) {
+                        return r.json().then(function (j) {
+                            throw new Error(j.detail || r.statusText);
+                        });
+                    }
+                    return r.json();
+                })
+                .then(function (payload) {
+                    if (payload && payload.tiles_version) {
+                        triggerLiveMapTileReload(payload.tiles_version);
+                    }
+                    if (payload.redirect_url) {
+                        window.location.href = payload.redirect_url;
+                    }
+                })
+                .catch(function (err) {
+                    window.alert(err.message || 'Submit failed');
                 });
         });
     }

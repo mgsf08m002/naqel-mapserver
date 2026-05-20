@@ -6,6 +6,8 @@ from django.contrib.gis.geos import GEOSGeometry
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
+from system_admin.models import UserProfile
+
 from .models import Feature, Layer
 from .utils import _geometry_from_db_wkb
 
@@ -39,75 +41,222 @@ class ValidateViewTests(TestCase):
         session.save()
 
     def _make_stub_new_features(self, count):
-        """Return a list of stub new-feature dicts like the real function returns."""
         return [
             {
-                "geom": GEOSGeometry("POINT(46.68 24.71)", srid=4326),
-                "properties": {"name": f"road_{i}"},
+                "geom": GEOSGeometry("LINESTRING(46.68 24.71, 46.69 24.72)", srid=4326),
+                "properties": {"name": f"road_{i}", "fclass": "residential"},
             }
             for i in range(count)
         ]
 
-    def test_validate_post_stores_new_features_from_geometry_comparison(self):
+    def test_validate_post_stores_new_features_in_local_db(self):
         stub_features = self._make_stub_new_features(4)
 
         with (
-            patch("layer_uploader.views._find_shapefile_path", return_value="C:\\temp\\naqel-upload\\uploaded_roads.shp"),
-            patch("layer_uploader.views.fiona.open", return_value=_StubFionaSource()),
-            patch("layer_uploader.views.find_new_features_against_riyadh_roads", return_value=stub_features) as compare_mock,
-        ):
-            response = self.client.post(reverse("validate"))
-
-        layer = Layer.objects.get()
-        self.assertRedirects(response, reverse("layer_review", kwargs={"layer_id": layer.pk}))
-        compare_mock.assert_called_once_with("C:\\temp\\naqel-upload\\uploaded_roads.shp")
-        self.assertEqual(layer.name, "uploaded_roads")
-        self.assertEqual(layer.total_features, 12)
-        self.assertEqual(layer.new_features, 4)
-        self.assertEqual(layer.srid, 3857)
-
-        # Verify Feature objects were created and linked to the layer.
-        features = Feature.objects.filter(layer=layer)
-        self.assertEqual(features.count(), 4)
-        for feat in features:
-            self.assertEqual(feat.uploaded_by, self.user)
-            self.assertIsNotNone(feat.geom)
-            self.assertIn("name", feat.properties)
-            self.assertEqual(feat.status, Feature.Status.PENDING)
-
-    def test_validate_post_creates_no_features_when_all_exist(self):
-        with (
-            patch("layer_uploader.views._find_shapefile_path", return_value="C:\\temp\\naqel-upload\\uploaded_roads.shp"),
-            patch("layer_uploader.views.fiona.open", return_value=_StubFionaSource()),
-            patch("layer_uploader.views.find_new_features_against_riyadh_roads", return_value=[]),
-        ):
-            response = self.client.post(reverse("validate"))
-
-        layer = Layer.objects.get()
-        self.assertRedirects(response, reverse("layer_review", kwargs={"layer_id": layer.pk}))
-        self.assertEqual(layer.new_features, 0)
-        self.assertEqual(Feature.objects.count(), 0)
-
-    def test_validate_post_renders_error_when_geometry_comparison_fails(self):
-        with (
-            patch("layer_uploader.views._find_shapefile_path", return_value="C:\\temp\\naqel-upload\\uploaded_roads.shp"),
+            patch(
+                "layer_uploader.views.find_shapefile_path",
+                return_value="C:\\temp\\naqel-upload\\uploaded_roads.shp",
+            ),
             patch("layer_uploader.views.fiona.open", return_value=_StubFionaSource()),
             patch(
                 "layer_uploader.views.find_new_features_against_riyadh_roads",
-                side_effect=RuntimeError("comparison failed"),
-            ),
+                return_value=stub_features,
+            ) as compare_mock,
         ):
             response = self.client.post(reverse("validate"))
 
+        layer = Layer.objects.get()
+        self.assertRedirects(
+            response, reverse("layer_review", kwargs={"layer_id": layer.pk})
+        )
+        compare_mock.assert_called_once_with("C:\\temp\\naqel-upload\\uploaded_roads.shp")
+        self.assertEqual(layer.status, Layer.Status.DRAFT)
+        self.assertEqual(layer.new_features, 4)
+
+        features = Feature.objects.filter(layer=layer)
+        self.assertEqual(features.count(), 4)
+        for feat in features:
+            self.assertEqual(feat.status, Feature.Status.STAGED)
+
+
+class UploaderWorkflowTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.editor = user_model.objects.create_user(
+            username="editor",
+            email="editor@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=self.editor,
+            role="editor",
+            can_access_layer_uploader=True,
+            password_setup_completed=True,
+        )
+        self.manager = user_model.objects.create_user(
+            username="manager",
+            email="manager@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=self.manager,
+            role="manager",
+            can_access_layer_uploader=True,
+            password_setup_completed=True,
+        )
+        self.layer = Layer.objects.create(
+            name="test_layer",
+            uploaded_by=self.editor,
+            srid=4326,
+            total_features=2,
+            new_features=2,
+            status=Layer.Status.DRAFT,
+        )
+        self.geom = GEOSGeometry("LINESTRING(46.68 24.71, 46.69 24.72)", srid=4326)
+        self.feature = Feature.objects.create(
+            layer=self.layer,
+            geom=self.geom,
+            properties={"name": "New Road", "fclass": "residential"},
+            status=Feature.Status.STAGED,
+            uploaded_by=self.editor,
+        )
+
+    def test_uploader_nominate_and_submit(self):
+        self.client.force_login(self.editor)
+        action_url = reverse("layer_review_action", kwargs={"layer_id": self.layer.pk})
+
+        response = self.client.post(
+            action_url,
+            data=json.dumps({"action": "nominate", "feature_id": self.feature.pk}),
+            content_type="application/json",
+        )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Failed to compare uploaded features against Riyadh roads")
-        self.assertEqual(Layer.objects.count(), 0)
-        self.assertEqual(Feature.objects.count(), 0)
+        self.feature.refresh_from_db()
+        self.assertEqual(self.feature.status, Feature.Status.NOMINATED)
+
+        submit_url = reverse("layer_submit", kwargs={"layer_id": self.layer.pk})
+        response = self.client.post(submit_url, data="{}", content_type="application/json")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["submitted_count"], 1)
+
+        self.layer.refresh_from_db()
+        self.feature.refresh_from_db()
+        self.assertEqual(self.layer.status, Layer.Status.SUBMITTED)
+        self.assertEqual(self.feature.status, Feature.Status.AWAITING_MANAGER)
+
+    def test_manager_self_upload_auto_publishes_on_submit(self):
+        manager_layer = Layer.objects.create(
+            name="manager_self_layer",
+            uploaded_by=self.manager,
+            srid=4326,
+            total_features=1,
+            new_features=1,
+            status=Layer.Status.DRAFT,
+        )
+        manager_feature = Feature.objects.create(
+            layer=manager_layer,
+            geom=self.geom,
+            properties={"name": "Mgr Road", "fclass": "residential"},
+            status=Feature.Status.STAGED,
+            uploaded_by=self.manager,
+        )
+
+        self.client.force_login(self.manager)
+        nominate_url = reverse("layer_review_action", kwargs={"layer_id": manager_layer.pk})
+        self.client.post(
+            nominate_url,
+            data=json.dumps({"action": "nominate", "feature_id": manager_feature.pk}),
+            content_type="application/json",
+        )
+
+        submit_url = reverse("layer_submit", kwargs={"layer_id": manager_layer.pk})
+
+        def _fake_publish(feature):
+            feature.delete()
+            from layer_uploader.services import refresh_layer_completion
+
+            refresh_layer_completion(feature.layer)
+            return 88001.0
+
+        with patch(
+            "layer_uploader.services.approve_and_publish_feature",
+            side_effect=_fake_publish,
+        ):
+            response = self.client.post(submit_url, data="{}", content_type="application/json")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["auto_published"])
+        self.assertEqual(payload["published_count"], 1)
+        self.assertIn("auto_published=1", payload["redirect_url"])
+
+        manager_layer.refresh_from_db()
+        self.assertEqual(manager_layer.status, Layer.Status.COMPLETED)
+        self.assertFalse(
+            Feature.objects.filter(pk=manager_feature.pk).exists()
+        )
+        self.assertEqual(
+            Feature.objects.filter(
+                layer=manager_layer, status=Feature.Status.AWAITING_MANAGER
+            ).count(),
+            0,
+        )
+
+    def test_manager_approve_publishes_and_removes_local_feature(self):
+        self.feature.status = Feature.Status.AWAITING_MANAGER
+        self.feature.save(update_fields=["status"])
+        self.layer.status = Layer.Status.SUBMITTED
+        self.layer.save(update_fields=["status"])
+
+        self.client.force_login(self.manager)
+        action_url = reverse(
+            "layer_manager_review_action", kwargs={"layer_id": self.layer.pk}
+        )
+
+        def _fake_publish(feature):
+            feature.delete()
+            from layer_uploader.services import refresh_layer_completion
+
+            refresh_layer_completion(feature.layer)
+            return 99901.0
+
+        with patch(
+            "layer_uploader.views.approve_and_publish_feature",
+            side_effect=_fake_publish,
+        ) as publish_mock:
+            response = self.client.post(
+                action_url,
+                data=json.dumps({"action": "approve", "feature_id": self.feature.pk}),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        publish_mock.assert_called_once()
+        self.assertFalse(Feature.objects.filter(pk=self.feature.pk).exists())
+        self.layer.refresh_from_db()
+        self.assertEqual(self.layer.status, Layer.Status.COMPLETED)
+
+    def test_manager_reject_removes_local_feature(self):
+        self.feature.status = Feature.Status.AWAITING_MANAGER
+        self.feature.save(update_fields=["status"])
+        self.layer.status = Layer.Status.SUBMITTED
+        self.layer.save(update_fields=["status"])
+
+        self.client.force_login(self.manager)
+        action_url = reverse(
+            "layer_manager_review_action", kwargs={"layer_id": self.layer.pk}
+        )
+        response = self.client.post(
+            action_url,
+            data=json.dumps({"action": "reject", "feature_id": self.feature.pk}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Feature.objects.filter(pk=self.feature.pk).exists())
 
 
 class LayerReviewApiTests(TestCase):
-    """Review page JSON/GeoJSON/action endpoints match layer_review.js expectations."""
-
     def setUp(self):
         user_model = get_user_model()
         self.user = user_model.objects.create_superuser(
@@ -122,106 +271,72 @@ class LayerReviewApiTests(TestCase):
             srid=4326,
             total_features=3,
             new_features=3,
+            status=Layer.Status.DRAFT,
         )
-        self.geom = GEOSGeometry("POINT(46.68 24.71)", srid=4326)
-        self.pending = Feature.objects.create(
+        self.geom = GEOSGeometry("LINESTRING(46.68 24.71, 46.69 24.72)", srid=4326)
+        self.staged = Feature.objects.create(
             layer=self.layer,
             geom=self.geom,
-            properties={"name": "pending_road"},
-            status=Feature.Status.PENDING,
+            properties={"name": "staged_road"},
+            status=Feature.Status.STAGED,
             uploaded_by=self.user,
         )
-        self.approved = Feature.objects.create(
+        self.nominated = Feature.objects.create(
             layer=self.layer,
-            geom=GEOSGeometry("POINT(46.69 24.72)", srid=4326),
-            properties={"name": "approved_road"},
-            status=Feature.Status.APPROVED,
-            uploaded_by=self.user,
-        )
-        self.rejected = Feature.objects.create(
-            layer=self.layer,
-            geom=GEOSGeometry("POINT(46.70 24.73)", srid=4326),
-            properties={"name": "rejected_road"},
-            status=Feature.Status.REJECTED,
+            geom=GEOSGeometry("LINESTRING(46.69 24.72, 46.70 24.73)", srid=4326),
+            properties={"name": "nominated_road"},
+            status=Feature.Status.NOMINATED,
             uploaded_by=self.user,
         )
 
-    def test_review_table_json_returns_rows_and_counts(self):
-        response = self.client.get(
-            reverse("layer_review_table", kwargs={"layer_id": self.layer.pk})
-        )
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertEqual(payload["layer"]["id"], self.layer.pk)
-        self.assertEqual(payload["counts"], {"pending": 1, "approved": 1, "rejected": 1})
-        self.assertEqual(len(payload["features"]), 3)
-
-        row = next(r for r in payload["features"] if r["id"] == self.pending.pk)
-        self.assertEqual(row["status"], "pending")
-        self.assertEqual(row["property_entries"], [{"key": "name", "value": "pending_road"}])
-        self.assertEqual(len(row["center"]), 2)
-        self.assertEqual(len(row["bbox"]), 2)
-        self.assertEqual(row["geometry"]["type"], "Point")
-
-    def test_review_geojson_includes_only_approved_features(self):
+    def test_review_geojson_shows_staged_and_nominated(self):
         response = self.client.get(
             reverse("layer_review_geojson", kwargs={"layer_id": self.layer.pk})
         )
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload["type"], "FeatureCollection")
-        self.assertEqual(len(payload["features"]), 1)
-        feature = payload["features"][0]
-        self.assertEqual(feature["id"], self.approved.pk)
-        self.assertEqual(feature["properties"]["upload_feature_id"], self.approved.pk)
-        self.assertEqual(feature["geometry"]["type"], "Point")
+        ids = {f["id"] for f in payload["features"]}
+        self.assertEqual(ids, {self.staged.pk, self.nominated.pk})
 
-    def test_review_action_updates_single_feature_status(self):
-        url = reverse("layer_review_action", kwargs={"layer_id": self.layer.pk})
-        response = self.client.post(
-            url,
-            data=json.dumps({"action": "approve", "feature_id": self.pending.pk}),
-            content_type="application/json",
+    def test_review_table_json_returns_new_status_counts(self):
+        response = self.client.get(
+            reverse("layer_review_table", kwargs={"layer_id": self.layer.pk})
         )
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["ok"])
-        self.pending.refresh_from_db()
-        self.assertEqual(self.pending.status, Feature.Status.APPROVED)
+        payload = response.json()
+        self.assertEqual(payload["counts"]["staged"], 1)
+        self.assertEqual(payload["counts"]["nominated"], 1)
 
-    def test_review_action_bulk_approve_all(self):
-        url = reverse("layer_review_action", kwargs={"layer_id": self.layer.pk})
-        response = self.client.post(
-            url,
-            data=json.dumps({"action": "approve_all"}),
-            content_type="application/json",
+
+class ManagerAccessTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.superuser = user_model.objects.create_superuser(
+            username="admin_only",
+            email="admin_only@example.com",
+            password="testpass123",
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["updated"], 3)
-        statuses = set(Feature.objects.filter(layer=self.layer).values_list("status", flat=True))
-        self.assertEqual(statuses, {Feature.Status.APPROVED})
-
-    def test_review_json_endpoints_forbid_other_users(self):
-        from system_admin.models import UserProfile
-
-        editor = get_user_model().objects.create_user(
-            username="review_editor",
-            email="editor@example.com",
+        self.manager = user_model.objects.create_user(
+            username="mgr_only",
+            email="mgr_only@example.com",
             password="testpass123",
         )
         UserProfile.objects.create(
-            user=editor,
-            role="editor",
-            can_access_layer_uploader=True,
+            user=self.manager,
+            role="manager",
+            password_setup_completed=True,
         )
-        other_layer = Layer.objects.create(
-            name="other_layer",
-            uploaded_by=self.user,
-            srid=4326,
-        )
-        self.client.force_login(editor)
-        table_url = reverse("layer_review_table", kwargs={"layer_id": other_layer.pk})
-        response = self.client.get(table_url)
-        self.assertEqual(response.status_code, 403)
+
+    def test_superuser_cannot_access_manager_queue(self):
+        self.client.force_login(self.superuser)
+        response = self.client.get(reverse("layer_manager_queue"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("session_ended", response.url)
+
+    def test_manager_can_access_manager_queue(self):
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse("layer_manager_queue"))
+        self.assertEqual(response.status_code, 200)
 
 
 class GeometryLoadingTests(SimpleTestCase):

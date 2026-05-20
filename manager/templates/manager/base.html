@@ -109,6 +109,17 @@
                             <span class="flex-1">Layer Uploader</span>
                         </a>
                         {% endif %}
+                        {% if user_profile.role == 'manager' %}
+                        <a href="{% url 'layer_manager_queue' %}" id="menu-layer-approvals" class="menu-item w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2.5">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="flex-1">Upload approvals</span>
+                            {% if manager_upload_approval_count %}
+                            <span class="text-[10px] font-semibold tabular-nums text-gray-500" aria-label="{{ manager_upload_approval_count }} pending">({{ manager_upload_approval_count }})</span>
+                            {% endif %}
+                        </a>
+                        {% endif %}
                         {% if user_profile.can_access_account_information or user_profile.can_access_security or user_profile.can_access_layer_uploader %}
                         <div class="border-t border-gray-100 my-1"></div>
                         {% endif %}

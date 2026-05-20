@@ -12,17 +12,25 @@
         </svg>
       </div>
 
-      <h1 class="mt-5 text-2xl sm:text-3xl font-semibold text-gray-900">Layer saved</h1>
+      <h1 class="mt-5 text-2xl sm:text-3xl font-semibold text-gray-900">
+        {% if auto_published %}Published to live network{% elif submitted_to_manager %}Submitted for manager review{% else %}Upload complete{% endif %}
+      </h1>
       <p class="mt-2 text-xs sm:text-sm text-gray-600 max-w-2xl mx-auto">
-        Metadata has been stored successfully. You can upload another layer or return to the application.
+        {% if auto_published %}
+        Your nominated features were published to the Riyadh road network and removed from local staging. They should appear on the main map shortly.
+        {% elif submitted_to_manager %}
+        Your nominated features are in the manager approval queue. A manager will publish them to the live road network after review.
+        {% else %}
+        New features are in the local staging database until you nominate and submit them.
+        {% endif %}
       </p>
 
       <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
         <a href="{% url 'upload' %}" class="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
           Upload another
         </a>
-        <a href="/" class="rounded-full border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
-          Back to app
+        <a href="{{ map_url }}" class="rounded-full border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+          Open map
         </a>
       </div>
     </div>
