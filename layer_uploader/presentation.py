@@ -6,26 +6,44 @@ from .access import is_layer_upload_manager
 from .models import Layer
 
 
-def resolve_base_template(user) -> str:
+def _user_profile(user):
+    return getattr(user, "profile", None)
+
+
+def _map_namespace_for_user(user) -> str:
+    """URL namespace for the user's primary map view."""
     if user.is_superuser:
-        return "system_admin/base.html"
-    profile = getattr(user, "profile", None)
+        return "system_admin"
+    profile = _user_profile(user)
     if profile and profile.role == "manager":
-        return "manager/base.html"
+        return "manager"
     if profile and profile.role == "editor":
-        return "editor/base.html"
-    return "system_admin/base.html"
+        return "editor"
+    return "system_admin"
+
+
+def resolve_base_template(user) -> str:
+    return f"{_map_namespace_for_user(user)}/base.html"
 
 
 def post_upload_map_url(user) -> str:
     if user.is_superuser:
         return reverse("system_admin:map")
-    profile = getattr(user, "profile", None)
+    profile = _user_profile(user)
     if profile and profile.role == "manager":
         return reverse("manager:map")
     if profile and profile.role == "editor":
         return reverse("editor:map")
     return reverse("landing")
+
+
+def upload_flow_context(request, **extra) -> dict:
+    """Shared template context for upload, validate, and success pages."""
+    return {
+        "base_template": resolve_base_template(request.user),
+        "upload_reset_url": reverse("upload"),
+        **extra,
+    }
 
 
 def review_page_context(request, layer: Layer) -> dict:

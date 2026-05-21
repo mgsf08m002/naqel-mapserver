@@ -1,0 +1,43 @@
+<div class="space-y-4">
+  <div id="lu-picker-empty">
+    <button type="button" id="lu-pick-files" class="lu-browse-btn">
+      <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16"/>
+      </svg>
+      Browse files
+    </button>
+    <p class="mt-3 text-sm text-gray-400">No files selected</p>
+  </div>
+
+  <div id="lu-picker-filled" class="lu-picker-filled hidden" aria-live="polite">
+    <div class="lu-selection">
+      <div class="lu-selection__head">
+        <div class="lu-selection__title-wrap">
+          <span class="lu-selection__count" id="lu-file-count">0</span>
+          <span class="lu-selection__title" id="lu-selection-title">Selected files</span>
+        </div>
+        <button type="button" id="lu-clear-all" class="lu-selection__clear">
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          Clear all
+        </button>
+      </div>
+      <ul id="lu-file-list" class="lu-file-list"></ul>
+    </div>
+  </div>
+
+  <input
+    id="lu-file-input"
+    class="lu-visually-hidden"
+    type="file"
+    name="files"
+    multiple
+    required
+    accept=".shp,.shx,.dbf,.prj,.zip,.SHP,.SHX,.DBF,.PRJ,.ZIP"
+  >
+
+  <p class="text-xs leading-relaxed text-gray-400">
+    Zip archives are supported. Optional <span class="text-gray-500">.prj</span> improves CRS detection.
+  </p>
+</div>

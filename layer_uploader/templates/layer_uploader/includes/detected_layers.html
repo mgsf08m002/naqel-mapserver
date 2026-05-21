@@ -1,0 +1,49 @@
+<section class="mt-16 border-t border-gray-100 pt-12">
+  <div class="flex items-baseline justify-between gap-4">
+    <div>
+      <h2 class="text-lg font-medium text-gray-900">Detected layers</h2>
+      <p class="mt-1 text-sm text-gray-500">Choose one to continue.</p>
+    </div>
+    <span class="text-xs text-gray-400">{{ shapefiles|length }} found</span>
+  </div>
+
+  <form method="post" class="mt-8">
+    {% csrf_token %}
+    <div class="space-y-3">
+      {% for shp in shapefiles %}
+      <label class="flex cursor-pointer gap-4">
+        <input
+          type="radio"
+          name="selected"
+          value="{{ shp.name }}"
+          required
+          class="peer mt-1 h-4 w-4 shrink-0 border-gray-300 text-gray-900 focus:ring-gray-900"
+        >
+        <div class="min-w-0 flex-1 border-l-2 border-transparent py-4 pl-4 transition peer-checked:border-gray-900 hover:border-gray-200">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <p class="text-sm font-medium text-gray-900">{{ shp.name }}</p>
+            {% if shp.error %}
+            <span class="text-xs text-red-600">Invalid</span>
+            {% else %}
+            <span class="text-xs text-gray-400">Ready</span>
+            {% endif %}
+          </div>
+          {% if shp.error %}
+          <p class="mt-1.5 text-sm text-red-600">{{ shp.error }}</p>
+          {% else %}
+          <p class="mt-2 text-sm text-gray-500">
+            <span class="text-gray-700">{{ shp.crs_name }}</span>
+            <span class="text-gray-300 mx-1.5" aria-hidden="true">·</span>
+            SRID {{ shp.epsg }}
+            <span class="text-gray-300 mx-1.5" aria-hidden="true">·</span>
+            {{ shp.count }} features
+          </p>
+          {% endif %}
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+
+    {% include 'layer_uploader/includes/flow_actions.html' with submit_label='Continue' secondary_url=upload_reset_url secondary_label='Start over' %}
+  </form>
+</section>

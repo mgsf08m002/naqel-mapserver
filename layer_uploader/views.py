@@ -14,7 +14,7 @@ from .access import (
 )
 from .api import features_geojson, table_payload
 from .models import Feature, Layer
-from .presentation import post_upload_map_url, resolve_base_template, review_page_context
+from .presentation import post_upload_map_url, review_page_context, upload_flow_context
 from .services import (
     apply_uploader_review_action,
     map_preview_statuses_uploader,
@@ -80,8 +80,6 @@ def upload_view(request):
     if denied:
         return denied
 
-    context = {"base_template": resolve_base_template(request.user)}
-
     if request.method == "POST":
         if "selected" in request.POST:
             request.session["selected"] = request.POST.get("selected")
@@ -90,18 +88,26 @@ def upload_view(request):
         temp_dir = extract_upload_to_temp(request.FILES.getlist("files"))
         detected_shapefiles = collect_detected_shapefiles(temp_dir)
         if not detected_shapefiles:
-            context["error"] = "No valid shapefile found."
-            return render(request, "layer_uploader/upload.html", context)
+            return render(
+                request,
+                "layer_uploader/upload.html",
+                upload_flow_context(request, error="No valid shapefile found."),
+            )
 
         request.session["temp_dir"] = temp_dir
-        context["shapefiles"] = detected_shapefiles
 
         selectable = [s for s in detected_shapefiles if s.get("name") and not s.get("error")]
         if len(selectable) == 1:
             request.session["selected"] = selectable[0]["name"]
             return redirect("validate")
 
-    return render(request, "layer_uploader/upload.html", context)
+        return render(
+            request,
+            "layer_uploader/upload.html",
+            upload_flow_context(request, shapefiles=detected_shapefiles),
+        )
+
+    return render(request, "layer_uploader/upload.html", upload_flow_context(request))
 
 
 @login_required
@@ -110,17 +116,16 @@ def validate_view(request):
     if denied:
         return denied
 
-    base_template = resolve_base_template(request.user)
     temp_dir = request.session.get("temp_dir")
     selected = request.session.get("selected")
     if not temp_dir or not selected:
         return render(
             request,
             "layer_uploader/upload.html",
-            {
-                "base_template": base_template,
-                "error": "Session expired. Please upload files again.",
-            },
+            upload_flow_context(
+                request,
+                error="Session expired. Please upload files again.",
+            ),
         )
 
     shp_path = find_shapefile_path(temp_dir, selected)
@@ -128,7 +133,7 @@ def validate_view(request):
         return render(
             request,
             "layer_uploader/upload.html",
-            {"base_template": base_template, "error": "Shapefile not found."},
+            upload_flow_context(request, error="Shapefile not found."),
         )
 
     with fiona.open(shp_path) as source:
@@ -136,20 +141,30 @@ def validate_view(request):
         crs_name, epsg = simplify_crs(source.crs)
     normalized_epsg = coerce_epsg(epsg)
 
-    context = {
-        "base_template": base_template,
-        "name": selected,
-        "count": feature_count,
-        "crs_name": crs_name,
-        "epsg": epsg if epsg else "Not defined",
-    }
+    context = upload_flow_context(
+        request,
+        name=selected,
+        count=feature_count,
+        crs_name=crs_name,
+        epsg=epsg if epsg else "Not defined",
+    )
 
     if request.method == "POST":
         try:
             new_features_data = find_new_features_against_riyadh_roads(shp_path)
         except Exception as exc:
-            context["error"] = f"Could not compare this layer to the road network: {exc}"
-            return render(request, "layer_uploader/validate.html", context)
+            return render(
+                request,
+                "layer_uploader/validate.html",
+                upload_flow_context(
+                    request,
+                    error=f"Could not compare this layer to the road network: {exc}",
+                    name=selected,
+                    count=feature_count,
+                    crs_name=crs_name,
+                    epsg=epsg if epsg else "Not defined",
+                ),
+            )
 
         layer = Layer.objects.create(
             name=selected,
@@ -186,12 +201,12 @@ def success_view(request):
     return render(
         request,
         "layer_uploader/success.html",
-        {
-            "base_template": resolve_base_template(request.user),
-            "map_url": post_upload_map_url(request.user),
-            "auto_published": request.GET.get("auto_published") == "1",
-            "submitted_to_manager": request.GET.get("submitted") == "1",
-        },
+        upload_flow_context(
+            request,
+            map_url=post_upload_map_url(request.user),
+            auto_published=request.GET.get("auto_published") == "1",
+            submitted_to_manager=request.GET.get("submitted") == "1",
+        ),
     )
 
 

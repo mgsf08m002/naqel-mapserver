@@ -1,59 +1,35 @@
 {% extends 'layer_uploader/base.html' %}
 
-{% block title %}Layer details - Naqel Maps{% endblock %}
+{% block layer_page_title %}Layer details · Naqel Maps{% endblock %}
 
 {% block layer_content %}
-<div class="bg-white -mx-6 -my-6 px-4 sm:px-6 py-8 sm:py-10 min-h-[calc(100vh-64px)]">
-  <div class="w-full flex items-center justify-center">
-    <div class="w-full max-w-[1200px]">
-      <header class="flex flex-col gap-2">
-        <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
-          <span class="h-px w-6 bg-gray-300"></span>
-          <span>Layer Uploader</span>
-        </div>
-        <div class="flex flex-col gap-2">
-          <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900">Layer details</h1>
-          <p class="text-xs sm:text-sm text-gray-600">Confirm the information below, then continue to review.</p>
-        </div>
-      </header>
+{% include 'layer_uploader/includes/flow_shell.html' %}
+    {% include 'layer_uploader/includes/flow_header.html' with title='Layer details' subtitle='Confirm the information below, then continue to review.' %}
 
-      <section class="mt-8">
-        {% if error %}
-          <div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {{ error }}
-          </div>
-        {% endif %}
-
-        <div class="divide-y divide-gray-200 border-y border-gray-200">
-          <div class="grid grid-cols-1 gap-2 py-4 sm:grid-cols-3">
-            <div class="text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase sm:col-span-1">Layer name</div>
-            <div class="text-sm font-semibold text-gray-900 sm:col-span-2">{{ name }}</div>
-          </div>
-          <div class="grid grid-cols-1 gap-2 py-4 sm:grid-cols-3">
-            <div class="text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase sm:col-span-1">Features</div>
-            <div class="text-sm font-semibold text-gray-900 sm:col-span-2">{{ count }}</div>
-          </div>
-          <div class="grid grid-cols-1 gap-2 py-4 sm:grid-cols-3">
-            <div class="text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase sm:col-span-1">CRS</div>
-            <div class="text-sm font-semibold text-gray-900 sm:col-span-2">{{ crs_name }}</div>
-          </div>
-          <div class="grid grid-cols-1 gap-2 py-4 sm:grid-cols-3">
-            <div class="text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase sm:col-span-1">SRID</div>
-            <div class="text-sm font-semibold text-gray-900 sm:col-span-2">{{ epsg }}</div>
-          </div>
+    <section class="mt-10">
+      <dl class="space-y-5 text-sm">
+        <div class="flex flex-col gap-1 sm:flex-row sm:gap-8">
+          <dt class="w-28 shrink-0 font-medium text-gray-900">Layer name</dt>
+          <dd class="text-gray-600">{{ name }}</dd>
         </div>
+        <div class="flex flex-col gap-1 sm:flex-row sm:gap-8">
+          <dt class="w-28 shrink-0 font-medium text-gray-900">Features</dt>
+          <dd class="text-gray-600">{{ count }}</dd>
+        </div>
+        <div class="flex flex-col gap-1 sm:flex-row sm:gap-8">
+          <dt class="w-28 shrink-0 font-medium text-gray-900">CRS</dt>
+          <dd class="text-gray-600">{{ crs_name }}</dd>
+        </div>
+        <div class="flex flex-col gap-1 sm:flex-row sm:gap-8">
+          <dt class="w-28 shrink-0 font-medium text-gray-900">SRID</dt>
+          <dd class="text-gray-600">{{ epsg }}</dd>
+        </div>
+      </dl>
 
-        <form method="post" class="flex flex-wrap items-center gap-4 pt-6">
-          {% csrf_token %}
-          <button type="submit" class="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
-            Review Layer
-          </button>
-          <a href="{% url 'upload' %}" class="text-sm font-medium text-gray-600 hover:text-gray-900 border-b border-gray-300 hover:border-gray-700">
-            Start over
-          </a>
-        </form>
-      </section>
-    </div>
-  </div>
-</div>
+      <form method="post" class="mt-10">
+        {% csrf_token %}
+        {% include 'layer_uploader/includes/flow_actions.html' with submit_label='Review layer' secondary_url=upload_reset_url secondary_label='Start over' %}
+      </form>
+    </section>
+{% include 'layer_uploader/includes/flow_shell_end.html' %}
 {% endblock %}
