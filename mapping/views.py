@@ -19,10 +19,19 @@ from urllib.error import HTTPError, URLError
 
 from layer_uploader.map_review import (
     approve_layer_upload_edit_request,
-    is_layer_upload_edit_request,
     reject_layer_upload_edit_request,
 )
 
+from .approval_api import (
+    serialize_approval_request_detail,
+    serialize_approval_request_list_item,
+)
+from .approval_categories import (
+    EDIT_TYPE_DELETE,
+    create_pending_road_edit_request,
+    is_delete_road_request,
+    is_layer_upload_request,
+)
 from .models import LineEditRequest, RiyadhRoad
 from .riyadh_fclass import ensure_riyadh_fclass_in_fields, feature_label_from_riyadh_fclass
 from .riyadh_network import tiles_version_ms
@@ -507,11 +516,6 @@ def _geometries_equivalent_wgs84(geom_a, geom_b) -> bool:
         g2 = GEOSGeometry(json.dumps(geom_b), srid=4326)
         if g1.equals(g2):
             return True
-        try:
-            # Accept tiny transform/serialization drift as equivalent.
-            return float(g1.distance(g2)) <= 1e-5
-        except Exception:
-            pass
     except Exception:
         pass
 
@@ -529,7 +533,7 @@ def _geometries_equivalent_wgs84(geom_a, geom_b) -> bool:
 
 def _validate_line_geojson_for_edit(geometry) -> None:
     """
-    Ensure geometry is suitable for a road line edit.
+    Ensure geometry is suitable for a road geometry edit.
     Raises ValueError with a user-safe message if invalid.
     """
     if not geometry or not isinstance(geometry, dict):
@@ -565,7 +569,7 @@ def _validate_line_geojson_for_edit(geometry) -> None:
 
     if geom_type == "LineString" and len(line_coords) >= 2:
         if line_coords[0] == line_coords[-1] and len(line_coords) < 3:
-            raise ValueError("Degenerate line geometry.")
+            raise ValueError("Degenerate road geometry.")
 
 
 @login_required
@@ -573,7 +577,7 @@ def _validate_line_geojson_for_edit(geometry) -> None:
 @csrf_exempt
 def save_line_edit_request(request):
     """
-    Save a line edit.
+    Save a road edit (submit to approval queue or apply for managers).
 
     Rejects the generic placeholder feature type ``Line``; a real ``current_feature_label`` is required.
 
@@ -700,13 +704,20 @@ def save_line_edit_request(request):
                     status=500,
                 )
 
+        if is_riyadh_road and road:
+            fields_data = dict(fields_data)
+            fields_data["_original_feature_label"] = feature_label_from_riyadh_fclass(
+                getattr(road, "fclass", None)
+            )
+            fields_data["_original_road_name"] = getattr(road, "name", "") or ""
+
         edit_request_create_kwargs = {
             "requester": request.user,
             "geometry": normalized_geometry,
             "original_geometry": original_geometry,
             "geometry_changed": geometry_changed,
-            "feature_type": data.get("feature_type", ""),
-            "current_feature_label": data.get("current_feature_label", "Line"),
+            "feature_type": feature_label,
+            "current_feature_label": feature_label,
             "fields_data": fields_data,
             "tags_data": tags_data,
             "relations_data": relations_data,
@@ -716,11 +727,13 @@ def save_line_edit_request(request):
         }
 
         if is_manager:
-            edit_request = LineEditRequest.objects.create(**edit_request_create_kwargs)
+            edit_request = create_pending_road_edit_request(
+                road=road, **edit_request_create_kwargs
+            )
             created_request_id = edit_request.id
             remote_road_id = None
             try:
-                if (edit_request.edit_type or "").upper() == "DELETE":
+                if is_delete_road_request(edit_request):
                     _apply_delete_to_base_network(edit_request)
                 elif edit_request.is_riyadh_road:
                     _apply_riyadh_edit_to_base_network(edit_request)
@@ -761,11 +774,13 @@ def save_line_edit_request(request):
             )
 
         if not is_riyadh_road:
-            edit_request = LineEditRequest.objects.create(**edit_request_create_kwargs)
+            edit_request = create_pending_road_edit_request(
+                road=None, **edit_request_create_kwargs
+            )
             return JsonResponse(
                 {
                     "success": True,
-                    "message": "Your line edit has been submitted for manager review.",
+                    "message": "Your road edit has been submitted for manager review.",
                     "request_id": edit_request.id,
                     "auto_approved": False,
                     "pending_submitted": True,
@@ -807,7 +822,9 @@ def save_line_edit_request(request):
                 }
             )
 
-        edit_request = LineEditRequest.objects.create(**edit_request_create_kwargs)
+        edit_request = create_pending_road_edit_request(
+            road=road, **edit_request_create_kwargs
+        )
 
         pending_message = "Your edit has been submitted for manager review."
         if closure_changed:
@@ -910,7 +927,7 @@ def _apply_riyadh_edit_to_base_network(edit_request):
 
 
 def _apply_manual_approval_to_remote_network(edit_request):
-    """Create a new RiyadhRoad row for an approved manual line, then return its assigned id."""
+    """Create a new RiyadhRoad row for an approved manual road, then return its assigned id."""
     if not edit_request:
         return None
 
@@ -919,14 +936,14 @@ def _apply_manual_approval_to_remote_network(edit_request):
 
     geometry_json = edit_request.geometry
     if not geometry_json:
-        raise ValueError("Missing geometry for approved manual line.")
+        raise ValueError("Missing geometry for approved manual road.")
 
     try:
         _validate_line_geojson_for_edit(
             _ensure_wgs84_geometry(geometry_json, source_srid=3857)
         )
     except ValueError as exc:
-        logger.warning("Invalid manual line geometry on apply: %s", exc)
+        logger.warning("Invalid manual road geometry on apply: %s", exc)
         raise
 
     fields = edit_request.fields_data or {}
@@ -1212,7 +1229,7 @@ def _apply_delete_to_base_network(edit_request):
     if not edit_request:
         return
 
-    if (edit_request.edit_type or "").upper() != "DELETE":
+    if not is_delete_road_request(edit_request):
         return
 
     if not edit_request.is_riyadh_road or edit_request.riyadh_road_id is None:
@@ -1273,7 +1290,6 @@ def create_delete_request(request):
     riyadh_road_id_int = None
     geometry = None
     current_feature_label = None
-    feature_type = None
     fields_data = {}
     tags_data = []
     relations_data = []
@@ -1295,7 +1311,6 @@ def create_delete_request(request):
         geometry = _get_riyadh_road_geometry_wgs84(getattr(road, "gid", target_gid_int))
         feature_label = feature_label_from_riyadh_fclass(getattr(road, "fclass", None))
         current_feature_label = feature_label
-        feature_type = feature_label
 
         # Optional client snapshots, used only for display convenience.
         fields_data = data.get("fields_data") or {}
@@ -1320,13 +1335,13 @@ def create_delete_request(request):
             status=400,
         )
 
-    delete_request = LineEditRequest.objects.create(
+    delete_request = create_pending_road_edit_request(
+        road=road,
         requester=request.user,
         status="pending",
-        edit_type="DELETE",
+        edit_type=EDIT_TYPE_DELETE,
         geometry=_ensure_wgs84_geometry(geometry, source_srid=3857),
-        feature_type=feature_type or "",
-        current_feature_label=current_feature_label or "Line",
+        current_feature_label=current_feature_label or "Unnamed Road",
         fields_data=fields_data,
         tags_data=tags_data,
         relations_data=relations_data,
@@ -1377,7 +1392,7 @@ def create_delete_request(request):
 
 @login_required
 def list_pending_requests(request):
-    """Return all pending line edit requests for the manager approval queue."""
+    """Return all pending road edit requests for the manager approval queue."""
     if not _get_user_is_manager(request.user):
         return JsonResponse({
             'success': False,
@@ -1388,7 +1403,17 @@ def list_pending_requests(request):
         requests = LineEditRequest.objects.filter(status="pending").select_related(
             "requester", "requester__profile"
         ).order_by("-created_at")
-        
+
+        riyadh_ids = [
+            req.riyadh_road_id
+            for req in requests
+            if req.is_riyadh_road and req.riyadh_road_id is not None
+        ]
+        roads_by_id = {}
+        if riyadh_ids:
+            for road in RiyadhRoad.objects.using("riyadh_roads").filter(gid__in=riyadh_ids):
+                roads_by_id[int(road.gid)] = road
+
         requests_data = []
         for req in requests:
             profile = getattr(req.requester, "profile", None)
@@ -1404,26 +1429,20 @@ def list_pending_requests(request):
                 else None
             )
 
-            fields_data = req.fields_data if isinstance(req.fields_data, dict) else {}
-            is_layer_upload = is_layer_upload_edit_request(req)
+            road = (
+                roads_by_id.get(int(req.riyadh_road_id))
+                if req.riyadh_road_id is not None
+                else None
+            )
 
             requests_data.append(
-                {
-                    "id": req.id,
-                    "requester_name": req.requester.get_full_name()
-                    or req.requester.username,
-                    "requester_role": req.get_requester_role(),
-                    "profile_image_url": profile_image_url,
-                    "edit_type": req.edit_type,
-                    "is_layer_upload": is_layer_upload,
-                    "layer_name": fields_data.get("layer_name") if is_layer_upload else None,
-                    "current_feature_label": req.current_feature_label or "Line",
-                    "created_at": req.created_at.isoformat(),
-                    "geometry": geometry,
-                    "original_geometry": orig_geom,
-                    "geometry_changed": req.geometry_changed,
-                    "road_closure": req.road_closure,
-                }
+                serialize_approval_request_list_item(
+                    req,
+                    road=road,
+                    profile_image_url=profile_image_url,
+                    geometry_wgs84=geometry,
+                    original_geometry_wgs84=orig_geom,
+                )
             )
         
         return JsonResponse({
@@ -1454,7 +1473,7 @@ def get_edit_request_details(request, request_id):
             return JsonResponse(
                 {
                     "success": False,
-                    "message": "Edit request not found for the given id.",
+                    "message": "Approval request not found for the given id.",
                 },
                 status=404,
             )
@@ -1474,35 +1493,20 @@ def get_edit_request_details(request, request_id):
         fields_data = (
             edit_request.fields_data if isinstance(edit_request.fields_data, dict) else {}
         )
-        is_layer_upload = is_layer_upload_edit_request(edit_request)
+        road = None
+        if edit_request.is_riyadh_road and edit_request.riyadh_road_id is not None:
+            road = _resolve_riyadh_road(edit_request.riyadh_road_id)
 
         return JsonResponse(
             {
                 "success": True,
-                "request": {
-                    "id": edit_request.id,
-                    "requester_name": edit_request.requester.get_full_name()
-                    or edit_request.requester.username,
-                    "requester_role": edit_request.get_requester_role(),
-                    "profile_image_url": profile_image_url,
-                    "edit_type": edit_request.edit_type,
-                    "is_layer_upload": is_layer_upload,
-                    "layer_name": fields_data.get("layer_name") if is_layer_upload else None,
-                    "feature_type": edit_request.current_feature_label or "Line",
-                    "current_feature_label": edit_request.current_feature_label
-                    or "Line",
-                    "geometry": geometry,
-                    "original_geometry": original_geometry,
-                    "geometry_changed": edit_request.geometry_changed,
-                    "fields_data": fields_data,
-                    "tags_data": edit_request.tags_data or [],
-                    "relations_data": edit_request.relations_data or [],
-                    "created_at": edit_request.created_at.isoformat(),
-                    "road_closure": edit_request.road_closure,
-                    "is_riyadh_road": edit_request.is_riyadh_road,
-                    "riyadh_road_id": edit_request.riyadh_road_id,
-                    "layer_upload_feature_id": edit_request.layer_upload_feature_id,
-                },
+                "request": serialize_approval_request_detail(
+                    edit_request,
+                    road=road,
+                    profile_image_url=profile_image_url,
+                    geometry_wgs84=geometry,
+                    original_geometry_wgs84=original_geometry,
+                ),
             }
         )
 
@@ -1520,7 +1524,7 @@ def get_edit_request_details(request, request_id):
 @require_http_methods(["POST"])
 @csrf_exempt
 def approve_edit_request(request, request_id):
-    """Approve an edit request."""
+    """Approve a pending road edit in the manager approval queue."""
     if not _get_user_is_manager(request.user):
         return JsonResponse({
             'success': False,
@@ -1531,7 +1535,7 @@ def approve_edit_request(request, request_id):
         edit_request = get_object_or_404(LineEditRequest, id=request_id, status="pending")
         remote_road_id = None
 
-        if is_layer_upload_edit_request(edit_request):
+        if is_layer_upload_request(edit_request):
             remote_road_id, published_fclass = approve_layer_upload_edit_request(
                 edit_request
             )
@@ -1547,7 +1551,7 @@ def approve_edit_request(request, request_id):
             )
 
         deleted_road_id = None
-        if (edit_request.edit_type or "").upper() == "DELETE":
+        if is_delete_road_request(edit_request):
             deleted_road_id = (
                 int(edit_request.riyadh_road_id)
                 if edit_request.riyadh_road_id is not None
@@ -1559,7 +1563,7 @@ def approve_edit_request(request, request_id):
                 _apply_riyadh_edit_to_base_network(edit_request)
                 remote_road_id = edit_request.riyadh_road_id
             else:
-                # Approved manual line: migrate to remote base network and remove local trace.
+                # Approved manual road: migrate to remote base network and remove local trace.
                 remote_road_id = _apply_manual_approval_to_remote_network(edit_request)
 
         edit_request.approve(request.user)
@@ -1567,7 +1571,7 @@ def approve_edit_request(request, request_id):
 
         payload = {
             "success": True,
-            "message": "Edit request approved successfully",
+            "message": "Road edit approved successfully",
             "remote_road_id": remote_road_id,
             "tiles_version": tiles_version_ms(),
         }
@@ -1590,7 +1594,7 @@ def approve_edit_request(request, request_id):
 @require_http_methods(["POST"])
 @csrf_exempt
 def reject_edit_request(request, request_id):
-    """Reject an edit request."""
+    """Reject a pending road edit in the manager approval queue."""
     if not _get_user_is_manager(request.user):
         return JsonResponse({
             'success': False,
@@ -1600,7 +1604,7 @@ def reject_edit_request(request, request_id):
     try:
         edit_request = get_object_or_404(LineEditRequest, id=request_id, status='pending')
 
-        if is_layer_upload_edit_request(edit_request):
+        if is_layer_upload_request(edit_request):
             reject_layer_upload_edit_request(edit_request)
             edit_request.delete()
             return JsonResponse({
@@ -1612,7 +1616,7 @@ def reject_edit_request(request, request_id):
 
         return JsonResponse({
             'success': True,
-            'message': 'Edit request rejected'
+            'message': 'Road edit rejected',
         })
         
     except Exception as e:

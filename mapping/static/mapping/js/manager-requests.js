@@ -3,6 +3,30 @@
     'use strict';
 
     let approvalQueue = [];
+    let approvalFilterKey = 'all';
+
+    const REQUEST_CATEGORY_STYLES = {
+        new_road: 'bg-emerald-50 text-emerald-800 ring-emerald-200/80',
+        add_road_label: 'bg-teal-50 text-teal-800 ring-teal-200/80',
+        change_road_label: 'bg-orange-50 text-orange-900 ring-orange-200/80',
+        new_road_geometry: 'bg-indigo-50 text-indigo-800 ring-indigo-200/80',
+        new_feature_type: 'bg-violet-50 text-violet-800 ring-violet-200/80',
+        delete_road: 'bg-rose-50 text-rose-800 ring-rose-200/80',
+        layer_upload: 'bg-sky-50 text-sky-800 ring-sky-200/80',
+        road_attribute_edit: 'bg-amber-50 text-amber-900 ring-amber-200/80'
+    };
+
+    const APPROVAL_FILTER_OPTIONS = [
+        { key: 'all', label: 'All' },
+        { key: 'new_road', label: 'New Road' },
+        { key: 'add_road_label', label: 'Add Label' },
+        { key: 'change_road_label', label: 'Change Label' },
+        { key: 'new_road_geometry', label: 'Geometry' },
+        { key: 'new_feature_type', label: 'Road Type' },
+        { key: 'delete_road', label: 'Delete Road' },
+        { key: 'layer_upload', label: 'Layer Upload' },
+        { key: 'road_attribute_edit', label: 'Attributes' }
+    ];
 
     function approvalEmptyHtml() {
         return `
@@ -16,15 +40,6 @@
                 <p class="mt-1 max-w-[14rem] text-xs leading-relaxed text-zinc-500">No submissions are waiting for your approval.</p>
             </div>
         `;
-    }
-
-    function requesterDisplayLine(name, role) {
-        const safeName = (name || 'Unknown').trim();
-        const safeRole = (role || '').trim();
-        if (!safeRole || safeRole.toLowerCase() === safeName.toLowerCase()) {
-            return safeName;
-        }
-        return safeName + ' · ' + safeRole;
     }
 
     function formatRequestTime(isoString) {
@@ -51,28 +66,53 @@
     }
 
     function getRequestTypeMeta(request) {
-        const isDelete = (request.edit_type || '').toUpperCase() === 'DELETE';
-        const isLayerUpload = Boolean(request.is_layer_upload);
-        if (isLayerUpload) {
-            return {
-                label: 'Layer upload',
-                chipClass: 'bg-sky-50 text-sky-700 ring-sky-600/15',
-                actionLabel: 'Review on map'
-            };
-        }
-        if (isDelete) {
-            return {
-                label: 'Deletion',
-                chipClass: 'bg-rose-50 text-rose-700 ring-rose-600/15',
-                actionLabel: 'Review deletion'
-            };
-        }
-        const raw = (request.edit_type || 'Line edit').replace(/_/g, ' ').toLowerCase();
-        return {
-            label: raw.charAt(0).toUpperCase() + raw.slice(1),
-            chipClass: 'bg-zinc-100 text-zinc-700 ring-zinc-500/10',
-            actionLabel: 'Review edit'
+        const categoryKey = request.request_category || 'road_attribute_edit';
+        const label = request.request_category_label || 'Road Attribute Edit';
+        const chipClass =
+            REQUEST_CATEGORY_STYLES[categoryKey] || REQUEST_CATEGORY_STYLES.road_attribute_edit;
+        const actionLabels = {
+            layer_upload: 'Review on map',
+            delete_road: 'Review deletion',
+            new_road: 'Review new road',
+            new_road_geometry: 'Review geometry',
+            new_feature_type: 'Review feature type',
+            add_road_label: 'Review label',
+            change_road_label: 'Review label',
+            road_attribute_edit: 'Review attributes'
         };
+        return {
+            key: categoryKey,
+            label: label,
+            chipClass: chipClass,
+            actionLabel: actionLabels[categoryKey] || 'Review'
+        };
+    }
+
+    function getFilteredApprovalQueue() {
+        if (approvalFilterKey === 'all') {
+            return approvalQueue;
+        }
+        return approvalQueue.filter(function(request) {
+            return (request.request_category || '') === approvalFilterKey;
+        });
+    }
+
+    function syncApprovalFilterBar() {
+        const bar = document.getElementById('approvalRequestsFilterBar');
+        if (!bar) {
+            return;
+        }
+        bar.querySelectorAll('[data-approval-filter]').forEach(function(btn) {
+            const key = btn.getAttribute('data-approval-filter');
+            const active = key === approvalFilterKey;
+            btn.classList.toggle('bg-zinc-900', active);
+            btn.classList.toggle('text-white', active);
+            btn.classList.toggle('ring-zinc-900', active);
+            btn.classList.toggle('bg-white', !active);
+            btn.classList.toggle('text-zinc-600', !active);
+            btn.classList.toggle('ring-zinc-200/90', !active);
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
     }
 
     function setApprovalPanelOpen(open) {
@@ -287,6 +327,28 @@
             '<span class="text-[11px] text-zinc-400">Newest first</span>';
         panel.appendChild(listHeader);
 
+        const filterBar = document.createElement('div');
+        filterBar.id = 'approvalRequestsFilterBar';
+        filterBar.className =
+            'hidden shrink-0 gap-1.5 overflow-x-auto border-b border-zinc-100 bg-white px-3 py-2';
+        filterBar.setAttribute('role', 'toolbar');
+        filterBar.setAttribute('aria-label', 'Filter approval requests by type');
+        APPROVAL_FILTER_OPTIONS.forEach(function(opt) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.setAttribute('data-approval-filter', opt.key);
+            btn.className =
+                'shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ring-1 transition-colors';
+            btn.textContent = opt.label;
+            btn.addEventListener('click', function() {
+                approvalFilterKey = opt.key;
+                syncApprovalFilterBar();
+                renderApprovalList();
+            });
+            filterBar.appendChild(btn);
+        });
+        panel.appendChild(filterBar);
+
         const requestsList = document.createElement('div');
         requestsList.id = 'approvalRequestsList';
         requestsList.className = 'flex-1 divide-y divide-zinc-100 overflow-y-auto overscroll-contain';
@@ -312,40 +374,36 @@
 
     function buildApprovalRow(request) {
         const typeMeta = getRequestTypeMeta(request);
-        const isLayerUpload = Boolean(request.is_layer_upload);
         const displayFeature =
-            escapeHtml(String(request.current_feature_label || 'Unnamed feature'));
-        const requesterLine = escapeHtml(
-            requesterDisplayLine(request.requester_name, request.requester_role)
-        );
+            escapeHtml(String(request.current_feature_label || 'Unnamed Road'));
+        const requesterName = escapeHtml(String(request.requester_name || 'Unknown'));
         const timeLabel = escapeHtml(formatRequestTime(request.created_at));
-        const layerName = request.layer_name ? escapeHtml(String(request.layer_name)) : '';
-
-        let contextLine = requesterLine;
-        if (isLayerUpload && layerName) {
-            contextLine = layerName + '<span class="text-zinc-300"> · </span>' + requesterLine;
-        }
-
-        const geometryChip = request.geometry_changed
-            ? '<span class="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 ring-1 ring-amber-200/80">Shape changed</span>'
-            : '';
+        const shapefileName = request.shapefile_name;
+        const shapefileLine =
+            typeMeta.key === 'layer_upload' && shapefileName
+                ? '<p class="mb-2 truncate text-xs text-zinc-600">' +
+                  '<span class="font-medium text-zinc-500">Uploaded shapefile:</span> ' +
+                  escapeHtml(String(shapefileName)) +
+                  '</p>'
+                : '';
 
         const card = document.createElement('article');
         card.className =
             'group relative px-4 py-3.5 transition-colors hover:bg-zinc-50/90 focus-within:bg-zinc-50/90';
         card.setAttribute('data-request-id', request.id);
+        card.setAttribute('data-request-category', typeMeta.key);
 
         const avatarHtml = request.profile_image_url
             ? '<img src="' +
               escapeHtml(request.profile_image_url) +
               '" alt="" class="h-full w-full rounded-full object-cover">'
-            : '<span class="text-[10px] font-semibold text-zinc-600">' +
+            : '<span class="text-[11px] font-semibold text-zinc-600">' +
               escapeHtml((request.requester_name || '?').charAt(0).toUpperCase()) +
               '</span>';
 
         card.innerHTML =
             '<div class="mb-2 flex items-center justify-between gap-2">' +
-            '<span class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ' +
+            '<span class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ' +
             typeMeta.chipClass +
             '">' +
             escapeHtml(typeMeta.label) +
@@ -356,19 +414,20 @@
             timeLabel +
             '</time>' +
             '</div>' +
-            '<div class="mb-1.5 flex items-start gap-2">' +
-            '<h3 class="min-w-0 flex-1 text-sm font-semibold leading-snug text-zinc-900">' +
+            '<h3 class="mb-2 text-sm font-semibold leading-snug text-zinc-900">' +
             displayFeature +
             '</h3>' +
-            geometryChip +
-            '</div>' +
-            '<p class="mb-3 truncate text-xs text-zinc-500">' +
-            contextLine +
-            '</p>' +
-            '<div class="flex items-center justify-between gap-3">' +
-            '<div class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200/80">' +
+            shapefileLine +
+            '<div class="mb-3 flex items-center gap-2 min-w-0">' +
+            '<div class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200/80">' +
             avatarHtml +
             '</div>' +
+            '<p class="min-w-0 truncate text-xs text-zinc-600">' +
+            '<span class="font-medium text-zinc-500">Request by:</span> ' +
+            requesterName +
+            '</p>' +
+            '</div>' +
+            '<div class="flex justify-end">' +
             '<span class="approval-review-btn inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-zinc-900 ring-1 ring-zinc-200/90 transition-all group-hover:bg-zinc-900 group-hover:text-white group-hover:ring-zinc-900">' +
             escapeHtml(typeMeta.actionLabel) +
             '<svg class="h-3.5 w-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' +
@@ -413,15 +472,33 @@
                 summary.textContent = count + ' submissions need review';
             }
         }
+        const filterBar = document.getElementById('approvalRequestsFilterBar');
+        const filtered = getFilteredApprovalQueue();
+        const shown = filtered.length;
+
         if (listHeader && countEl) {
             if (count > 0 && isApprovalPanelOpen()) {
                 listHeader.classList.remove('hidden');
                 listHeader.classList.add('flex');
-                countEl.textContent =
-                    count === 1 ? '1 pending' : count + ' pending';
+                if (approvalFilterKey !== 'all' && shown !== count) {
+                    countEl.textContent = shown + ' of ' + count + ' shown';
+                } else {
+                    countEl.textContent =
+                        count === 1 ? '1 pending' : count + ' pending';
+                }
             } else {
                 listHeader.classList.add('hidden');
                 listHeader.classList.remove('flex');
+            }
+        }
+        if (filterBar) {
+            if (count > 0 && isApprovalPanelOpen()) {
+                filterBar.classList.remove('hidden');
+                filterBar.classList.add('flex');
+                syncApprovalFilterBar();
+            } else {
+                filterBar.classList.add('hidden');
+                filterBar.classList.remove('flex');
             }
         }
     }
@@ -621,6 +698,8 @@
 
         requestsList.innerHTML = '';
 
+        const filtered = getFilteredApprovalQueue();
+
         if (approvalQueue.length === 0) {
             const emptyState = document.createElement('div');
             emptyState.innerHTML = approvalEmptyHtml();
@@ -629,7 +708,16 @@
             return;
         }
 
-        approvalQueue.forEach(function(request) {
+        if (filtered.length === 0) {
+            const emptyFilter = document.createElement('div');
+            emptyFilter.className = 'px-4 py-10 text-center text-xs text-zinc-500';
+            emptyFilter.textContent = 'No requests match this filter.';
+            requestsList.appendChild(emptyFilter);
+            syncApprovalWidget();
+            return;
+        }
+
+        filtered.forEach(function(request) {
             requestsList.appendChild(buildApprovalRow(request));
         });
         syncApprovalWidget();
@@ -744,7 +832,7 @@
         const normalizedGeometry = normalizeRequestGeometry(request.geometry);
         if (!normalizedGeometry || !normalizedGeometry.coordinates || normalizedGeometry.coordinates.length < 2) {
             if (window.notify && window.notify.warning) {
-                window.notify.warning('This edit request has invalid geometry and cannot be shown on the map, but its details can still be reviewed.');
+                window.notify.warning('This road has invalid geometry and cannot be shown on the map, but its details can still be reviewed.');
             }
 
             ensureSidePanelForReview(function() {
@@ -978,7 +1066,7 @@
         
         // Update feature label
         if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateCurrentFeatureLabel === 'function') {
-            window.lineDrawingHandler.updateCurrentFeatureLabel(request.current_feature_label || 'Line');
+            window.lineDrawingHandler.updateCurrentFeatureLabel(request.current_feature_label || 'Unnamed Road');
         }
         if (!window.viewingRequestIds) {
             window.viewingRequestIds = [];
@@ -1000,7 +1088,7 @@
             window.parseRoadClosurePayloadValue(request.road_closure);
         const getStyle = window.getVisualizationStyle;
         const closureStyle = typeof getStyle === "function" ? getStyle("Road Closure") : null;
-        const featureStyle = typeof getStyle === "function" ? getStyle(request.current_feature_label || "Line") : null;
+        const featureStyle = typeof getStyle === "function" ? getStyle(request.current_feature_label || "Unnamed Road") : null;
         const style = (isRoadClosed && closureStyle) ? closureStyle : featureStyle;
         if (!style) {
             return;
@@ -1322,7 +1410,7 @@
             window.populateSidepanelRetryCount = 0;
         }
         if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateCurrentFeatureLabel === 'function') {
-            window.lineDrawingHandler.updateCurrentFeatureLabel(request.current_feature_label || 'Line');
+            window.lineDrawingHandler.updateCurrentFeatureLabel(request.current_feature_label || 'Unnamed Road');
         }
         setTimeout(function() {
             if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showEditFeatureScreen === 'function') {
@@ -1550,9 +1638,7 @@
         card.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.2)';
         const infoText = document.createElement('span');
         infoText.className = 'text-sm font-medium text-gray-800 mr-2';
-        infoText.textContent = request.is_layer_upload
-            ? 'Review Layer Upload'
-            : 'Review Edit Request';
+        infoText.textContent = 'Review: ' + (request.request_category_label || 'Road Edit');
         card.appendChild(infoText);
         const approveBtn = document.createElement('button');
         approveBtn.id = 'approveRequestBtn';
@@ -1579,7 +1665,7 @@
         `;
         rejectBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            if (confirm('Are you sure you want to reject this edit request?')) {
+            if (confirm('Are you sure you want to reject this approval request?')) {
                 rejectRequest(request.id);
             }
         });
@@ -1623,7 +1709,7 @@
         .then(function(result) {
             const data = result.data || {};
             if (result.ok && data.success) {
-                alert(data.message || 'Edit request approved successfully!');
+                alert(data.message || 'Road edit approved successfully.');
                 cleanupRequestLines();
                 removeApproveRejectButtons();
                 approvalQueue = approvalQueue.filter(function(req) {
@@ -1676,7 +1762,7 @@
         })
         .then(function(data) {
             if (data.success) {
-                alert(data.message || 'Edit request rejected');
+                alert(data.message || 'Road edit rejected.');
                 cleanupRequestLines();
                 removeApproveRejectButtons();
                 approvalQueue = approvalQueue.filter(function(req) {

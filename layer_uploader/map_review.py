@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import json
 
+from mapping.approval_categories import (
+    EDIT_TYPE_LAYER_UPLOAD,
+    UPLOAD_SHAPEFILE_FIELD_KEY,
+    create_pending_road_edit_request,
+)
 from mapping.models import LineEditRequest
 
 from .models import Feature, Layer
@@ -12,12 +17,6 @@ from .services import (
     refresh_layer_completion,
     reject_feature_by_manager,
 )
-
-LAYER_UPLOAD_EDIT_TYPE = "Layer Upload"
-
-
-def is_layer_upload_edit_request(edit_request: LineEditRequest) -> bool:
-    return (edit_request.edit_type or "").strip().lower() == LAYER_UPLOAD_EDIT_TYPE.lower()
 
 
 def _geometry_json_from_feature(feature: Feature) -> dict:
@@ -30,8 +29,8 @@ def _geometry_json_from_feature(feature: Feature) -> dict:
     return json.loads(geom.geojson)
 
 
-def create_line_edit_requests_for_layer_upload(layer: Layer, features) -> None:
-    """Create one approval-queue edit request per nominated upload feature."""
+def create_approval_requests_for_layer_upload(layer: Layer, features) -> None:
+    """Create one approval-queue row per nominated upload feature."""
     from mapping.riyadh_fclass import feature_label_from_riyadh_fclass
 
     from .services import prepare_road_fields_for_publish
@@ -39,16 +38,15 @@ def create_line_edit_requests_for_layer_upload(layer: Layer, features) -> None:
     for feature in features:
         fields = prepare_road_fields_for_publish(properties=feature.properties)
         display_label = feature_label_from_riyadh_fclass(fields.get("fclass") or None)
-        LineEditRequest.objects.create(
+        create_pending_road_edit_request(
             requester=layer.uploaded_by,
-            edit_type=LAYER_UPLOAD_EDIT_TYPE,
+            edit_type=EDIT_TYPE_LAYER_UPLOAD,
             geometry=_geometry_json_from_feature(feature),
             geometry_changed=False,
-            feature_type=display_label,
             current_feature_label=display_label,
             fields_data={
                 **fields,
-                "layer_name": layer.name,
+                UPLOAD_SHAPEFILE_FIELD_KEY: layer.name,
                 "layer_id": layer.pk,
             },
             tags_data=[],

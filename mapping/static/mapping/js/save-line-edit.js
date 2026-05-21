@@ -245,7 +245,7 @@
         return relationsData;
     }
 
-    function collectLineEditData() {
+    function collectRoadEditData() {
         let geometry = null;
         let featureLabelToUse = 'Line';
         
@@ -287,7 +287,7 @@
         }
         
         if (!geometry) {
-            alert('Unable to get line geometry. Please try again.');
+            alert('Unable to get road geometry. Please try again.');
             return null;
         }
 
@@ -374,7 +374,7 @@
 
     /**
      * Explains what kind of edit is waiting for manager review (non-closure cases).
-     * @param {object} editData - Payload from collectLineEditData.
+     * @param {object} editData - Payload from collectRoadEditData.
      * @param {{ reviewKind?: string }} meta - e.g. reviewKind 'delete' from delete flow.
      */
     function inferPendingReviewBody(editData, meta) {
@@ -694,9 +694,9 @@
             return;
         }
 
-        const editData = collectLineEditData();
+        const editData = collectRoadEditData();
         if (!editData) {
-            alert('Please draw a line first before saving.');
+            alert('Please draw a road on the map before saving.');
             return;
         }
 

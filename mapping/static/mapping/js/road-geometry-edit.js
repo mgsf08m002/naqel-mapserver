@@ -372,10 +372,10 @@
             '<span class="road-geometry-edit-hint__strip-label">New</span>' +
             '</div>' +
             '</div>' +
-            '<p class="road-geometry-edit-hint__note"><strong>Dashed line:</strong> published geometry on the network. <strong>Colored line:</strong> your new shape.</p>' +
+            '<p class="road-geometry-edit-hint__note"><strong>Dashed road:</strong> published geometry on the network. <strong>Colored road:</strong> your new shape.</p>' +
             '<p class="road-geometry-edit-hint__actions-heading">On the map</p>' +
             '<ul class="road-geometry-edit-hint__list">' +
-            '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--drag" aria-hidden="true"></span><span class="road-geometry-edit-hint__list-text">Drag nodes to move the line</span></li>' +
+            '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--drag" aria-hidden="true"></span><span class="road-geometry-edit-hint__list-text">Drag nodes to reshape the road</span></li>' +
             '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--plus" aria-hidden="true">+</span><span class="road-geometry-edit-hint__list-text">Click <kbd class="road-geometry-edit-hint__kbd-inline">+</kbd> on a segment to add a node</span></li>' +
             '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--shift" aria-hidden="true"><kbd class="road-geometry-edit-hint__kbd-chip">Shift</kbd></span><span class="road-geometry-edit-hint__list-text">+click a node to remove it</span></li>' +
             '</ul>' +
@@ -455,7 +455,7 @@
             ev.stopPropagation();
             if (!workingCoords || workingCoords.length <= 2) {
                 if (typeof window.showToastNotification === 'function') {
-                    window.showToastNotification('A line needs at least two vertices.', 'warning');
+                    window.showToastNotification('A road needs at least two vertices.', 'warning');
                 }
                 return;
             }

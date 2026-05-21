@@ -9,7 +9,10 @@ from django.urls import reverse
 from mapping.models import LineEditRequest
 from system_admin.models import UserProfile
 
-from .map_review import LAYER_UPLOAD_EDIT_TYPE
+from mapping.approval_categories import (
+    EDIT_TYPE_LAYER_UPLOAD,
+    UPLOAD_SHAPEFILE_FIELD_KEY,
+)
 from .models import Feature, Layer
 from .utils import _geometry_from_db_wkb, simplify_crs
 
@@ -149,11 +152,14 @@ class UploaderWorkflowTests(TestCase):
         self.assertEqual(self.feature.status, Feature.Status.AWAITING_MANAGER)
 
         edit_request = LineEditRequest.objects.get()
-        self.assertEqual(edit_request.edit_type, LAYER_UPLOAD_EDIT_TYPE)
+        self.assertEqual(edit_request.request_category, "layer_upload")
+        self.assertEqual(edit_request.edit_type, EDIT_TYPE_LAYER_UPLOAD)
         self.assertEqual(edit_request.layer_upload_feature_id, self.feature.pk)
         self.assertEqual(edit_request.requester_id, self.editor.pk)
         self.assertEqual(edit_request.status, "pending")
-        self.assertEqual(edit_request.fields_data.get("layer_name"), "test_layer")
+        self.assertEqual(
+            edit_request.fields_data.get(UPLOAD_SHAPEFILE_FIELD_KEY), "test_layer"
+        )
 
     def test_manager_self_upload_auto_publishes_on_submit(self):
         manager_layer = Layer.objects.create(
@@ -215,7 +221,7 @@ class UploaderWorkflowTests(TestCase):
 
         edit_request = LineEditRequest.objects.create(
             requester=self.editor,
-            edit_type=LAYER_UPLOAD_EDIT_TYPE,
+            edit_type=EDIT_TYPE_LAYER_UPLOAD,
             geometry=json.loads(self.geom.geojson),
             fields_data={"layer_name": self.layer.name, "layer_id": self.layer.pk},
             layer_upload_feature_id=self.feature.pk,
@@ -265,7 +271,7 @@ class UploaderWorkflowTests(TestCase):
 
         edit_request = LineEditRequest.objects.create(
             requester=self.editor,
-            edit_type=LAYER_UPLOAD_EDIT_TYPE,
+            edit_type=EDIT_TYPE_LAYER_UPLOAD,
             geometry=json.loads(self.geom.geojson),
             fields_data={"layer_name": self.layer.name},
             layer_upload_feature_id=self.feature.pk,
@@ -289,7 +295,7 @@ class UploaderWorkflowTests(TestCase):
     def test_pending_requests_list_includes_layer_upload(self):
         LineEditRequest.objects.create(
             requester=self.editor,
-            edit_type=LAYER_UPLOAD_EDIT_TYPE,
+            edit_type=EDIT_TYPE_LAYER_UPLOAD,
             geometry=json.loads(self.geom.geojson),
             fields_data={"layer_name": "roads_batch"},
             layer_upload_feature_id=self.feature.pk,
@@ -301,9 +307,9 @@ class UploaderWorkflowTests(TestCase):
         payload = response.json()
         self.assertTrue(payload["success"])
         self.assertEqual(len(payload["requests"]), 1)
-        self.assertTrue(payload["requests"][0]["is_layer_upload"])
-        self.assertEqual(payload["requests"][0]["edit_type"], LAYER_UPLOAD_EDIT_TYPE)
-        self.assertEqual(payload["requests"][0]["layer_name"], "roads_batch")
+        self.assertEqual(payload["requests"][0]["request_category"], "layer_upload")
+        self.assertEqual(payload["requests"][0]["request_category_label"], "Layer Upload")
+        self.assertEqual(payload["requests"][0]["shapefile_name"], "roads_batch")
 
 
 class LayerReviewApiTests(TestCase):

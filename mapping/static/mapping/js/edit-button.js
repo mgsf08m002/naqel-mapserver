@@ -124,7 +124,7 @@
         const hasContent = searchResults.innerHTML.trim().length > 0;
         if (!hasContent) {
             searchResults.style.display = 'block';
-            searchResults.innerHTML = '<p class="text-xs text-gray-400 px-1 py-4">Type above to search feature types, or draw a line on the map to choose from the list.</p>';
+            searchResults.innerHTML = '<p class="text-xs text-gray-400 px-1 py-4">Type above to search feature types, or draw a road on the map to choose from the list.</p>';
         }
     }
 

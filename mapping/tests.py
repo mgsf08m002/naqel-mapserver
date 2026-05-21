@@ -6,6 +6,7 @@ from django.contrib.gis.geos import GEOSGeometry
 from django.test import Client, RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
+from mapping.approval_categories import classify_approval_request, create_pending_road_edit_request
 from mapping.models import LineEditRequest
 from mapping.riyadh_network import riyadh_tile_proxy_absolute_url, tiles_version_ms
 from system_admin.models import UserProfile
@@ -154,3 +155,220 @@ class DeleteRequestApiTests(TestCase):
         self.assertEqual(payload["deleted_road_id"], 108801)
         self.assertIsNotNone(payload.get("tiles_version"))
         apply_mock.assert_called_once()
+
+
+class ApprovalCategoryTests(TestCase):
+    def test_classify_layer_upload(self):
+        req = LineEditRequest(
+            edit_type="Layer Upload",
+            layer_upload_feature_id=1,
+            fields_data={"layer_name": "batch.zip"},
+        )
+        result = classify_approval_request(req)
+        self.assertEqual(result["key"], "layer_upload")
+
+    def test_classify_delete_road(self):
+        req = LineEditRequest(
+            edit_type="DELETE",
+            request_category="delete_road",
+            is_riyadh_road=True,
+            riyadh_road_id=1,
+        )
+        result = classify_approval_request(req)
+        self.assertEqual(result["key"], "delete_road")
+
+    def test_is_delete_road_request_by_category(self):
+        from mapping.approval_categories import is_delete_road_request
+
+        req = LineEditRequest(request_category="delete_road", is_riyadh_road=True, riyadh_road_id=1)
+        self.assertTrue(is_delete_road_request(req))
+
+    def test_classify_new_road(self):
+        req = LineEditRequest(is_riyadh_road=False, riyadh_road_id=None)
+        result = classify_approval_request(req)
+        self.assertEqual(result["key"], "new_road")
+
+    def test_classify_add_road_label(self):
+        road = MagicMock()
+        road.name = ""
+        road.fclass = "motorway"
+        req = LineEditRequest(
+            is_riyadh_road=True,
+            riyadh_road_id=1,
+            current_feature_label="Motorway",
+            fields_data={"name": "King Fahd Rd"},
+        )
+        result = classify_approval_request(req, road=road)
+        self.assertEqual(result["key"], "add_road_label")
+
+    def test_classify_change_road_label(self):
+        road = MagicMock()
+        road.name = "Old Name"
+        road.fclass = "motorway"
+        req = LineEditRequest(
+            is_riyadh_road=True,
+            riyadh_road_id=1,
+            current_feature_label="Motorway",
+            fields_data={"name": "New Name"},
+        )
+        result = classify_approval_request(req, road=road)
+        self.assertEqual(result["key"], "change_road_label")
+
+    def test_classify_new_feature_type(self):
+        road = MagicMock()
+        road.name = "Main St"
+        road.fclass = "motorway"
+        req = LineEditRequest(
+            is_riyadh_road=True,
+            riyadh_road_id=1,
+            current_feature_label="Primary Road",
+            fields_data={"name": "Main St", "fclass": "primary"},
+        )
+        result = classify_approval_request(req, road=road)
+        self.assertEqual(result["key"], "new_feature_type")
+        self.assertEqual(result["label"], "New Feature Type")
+
+    def test_classify_new_road_geometry(self):
+        road = MagicMock()
+        road.name = "Main St"
+        road.fclass = "motorway"
+        req = LineEditRequest(
+            is_riyadh_road=True,
+            riyadh_road_id=1,
+            geometry_changed=True,
+            current_feature_label="Motorway",
+            fields_data={"name": "Main St", "fclass": "motorway"},
+        )
+        result = classify_approval_request(req, road=road)
+        self.assertEqual(result["key"], "new_road_geometry")
+        self.assertEqual(result["label"], "New Road Geometry")
+
+    def test_classify_geometry_reshape_not_attribute_edit(self):
+        """Shape-only edits must not be labeled Road Attribute Edit."""
+        road = MagicMock()
+        road.name = "Main St"
+        road.fclass = "motorway"
+        road.ref = "R-1"
+        road.oneway = "yes"
+        road.maxspeed = 60
+        road.osm_id = "123"
+        road.code = 1
+        road.bridge = "no"
+        road.tunnel = "no"
+        road.layer = 0
+        req = LineEditRequest(
+            is_riyadh_road=True,
+            riyadh_road_id=1,
+            geometry_changed=True,
+            request_category="road_attribute_edit",
+            current_feature_label="Motorway",
+            fields_data={
+                "name": "Main St",
+                "fclass": "motorway",
+                "ref": "R-1",
+                "oneway": "yes",
+                "maxspeed": 60,
+                "osm_id": "123",
+                "code": 1,
+                "bridge": "no",
+                "tunnel": "no",
+                "layer": 0,
+            },
+            tags_data=[],
+            relations_data=[],
+        )
+        result = classify_approval_request(req, road=road)
+        self.assertEqual(result["key"], "new_road_geometry")
+
+    def test_classify_geometry_from_stored_geometries(self):
+        road = MagicMock()
+        road.name = "Main St"
+        road.fclass = "motorway"
+        road.ref = ""
+        road.oneway = ""
+        road.maxspeed = None
+        road.osm_id = ""
+        road.code = None
+        road.bridge = ""
+        road.tunnel = ""
+        road.layer = None
+        req = LineEditRequest(
+            is_riyadh_road=True,
+            riyadh_road_id=1,
+            geometry_changed=False,
+            geometry={"type": "LineString", "coordinates": [[0, 0], [2, 2]]},
+            original_geometry={"type": "LineString", "coordinates": [[0, 0], [1, 1]]},
+            current_feature_label="Motorway",
+            fields_data={"name": "Main St", "fclass": "motorway"},
+            tags_data=[],
+        )
+        result = classify_approval_request(req, road=road)
+        self.assertEqual(result["key"], "new_road_geometry")
+
+    def test_resolve_ignores_stale_stored_category(self):
+        from mapping.approval_categories import resolve_request_category_key
+
+        road = MagicMock()
+        road.name = "Main St"
+        road.fclass = "motorway"
+        road.ref = ""
+        road.oneway = ""
+        road.maxspeed = None
+        road.osm_id = ""
+        road.code = None
+        road.bridge = ""
+        road.tunnel = ""
+        road.layer = None
+        req = LineEditRequest(
+            is_riyadh_road=True,
+            riyadh_road_id=1,
+            geometry_changed=True,
+            request_category="road_attribute_edit",
+            current_feature_label="Motorway",
+            fields_data={"name": "Main St", "fclass": "motorway"},
+            tags_data=[],
+        )
+        self.assertEqual(resolve_request_category_key(req, road=road), "new_road_geometry")
+
+    def test_classify_road_attribute_edit(self):
+        road = MagicMock()
+        road.name = "Main St"
+        road.fclass = "motorway"
+        road.ref = "old"
+        road.oneway = ""
+        road.maxspeed = None
+        road.osm_id = ""
+        road.code = None
+        road.bridge = ""
+        road.tunnel = ""
+        road.layer = None
+        req = LineEditRequest(
+            is_riyadh_road=True,
+            riyadh_road_id=1,
+            current_feature_label="Motorway",
+            fields_data={"name": "Main St", "fclass": "motorway", "ref": "new-ref"},
+            tags_data=[],
+            relations_data=[],
+        )
+        result = classify_approval_request(req, road=road)
+        self.assertEqual(result["key"], "road_attribute_edit")
+
+    def test_create_pending_stores_request_category(self):
+        user_model = get_user_model()
+        user = user_model.objects.create_user(
+            username="cat_user",
+            email="cat@example.com",
+            password="testpass123",
+        )
+        road = MagicMock()
+        road.name = ""
+        road.fclass = "motorway"
+        req = create_pending_road_edit_request(
+            requester=user,
+            is_riyadh_road=True,
+            riyadh_road_id=1,
+            geometry={"type": "LineString", "coordinates": [[0, 0], [1, 1]]},
+            current_feature_label="Motorway",
+            fields_data={"name": "New Label"},
+        )
+        self.assertEqual(req.request_category, "add_road_label")

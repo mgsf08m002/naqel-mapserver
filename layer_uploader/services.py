@@ -335,10 +335,10 @@ def _discard_unnominated_staged_features(layer: Layer) -> None:
 
 def _submit_for_map_review(layer: Layer, nominated) -> LayerSubmitResult:
     """Editor/system admin submit: one approval request per road on the manager map."""
-    from .map_review import create_line_edit_requests_for_layer_upload
+    from .map_review import create_approval_requests_for_layer_upload
 
     features = list(nominated)
-    create_line_edit_requests_for_layer_upload(layer, features)
+    create_approval_requests_for_layer_upload(layer, features)
     Feature.objects.filter(pk__in=[f.pk for f in features]).update(
         status=Feature.Status.AWAITING_MANAGER
     )

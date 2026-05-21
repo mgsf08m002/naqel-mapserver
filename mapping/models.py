@@ -6,21 +6,30 @@ import json
 
 
 class LineEditRequest(models.Model):
-    """Stores line edit requests from editors and system admins."""
-    
+    """Pending road edits awaiting manager approval (or historical approved/rejected rows)."""
+
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
     ]
-    
-    # Request metadata
+
     requester = models.ForeignKey(User, on_delete=models.CASCADE, related_name='line_edit_requests')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    edit_type = models.CharField(max_length=50, default='LINE EDIT')
-    
-    # Line geometry (GeoJSON)
-    geometry = models.JSONField(help_text="LineString geometry in GeoJSON format")
+    request_category = models.CharField(
+        max_length=32,
+        blank=True,
+        default='',
+        help_text='Approval queue category key (see mapping.approval_categories).',
+    )
+    edit_type = models.CharField(
+        max_length=50,
+        blank=True,
+        default='',
+        help_text='Legacy workflow marker: DELETE or Layer Upload only; use request_category in UI.',
+    )
+
+    geometry = models.JSONField(help_text='Road geometry as GeoJSON LineString or MultiLineString')
 
     # Snapshot of geometry before this edit (WGS84 GeoJSON) for Riyadh roads / review UI.
     original_geometry = models.JSONField(
@@ -41,9 +50,18 @@ class LineEditRequest(models.Model):
         help_text="Legacy alias for geometry_changed (DB: has_geometry_change).",
     )
     
-    # Feature details
-    feature_type = models.CharField(max_length=200, blank=True, null=True)
-    current_feature_label = models.CharField(max_length=200, blank=True, null=True)
+    current_feature_label = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text='Display feature type for this road (e.g. Motorway).',
+    )
+    feature_type = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text='Deprecated mirror of current_feature_label; kept for compatibility.',
+    )
     
     # Fields data (JSON)
     fields_data = models.JSONField(default=dict, blank=True, help_text="Fields section data")
@@ -70,12 +88,11 @@ class LineEditRequest(models.Model):
         blank=True,
         help_text="Primary key of the RiyadhRoad feature when applicable",
     )
-    # Staging feature from layer_uploader when edit_type is "Layer Upload".
     layer_upload_feature_id = models.PositiveIntegerField(
         null=True,
         blank=True,
         db_index=True,
-        help_text="layer_uploader.Feature pk when edit_type is Layer Upload",
+        help_text='layer_uploader.Feature pk for layer_upload requests',
     )
 
     # Timestamps
@@ -92,11 +109,12 @@ class LineEditRequest(models.Model):
     
     class Meta:
         ordering = ['-created_at']
-        verbose_name = 'Line Edit Request'
-        verbose_name_plural = 'Line Edit Requests'
-    
+        verbose_name = 'Road edit request'
+        verbose_name_plural = 'Road edit requests'
+
     def __str__(self):
-        return f"{self.requester.username} - {self.edit_type} - {self.status} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+        category = self.request_category or self.edit_type or 'road edit'
+        return f'{self.requester.username} - {category} - {self.status} ({self.created_at.strftime("%Y-%m-%d %H:%M")})'
     
     def get_requester_role(self):
         """Get the role of the requester."""
@@ -122,7 +140,10 @@ class LineEditRequest(models.Model):
         self.save()
 
     def save(self, *args, **kwargs):
-        # Ensure legacy NOT NULL column is always populated.
+        if self.current_feature_label and not self.feature_type:
+            self.feature_type = self.current_feature_label
+        elif self.feature_type and not self.current_feature_label:
+            self.current_feature_label = self.feature_type
         self.has_geometry_change = bool(self.geometry_changed)
         super().save(*args, **kwargs)
 
