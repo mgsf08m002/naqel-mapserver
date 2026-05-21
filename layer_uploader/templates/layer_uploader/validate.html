@@ -1,35 +1,20 @@
 {% extends 'layer_uploader/base.html' %}
+{% load static %}
 
 {% block layer_page_title %}Layer details · Naqel Maps{% endblock %}
+
+{% block layer_assets %}
+<link rel="stylesheet" href="{% static 'layer_uploader/css/upload_flow.css' %}">
+{% endblock %}
 
 {% block layer_content %}
 {% include 'layer_uploader/includes/flow_shell.html' %}
     {% include 'layer_uploader/includes/flow_header.html' with title='Layer details' subtitle='Confirm the information below, then continue to review.' %}
 
-    <section class="mt-10">
-      <dl class="space-y-5 text-sm">
-        <div class="flex flex-col gap-1 sm:flex-row sm:gap-8">
-          <dt class="w-28 shrink-0 font-medium text-gray-900">Layer name</dt>
-          <dd class="text-gray-600">{{ name }}</dd>
-        </div>
-        <div class="flex flex-col gap-1 sm:flex-row sm:gap-8">
-          <dt class="w-28 shrink-0 font-medium text-gray-900">Features</dt>
-          <dd class="text-gray-600">{{ count }}</dd>
-        </div>
-        <div class="flex flex-col gap-1 sm:flex-row sm:gap-8">
-          <dt class="w-28 shrink-0 font-medium text-gray-900">CRS</dt>
-          <dd class="text-gray-600">{{ crs_name }}</dd>
-        </div>
-        <div class="flex flex-col gap-1 sm:flex-row sm:gap-8">
-          <dt class="w-28 shrink-0 font-medium text-gray-900">SRID</dt>
-          <dd class="text-gray-600">{{ epsg }}</dd>
-        </div>
-      </dl>
-
-      <form method="post" class="mt-10">
-        {% csrf_token %}
-        {% include 'layer_uploader/includes/flow_actions.html' with submit_label='Review layer' secondary_url=upload_reset_url secondary_label='Start over' %}
-      </form>
-    </section>
+    <form method="post" class="mt-10">
+      {% csrf_token %}
+      {% include 'layer_uploader/includes/layer_details_card.html' %}
+      {% include 'layer_uploader/includes/flow_actions.html' with submit_label='Review layer' secondary_url=upload_reset_url secondary_label='Start over' %}
+    </form>
 {% include 'layer_uploader/includes/flow_shell_end.html' %}
 {% endblock %}
