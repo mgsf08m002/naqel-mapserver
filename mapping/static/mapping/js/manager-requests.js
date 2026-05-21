@@ -1363,10 +1363,13 @@
             }
         })
         .then(function(response) {
-            return response.json();
+            return response.json().then(function(data) {
+                return { ok: response.ok, data: data };
+            });
         })
-        .then(function(data) {
-            if (data.success) {
+        .then(function(result) {
+            const data = result.data || {};
+            if (result.ok && data.success) {
                 alert(data.message || 'Edit request approved successfully!');
                 cleanupRequestLines();
                 removeApproveRejectButtons();
@@ -1375,14 +1378,36 @@
                 });
                 displayRequests();
                 updateRequestsBadge();
+                if (data.deleted_road_id != null) {
+                    if (typeof window.clearRiyadhRoadDbFclassFromDatabase === 'function') {
+                        window.clearRiyadhRoadDbFclassFromDatabase(data.deleted_road_id);
+                    }
+                    try {
+                        window.selectedRiyadhRoad = null;
+                        window.approvedLineBeingEdited = null;
+                        if (typeof window.setSelectedOverlayGeometry === 'function') {
+                            window.setSelectedOverlayGeometry(null);
+                        }
+                    } catch (eSel) {}
+                } else if (
+                    data.remote_road_id != null &&
+                    typeof window.applyRiyadhRoadDbFclassFromDatabase === 'function'
+                ) {
+                    window.applyRiyadhRoadDbFclassFromDatabase(
+                        data.remote_road_id,
+                        data.fclass || 'unclassified'
+                    );
+                }
                 if (typeof window.triggerRiyadhTilesReload === 'function') {
-                    window.triggerRiyadhTilesReload(data.tiles_version);
+                    window.triggerRiyadhTilesReload(
+                        data.tiles_version != null ? data.tiles_version : Date.now()
+                    );
                 }
             } else {
-                alert('Error: ' + data.message);
+                alert('Error: ' + (data.message || 'Approval failed'));
             }
         })
-        .catch(function(error) {
+        .catch(function() {
             alert('Error approving request');
         });
     }

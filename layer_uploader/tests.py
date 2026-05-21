@@ -199,6 +199,7 @@ class UploaderWorkflowTests(TestCase):
         payload = response.json()
         self.assertTrue(payload["auto_published"])
         self.assertEqual(payload["published_count"], 1)
+        self.assertIsNotNone(payload.get("tiles_version"))
         self.assertIn("auto_published=1", payload["redirect_url"])
         self.assertEqual(LineEditRequest.objects.count(), 0)
 
@@ -222,17 +223,22 @@ class UploaderWorkflowTests(TestCase):
 
         self.client.force_login(self.manager)
 
-        def _fake_publish(feature):
-            feature.delete()
+        def _fake_approve(edit_request):
             from layer_uploader.services import refresh_layer_completion
 
-            refresh_layer_completion(feature.layer)
-            return 99901.0
+            feat = Feature.objects.filter(
+                pk=edit_request.layer_upload_feature_id
+            ).first()
+            if feat:
+                layer = feat.layer
+                feat.delete()
+                refresh_layer_completion(layer)
+            return 99901.0, "unclassified"
 
         with patch(
-            "layer_uploader.services.approve_and_publish_feature",
-            side_effect=_fake_publish,
-        ) as publish_mock:
+            "mapping.views.approve_layer_upload_edit_request",
+            side_effect=_fake_approve,
+        ) as approve_mock:
             response = self.client.post(
                 reverse(
                     "mapping:approve_request",
@@ -241,8 +247,11 @@ class UploaderWorkflowTests(TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["success"])
-        publish_mock.assert_called_once()
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload.get("fclass"), "unclassified")
+        self.assertIsNotNone(payload.get("tiles_version"))
+        approve_mock.assert_called_once()
         self.assertFalse(LineEditRequest.objects.filter(pk=edit_request.pk).exists())
         self.assertFalse(Feature.objects.filter(pk=self.feature.pk).exists())
         self.layer.refresh_from_db()
@@ -367,6 +376,33 @@ class CrsParsingTests(SimpleTestCase):
         name, epsg = simplify_crs(wkt)
         self.assertEqual(epsg, "3857")
         self.assertIn("Pseudo-Mercator", name)
+
+
+class PublishGeometryTests(SimpleTestCase):
+    def test_polygon_boundary_converts_to_linestring(self):
+        from layer_uploader.services import normalize_geometry_json_for_roads
+
+        square = {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [46.68, 24.71],
+                    [46.69, 24.71],
+                    [46.69, 24.72],
+                    [46.68, 24.72],
+                    [46.68, 24.71],
+                ]
+            ],
+        }
+        normalized = normalize_geometry_json_for_roads(square)
+        self.assertIn(normalized["type"], ("LineString", "MultiLineString"))
+        self.assertTrue(normalized.get("coordinates"))
+
+    def test_prepare_road_fields_defaults_fclass(self):
+        from layer_uploader.services import prepare_road_fields_for_publish
+
+        fields = prepare_road_fields_for_publish(properties={})
+        self.assertEqual(fields["fclass"], "unclassified")
 
 
 class GeometryLoadingTests(SimpleTestCase):

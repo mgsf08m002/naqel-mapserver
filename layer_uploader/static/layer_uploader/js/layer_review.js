@@ -22,7 +22,6 @@
 
     const RIYADH_LINE_WIDTH = 3;
 
-    /** Match main map (`mapping/static/mapping/js/map.js`): MapTiler glyphs when key is set. */
     const MAP_GLYPHS_URL = HAS_MAPTILER
         ? 'https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=' + MAPTILER_API_KEY
         : 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf';
@@ -288,9 +287,12 @@
     let selectedFeatureId = null;
     const featureGeomById = {};
 
-    function buildCacheBustedUrl(baseUrl) {
+    function reviewTileUrl(baseUrl) {
         if (!baseUrl) {
             return baseUrl;
+        }
+        if (typeof window.buildRiyadhRoadsTileUrl === 'function') {
+            return window.buildRiyadhRoadsTileUrl(baseUrl, window.__riyadhTilesVersion || Date.now());
         }
         const sep = baseUrl.indexOf('?') >= 0 ? '&' : '?';
         return baseUrl + sep + 'v=' + encodeURIComponent(String(Date.now()));
@@ -300,7 +302,7 @@
         if (!HAS_RIYADH_ROADS_TILES || map.getSource(SOURCE_ID_RIYADH)) {
             return;
         }
-        const bustedUrl = buildCacheBustedUrl(RIYADH_ROADS_TILE_URL);
+        const bustedUrl = reviewTileUrl(RIYADH_ROADS_TILE_URL);
         const promote = {};
         promote[SOURCE_LAYER_RIYADH] = 'id';
         map.addSource(SOURCE_ID_RIYADH, {
@@ -484,12 +486,6 @@
         }
         const n = featureCount != null ? featureCount : 0;
         countEl.textContent = n === 1 ? '1 feature' : String(n) + ' features';
-    }
-
-    function triggerLiveMapTileReload(tilesVersion) {
-        if (typeof window.triggerRiyadhTilesReload === 'function') {
-            window.triggerRiyadhTilesReload(tilesVersion);
-        }
     }
 
     function postFeatureAction(action, featureId, failureLabel) {
@@ -1346,8 +1342,8 @@
                     return r.json();
                 })
                 .then(function (payload) {
-                    if (payload && payload.tiles_version) {
-                        triggerLiveMapTileReload(payload.tiles_version);
+                    if (payload && payload.tiles_version && typeof window.triggerRiyadhTilesReload === 'function') {
+                        window.triggerRiyadhTilesReload(payload.tiles_version);
                     }
                     if (payload.redirect_url) {
                         window.location.href = payload.redirect_url;

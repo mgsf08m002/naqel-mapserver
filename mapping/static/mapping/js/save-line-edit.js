@@ -638,10 +638,15 @@
                     const pendingSubmitted =
                         !!data.pending_submitted || (!autoApproved && !!data.success);
 
-                    if (autoApproved && data.tiles_version != null && typeof window.triggerRiyadhTilesReload === 'function') {
-                        setTimeout(function () {
+                    const deletedRoadId =
+                        data.deleted_road_id != null ? data.deleted_road_id : payload.target_id;
+                    if (autoApproved && deletedRoadId != null) {
+                        if (typeof window.clearRiyadhRoadDbFclassFromDatabase === 'function') {
+                            window.clearRiyadhRoadDbFclassFromDatabase(deletedRoadId);
+                        }
+                        if (data.tiles_version != null && typeof window.triggerRiyadhTilesReload === 'function') {
                             window.triggerRiyadhTilesReload(data.tiles_version);
-                        }, 500);
+                        }
                     }
 
                     if (autoApproved) {

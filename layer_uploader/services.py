@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import re
-import time
 from dataclasses import dataclass, field
 from typing import Any
 
 from django.contrib.auth.models import AbstractBaseUser
+from django.contrib.gis.geos import GEOSGeometry
 
 from django.db import connections, transaction
 from django.db.models import Count, Max
@@ -19,9 +19,9 @@ from mapping.riyadh_fclass import (
     ensure_riyadh_fclass_in_fields,
     feature_label_from_riyadh_fclass,
 )
+from mapping.riyadh_network import tiles_version_ms
 
 from .access import is_layer_upload_manager
-from .map_review import create_line_edit_requests_for_layer_upload
 from .models import Feature, Layer
 
 logger = logging.getLogger(__name__)
@@ -47,10 +47,6 @@ _UPLOADER_REVIEW_COUNT_KEYS = (
     Feature.Status.NOMINATED,
     Feature.Status.REJECTED_UPLOAD,
 )
-
-
-def tiles_version_ms() -> int:
-    return int(time.time_ns() // 1_000_000)
 
 
 def _norm_str(value) -> str:
@@ -138,12 +134,70 @@ def _validate_line_geometry(geometry_json: dict) -> None:
         raise ValueError("Geometry has no coordinates.")
 
 
-def publish_feature_to_riyadh_roads(feature: Feature) -> float:
-    """Insert a staged feature into remote riyadh_roads; return the new road ``id``."""
-    geometry_json = _geometry_to_wgs84_geojson(feature.geom)
-    _validate_line_geometry(geometry_json)
+def normalize_geometry_json_for_roads(geometry_json: dict) -> dict:
+    """Convert upload geometries to line types accepted by riyadh_roads."""
+    if not geometry_json or not geometry_json.get("type"):
+        raise ValueError("Missing geometry.")
 
-    fields = properties_to_road_fields(feature.properties)
+    gtype = geometry_json.get("type")
+    if gtype in ("LineString", "MultiLineString"):
+        normalized = geometry_json
+    elif gtype in ("Polygon", "MultiPolygon"):
+        geom = GEOSGeometry(json.dumps(geometry_json), srid=4326)
+        boundary = geom.boundary
+        if boundary.empty:
+            raise ValueError(
+                "Area features must have a boundary; this polygon cannot be published as a road."
+            )
+        normalized = json.loads(boundary.geojson)
+    else:
+        raise ValueError(
+            f"Unsupported geometry type “{gtype}”. Roads must be lines or polygon boundaries."
+        )
+
+    _validate_line_geometry(normalized)
+    return normalized
+
+
+def prepare_road_fields_for_publish(
+    *,
+    properties: dict[str, Any] | None = None,
+    fields_data: dict[str, Any] | None = None,
+    current_feature_label: str | None = None,
+) -> dict[str, Any]:
+    """Build riyadh_roads column values; default fclass so MVT symbology can style new roads."""
+    meta_keys = frozenset({"layer_name", "layer_id", "upload_feature_id"})
+    if fields_data and isinstance(fields_data, dict):
+        fields = {
+            k: v
+            for k, v in fields_data.items()
+            if k not in meta_keys
+        }
+    else:
+        fields = properties_to_road_fields(properties)
+
+    if not _norm_str(fields.get("fclass")):
+        fields["fclass"] = "unclassified"
+
+    label = current_feature_label or feature_label_from_riyadh_fclass(
+        fields.get("fclass") or None
+    )
+    ensure_riyadh_fclass_in_fields(
+        fields,
+        current_feature_label=label,
+        feature_type=label,
+    )
+    return fields
+
+
+def _insert_road_into_riyadh_roads(
+    geometry_json: dict,
+    fields: dict[str, Any],
+    *,
+    road_closure: int = 0,
+) -> float:
+    """Insert one road row; return the new ``id`` assigned in riyadh_roads."""
+    line_geometry = normalize_geometry_json_for_roads(geometry_json)
     name = fields.get("name") or ""
     name_en, name_ar = _derive_bilingual_label_values(name)
 
@@ -177,7 +231,7 @@ def publish_feature_to_riyadh_roads(feature: Feature) -> float:
                 """,
                 [
                     next_id,
-                    json.dumps(geometry_json),
+                    json.dumps(line_geometry),
                     name,
                     name_en or None,
                     name_ar or None,
@@ -189,12 +243,40 @@ def publish_feature_to_riyadh_roads(feature: Feature) -> float:
                     fields.get("bridge") or "",
                     fields.get("tunnel") or "",
                     fields.get("layer"),
-                    int(fields.get("road_closure") or 0),
+                    int(road_closure or fields.get("road_closure") or 0),
                 ],
             )
 
-    logger.info("Published upload feature %s to %s id=%s", feature.pk, TARGET_TABLE, next_id)
+    logger.info("Published road to %s id=%s", TARGET_TABLE, next_id)
     return next_id
+
+
+def publish_geometry_to_riyadh_roads(
+    geometry_json: dict,
+    *,
+    properties: dict[str, Any] | None = None,
+    fields_data: dict[str, Any] | None = None,
+    current_feature_label: str | None = None,
+    road_closure: int = 0,
+) -> float:
+    fields = prepare_road_fields_for_publish(
+        properties=properties,
+        fields_data=fields_data,
+        current_feature_label=current_feature_label,
+    )
+    return _insert_road_into_riyadh_roads(
+        geometry_json,
+        fields,
+        road_closure=road_closure,
+    )
+
+
+def publish_feature_to_riyadh_roads(feature: Feature) -> float:
+    """Insert a staged feature into remote riyadh_roads; return the new road ``id``."""
+    return publish_geometry_to_riyadh_roads(
+        _geometry_to_wgs84_geojson(feature.geom),
+        properties=feature.properties,
+    )
 
 
 def approve_and_publish_feature(feature: Feature) -> float:
@@ -253,6 +335,8 @@ def _discard_unnominated_staged_features(layer: Layer) -> None:
 
 def _submit_for_map_review(layer: Layer, nominated) -> LayerSubmitResult:
     """Editor/system admin submit: one Pending Edit Request per road on the manager map."""
+    from .map_review import create_line_edit_requests_for_layer_upload
+
     features = list(nominated)
     create_line_edit_requests_for_layer_upload(layer, features)
     Feature.objects.filter(pk__in=[f.pk for f in features]).update(

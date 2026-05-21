@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import get_object_or_404
 from django.http import JsonResponse, Http404, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
@@ -13,7 +13,6 @@ import json
 import logging
 import math
 import re
-import time
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -26,6 +25,7 @@ from layer_uploader.map_review import (
 
 from .models import LineEditRequest, RiyadhRoad
 from .riyadh_fclass import ensure_riyadh_fclass_in_fields, feature_label_from_riyadh_fclass
+from .riyadh_network import tiles_version_ms
 
 logger = logging.getLogger(__name__)
 
@@ -170,19 +170,9 @@ def _persist_riyadh_road_label_columns(road, label_text):
         )
 
 
-def _tiles_version_ms():
-    """Server-side version used to refresh tiles when the base network changes."""
-    return int(time.time_ns() // 1_000_000)
-
-
-def map_view(request):
-    """Render the main KSA map editing view."""
-    return render(request, 'mapping/map.html')
-
-
 @require_http_methods(["GET"])
 def riyadh_roads_tile_proxy(request, z: int, x: int, y: int):
-    """Proxy Riyadh roads XYZ tiles through this Django server."""
+    """Proxy Riyadh roads MVT tiles (Martin → PostGIS). No-store by default; client busts with ?v=."""
     upstream_template = getattr(settings, "RIYADH_ROADS_TILE_URL", "").strip()
     if not upstream_template:
         raise Http404("Upstream tile service is not configured.")
@@ -198,8 +188,9 @@ def riyadh_roads_tile_proxy(request, z: int, x: int, y: int):
     req = Request(
         upstream_url,
         headers={
-            # Some tile servers reject requests without a UA.
             "User-Agent": "naqel-mapserver/1.0",
+            "Cache-Control": "no-cache, no-store",
+            "Pragma": "no-cache",
         },
     )
     try:
@@ -210,21 +201,22 @@ def riyadh_roads_tile_proxy(request, z: int, x: int, y: int):
         with urlopen(req, timeout=timeout_seconds) as resp:
             body = resp.read()
             content_type = resp.headers.get("Content-Type") or "application/octet-stream"
+            upstream_status = int(getattr(resp, "status", 200) or 200)
+            # Martin uses 204 for empty tiles; pass it through so clients drop stale geometry.
+            out_status = upstream_status if upstream_status in (200, 204) else 200
 
-            out = HttpResponse(body, content_type=content_type, status=200)
-            # Cache tile bytes; cache busting remains controlled via the `v` query param.
-            cache_max_age = max(0, int(getattr(settings, "RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE", 3600)))
-            out["Cache-Control"] = f"public, max-age={cache_max_age}"
+            out = HttpResponse(body, content_type=content_type, status=out_status)
+            cache_max_age = max(
+                0,
+                int(getattr(settings, "RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE", 0)),
+            )
+            if cache_max_age == 0:
+                out["Cache-Control"] = "no-store, max-age=0"
+            elif out_status == 204 or not body:
+                out["Cache-Control"] = "no-store, max-age=0"
+            else:
+                out["Cache-Control"] = f"public, max-age={cache_max_age}"
             out["Vary"] = "Accept-Encoding"
-
-            # Preserve relevant upstream caching metadata when present.
-            etag = resp.headers.get("ETag")
-            if etag:
-                out["ETag"] = etag
-            last_modified = resp.headers.get("Last-Modified")
-            if last_modified:
-                out["Last-Modified"] = last_modified
-
             return out
     except HTTPError as exc:
         status = int(getattr(exc, "code", 502) or 502)
@@ -697,7 +689,7 @@ def save_line_edit_request(request):
                 _apply_riyadh_road_closure_remote(riyadh_road_id_int, road_closure)
                 if road:
                     road.refresh_from_db(using="riyadh_roads")
-                closure_tiles_version = _tiles_version_ms()
+                closure_tiles_version = tiles_version_ms()
             except Exception as e:
                 logger.warning("Immediate road closure update failed: %s", e)
                 return JsonResponse(
@@ -764,7 +756,7 @@ def save_line_edit_request(request):
                     "closure_applied": bool(closure_changed),
                     "road_closure": road_closure,
                     "remote_road_id": remote_road_id,
-                    "tiles_version": _tiles_version_ms() or closure_tiles_version,
+                    "tiles_version": tiles_version_ms() or closure_tiles_version,
                 }
             )
 
@@ -1343,9 +1335,11 @@ def create_delete_request(request):
     )
 
     auto_approved = False
+    deleted_road_id = None
     if is_manager:
         try:
             _apply_delete_to_base_network(delete_request)
+            deleted_road_id = riyadh_road_id_int
             delete_request.approve(request.user)
             auto_approved = True
 
@@ -1369,7 +1363,14 @@ def create_delete_request(request):
             "request_id": delete_request.id,
             "auto_approved": auto_approved,
             "pending_submitted": not auto_approved,
-            **({"tiles_version": _tiles_version_ms()} if auto_approved else {}),
+            **(
+                {
+                    "tiles_version": tiles_version_ms(),
+                    "deleted_road_id": deleted_road_id,
+                }
+                if auto_approved
+                else {}
+            ),
         }
     )
 
@@ -1534,18 +1535,27 @@ def approve_edit_request(request, request_id):
         remote_road_id = None
 
         if is_layer_upload_edit_request(edit_request):
-            remote_road_id = approve_layer_upload_edit_request(edit_request)
+            remote_road_id, published_fclass = approve_layer_upload_edit_request(
+                edit_request
+            )
             edit_request.delete()
             return JsonResponse(
                 {
                     "success": True,
                     "message": "Layer upload approved and published to the road network",
                     "remote_road_id": remote_road_id,
-                    "tiles_version": _tiles_version_ms(),
+                    "fclass": published_fclass,
+                    "tiles_version": tiles_version_ms(),
                 }
             )
 
+        deleted_road_id = None
         if (edit_request.edit_type or "").upper() == "DELETE":
+            deleted_road_id = (
+                int(edit_request.riyadh_road_id)
+                if edit_request.riyadh_road_id is not None
+                else None
+            )
             _apply_delete_to_base_network(edit_request)
         else:
             if edit_request.is_riyadh_road:
@@ -1558,14 +1568,16 @@ def approve_edit_request(request, request_id):
         edit_request.approve(request.user)
         edit_request.delete()
 
-        return JsonResponse(
-            {
-                "success": True,
-                "message": "Edit request approved successfully",
-                "remote_road_id": remote_road_id,
-                "tiles_version": _tiles_version_ms(),
-            }
-        )
+        payload = {
+            "success": True,
+            "message": "Edit request approved successfully",
+            "remote_road_id": remote_road_id,
+            "tiles_version": tiles_version_ms(),
+        }
+        if deleted_road_id is not None:
+            payload["deleted_road_id"] = deleted_road_id
+            payload["message"] = "Delete request approved; road removed from the network"
+        return JsonResponse(payload)
 
     except Exception as e:
         return JsonResponse(
@@ -1611,12 +1623,6 @@ def reject_edit_request(request, request_id):
             'success': False,
             'message': f'Error rejecting request: {str(e)}'
         }, status=500)
-
-
-def get_approved_lines(request):
-    raise Http404
-
-
 
 
 @login_required

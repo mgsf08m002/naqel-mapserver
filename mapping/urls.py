@@ -4,7 +4,6 @@ from . import views
 app_name = 'mapping'
 
 urlpatterns = [
-    path('', views.map_view, name='map'),
     path(
         'tiles/riyadh_roads/<int:z>/<int:x>/<int:y>/',
         views.riyadh_roads_tile_proxy,

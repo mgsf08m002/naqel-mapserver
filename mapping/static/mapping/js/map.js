@@ -101,6 +101,7 @@ function buildCacheBustedUrl(baseUrl, version) {
     const sep = baseUrl.indexOf('?') >= 0 ? '&' : '?';
     return `${baseUrl}${sep}v=${encodeURIComponent(String(v))}`;
 }
+window.buildRiyadhRoadsTileUrl = buildCacheBustedUrl;
 
 window.triggerRiyadhTilesReload = function(tilesVersion) {
     const resolved = getRiyadhTilesVersionOrDefault(tilesVersion);
@@ -554,20 +555,7 @@ map.on('load', () => {
                     });
             }
 
-            /*
-             * Riyadh road styling — keep map, tileserver, and remote DB aligned:
-             *
-             * - Base paint uses MVT ``fclass`` (must match DB when tiles are fresh).
-             * - After GET /mapping/api/riyadh-road/<id>/ or a successful save, we set
-             *   MapLibre feature-state ``db_fclass`` from ``fields_data.fclass`` (remote
-             *   DB). Match expressions use coalesce(feature-state db_fclass, tile fclass)
-             *   so the map reflects DB truth even if MVT is temporarily stale.
-             * - ``promoteId`` ties feature-state ``id`` to the tile ``id`` property
-             *   (same identifier the API resolves).
-             * - ``tiles_version`` on the tile URL (see triggerRiyadhTilesReload) should
-             *   bump when the backend republishes tiles so clients and CDNs load MVT
-             *   that matches the DB; we reapply cached db_fclass after source reload.
-             */
+            // Symbology: coalesce(feature-state db_fclass, tile fclass); reload tiles via triggerRiyadhTilesReload after network edits.
             window.__riyadhRoadDbFclassById = window.__riyadhRoadDbFclassById || {};
 
             function normalizeRiyadhDbFclassForTiles(raw) {
@@ -639,14 +627,27 @@ map.on('load', () => {
                 } catch (eR) {}
             }
 
+            function clearRiyadhVectorTileCache() {
+                try {
+                    const cache =
+                        map.style &&
+                        map.style.sourceCaches &&
+                        map.style.sourceCaches[SOURCE_ID];
+                    if (cache && typeof cache.clearTiles === 'function') {
+                        cache.clearTiles();
+                    }
+                } catch (eCache) {}
+            }
+
             function ensureRiyadhRoadsSource(version) {
                 if (!HAS_RIYADH_ROADS_TILES) {
                     return;
                 }
-                if (map.getSource(SOURCE_ID)) {
+                const bustedUrl = buildCacheBustedUrl(RIYADH_ROADS_TILE_URL, version);
+                const existing = map.getSource(SOURCE_ID);
+                if (existing) {
                     return;
                 }
-                const bustedUrl = buildCacheBustedUrl(RIYADH_ROADS_TILE_URL, version);
                 map.addSource(SOURCE_ID, {
                     type: 'vector',
                     tiles: [bustedUrl],
@@ -654,6 +655,32 @@ map.on('load', () => {
                     maxzoom: 14,
                     promoteId: { [SOURCE_LAYER]: 'id' }
                 });
+            }
+
+            function refreshRiyadhRoadsSourceTiles(version) {
+                if (!HAS_RIYADH_ROADS_TILES) {
+                    return false;
+                }
+                const bustedUrl = buildCacheBustedUrl(RIYADH_ROADS_TILE_URL, version);
+                const existing = map.getSource(SOURCE_ID);
+                if (!existing) {
+                    return false;
+                }
+                clearRiyadhVectorTileCache();
+                try {
+                    if (typeof existing.setTiles === 'function') {
+                        existing.setTiles([bustedUrl]);
+                    }
+                } catch (eSet) {}
+                try {
+                    if (typeof existing.reload === 'function') {
+                        existing.reload();
+                    }
+                } catch (eRel) {}
+                try {
+                    map.triggerRepaint();
+                } catch (ePaint) {}
+                return true;
             }
 
             if (HAS_RIYADH_ROADS_TILES && !map.getSource(SOURCE_ID)) {
@@ -1628,6 +1655,16 @@ map.on('load', () => {
                 try {
                     const resolved = getRiyadhTilesVersionOrDefault(tilesVersion);
                     window.__riyadhTilesVersion = resolved;
+
+                    if (refreshRiyadhRoadsSourceTiles(resolved)) {
+                        map.once('idle', function() {
+                            reapplyRiyadhRoadDbFclassFeatureStates();
+                            try {
+                                reapplyRiyadhRoadClosureOverlayBasemapHide();
+                            } catch (eR) {}
+                        });
+                        return;
+                    }
 
                     const selectedFilterId = (() => {
                         try {

@@ -35,25 +35,21 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-# Quick-start development settings; review Django’s deployment checklist before going live.
 
-# SECURITY WARNING: keep the production secret key in the environment only.
 SECRET_KEY = os.getenv('SECRET_KEY')
 if not SECRET_KEY:
     raise ValueError("SECRET_KEY environment variable is not set. Please set it in your .env file.")
 
-# Optional MapTiler API key for basemap integration, kept in the environment only.
 MAPTILER_API_KEY = os.getenv('MAPTILER_API_KEY', '').strip()
 
-# Riyadh roads XYZ tile service for visualizing the road network; overridable via RIYADH_ROADS_TILE_URL.
 RIYADH_ROADS_TILE_URL = os.getenv(
     "RIYADH_ROADS_TILE_URL",
     "http://139.162.60.105:3000/riyadh_roads/{z}/{x}/{y}",
 ).strip()
 RIYADH_ROADS_TILE_PROXY_TIMEOUT_SECONDS = _env_int("RIYADH_ROADS_TILE_PROXY_TIMEOUT_SECONDS", 20)
-RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE = _env_int("RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE", 3600)
+# Live edits: proxy does not cache MVT. Martin must use cache.size_mb: 0 (deploy/martin/).
+RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE = _env_int("RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE", 0)
 
-# Derive the tile service origin (scheme + host) so CSP stays aligned with RIYADH_ROADS_TILE_URL.
 _riyadh_tile_url = urlparse(RIYADH_ROADS_TILE_URL)
 if _riyadh_tile_url.scheme and _riyadh_tile_url.netloc:
     RIYADH_ROADS_TILE_ORIGIN = f"{_riyadh_tile_url.scheme}://{_riyadh_tile_url.netloc}"
