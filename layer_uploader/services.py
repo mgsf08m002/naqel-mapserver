@@ -404,13 +404,18 @@ def feature_counts_for_layer(layer: Layer) -> dict[str, int]:
 
 
 def map_preview_statuses_uploader() -> list[str]:
-    return [Feature.Status.STAGED, Feature.Status.NOMINATED]
+    """Statuses shown on the review map and feature table."""
+    return [
+        Feature.Status.STAGED,
+        Feature.Status.NOMINATED,
+        Feature.Status.REJECTED_UPLOAD,
+    ]
 
 
 def apply_uploader_review_action(
     layer: Layer, action: str, *, feature_id: int | None = None
 ) -> dict:
-    """API actions: nominate/reject (single) or nominate_all/reject_all (bulk)."""
+    """API actions: nominate/reject/reset (single) or nominate_all/reject_all (bulk)."""
     if action == "nominate_all":
         updated = layer.features.filter(status=Feature.Status.STAGED).update(
             status=Feature.Status.NOMINATED
@@ -423,7 +428,7 @@ def apply_uploader_review_action(
         )
         return {"ok": True, "updated": updated}
 
-    if action not in ("nominate", "reject"):
+    if action not in ("nominate", "reject", "reset"):
         raise ValueError("Unknown action")
 
     if feature_id is None:
@@ -432,6 +437,16 @@ def apply_uploader_review_action(
     feature = Feature.objects.filter(pk=feature_id, layer=layer).first()
     if not feature:
         raise LookupError("Feature not found")
+
+    if action == "reset":
+        if feature.status not in (
+            Feature.Status.NOMINATED,
+            Feature.Status.REJECTED_UPLOAD,
+        ):
+            raise ValueError("Only included or excluded features can be reset")
+        feature.status = Feature.Status.STAGED
+        feature.save(update_fields=["status"])
+        return {"ok": True}
 
     if feature.status != Feature.Status.STAGED:
         raise ValueError("This row cannot be updated")

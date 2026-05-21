@@ -1,0 +1,33 @@
+<div id="lr-map-zoom-overlay" class="lr-map-zoom-overlay" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="lr-map-zoom-title">
+  <div class="lr-map-zoom-bar">
+    <div>
+      <p id="lr-map-zoom-title" class="lr-map-zoom-title">Map</p>
+      <p id="lr-map-zoom-sub" class="lr-map-zoom-sub">All features shown. Select one in the panel to focus.</p>
+    </div>
+    <button type="button" id="btn-map-zoom-close" class="lr-map-zoom-close">Close</button>
+  </div>
+  <div class="lr-map-zoom-content">
+    <div class="lr-map-zoom-body" id="lr-map-zoom-body"></div>
+    <aside id="lr-zoom-panel" class="lr-zoom-panel" aria-label="Features" data-open="true">
+      <button type="button" id="lr-zoom-panel-toggle" class="lr-zoom-panel-toggle" aria-controls="lr-zoom-panel-inner" aria-expanded="true" title="Show or hide features">
+        <svg class="lr-zoom-panel-toggle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        <span>Features</span>
+      </button>
+      <div id="lr-zoom-panel-inner" class="lr-zoom-panel-inner">
+        <header class="lr-zoom-panel-header">
+          <div class="lr-zoom-panel-head-row">
+            <h3 class="lr-zoom-panel-title">Features</h3>
+            <span id="lr-zoom-panel-count" class="lr-zoom-panel-count">—</span>
+          </div>
+          <p class="lr-zoom-panel-hint">Select a feature to focus the map</p>
+          <div class="lr-zoom-chips" aria-live="polite">
+            <span class="lr-zoom-chip">New <strong id="lr-zoom-cnt-staged">—</strong></span>
+            <span class="lr-zoom-chip">Included <strong id="lr-zoom-cnt-nominated">—</strong></span>
+            <span class="lr-zoom-chip">Excluded <strong id="lr-zoom-cnt-rejected_upload">—</strong></span>
+          </div>
+        </header>
+        <div id="lr-zoom-feature-list" class="lr-zoom-feature-list" role="list"></div>
+      </div>
+    </aside>
+  </div>
+</div>

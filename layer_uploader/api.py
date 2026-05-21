@@ -67,11 +67,6 @@ def features_geojson(layer_id: int, statuses: Iterable[str]) -> dict:
 
 def table_payload(layer: Layer, features_qs) -> dict:
     return {
-        "layer": {
-            "id": layer.pk,
-            "name": layer.name,
-            "status": layer.status,
-        },
         "counts": feature_counts_for_layer(layer),
         "features": [feature_row_dict(f) for f in features_qs],
     }

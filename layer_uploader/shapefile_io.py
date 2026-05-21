@@ -1,6 +1,7 @@
 """Shapefile upload discovery and validation helpers."""
 
 import os
+import tempfile
 import zipfile
 from collections import defaultdict
 
@@ -51,8 +52,6 @@ def collect_detected_shapefiles(temp_dir: str) -> list[dict]:
 
 def extract_upload_to_temp(uploaded_files) -> str:
     """Save uploaded files (and unzip archives) into a new temp directory."""
-    import tempfile
-
     temp_dir = tempfile.mkdtemp()
     for uploaded_file in uploaded_files:
         path = os.path.join(temp_dir, uploaded_file.name)

@@ -344,17 +344,24 @@ class LayerReviewApiTests(TestCase):
             status=Feature.Status.NOMINATED,
             uploaded_by=self.user,
         )
+        self.rejected = Feature.objects.create(
+            layer=self.layer,
+            geom=GEOSGeometry("LINESTRING(46.70 24.73, 46.71 24.74)", srid=4326),
+            properties={"name": "rejected_road"},
+            status=Feature.Status.REJECTED_UPLOAD,
+            uploaded_by=self.user,
+        )
 
-    def test_review_geojson_shows_staged_and_nominated(self):
+    def test_review_geojson_includes_staged_nominated_and_excluded(self):
         response = self.client.get(
             reverse("layer_review_geojson", kwargs={"layer_id": self.layer.pk})
         )
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         ids = {f["id"] for f in payload["features"]}
-        self.assertEqual(ids, {self.staged.pk, self.nominated.pk})
+        self.assertEqual(ids, {self.staged.pk, self.nominated.pk, self.rejected.pk})
 
-    def test_review_table_json_returns_new_status_counts(self):
+    def test_review_table_json_returns_status_counts_and_excluded_row(self):
         response = self.client.get(
             reverse("layer_review_table", kwargs={"layer_id": self.layer.pk})
         )
@@ -362,6 +369,50 @@ class LayerReviewApiTests(TestCase):
         payload = response.json()
         self.assertEqual(payload["counts"]["staged"], 1)
         self.assertEqual(payload["counts"]["nominated"], 1)
+        self.assertEqual(payload["counts"]["rejected_upload"], 1)
+        row_ids = {row["id"] for row in payload["features"]}
+        self.assertEqual(row_ids, {self.staged.pk, self.nominated.pk, self.rejected.pk})
+        rejected_row = next(r for r in payload["features"] if r["id"] == self.rejected.pk)
+        self.assertEqual(rejected_row["status"], Feature.Status.REJECTED_UPLOAD)
+
+    def test_review_reset_returns_feature_to_staged(self):
+        action_url = reverse("layer_review_action", kwargs={"layer_id": self.layer.pk})
+        response = self.client.post(
+            action_url,
+            data=json.dumps({"action": "reset", "feature_id": self.rejected.pk}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.rejected.refresh_from_db()
+        self.assertEqual(self.rejected.status, Feature.Status.STAGED)
+
+        table = self.client.get(
+            reverse("layer_review_table", kwargs={"layer_id": self.layer.pk})
+        ).json()
+        self.assertEqual(table["counts"]["staged"], 2)
+        self.assertEqual(table["counts"]["rejected_upload"], 0)
+
+    def test_review_reset_from_included_returns_to_staged(self):
+        action_url = reverse("layer_review_action", kwargs={"layer_id": self.layer.pk})
+        response = self.client.post(
+            action_url,
+            data=json.dumps({"action": "reset", "feature_id": self.nominated.pk}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.nominated.refresh_from_db()
+        self.assertEqual(self.nominated.status, Feature.Status.STAGED)
+
+    def test_review_reset_rejects_new_rows(self):
+        action_url = reverse("layer_review_action", kwargs={"layer_id": self.layer.pk})
+        response = self.client.post(
+            action_url,
+            data=json.dumps({"action": "reset", "feature_id": self.staged.pk}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.staged.refresh_from_db()
+        self.assertEqual(self.staged.status, Feature.Status.STAGED)
 
 
 class CrsParsingTests(SimpleTestCase):

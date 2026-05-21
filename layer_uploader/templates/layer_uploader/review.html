@@ -3,819 +3,16 @@
 
 {% block title %}Review upload · {{ layer.name }}{% endblock %}
 
-{% block layer_content %}
+{% block layer_assets %}
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css" />
+<link rel="stylesheet" href="{% static 'layer_uploader/css/layer_review.css' %}">
 <script src="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js"></script>
+{% endblock %}
 
-<style>
-  /* White page, neutral UI — no tinted page background */
-  #layer-review-root.lr-shell {
-    --lr-fg: #111827;
-    --lr-muted: #6b7280;
-    --lr-border: #e5e7eb;
-    --lr-border-strong: #d1d5db;
-    --lr-map-placeholder: #e5e7eb;
-    --lr-hover: #f9fafb;
-    --lr-selected-bg: #f3f4f6;
-    --lr-selected-bar: #111827;
-    background: #ffffff;
-    color: var(--lr-fg);
-  }
-
-  #layer-review-root .lr-head {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding-bottom: 1.25rem;
-    margin-bottom: 1.25rem;
-    border-bottom: 1px solid var(--lr-border);
-  }
-  @media (min-width: 640px) {
-    #layer-review-root .lr-head {
-      flex-direction: row;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 1rem 2rem;
-    }
-  }
-
-  #layer-review-root .lr-head-main {
-    flex: 1;
-    min-width: 0;
-  }
-
-  #layer-review-root .lr-title {
-    font-size: clamp(1.375rem, 2.5vw, 1.75rem);
-    font-weight: 650;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-    margin: 0 0 0.5rem;
-  }
-
-  #layer-review-root .lr-upload-line {
-    font-size: 0.875rem;
-    margin: 0 0 0.65rem;
-    line-height: 1.45;
-  }
-  #layer-review-root .lr-upload-line .lr-upload-label {
-    color: var(--lr-muted);
-    font-weight: 500;
-    margin-right: 0.35rem;
-  }
-  #layer-review-root .lr-upload-line .lr-upload-name {
-    font-weight: 600;
-    word-break: break-word;
-  }
-
-  #layer-review-root .lr-lede {
-    font-size: 0.875rem;
-    color: var(--lr-muted);
-    line-height: 1.55;
-    max-width: 40rem;
-    margin: 0;
-  }
-
-  #layer-review-root .lr-btn-finish {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.5rem 1rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--lr-fg);
-    text-decoration: none;
-    border: 1px solid var(--lr-border-strong);
-    border-radius: 6px;
-    background: #fff;
-    transition: border-color 0.15s ease, background 0.15s ease;
-    flex-shrink: 0;
-  }
-  #layer-review-root .lr-btn-finish:hover {
-    border-color: var(--lr-fg);
-    background: var(--lr-hover);
-  }
-
-  /* Main + sidebar */
-  #layer-review-root .lr-body {
-    display: grid;
-    gap: 1.75rem;
-    align-items: start;
-  }
-  @media (min-width: 1024px) {
-    #layer-review-root .lr-body {
-      grid-template-columns: minmax(0, 1fr) 240px;
-      gap: 2rem;
-    }
-  }
-
-  #layer-review-root .lr-main {
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-    min-width: 0;
-  }
-
-  #layer-review-root .lr-aside {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding-top: 0.25rem;
-  }
-  @media (min-width: 1024px) {
-    #layer-review-root .lr-aside {
-      padding-left: 1.5rem;
-      border-left: 1px solid var(--lr-border);
-    }
-  }
-
-  #layer-review-root .lr-aside-block {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  #layer-review-root .lr-aside-label {
-    margin: 0;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--lr-muted);
-  }
-
-  #layer-review-root .lr-stat-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.6rem;
-  }
-
-  #layer-review-root .lr-stat {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--lr-border);
-  }
-  #layer-review-root .lr-stat:last-child {
-    border-bottom: none;
-  }
-
-  #layer-review-root .lr-stat-label {
-    font-size: 0.8125rem;
-    color: var(--lr-muted);
-  }
-
-  #layer-review-root .lr-stat-val {
-    font-size: 1.125rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--lr-fg);
-  }
-
-  #layer-review-root .lr-aside-note {
-    margin: 0;
-    font-size: 0.75rem;
-    color: var(--lr-muted);
-    line-height: 1.45;
-  }
-
-  /* Map */
-  #layer-review-root .lr-map-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem 1rem;
-    margin-bottom: 0.75rem;
-  }
-
-  #layer-review-root .lr-section-label {
-    margin: 0;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--lr-muted);
-  }
-
-  #layer-review-root .lr-basemap-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  #layer-review-root .lr-basemap-label {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    color: var(--lr-muted);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  #layer-review-root .lr-basemap-strip {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.375rem;
-  }
-
-  #layer-review-root .lr-basemap-opt {
-    padding: 0.35rem 0.7rem;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    border: 1px solid var(--lr-border);
-    border-radius: 999px;
-    background: #fff;
-    color: var(--lr-fg);
-    cursor: pointer;
-    transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
-  }
-  #layer-review-root .lr-basemap-opt:hover {
-    border-color: var(--lr-border-strong);
-    background: var(--lr-hover);
-  }
-  #layer-review-root .lr-basemap-opt.lr-basemap-opt--active {
-    border-color: var(--lr-fg);
-    background: var(--lr-fg);
-    color: #fff;
-  }
-
-  #layer-review-root .lr-map-shell {
-    position: relative;
-  }
-
-  #review-map.review-map-frame {
-    display: block;
-    width: 100%;
-    height: min(62vh, 720px);
-    min-height: 380px;
-    margin: 0;
-    border: 1px solid var(--lr-border);
-    border-radius: 8px;
-    background: var(--lr-map-placeholder);
-  }
-
-  #layer-review-root .lr-map-head-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem 1rem;
-  }
-
-  #layer-review-root .lr-zoom-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.4rem 0.75rem;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--lr-fg);
-    background: #fff;
-    border: 1px solid var(--lr-border-strong);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: border-color 0.12s ease, background 0.12s ease;
-  }
-  #layer-review-root .lr-zoom-btn:hover {
-    border-color: var(--lr-fg);
-    background: var(--lr-hover);
-  }
-  #layer-review-root .lr-zoom-btn-icon {
-    width: 0.875rem;
-    height: 0.875rem;
-    flex-shrink: 0;
-  }
-
-  #layer-review-root .lr-table-head-row {
-    margin-bottom: 0.65rem;
-  }
-
-  #layer-review-root .lr-map-zoom-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 2000;
-    display: flex;
-    flex-direction: column;
-    background: #ffffff;
-  }
-  #layer-review-root .lr-map-zoom-overlay[hidden] {
-    display: none !important;
-  }
-  #layer-review-root .lr-map-zoom-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    flex-shrink: 0;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--lr-border);
-    background: #fff;
-  }
-  #layer-review-root .lr-map-zoom-title {
-    margin: 0;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--lr-fg);
-  }
-  #layer-review-root .lr-map-zoom-sub {
-    margin: 0.15rem 0 0;
-    font-size: 0.75rem;
-    color: var(--lr-muted);
-  }
-  #layer-review-root .lr-map-zoom-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.45rem 0.85rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--lr-fg);
-    background: #fff;
-    border: 1px solid var(--lr-border-strong);
-    border-radius: 6px;
-    cursor: pointer;
-  }
-  #layer-review-root .lr-map-zoom-close:hover {
-    background: var(--lr-hover);
-    border-color: var(--lr-fg);
-  }
-  #layer-review-root .lr-map-zoom-content {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    position: relative;
-    --lr-zoom-panel-width: 25rem;
-  }
-
-  #layer-review-root .lr-map-zoom-body {
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    position: relative;
-  }
-  #layer-review-root .lr-map-zoom-body .review-map-frame {
-    width: 100%;
-    height: 100% !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    border: none;
-    border-radius: 0;
-  }
-
-  #layer-review-root .lr-zoom-panel {
-    position: relative;
-    flex-shrink: 0;
-    width: var(--lr-zoom-panel-width);
-    display: flex;
-    background: #fff;
-    border-left: 1px solid var(--lr-border);
-    box-shadow: -6px 0 20px rgba(17, 24, 39, 0.05);
-    transition: width 0.22s ease, box-shadow 0.22s ease;
-  }
-  #layer-review-root .lr-zoom-panel.lr-zoom-panel--closed {
-    width: 0;
-    border-left-color: transparent;
-    box-shadow: none;
-  }
-  #layer-review-root .lr-zoom-panel.lr-zoom-panel--closed .lr-zoom-panel-inner {
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  #layer-review-root .lr-zoom-panel-toggle {
-    position: absolute;
-    left: 0;
-    top: 50%;
-    z-index: 4;
-    transform: translate(-100%, -50%);
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.45rem 0.6rem;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    color: var(--lr-fg);
-    background: #fff;
-    border: 1px solid var(--lr-border-strong);
-    border-right: none;
-    border-radius: 6px 0 0 6px;
-    cursor: pointer;
-    box-shadow: -2px 0 10px rgba(17, 24, 39, 0.06);
-    transition: background 0.12s ease, border-color 0.12s ease;
-  }
-  #layer-review-root .lr-zoom-panel-toggle:hover {
-    background: var(--lr-hover);
-    border-color: var(--lr-fg);
-  }
-  #layer-review-root .lr-zoom-panel-toggle-icon {
-    width: 0.8rem;
-    height: 0.8rem;
-    flex-shrink: 0;
-    transition: transform 0.22s ease;
-  }
-  #layer-review-root .lr-zoom-panel.lr-zoom-panel--closed .lr-zoom-panel-toggle-icon {
-    transform: rotate(180deg);
-  }
-  #layer-review-root .lr-zoom-panel-toggle-label {
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  #layer-review-root .lr-zoom-panel-inner {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    opacity: 1;
-    transition: opacity 0.15s ease;
-  }
-
-  #layer-review-root .lr-zoom-panel-header {
-    flex-shrink: 0;
-    padding: 1rem 1rem 0.85rem;
-    border-bottom: 1px solid var(--lr-border);
-  }
-  #layer-review-root .lr-zoom-panel-head-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.35rem;
-  }
-  #layer-review-root .lr-zoom-panel-title {
-    margin: 0;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--lr-muted);
-  }
-  #layer-review-root .lr-zoom-panel-count {
-    font-size: 0.75rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--lr-fg);
-  }
-  #layer-review-root .lr-zoom-panel-hint {
-    margin: 0 0 0.65rem;
-    font-size: 0.75rem;
-    line-height: 1.4;
-    color: var(--lr-muted);
-  }
-
-  #layer-review-root .lr-zoom-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-  }
-  #layer-review-root .lr-zoom-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.25rem 0.55rem;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    color: var(--lr-muted);
-    background: var(--lr-hover);
-    border: 1px solid var(--lr-border);
-    border-radius: 999px;
-  }
-  #layer-review-root .lr-zoom-chip strong {
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--lr-fg);
-  }
-
-  #layer-review-root .lr-zoom-feature-list {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 0.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    background: var(--lr-hover);
-    scrollbar-width: thin;
-    scrollbar-color: var(--lr-border-strong) transparent;
-  }
-  #layer-review-root .lr-zoom-feature-list::-webkit-scrollbar {
-    width: 5px;
-  }
-  #layer-review-root .lr-zoom-feature-list::-webkit-scrollbar-thumb {
-    background: var(--lr-border-strong);
-    border-radius: 999px;
-  }
-
-  #layer-review-root .lr-zoom-feature-card {
-    border: 1px solid var(--lr-border);
-    border-radius: 8px;
-    background: #fff;
-    cursor: pointer;
-    overflow: hidden;
-    transition: border-color 0.12s ease, box-shadow 0.12s ease;
-  }
-  #layer-review-root .lr-zoom-feature-card:hover {
-    border-color: var(--lr-border-strong);
-    box-shadow: 0 1px 4px rgba(17, 24, 39, 0.05);
-  }
-  #layer-review-root .lr-zoom-feature-card.lr-row-selected {
-    border-color: var(--lr-fg);
-    box-shadow: 0 0 0 1px var(--lr-fg);
-  }
-
-  #layer-review-root .lr-zoom-card-row {
-    display: grid;
-    grid-template-columns: 1.625rem 1fr auto;
-    gap: 0.5rem;
-    align-items: center;
-    padding: 0.6rem 0.7rem;
-  }
-  #layer-review-root .lr-zoom-card-num {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.625rem;
-    height: 1.625rem;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--lr-muted);
-    background: var(--lr-hover);
-    border-radius: 6px;
-  }
-  #layer-review-root .lr-zoom-feature-card.lr-row-selected .lr-zoom-card-num {
-    color: #fff;
-    background: var(--lr-fg);
-  }
-  #layer-review-root .lr-zoom-card-status {
-    min-width: 0;
-  }
-  #layer-review-root .lr-zoom-card-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-shrink: 0;
-  }
-
-  #layer-review-root .lr-zoom-card-props {
-    padding: 0.55rem 0.7rem 0.65rem;
-    border-top: 1px solid var(--lr-border);
-    background: var(--lr-hover);
-  }
-  #layer-review-root .lr-zoom-card-props .lr-prop-list {
-    gap: 0.3rem;
-  }
-  #layer-review-root .lr-zoom-card-props .lr-prop-row {
-    grid-template-columns: minmax(4rem, 5.5rem) 1fr;
-    gap: 0.35rem 0.5rem;
-    font-size: 0.6875rem;
-    line-height: 1.35;
-    padding: 0;
-    border: none;
-  }
-  #layer-review-root .lr-zoom-card-props .lr-prop-fallback {
-    font-size: 0.6875rem;
-    color: var(--lr-muted);
-  }
-
-  #layer-review-root .lr-zoom-empty {
-    padding: 2rem 1rem;
-    text-align: center;
-    font-size: 0.8125rem;
-    line-height: 1.5;
-    color: var(--lr-muted);
-    border: 1px dashed var(--lr-border-strong);
-    border-radius: 8px;
-    background: #fff;
-  }
-  /* Table */
-  #layer-review-root .lr-table-wrap {
-    overflow-x: auto;
-    overflow-y: auto;
-    max-height: min(52vh, 560px);
-  }
-
-  #layer-review-root .lr-table {
-    width: 100%;
-    min-width: 720px;
-    table-layout: fixed;
-    border-collapse: collapse;
-    text-align: left;
-    font-size: 0.8125rem;
-  }
-
-  #layer-review-root .lr-col-num {
-    width: 2.75rem;
-  }
-  #layer-review-root .lr-col-status {
-    width: 6.5rem;
-  }
-  #layer-review-root .lr-col-props {
-    width: auto;
-  }
-  #layer-review-root .lr-col-actions {
-    width: 10.5rem;
-  }
-
-  #layer-review-root .lr-table-head th {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    padding: 0.65rem 0.85rem;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--lr-muted);
-    background: #ffffff;
-    border-bottom: 1px solid var(--lr-border-strong);
-  }
-  #layer-review-root .lr-table-head th:last-child {
-    text-align: right;
-  }
-
-  #layer-review-root .lr-table-row {
-    cursor: pointer;
-    transition: background 0.1s ease;
-  }
-  #layer-review-root .lr-table-row td {
-    border-bottom: 1px solid var(--lr-border);
-    vertical-align: top;
-  }
-  #layer-review-root .lr-table-row:hover {
-    background: var(--lr-hover);
-  }
-  #layer-review-root .lr-table-row.lr-row-selected {
-    background: var(--lr-selected-bg);
-    box-shadow: inset 3px 0 0 0 var(--lr-selected-bar);
-  }
-
-  #layer-review-root .lr-td-num {
-    padding: 0.75rem 0.65rem 0.75rem 0.5rem;
-    font-variant-numeric: tabular-nums;
-    color: var(--lr-muted);
-    font-weight: 600;
-    font-size: 0.75rem;
-  }
-  #layer-review-root .lr-td-status {
-    padding: 0.75rem 0.65rem 0.75rem 0;
-    white-space: nowrap;
-  }
-  #layer-review-root .lr-td-props {
-    padding: 0.75rem 0.85rem;
-    word-wrap: break-word;
-    overflow-wrap: anywhere;
-    min-width: 0;
-  }
-  #layer-review-root .lr-td-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    padding: 0.65rem 0.5rem 0.65rem 0.5rem;
-    white-space: nowrap;
-  }
-
-  #layer-review-root .lr-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.2rem 0.5rem;
-    font-size: 0.625rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    border-radius: 999px;
-    border: 1px solid var(--lr-border);
-    background: #fff;
-    color: var(--lr-fg);
-  }
-  #layer-review-root .lr-badge-nominated {
-    background: var(--lr-fg);
-    color: #fff;
-    border-color: var(--lr-fg);
-  }
-  #layer-review-root .lr-badge-staged {
-    background: #fff;
-    color: var(--lr-fg);
-    border-color: var(--lr-border);
-  }
-  #layer-review-root .lr-badge-rejected {
-    background: #fff;
-    color: var(--lr-muted);
-    border-color: var(--lr-border-strong);
-    text-decoration: line-through;
-    text-decoration-color: #d1d5db;
-  }
-
-  #layer-review-root .lr-prop-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    max-width: none;
-    width: 100%;
-  }
-  #layer-review-root .lr-prop-row {
-    display: grid;
-    grid-template-columns: minmax(4.5rem, 7.5rem) 1fr;
-    gap: 0.5rem 0.75rem;
-    align-items: baseline;
-    font-size: 0.75rem;
-    line-height: 1.4;
-  }
-  #layer-review-root .lr-prop-key {
-    font-weight: 600;
-    color: var(--lr-muted);
-    word-break: break-word;
-  }
-  #layer-review-root .lr-prop-val {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 0.6875rem;
-    color: var(--lr-fg);
-    word-break: break-word;
-  }
-  #layer-review-root .lr-prop-fallback {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 0.6875rem;
-    color: var(--lr-muted);
-  }
-
-  #layer-review-root .lr-empty {
-    padding: 2.5rem 1rem;
-    text-align: center;
-    font-size: 0.875rem;
-    color: var(--lr-muted);
-  }
-
-  #layer-review-root .lr-action-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    padding: 0;
-    border-radius: 6px;
-    border: 1px solid transparent;
-    cursor: pointer;
-    transition: background 0.12s ease, border-color 0.12s ease, transform 0.08s ease;
-  }
-  #layer-review-root .lr-action-btn:active {
-    transform: scale(0.96);
-  }
-  #layer-review-root .lr-action-btn--approve {
-    background: #dcfce7;
-    border-color: #bbf7d0;
-    color: #16a34a;
-  }
-  #layer-review-root .lr-action-btn--approve:hover {
-    background: #bbf7d0;
-    border-color: #86efac;
-    color: #15803d;
-  }
-  #layer-review-root .lr-action-btn--reject {
-    background: #fee2e2;
-    border-color: #fecaca;
-    color: #ef4444;
-  }
-  #layer-review-root .lr-action-btn--reject:hover {
-    background: #fecaca;
-    border-color: #fca5a5;
-    color: #dc2626;
-  }
-  #layer-review-root .lr-action-icon {
-    width: 1.125rem;
-    height: 1.125rem;
-    flex-shrink: 0;
-    pointer-events: none;
-  }
-
-  #layer-review-root .lr-actions-bulk {
-    display: flex;
-    flex-direction: row;
-    gap: 0.5rem;
-  }
-  #layer-review-root .lr-action-btn--bulk {
-    flex: 1;
-    min-height: 2.75rem;
-    width: auto;
-    height: auto;
-  }
-  #layer-review-root .lr-action-btn--bulk .lr-action-icon {
-    width: 1.35rem;
-    height: 1.35rem;
-  }
-
-</style>
-
+{% block layer_content %}
 <div
   id="layer-review-root"
-  class="lr-shell bg-white -mx-6 -my-6 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 min-h-[calc(100vh-64px)]"
+  class="lr-shell -mx-6 -my-6 px-4 sm:px-6 py-10 sm:py-12 min-h-[calc(100vh-64px)]"
   data-geojson-url="{% url 'layer_review_geojson' layer.pk %}"
   data-table-url="{% url 'layer_review_table' layer.pk %}"
   data-action-url="{% url 'layer_review_action' layer.pk %}"
@@ -827,48 +24,50 @@
   {% csrf_token %}
 
   <header class="lr-head">
-    <div class="lr-head-main">
+    <div>
       <h1 class="lr-title">Review layer</h1>
-      <p class="lr-upload-line">
-        <span class="lr-upload-label">Layer</span>
-        <span class="lr-upload-name">{{ layer.name }}</span>
-      </p>
+      <p class="lr-layer-meta">Layer <strong>{{ layer.name }}</strong></p>
     </div>
-    <div class="flex flex-col gap-2 shrink-0">
-      {% if can_submit %}
-      <button type="button" id="btn-submit-manager" class="lr-btn-finish bg-black text-white border-black hover:bg-gray-800">
-        {% if is_manager_uploader %}Publish layer{% else %}Submit layer{% endif %}
-      </button>
-      {% else %}
-      <a id="btn-finish" href="{% url 'success' %}?submitted=1" class="lr-btn-finish">Done</a>
-      {% endif %}
-    </div>
+    {% if not can_submit %}
+    <a id="btn-finish" href="{% url 'success' %}?submitted=1" class="lr-btn-finish">Done</a>
+    {% endif %}
   </header>
 
   <div class="lr-body">
     <div class="lr-main">
-      <section class="lr-map-section" aria-labelledby="lr-map-heading">
+      <section class="lr-map-panel" aria-labelledby="lr-map-heading">
         <div class="lr-map-head">
           <h2 id="lr-map-heading" class="lr-section-label">Map</h2>
           <div class="lr-map-head-actions">
             <div class="lr-basemap-row">
               <span class="lr-basemap-label">Basemap</span>
-              <div id="review-basemap-strip" class="lr-basemap-strip" role="group" aria-label="Satellite, Streets and Outdoor basemaps"></div>
+              <div id="review-basemap-strip" class="lr-basemap-strip" role="group" aria-label="Basemap style"></div>
             </div>
-            <button type="button" id="btn-map-open-zoom" class="lr-zoom-btn" title="Open full-screen map with all features visible">
+            <button type="button" id="btn-map-open-zoom" class="lr-zoom-btn" title="Open full-screen map">
               <svg class="lr-zoom-btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-              Open in zoom
+              Full screen
             </button>
           </div>
         </div>
         <div class="lr-map-shell" id="lr-map-inline-home">
-          <div id="review-map" class="review-map-frame w-full" role="application" aria-label="Feature map"></div>
+          <div id="review-map" class="review-map-frame" role="application" aria-label="Feature map"></div>
         </div>
       </section>
 
-      <section class="lr-table-section" aria-labelledby="lr-table-heading">
-        <div class="lr-table-head-row">
+      <section class="lr-table-panel" aria-labelledby="lr-table-heading">
+        <div class="lr-table-toolbar">
           <h2 id="lr-table-heading" class="lr-section-label">Features</h2>
+          <div class="lr-table-toolbar-actions">
+            <span class="lr-table-bulk-label">Bulk</span>
+            <div class="lr-actions-bulk">
+              <button type="button" id="btn-approve-all" class="lr-action-btn lr-action-btn--approve lr-action-btn--bulk" aria-label="Include all" title="Include all">
+                <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              </button>
+              <button type="button" id="btn-reject-all" class="lr-action-btn lr-action-btn--reject lr-action-btn--bulk" aria-label="Exclude all" title="Exclude all">
+                <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </div>
         </div>
         <div class="lr-table-wrap">
           <table class="lr-table">
@@ -896,76 +95,36 @@
       </section>
     </div>
 
-    <aside class="lr-aside" aria-label="Counts and bulk actions">
-      <div class="lr-aside-block">
-        <h3 class="lr-aside-label">Counts</h3>
-        <div class="lr-stat-grid" id="review-counts" aria-live="polite">
+    <aside class="lr-aside" aria-label="Summary and submit">
+      <div class="lr-sidebar-card">
+        <p class="lr-sidebar-card__head">Summary</p>
+        <div class="lr-stat-grid" aria-live="polite">
           <div class="lr-stat">
-            <span class="lr-stat-label">New</span>
             <span class="lr-stat-val" id="cnt-staged">—</span>
+            <span class="lr-stat-label">New</span>
           </div>
           <div class="lr-stat">
-            <span class="lr-stat-label">Included</span>
             <span class="lr-stat-val" id="cnt-nominated">—</span>
+            <span class="lr-stat-label">Included</span>
           </div>
           <div class="lr-stat">
-            <span class="lr-stat-label">Excluded</span>
             <span class="lr-stat-val" id="cnt-rejected_upload">—</span>
+            <span class="lr-stat-label">Excluded</span>
           </div>
         </div>
-      </div>
-
-      <div class="lr-aside-block">
-        <h3 class="lr-aside-label">Bulk actions</h3>
-        <div class="lr-actions-bulk">
-          <button type="button" id="btn-approve-all" class="lr-action-btn lr-action-btn--approve lr-action-btn--bulk" aria-label="Include all" title="Include all">
-            <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
-          </button>
-          <button type="button" id="btn-reject-all" class="lr-action-btn lr-action-btn--reject lr-action-btn--bulk" aria-label="Exclude all" title="Exclude all">
-            <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        {% if can_submit %}
+        <div class="lr-aside-submit">
+          <button type="button" id="btn-submit-manager" class="lr-btn-submit">
+            {% if is_manager_uploader %}Publish layer{% else %}Submit layer{% endif %}
           </button>
         </div>
-        <p class="lr-aside-note" id="lr-bulk-hint">
-          Apply the same action to every new row.
-        </p>
+        {% endif %}
       </div>
     </aside>
   </div>
 
-  <div id="lr-map-zoom-overlay" class="lr-map-zoom-overlay" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="lr-map-zoom-title">
-    <div class="lr-map-zoom-bar">
-      <div>
-        <p id="lr-map-zoom-title" class="lr-map-zoom-title">Map zoom</p>
-        <p id="lr-map-zoom-sub" class="lr-map-zoom-sub">All features are shown. Open the Features panel to select one.</p>
-      </div>
-      <button type="button" id="btn-map-zoom-close" class="lr-map-zoom-close">Close</button>
-    </div>
-    <div class="lr-map-zoom-content">
-      <div class="lr-map-zoom-body" id="lr-map-zoom-body"></div>
-      <aside id="lr-zoom-panel" class="lr-zoom-panel" aria-label="Features" data-open="true">
-        <button type="button" id="lr-zoom-panel-toggle" class="lr-zoom-panel-toggle" aria-controls="lr-zoom-panel-inner" aria-expanded="true" title="Show or hide features">
-          <svg class="lr-zoom-panel-toggle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-          <span class="lr-zoom-panel-toggle-label">Features</span>
-        </button>
-        <div id="lr-zoom-panel-inner" class="lr-zoom-panel-inner">
-          <header class="lr-zoom-panel-header">
-            <div class="lr-zoom-panel-head-row">
-              <h3 class="lr-zoom-panel-title">Features</h3>
-              <span id="lr-zoom-panel-count" class="lr-zoom-panel-count">—</span>
-            </div>
-            <p class="lr-zoom-panel-hint">Select a feature to focus the map</p>
-            <div class="lr-zoom-chips" aria-live="polite">
-              <span class="lr-zoom-chip">New <strong id="lr-zoom-cnt-staged">—</strong></span>
-              <span class="lr-zoom-chip">Included <strong id="lr-zoom-cnt-nominated">—</strong></span>
-              <span class="lr-zoom-chip">Excluded <strong id="lr-zoom-cnt-rejected_upload">—</strong></span>
-            </div>
-          </header>
-          <div id="lr-zoom-feature-list" class="lr-zoom-feature-list" role="list"></div>
-        </div>
-      </aside>
-    </div>
-  </div>
+  {% include 'layer_uploader/includes/review_zoom_overlay.html' %}
 </div>
 
-<script src="{% static 'layer_uploader/js/layer_review.js' %}"></script>
+<script src="{% static 'layer_uploader/js/layer_review.js' %}" defer></script>
 {% endblock %}

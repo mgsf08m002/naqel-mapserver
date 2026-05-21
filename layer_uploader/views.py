@@ -74,6 +74,26 @@ def _review_features_qs(layer: Layer):
     ).order_by("pk")
 
 
+def _shapefile_details(shp_path: str) -> dict:
+    with fiona.open(shp_path) as source:
+        crs_name, epsg = simplify_crs(source.crs)
+        count = len(source)
+    return {
+        "count": count,
+        "crs_name": crs_name,
+        "epsg": epsg if epsg else "Not defined",
+    }
+
+
+def _validate_template_context(request, selected: str, shp_path: str, **extra):
+    return upload_flow_context(
+        request,
+        name=selected,
+        **_shapefile_details(shp_path),
+        **extra,
+    )
+
+
 @login_required
 def upload_view(request):
     denied = enforce_layer_uploader_access(request)
@@ -136,18 +156,8 @@ def validate_view(request):
             upload_flow_context(request, error="Shapefile not found."),
         )
 
-    with fiona.open(shp_path) as source:
-        feature_count = len(source)
-        crs_name, epsg = simplify_crs(source.crs)
-    normalized_epsg = coerce_epsg(epsg)
-
-    context = upload_flow_context(
-        request,
-        name=selected,
-        count=feature_count,
-        crs_name=crs_name,
-        epsg=epsg if epsg else "Not defined",
-    )
+    details = _shapefile_details(shp_path)
+    normalized_epsg = coerce_epsg(details["epsg"])
 
     if request.method == "POST":
         try:
@@ -156,13 +166,11 @@ def validate_view(request):
             return render(
                 request,
                 "layer_uploader/validate.html",
-                upload_flow_context(
+                _validate_template_context(
                     request,
+                    selected,
+                    shp_path,
                     error=f"Could not compare this layer to the road network: {exc}",
-                    name=selected,
-                    count=feature_count,
-                    crs_name=crs_name,
-                    epsg=epsg if epsg else "Not defined",
                 ),
             )
 
@@ -170,7 +178,7 @@ def validate_view(request):
             name=selected,
             uploaded_by=request.user,
             srid=normalized_epsg,
-            total_features=feature_count,
+            total_features=details["count"],
             new_features=len(new_features_data),
             status=Layer.Status.DRAFT,
         )
@@ -190,7 +198,11 @@ def validate_view(request):
 
         return redirect("layer_review", layer_id=layer.pk)
 
-    return render(request, "layer_uploader/validate.html", context)
+    return render(
+        request,
+        "layer_uploader/validate.html",
+        _validate_template_context(request, selected, shp_path),
+    )
 
 
 @login_required

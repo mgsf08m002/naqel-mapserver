@@ -73,7 +73,7 @@
     let mapZoomOpen = false;
     let zoomPanelOpen = true;
 
-    /** Matches `--lr-zoom-panel-width` (25rem) plus map control margin. */
+    /** Matches `--lr-zoom-panel-width` (24rem) plus map control margin. */
     const ZOOM_PANEL_MAP_PADDING_PX = 400;
 
     function buildBasemapDefinitions() {
@@ -435,23 +435,55 @@
         el.dataset.centerEnc = encodeURIComponent(JSON.stringify(f.center));
     }
 
-    function appendApproveRejectButtons(container) {
-        const approve = document.createElement('button');
-        approve.type = 'button';
-        approve.className = 'lr-action-btn lr-action-btn--approve';
-        approve.setAttribute('aria-label', 'Include feature');
-        approve.setAttribute('title', 'Include');
-        approve.innerHTML = ICON_APPROVE_SVG;
+    function isActionableStatus(status) {
+        return status === 'staged';
+    }
 
-        const reject = document.createElement('button');
-        reject.type = 'button';
-        reject.className = 'lr-action-btn lr-action-btn--reject';
-        reject.setAttribute('aria-label', 'Exclude feature');
-        reject.setAttribute('title', 'Exclude');
-        reject.innerHTML = ICON_REJECT_SVG;
+    function isResetableStatus(status) {
+        return status === 'nominated' || status === 'rejected_upload';
+    }
 
-        container.appendChild(approve);
-        container.appendChild(reject);
+    function applyFeatureStatusClasses(el, status) {
+        el.classList.remove('lr-row-nominated', 'lr-row-rejected_upload');
+        if (status === 'nominated') {
+            el.classList.add('lr-row-nominated');
+        } else if (status === 'rejected_upload') {
+            el.classList.add('lr-row-rejected_upload');
+        }
+    }
+
+    function fillActionCell(container, status) {
+        container.innerHTML = '';
+
+        if (isActionableStatus(status)) {
+            const approve = document.createElement('button');
+            approve.type = 'button';
+            approve.className = 'lr-action-btn lr-action-btn--approve';
+            approve.setAttribute('aria-label', 'Include feature');
+            approve.setAttribute('title', 'Include');
+            approve.innerHTML = ICON_APPROVE_SVG;
+
+            const reject = document.createElement('button');
+            reject.type = 'button';
+            reject.className = 'lr-action-btn lr-action-btn--reject';
+            reject.setAttribute('aria-label', 'Exclude feature');
+            reject.setAttribute('title', 'Exclude');
+            reject.innerHTML = ICON_REJECT_SVG;
+
+            container.appendChild(approve);
+            container.appendChild(reject);
+            return;
+        }
+
+        if (isResetableStatus(status)) {
+            const reset = document.createElement('button');
+            reset.type = 'button';
+            reset.className = 'lr-btn-reset';
+            reset.textContent = 'Reset';
+            reset.setAttribute('aria-label', 'Reset to new');
+            reset.setAttribute('title', 'Move back to new so you can include or exclude again');
+            container.appendChild(reset);
+        }
     }
 
     const STATUS_COUNT_IDS = {
@@ -1022,7 +1054,7 @@
 
     function wireFeatureInteractions(el, f, rowRef) {
         el.addEventListener('click', function (e) {
-            if (e.target.closest('.lr-action-btn')) {
+            if (e.target.closest('.lr-action-btn, .lr-btn-reset')) {
                 return;
             }
             focusFeature(f.id, rowRef);
@@ -1030,6 +1062,7 @@
 
         const approve = el.querySelector('.lr-action-btn--approve');
         const reject = el.querySelector('.lr-action-btn--reject');
+        const reset = el.querySelector('.lr-btn-reset');
         if (approve) {
             approve.addEventListener('click', function (e) {
                 e.stopPropagation();
@@ -1040,6 +1073,12 @@
             reject.addEventListener('click', function (e) {
                 e.stopPropagation();
                 postFeatureAction('reject', f.id, 'Exclude');
+            });
+        }
+        if (reset) {
+            reset.addEventListener('click', function (e) {
+                e.stopPropagation();
+                postFeatureAction('reset', f.id, 'Reset');
             });
         }
     }
@@ -1063,7 +1102,7 @@
 
         const actions = document.createElement('div');
         actions.className = 'lr-zoom-card-actions';
-        appendApproveRejectButtons(actions);
+        fillActionCell(actions, f.status);
 
         row.appendChild(num);
         row.appendChild(statusWrap);
@@ -1075,6 +1114,7 @@
 
         card.appendChild(row);
         card.appendChild(props);
+        applyFeatureStatusClasses(card, f.status);
         wireFeatureInteractions(card, f, featureRowRef(f));
         return card;
     }
@@ -1115,12 +1155,13 @@
 
         const tdAct = document.createElement('td');
         tdAct.className = 'lr-td-actions';
-        appendApproveRejectButtons(tdAct);
+        fillActionCell(tdAct, f.status);
 
         tr.appendChild(tdNum);
         tr.appendChild(tdSt);
         tr.appendChild(tdProps);
         tr.appendChild(tdAct);
+        applyFeatureStatusClasses(tr, f.status);
         wireFeatureInteractions(tr, f, featureRowRef(f));
         return tr;
     }
@@ -1279,36 +1320,34 @@
         });
     });
 
-    const btnAllA = document.getElementById('btn-approve-all');
-    const btnAllR = document.getElementById('btn-reject-all');
-    if (btnAllA) {
-        btnAllA.addEventListener('click', function () {
-            postAction({ action: 'nominate_all' })
-                .then(function () {
-                    return refreshAll();
-                })
-                .catch(function (err) {
-                    window.alert(err.message || 'Could not include all rows');
-                });
+    function runBulkAction(action, errorMessage) {
+        postAction({ action: action })
+            .then(function () {
+                return refreshAll();
+            })
+            .catch(function (err) {
+                window.alert(err.message || errorMessage);
+            });
+    }
+
+    const btnApproveAll = document.getElementById('btn-approve-all');
+    const btnRejectAll = document.getElementById('btn-reject-all');
+    if (btnApproveAll) {
+        btnApproveAll.addEventListener('click', function () {
+            runBulkAction('nominate_all', 'Could not include all rows');
         });
     }
-    if (btnAllR) {
-        btnAllR.addEventListener('click', function () {
-            postAction({ action: 'reject_all' })
-                .then(function () {
-                    return refreshAll();
-                })
-                .catch(function (err) {
-                    window.alert(err.message || 'Could not exclude all rows');
-                });
+    if (btnRejectAll) {
+        btnRejectAll.addEventListener('click', function () {
+            runBulkAction('reject_all', 'Could not exclude all rows');
         });
     }
 
-    const btnSubmitManager = document.getElementById('btn-submit-manager');
-    if (btnSubmitManager && submitUrl) {
-        btnSubmitManager.addEventListener('click', function () {
-            const nominated = document.getElementById('cnt-nominated');
-            const nominatedCount = nominated ? parseInt(nominated.textContent, 10) : 0;
+    const btnSubmit = document.getElementById('btn-submit-manager');
+    if (btnSubmit && submitUrl) {
+        btnSubmit.addEventListener('click', function () {
+            const nominatedEl = document.getElementById('cnt-nominated');
+            const nominatedCount = nominatedEl ? parseInt(nominatedEl.textContent, 10) : 0;
             if (!nominatedCount || Number.isNaN(nominatedCount)) {
                 window.alert(
                     isManagerUploader
