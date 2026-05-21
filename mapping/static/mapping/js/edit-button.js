@@ -79,6 +79,9 @@
     }
 
     function enterEditMode() {
+        if (window.managerApprovalReviewActive) {
+            return;
+        }
         updateButtonText('Exit Edit Mode');
         if (typeof window.initMapSidePanelChrome === 'function') {
             window.initMapSidePanelChrome();
@@ -282,6 +285,9 @@
     }
 
     function autoEnterEditModeOnRoadSelection() {
+        if (window.managerApprovalReviewActive) {
+            return;
+        }
         if (!editButton || typeof map === 'undefined' || !map) {
             return;
         }

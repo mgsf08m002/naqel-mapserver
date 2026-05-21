@@ -1,55 +1,307 @@
-// Manager pending edit requests: UI, loading, map rendering and approval flow.
+// Manager approval queue: widget UI, API sync, map review, and approve/reject flow.
 (function() {
     'use strict';
 
-    let pendingRequests = [];
-    let currentViewingRequest = null;
+    let approvalQueue = [];
 
-    // Build the floating panel that lists all pending edit requests.
-    function createManagerRequestsUI() {
-        const container = document.createElement('div');
-        container.id = 'managerRequestsContainer';
-        container.className = 'fixed top-20 right-16 z-40 w-80 max-h-[calc(100vh-6rem)] bg-white rounded-lg shadow-lg border border-gray-300 overflow-hidden flex flex-col';
-        container.style.display = 'none';
+    function approvalEmptyHtml() {
+        return `
+            <div class="flex flex-col items-center justify-center px-6 py-12 text-center">
+                <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-50 ring-1 ring-zinc-200/80">
+                    <svg class="h-7 w-7 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                    </svg>
+                </div>
+                <p class="text-sm font-semibold text-zinc-800">All clear</p>
+                <p class="mt-1 max-w-[14rem] text-xs leading-relaxed text-zinc-500">No submissions are waiting for your approval.</p>
+            </div>
+        `;
+    }
 
-        const header = document.createElement('div');
-        header.className = 'bg-zinc-50 border-b border-zinc-200 px-4 py-3 flex items-center justify-between shrink-0';
+    function requesterDisplayLine(name, role) {
+        const safeName = (name || 'Unknown').trim();
+        const safeRole = (role || '').trim();
+        if (!safeRole || safeRole.toLowerCase() === safeName.toLowerCase()) {
+            return safeName;
+        }
+        return safeName + ' · ' + safeRole;
+    }
 
-        const title = document.createElement('h2');
-        title.className = 'text-sm font-semibold text-zinc-900 tracking-tight';
-        title.textContent = 'Pending Edit Requests';
-        header.appendChild(title);
+    function formatRequestTime(isoString) {
+        const date = new Date(isoString);
+        if (Number.isNaN(date.getTime())) {
+            return '';
+        }
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) {
+            return 'Just now';
+        }
+        if (diffMins < 60) {
+            return diffMins + 'm ago';
+        }
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) {
+            return diffHours + 'h ago';
+        }
+        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+            ', ' +
+            date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    }
 
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'rounded-lg p-1 text-zinc-500 hover:bg-white hover:text-zinc-900 transition-colors';
-        closeBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
-        closeBtn.addEventListener('click', function() {
-            container.style.display = 'none';
+    function getRequestTypeMeta(request) {
+        const isDelete = (request.edit_type || '').toUpperCase() === 'DELETE';
+        const isLayerUpload = Boolean(request.is_layer_upload);
+        if (isLayerUpload) {
+            return {
+                label: 'Layer upload',
+                chipClass: 'bg-sky-50 text-sky-700 ring-sky-600/15',
+                actionLabel: 'Review on map'
+            };
+        }
+        if (isDelete) {
+            return {
+                label: 'Deletion',
+                chipClass: 'bg-rose-50 text-rose-700 ring-rose-600/15',
+                actionLabel: 'Review deletion'
+            };
+        }
+        const raw = (request.edit_type || 'Line edit').replace(/_/g, ' ').toLowerCase();
+        return {
+            label: raw.charAt(0).toUpperCase() + raw.slice(1),
+            chipClass: 'bg-zinc-100 text-zinc-700 ring-zinc-500/10',
+            actionLabel: 'Review edit'
+        };
+    }
+
+    function setApprovalPanelOpen(open) {
+        const panel = document.getElementById('approvalRequestsPanel');
+        const toggle = document.getElementById('approvalRequestsToggle');
+        const chevron = document.getElementById('approvalRequestsChevron');
+        if (!panel) {
+            return;
+        }
+        if (open) {
+            panel.classList.remove('hidden');
+            panel.classList.add('flex');
+            if (toggle) {
+                toggle.setAttribute('aria-expanded', 'true');
+            }
+            if (chevron) {
+                chevron.classList.add('rotate-180');
+            }
+            syncApprovalWidget();
+        } else {
+            panel.classList.add('hidden');
+            panel.classList.remove('flex');
+            if (toggle) {
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+            if (chevron) {
+                chevron.classList.remove('rotate-180');
+            }
             removeApproveRejectButtons();
-        });
-        header.appendChild(closeBtn);
+            syncApprovalWidget();
+        }
+    }
 
-        container.appendChild(header);
+    function isApprovalPanelOpen() {
+        const panel = document.getElementById('approvalRequestsPanel');
+        return panel && !panel.classList.contains('hidden');
+    }
+
+    function setManagerReviewMode(active) {
+        window.managerApprovalReviewActive = Boolean(active);
+        const editToolbar = document.getElementById('editToolbar');
+        if (editToolbar && active) {
+            editToolbar.classList.add('hidden');
+        }
+        if (active && typeof window.hideRiyadhGeometryEditToolbar === 'function') {
+            window.hideRiyadhGeometryEditToolbar();
+        }
+    }
+
+    function hideEditToolbarsForReview() {
+        setManagerReviewMode(true);
+    }
+
+    const APPROVAL_WIDGET_POSITION_KEY = 'naqel.approvalRequests.position';
+
+    function clampApprovalWidgetPosition(left, top, width, height) {
+        const margin = 8;
+        const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+        const maxTop = Math.max(margin, window.innerHeight - height - margin);
+        return {
+            left: Math.min(Math.max(margin, left), maxLeft),
+            top: Math.min(Math.max(margin, top), maxTop)
+        };
+    }
+
+    function applyApprovalWidgetPosition(root, left, top) {
+        const rect = root.getBoundingClientRect();
+        const clamped = clampApprovalWidgetPosition(left, top, rect.width, rect.height);
+        root.style.left = clamped.left + 'px';
+        root.style.top = clamped.top + 'px';
+        root.style.right = 'auto';
+        return clamped;
+    }
+
+    function restoreApprovalWidgetPosition(root) {
+        try {
+            const raw = localStorage.getItem(APPROVAL_WIDGET_POSITION_KEY);
+            if (!raw) {
+                return;
+            }
+            const saved = JSON.parse(raw);
+            if (typeof saved.left === 'number' && typeof saved.top === 'number') {
+                applyApprovalWidgetPosition(root, saved.left, saved.top);
+            }
+        } catch (err) {
+            /* ignore invalid saved position */
+        }
+    }
+
+    function saveApprovalWidgetPosition(root) {
+        const rect = root.getBoundingClientRect();
+        localStorage.setItem(
+            APPROVAL_WIDGET_POSITION_KEY,
+            JSON.stringify({ left: Math.round(rect.left), top: Math.round(rect.top) })
+        );
+    }
+
+    function attachApprovalWidgetDrag(root, handle) {
+        let dragging = false;
+        let didDrag = false;
+        let pointerId = null;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        handle.addEventListener('pointerdown', function(event) {
+            if (event.button !== 0) {
+                return;
+            }
+            dragging = true;
+            didDrag = false;
+            pointerId = event.pointerId;
+            const rect = root.getBoundingClientRect();
+            applyApprovalWidgetPosition(root, rect.left, rect.top);
+            offsetX = event.clientX - rect.left;
+            offsetY = event.clientY - rect.top;
+            handle.setPointerCapture(pointerId);
+            handle.classList.add('cursor-grabbing');
+            root.classList.add('select-none');
+            event.preventDefault();
+        });
+
+        handle.addEventListener('pointermove', function(event) {
+            if (!dragging || event.pointerId !== pointerId) {
+                return;
+            }
+            didDrag = true;
+            applyApprovalWidgetPosition(
+                root,
+                event.clientX - offsetX,
+                event.clientY - offsetY
+            );
+        });
+
+        function endDrag(event) {
+            if (!dragging || (event && event.pointerId !== pointerId)) {
+                return;
+            }
+            dragging = false;
+            handle.classList.remove('cursor-grabbing');
+            root.classList.remove('select-none');
+            if (handle.hasPointerCapture(pointerId)) {
+                handle.releasePointerCapture(pointerId);
+            }
+            pointerId = null;
+            if (didDrag) {
+                saveApprovalWidgetPosition(root);
+            }
+        }
+
+        handle.addEventListener('pointerup', endDrag);
+        handle.addEventListener('pointercancel', endDrag);
+
+        return function consumeDragClick() {
+            const consumed = didDrag;
+            didDrag = false;
+            return consumed;
+        };
+    }
+
+    function buildApprovalWidget() {
+        const root = document.createElement('div');
+        root.id = 'approvalRequestsRoot';
+        root.className = 'fixed top-[4.5rem] right-4 z-40 w-[22rem] max-w-[calc(100vw-2rem)]';
+
+        const widget = document.createElement('div');
+        widget.className =
+            'flex flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-xl shadow-zinc-900/[0.07]';
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.id = 'approvalRequestsToggle';
+        toggleBtn.className =
+            'group flex w-full cursor-grab items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-zinc-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/15 focus-visible:ring-inset active:cursor-grabbing';
+        toggleBtn.setAttribute('aria-expanded', 'false');
+        toggleBtn.setAttribute('aria-controls', 'approvalRequestsPanel');
+        toggleBtn.setAttribute('aria-label', 'Approval requests. Drag to move. Click to expand.');
+        toggleBtn.innerHTML = `
+            <span id="approvalRequestsCountDisplay" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-lg font-semibold tabular-nums text-zinc-500 ring-1 ring-inset ring-zinc-200/80" aria-hidden="true">0</span>
+            <span class="min-w-0 flex-1">
+                <span class="block text-[15px] font-semibold tracking-tight text-zinc-900">Approval Requests</span>
+                <span id="approvalRequestsSummary" class="block text-xs text-zinc-500">Open to review submissions</span>
+            </span>
+            <svg id="approvalRequestsChevron" class="h-5 w-5 shrink-0 text-zinc-400 transition-transform duration-200 group-hover:text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+        `;
+        const consumeDragClick = attachApprovalWidgetDrag(root, toggleBtn);
+        toggleBtn.addEventListener('click', function(event) {
+            if (consumeDragClick()) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+            const willOpen = !isApprovalPanelOpen();
+            setApprovalPanelOpen(willOpen);
+            if (willOpen) {
+                refreshApprovalQueue();
+            }
+        });
+        widget.appendChild(toggleBtn);
+
+        const panel = document.createElement('div');
+        panel.id = 'approvalRequestsPanel';
+        panel.className = 'hidden flex-col border-t border-zinc-100/90 max-h-[min(36rem,calc(100vh-9rem))]';
+
+        const listHeader = document.createElement('div');
+        listHeader.id = 'approvalRequestsListHeader';
+        listHeader.className =
+            'hidden shrink-0 items-center justify-between gap-2 border-b border-zinc-100 bg-zinc-50/60 px-4 py-2';
+        listHeader.innerHTML =
+            '<span id="approvalRequestsCount" class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500"></span>' +
+            '<span class="text-[11px] text-zinc-400">Newest first</span>';
+        panel.appendChild(listHeader);
 
         const requestsList = document.createElement('div');
-        requestsList.id = 'pendingRequestsList';
-        requestsList.className = 'flex-1 overflow-y-auto p-3 space-y-2';
-        container.appendChild(requestsList);
+        requestsList.id = 'approvalRequestsList';
+        requestsList.className = 'flex-1 divide-y divide-zinc-100 overflow-y-auto overscroll-contain';
+        panel.appendChild(requestsList);
 
-        const emptyState = document.createElement('div');
-        emptyState.id = 'emptyRequestsState';
-        emptyState.className = 'flex flex-col items-center justify-center py-8 text-gray-500';
-        emptyState.innerHTML = `
-            <svg class="w-12 h-12 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-            <p class="text-xs font-medium">No pending requests</p>
-            <p class="text-xs mt-1 text-gray-400">All edit requests have been reviewed</p>
-        `;
-        requestsList.appendChild(emptyState);
+        widget.appendChild(panel);
+        root.appendChild(widget);
+        document.body.appendChild(root);
+        restoreApprovalWidgetPosition(root);
 
-        document.body.appendChild(container);
-        return container;
+        window.addEventListener('resize', function() {
+            const rect = root.getBoundingClientRect();
+            applyApprovalWidgetPosition(root, rect.left, rect.top);
+            saveApprovalWidgetPosition(root);
+        });
     }
 
     function escapeHtml(s) {
@@ -58,95 +310,120 @@
         return d.innerHTML;
     }
 
-    // Build a single card row for one pending edit request.
-    function createRequestCard(request) {
-        const card = document.createElement('div');
-        card.className = 'bg-white rounded border border-gray-300 p-3 hover:shadow-sm transition-shadow';
+    function buildApprovalRow(request) {
+        const typeMeta = getRequestTypeMeta(request);
+        const isLayerUpload = Boolean(request.is_layer_upload);
+        const displayFeature =
+            escapeHtml(String(request.current_feature_label || 'Unnamed feature'));
+        const requesterLine = escapeHtml(
+            requesterDisplayLine(request.requester_name, request.requester_role)
+        );
+        const timeLabel = escapeHtml(formatRequestTime(request.created_at));
+        const layerName = request.layer_name ? escapeHtml(String(request.layer_name)) : '';
+
+        let contextLine = requesterLine;
+        if (isLayerUpload && layerName) {
+            contextLine = layerName + '<span class="text-zinc-300"> · </span>' + requesterLine;
+        }
+
+        const geometryChip = request.geometry_changed
+            ? '<span class="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 ring-1 ring-amber-200/80">Shape changed</span>'
+            : '';
+
+        const card = document.createElement('article');
+        card.className =
+            'group relative px-4 py-3.5 transition-colors hover:bg-zinc-50/90 focus-within:bg-zinc-50/90';
         card.setAttribute('data-request-id', request.id);
 
-        const header = document.createElement('div');
-        header.className = 'flex items-start gap-2 mb-2';
+        const avatarHtml = request.profile_image_url
+            ? '<img src="' +
+              escapeHtml(request.profile_image_url) +
+              '" alt="" class="h-full w-full rounded-full object-cover">'
+            : '<span class="text-[10px] font-semibold text-zinc-600">' +
+              escapeHtml((request.requester_name || '?').charAt(0).toUpperCase()) +
+              '</span>';
 
-        const avatar = document.createElement('div');
-        avatar.className = 'w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-800 font-semibold text-xs flex-shrink-0';
-        
-        if (request.profile_image_url) {
-            avatar.innerHTML = `<img src="${request.profile_image_url}" alt="${request.requester_name}" class="w-full h-full rounded-full object-cover">`;
-        } else {
-            avatar.textContent = request.requester_name.charAt(0).toUpperCase();
-        }
-        header.appendChild(avatar);
+        card.innerHTML =
+            '<div class="mb-2 flex items-center justify-between gap-2">' +
+            '<span class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ' +
+            typeMeta.chipClass +
+            '">' +
+            escapeHtml(typeMeta.label) +
+            '</span>' +
+            '<time class="shrink-0 text-[11px] tabular-nums text-zinc-400" datetime="' +
+            escapeHtml(String(request.created_at || '')) +
+            '">' +
+            timeLabel +
+            '</time>' +
+            '</div>' +
+            '<div class="mb-1.5 flex items-start gap-2">' +
+            '<h3 class="min-w-0 flex-1 text-sm font-semibold leading-snug text-zinc-900">' +
+            displayFeature +
+            '</h3>' +
+            geometryChip +
+            '</div>' +
+            '<p class="mb-3 truncate text-xs text-zinc-500">' +
+            contextLine +
+            '</p>' +
+            '<div class="flex items-center justify-between gap-3">' +
+            '<div class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200/80">' +
+            avatarHtml +
+            '</div>' +
+            '<span class="approval-review-btn inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-zinc-900 ring-1 ring-zinc-200/90 transition-all group-hover:bg-zinc-900 group-hover:text-white group-hover:ring-zinc-900">' +
+            escapeHtml(typeMeta.actionLabel) +
+            '<svg class="h-3.5 w-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' +
+            '</span>' +
+            '</div>';
 
-        const info = document.createElement('div');
-        info.className = 'flex-1 min-w-0';
-
-        const name = document.createElement('div');
-        name.className = 'font-medium text-gray-900 text-xs truncate';
-        name.textContent = request.requester_name;
-        info.appendChild(name);
-
-        const role = document.createElement('div');
-        role.className = 'text-xs text-gray-600';
-        role.textContent = request.requester_role;
-        info.appendChild(role);
-
-        header.appendChild(info);
-        card.appendChild(header);
-
-        const editType = document.createElement('div');
-        editType.className = 'mb-2 flex flex-wrap gap-1.5';
-        const badge = document.createElement('span');
-        const isDelete = (request.edit_type || '').toUpperCase() === 'DELETE';
-        const isLayerUpload = Boolean(request.is_layer_upload);
-        if (isLayerUpload) {
-            badge.className =
-                'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-sky-50 text-sky-800 border border-sky-200';
-            badge.textContent = 'Layer Upload';
-        } else if (isDelete) {
-            badge.className =
-                'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200';
-            badge.textContent = 'DELETE REQUEST';
-        } else {
-            badge.className =
-                'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300';
-            badge.textContent = request.edit_type || 'LINE EDIT';
-        }
-        editType.appendChild(badge);
-        card.appendChild(editType);
-
-        if (isLayerUpload && request.layer_name) {
-            const layerLine = document.createElement('div');
-            layerLine.className = 'text-xs text-gray-600 mb-2';
-            layerLine.innerHTML =
-                '<span class="font-medium">Layer:</span> ' + escapeHtml(String(request.layer_name));
-            card.appendChild(layerLine);
-        }
-
-        const featureType = document.createElement('div');
-        featureType.className = 'text-xs text-gray-700 mb-2';
-        const displayFeatureType = request.current_feature_label || request.feature_type || 'Line';
-        let featureHtml = `<span class="font-medium">Feature:</span> ${displayFeatureType}`;
-        if (request.geometry_changed) {
-            featureHtml += ` <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-900 border border-amber-200">GEOMETRY</span>`;
-        }
-        featureType.innerHTML = featureHtml;
-        card.appendChild(featureType);
-
-        const date = document.createElement('div');
-        date.className = 'text-xs text-gray-500 mb-2';
-        const requestDate = new Date(request.created_at);
-        date.textContent = requestDate.toLocaleDateString() + ' ' + requestDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        card.appendChild(date);
-
-        const viewBtn = document.createElement('button');
-        viewBtn.className = 'w-full px-3 py-1.5 bg-black text-white rounded hover:bg-gray-800 transition-colors text-xs font-medium';
-        viewBtn.textContent = isLayerUpload ? 'View on map' : 'View Edit';
-        viewBtn.addEventListener('click', function() {
-            viewEditRequest(request.id);
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        card.className += ' cursor-pointer';
+        card.addEventListener('click', function() {
+            openApprovalRequest(request.id);
         });
-        card.appendChild(viewBtn);
+        card.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openApprovalRequest(request.id);
+            }
+        });
 
         return card;
+    }
+
+    function syncApprovalWidget() {
+        const count = approvalQueue.length;
+        const summary = document.getElementById('approvalRequestsSummary');
+        const listHeader = document.getElementById('approvalRequestsListHeader');
+        const countEl = document.getElementById('approvalRequestsCount');
+        const countDisplay = document.getElementById('approvalRequestsCountDisplay');
+
+        if (countDisplay) {
+            countDisplay.textContent = String(count);
+            countDisplay.classList.toggle('text-zinc-500', count === 0);
+            countDisplay.classList.toggle('text-zinc-900', count > 0);
+        }
+
+        if (summary) {
+            if (count === 0) {
+                summary.textContent = 'Open to review submissions';
+            } else if (count === 1) {
+                summary.textContent = '1 submission needs review';
+            } else {
+                summary.textContent = count + ' submissions need review';
+            }
+        }
+        if (listHeader && countEl) {
+            if (count > 0 && isApprovalPanelOpen()) {
+                listHeader.classList.remove('hidden');
+                listHeader.classList.add('flex');
+                countEl.textContent =
+                    count === 1 ? '1 pending' : count + ' pending';
+            } else {
+                listHeader.classList.add('hidden');
+                listHeader.classList.remove('flex');
+            }
+        }
     }
 
     // Convert WebMercator (EPSG:3857) coordinates to WGS84 lon/lat.
@@ -317,8 +594,7 @@
         };
     }
 
-    // Fetch all pending edit requests for the current manager.
-    function loadPendingRequests() {
+    function refreshApprovalQueue() {
         fetch('/mapping/api/pending-requests/', {
             method: 'GET',
             headers: {
@@ -330,59 +606,36 @@
         })
         .then(function(data) {
             if (data.success) {
-                pendingRequests = data.requests;
-                displayRequests();
-                updateRequestsBadge();
+                approvalQueue = data.requests;
+                renderApprovalList();
             }
         })
         .catch(function() {});
     }
 
-    // Render the pending requests list in the side panel.
-    function displayRequests() {
-        const container = document.getElementById('managerRequestsContainer');
-        if (!container) return;
-
-        const requestsList = document.getElementById('pendingRequestsList');
-        if (!requestsList) return;
-
-        requestsList.innerHTML = '';
-
-        if (pendingRequests.length === 0) {
-            const emptyState = document.createElement('div');
-            emptyState.className = 'flex flex-col items-center justify-center py-8 text-gray-500';
-            emptyState.innerHTML = `
-                <svg class="w-12 h-12 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-                <p class="text-xs font-medium">No pending requests</p>
-                <p class="text-xs mt-1 text-gray-400">All edit requests have been reviewed</p>
-            `;
-            requestsList.appendChild(emptyState);
+    function renderApprovalList() {
+        const requestsList = document.getElementById('approvalRequestsList');
+        if (!requestsList) {
             return;
         }
 
-        pendingRequests.forEach(function(request) {
-            const card = createRequestCard(request);
-            requestsList.appendChild(card);
-        });
-    }
+        requestsList.innerHTML = '';
 
-    // Update the small badge count shown on the toggle button.
-    function updateRequestsBadge() {
-        const badge = document.getElementById('requestsBadge');
-        if (badge) {
-            badge.textContent = pendingRequests.length;
-            if (pendingRequests.length === 0) {
-                badge.style.display = 'none';
-            } else {
-                badge.style.display = 'inline-block';
-            }
+        if (approvalQueue.length === 0) {
+            const emptyState = document.createElement('div');
+            emptyState.innerHTML = approvalEmptyHtml();
+            requestsList.appendChild(emptyState);
+            syncApprovalWidget();
+            return;
         }
+
+        approvalQueue.forEach(function(request) {
+            requestsList.appendChild(buildApprovalRow(request));
+        });
+        syncApprovalWidget();
     }
 
-    // Load one specific edit request and hand it off to the map.
-    function viewEditRequest(requestId) {
+    function openApprovalRequest(requestId) {
         fetch('/mapping/api/request/' + requestId + '/', {
             method: 'GET',
             headers: {
@@ -394,7 +647,6 @@
         })
         .then(function(data) {
             if (data && data.success) {
-                currentViewingRequest = data.request;
                 showEditRequestOnMap(data.request);
             } else if (data) {
                 const message = data.message || 'Unknown error loading request.';
@@ -485,11 +737,9 @@
 
         cleanupRequestLines();
         removeApproveRejectButtons();
+        hideEditToolbarsForReview();
 
-        const container = document.getElementById('managerRequestsContainer');
-        if (container) {
-            container.style.display = 'none';
-        }
+        setApprovalPanelOpen(false);
         
         const normalizedGeometry = normalizeRequestGeometry(request.geometry);
         if (!normalizedGeometry || !normalizedGeometry.coordinates || normalizedGeometry.coordinates.length < 2) {
@@ -497,7 +747,7 @@
                 window.notify.warning('This edit request has invalid geometry and cannot be shown on the map, but its details can still be reviewed.');
             }
 
-            ensureEditModeEnabled(function() {
+            ensureSidePanelForReview(function() {
                 populateSidepanelWithRequestData(request);
                 showRequestDetailsSidepanel(request);
             });
@@ -550,29 +800,35 @@
             padding: 100,
             duration: 1000
         });
-        ensureEditModeEnabled(function() {
+        ensureSidePanelForReview(function() {
             setTimeout(function() {
                 drawRequestLineOnMap(requestForMap);
                 populateSidepanelWithRequestData(requestForMap);
                 showRequestDetailsSidepanel(request);
+                hideEditToolbarsForReview();
             }, 1100);
         });
     }
 
-    // Ensure the left edit side panel and toolbar are visible before populating.
-    function ensureEditModeEnabled(callback) {
+    // Open the side panel for read-only review (no draw/edit toolbar).
+    function ensureSidePanelForReview(callback) {
         const sidePanel = document.getElementById('editSidePanel');
         const mapContainer = document.getElementById('mapContainer');
-        const editToolbar = document.getElementById('editToolbar');
-        
+
+        hideEditToolbarsForReview();
+
         if (!sidePanel) {
-            if (callback) setTimeout(callback, 100);
+            if (callback) {
+                setTimeout(callback, 100);
+            }
             return;
         }
-        
+
         const isCurrentlyActive = !sidePanel.classList.contains('-translate-x-full');
         if (isCurrentlyActive) {
-            if (callback) setTimeout(callback, 100);
+            if (callback) {
+                setTimeout(callback, 100);
+            }
             return;
         }
         if (typeof window.initMapSidePanelChrome === 'function') {
@@ -587,20 +843,16 @@
                 mapContainer.style.width = 'calc(100% - 320px)';
             }
         }
-        if (editToolbar) {
-            editToolbar.classList.remove('hidden');
-        }
-        if (typeof window.refreshRiyadhGeometryEditToolbar === 'function') {
-            window.refreshRiyadhGeometryEditToolbar();
-        }
         if (typeof map !== 'undefined' && map && map.resize) {
             setTimeout(function() {
                 map.resize();
             }, 100);
         }
         setTimeout(function() {
-            const isNowActive = !sidePanel.classList.contains('-translate-x-full');
-            if (callback) callback();
+            hideEditToolbarsForReview();
+            if (callback) {
+                callback();
+            }
         }, 400);
     }
 
@@ -1025,15 +1277,15 @@
     // Open the edit side panel and populate it with request metadata.
     function populateSidepanelWithRequestData(request) {
         const sidePanel = document.getElementById('editSidePanel');
-        const editToolbar = document.getElementById('editToolbar');
-        
+
+        hideEditToolbarsForReview();
+
         if (!sidePanel) {
             return;
         }
-        
-        // Check if edit mode is already active
+
         const isCurrentlyActive = !sidePanel.classList.contains('-translate-x-full');
-        
+
         if (!isCurrentlyActive) {
             if (typeof window.initMapSidePanelChrome === 'function') {
                 window.initMapSidePanelChrome();
@@ -1055,9 +1307,7 @@
                 }
             }
         }
-        if (editToolbar && editToolbar.classList.contains('hidden')) {
-            editToolbar.classList.remove('hidden');
-        }
+        hideEditToolbarsForReview();
         let retryCount = window.populateSidepanelRetryCount || 0;
         if (retryCount < 10) {
             if (sidePanel.classList.contains('-translate-x-full')) {
@@ -1082,7 +1332,9 @@
                     lineData: { road_closure: request.road_closure },
                 });
             }
+            hideEditToolbarsForReview();
             setTimeout(function() {
+                hideEditToolbarsForReview();
                 const editScreen = document.getElementById('editFeatureScreen');
                 if (!editScreen) {
                     setTimeout(function() {
@@ -1353,6 +1605,7 @@
             container.remove();
         }
         window.currentReviewingRequestId = null;
+        setManagerReviewMode(false);
     }
 
     function approveRequest(requestId) {
@@ -1373,11 +1626,10 @@
                 alert(data.message || 'Edit request approved successfully!');
                 cleanupRequestLines();
                 removeApproveRejectButtons();
-                pendingRequests = pendingRequests.filter(function(req) {
+                approvalQueue = approvalQueue.filter(function(req) {
                     return req.id !== requestId;
                 });
-                displayRequests();
-                updateRequestsBadge();
+                renderApprovalList();
                 if (data.deleted_road_id != null) {
                     if (typeof window.clearRiyadhRoadDbFclassFromDatabase === 'function') {
                         window.clearRiyadhRoadDbFclassFromDatabase(data.deleted_road_id);
@@ -1427,11 +1679,10 @@
                 alert(data.message || 'Edit request rejected');
                 cleanupRequestLines();
                 removeApproveRejectButtons();
-                pendingRequests = pendingRequests.filter(function(req) {
+                approvalQueue = approvalQueue.filter(function(req) {
                     return req.id !== requestId;
                 });
-                displayRequests();
-                updateRequestsBadge();
+                renderApprovalList();
             } else {
                 alert('Error: ' + data.message);
             }
@@ -1456,50 +1707,19 @@
         return cookieValue;
     }
 
-    function createToggleButton() {
-        const button = document.createElement('button');
-        button.id = 'managerRequestsToggle';
-        button.className = 'fixed top-20 right-16 z-50 px-3 py-1.5 bg-black text-white rounded shadow-md hover:bg-gray-800 transition-colors flex items-center gap-2 text-sm font-medium';
-        button.innerHTML = `
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-            <span>Edit Requests</span>
-            <span id="requestsBadge" class="bg-gray-600 text-white text-xs px-1.5 py-0.5 rounded-full">0</span>
-        `;
-        
-        button.addEventListener('click', function() {
-            const container = document.getElementById('managerRequestsContainer');
-            if (container) {
-                const isVisible = container.style.display !== 'none';
-                container.style.display = isVisible ? 'none' : 'flex';
-                if (!isVisible) {
-                    loadPendingRequests();
-                } else {
-                    removeApproveRejectButtons();
-                }
-            }
-        });
-
-        document.body.appendChild(button);
-        return button;
+    function initApprovalQueue() {
+        buildApprovalWidget();
+        refreshApprovalQueue();
+        setInterval(refreshApprovalQueue, 30000);
     }
 
-    function initManagerRequests() {
-        createManagerRequestsUI();
-        createToggleButton();
-        loadPendingRequests();
-        setInterval(loadPendingRequests, 30000);
-    }
-
-    // Initialize when DOM is ready
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initManagerRequests);
+        document.addEventListener('DOMContentLoaded', initApprovalQueue);
     } else {
-        initManagerRequests();
+        initApprovalQueue();
     }
 
-    window.loadPendingRequests = loadPendingRequests;
+    window.refreshApprovalQueue = refreshApprovalQueue;
     window.populateFieldsData = populateFieldsData;
     window.populateTagsData = populateTagsData;
     window.populateRelationsData = populateRelationsData;

@@ -580,7 +580,7 @@ def save_line_edit_request(request):
     Managers: apply immediately to the remote network (no pending row left).
 
     All roles: Riyadh ``road_closure`` changes apply immediately on the remote DB
-    (no manager approval). Pending requests are created only when geometry,
+    (no manager approval). Approval-queue rows are created only when geometry,
     relations, extra fields, or other attribute drift still require review.
     """
     try:
@@ -1377,11 +1377,11 @@ def create_delete_request(request):
 
 @login_required
 def list_pending_requests(request):
-    """Return all pending line edit requests for manager review."""
+    """Return all pending line edit requests for the manager approval queue."""
     if not _get_user_is_manager(request.user):
         return JsonResponse({
             'success': False,
-            'message': 'Only managers can review edit requests.',
+            'message': 'Only managers can access the approval queue.',
         }, status=403)
     
     try:
@@ -1412,13 +1412,11 @@ def list_pending_requests(request):
                     "id": req.id,
                     "requester_name": req.requester.get_full_name()
                     or req.requester.username,
-                    "requester_username": req.requester.username,
                     "requester_role": req.get_requester_role(),
                     "profile_image_url": profile_image_url,
                     "edit_type": req.edit_type,
                     "is_layer_upload": is_layer_upload,
                     "layer_name": fields_data.get("layer_name") if is_layer_upload else None,
-                    "feature_type": req.current_feature_label or "Line",
                     "current_feature_label": req.current_feature_label or "Line",
                     "created_at": req.created_at.isoformat(),
                     "geometry": geometry,
@@ -1442,11 +1440,11 @@ def list_pending_requests(request):
 
 @login_required
 def get_edit_request_details(request, request_id):
-    """Return full details of a single edit request for manager review."""
+    """Return full details of a single item in the manager approval queue."""
     if not _get_user_is_manager(request.user):
         return JsonResponse({
             'success': False,
-            'message': 'Only managers can review edit requests.',
+            'message': 'Only managers can access the approval queue.',
         }, status=403)
     
     try:
@@ -1485,7 +1483,6 @@ def get_edit_request_details(request, request_id):
                     "id": edit_request.id,
                     "requester_name": edit_request.requester.get_full_name()
                     or edit_request.requester.username,
-                    "requester_username": edit_request.requester.username,
                     "requester_role": edit_request.get_requester_role(),
                     "profile_image_url": profile_image_url,
                     "edit_type": edit_request.edit_type,
@@ -1527,7 +1524,7 @@ def approve_edit_request(request, request_id):
     if not _get_user_is_manager(request.user):
         return JsonResponse({
             'success': False,
-            'message': 'Only managers can approve edit requests.',
+            'message': 'Only managers can approve items in the approval queue.',
         }, status=403)
     
     try:
@@ -1597,7 +1594,7 @@ def reject_edit_request(request, request_id):
     if not _get_user_is_manager(request.user):
         return JsonResponse({
             'success': False,
-            'message': 'Only managers can reject edit requests.',
+            'message': 'Only managers can reject items in the approval queue.',
         }, status=403)
     
     try:

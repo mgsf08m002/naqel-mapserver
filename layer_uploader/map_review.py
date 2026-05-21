@@ -1,4 +1,4 @@
-"""Layer upload items in the manager map Pending Edit Requests queue."""
+"""Layer upload items in the manager map approval queue."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def _geometry_json_from_feature(feature: Feature) -> dict:
 
 
 def create_line_edit_requests_for_layer_upload(layer: Layer, features) -> None:
-    """Create one pending edit request per nominated upload feature."""
+    """Create one approval-queue edit request per nominated upload feature."""
     from mapping.riyadh_fclass import feature_label_from_riyadh_fclass
 
     from .services import prepare_road_fields_for_publish

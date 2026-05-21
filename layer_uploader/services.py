@@ -334,7 +334,7 @@ def _discard_unnominated_staged_features(layer: Layer) -> None:
 
 
 def _submit_for_map_review(layer: Layer, nominated) -> LayerSubmitResult:
-    """Editor/system admin submit: one Pending Edit Request per road on the manager map."""
+    """Editor/system admin submit: one approval request per road on the manager map."""
     from .map_review import create_line_edit_requests_for_layer_upload
 
     features = list(nominated)
@@ -376,7 +376,7 @@ def submit_layer(layer: Layer, submitter: AbstractBaseUser) -> LayerSubmitResult
     """
     Finalize an upload after uploader review.
 
-    - Editor/system admin: nominated features become Pending Edit Requests on the map.
+    - Editor/system admin: nominated features enter the manager approval queue on the map.
     - Manager submitter: nominated features publish straight to riyadh_roads.
     """
     if layer.status != Layer.Status.DRAFT:

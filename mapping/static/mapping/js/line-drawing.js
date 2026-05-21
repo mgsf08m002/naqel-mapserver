@@ -265,6 +265,10 @@
         if (!group) {
             return;
         }
+        if (window.managerApprovalReviewActive) {
+            hideRiyadhGeometryEditToolbar();
+            return;
+        }
         const readonly = editScreen && editScreen.getAttribute('data-geometry-readonly') === 'true';
         if (readonly || !lineData || !lineData.is_riyadh_road) {
             hideRiyadhGeometryEditToolbar();
@@ -276,6 +280,10 @@
     }
 
     function refreshRiyadhGeometryEditToolbar() {
+        if (window.managerApprovalReviewActive) {
+            hideRiyadhGeometryEditToolbar();
+            return;
+        }
         const editScreen = document.getElementById('editFeatureScreen');
         const lineData = window.approvedLineBeingEdited || window.selectedRiyadhRoad;
         if (!editScreen || !lineData || !lineData.is_riyadh_road) {
@@ -558,7 +566,7 @@
             symbologyStylesByLabel[normalizedKey] = catalog.styles_by_label[rawLabel];
         });
 
-        // Expose catalog so other scripts (e.g. manager-requests) can reuse it.
+        // Expose catalog so other scripts (e.g. manager approval queue) can reuse it.
         window.symbologyCatalog = catalog;
         window.__naqelSymbologyCatalogLastError = null;
 
@@ -4475,7 +4483,7 @@
     };
 
     // Local helpers to populate the edit sidepanel with external
-    // line/road data (used when manager-requests.js is not present).
+    // line/road data (used when the manager approval script is not present).
     function populateFieldsDataFromRoad(fieldsData) {
         const fieldsContainer = document.getElementById('fields-container');
         if (!fieldsContainer || !fieldsData) return;
