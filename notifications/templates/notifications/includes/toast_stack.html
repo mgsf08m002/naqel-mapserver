@@ -26,3 +26,29 @@
         </div>
     </div>
 </template>
+<div
+    id="naqelConfirmDialog"
+    class="naqel-confirm"
+    hidden
+    aria-hidden="true"
+>
+    <div class="naqel-confirm__backdrop" data-naqel-confirm-dismiss tabindex="-1"></div>
+    <div
+        class="naqel-confirm__panel"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="naqelConfirmTitle"
+        aria-describedby="naqelConfirmMessage"
+    >
+        <h2 id="naqelConfirmTitle" class="naqel-confirm__title">Confirm</h2>
+        <p id="naqelConfirmMessage" class="naqel-confirm__message"></p>
+        <div class="naqel-confirm__actions">
+            <button type="button" class="naqel-confirm__btn naqel-confirm__btn--cancel" data-naqel-confirm-cancel>
+                Cancel
+            </button>
+            <button type="button" class="naqel-confirm__btn naqel-confirm__btn--confirm" data-naqel-confirm-ok>
+                Confirm
+            </button>
+        </div>
+    </div>
+</div>

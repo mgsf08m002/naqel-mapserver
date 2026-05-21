@@ -42,23 +42,9 @@
         return cookieValue;
     }
 
-    function notify(message, type) {
-        if (!message) {
-            return;
-        }
-        const t = type || 'info';
-        if (window.notify && typeof window.notify.tryShow === 'function') {
-            window.notify.tryShow(message, t, undefined, {
-                onUnavailable: function () {
-                    if (t === 'error') {
-                        alert(message);
-                    }
-                },
-            });
-            return;
-        }
-        if (t === 'error') {
-            alert(message);
+    function showToast(message, type) {
+        if (message && window.notify && typeof window.notify.tryShow === 'function') {
+            window.notify.tryShow(message, type || 'info');
         }
     }
 
@@ -109,8 +95,8 @@
             syncRiyadhRoadMapOverlayFromContext();
         }
         syncRiyadhRoadDeleteToolbarButton();
-        if (next && !wasArmed && typeof window.showToastNotification === 'function') {
-            window.showToastNotification('Delete road is armed — press Save to submit the request.', 'info');
+        if (next && !wasArmed && window.notify && typeof window.notify.tryShow === 'function') {
+            window.notify.tryShow('Delete road is armed — press Save to submit the request.', 'info');
         }
     }
 
@@ -300,7 +286,7 @@
             delBtnEarly.addEventListener('click', function () {
                 const target = getDeleteTargetFromContext();
                 if (!target) {
-                    notify('Select a road first.', 'warning');
+                    showToast('Select a road first.', 'warning');
                     return;
                 }
                 toggleRiyadhRoadDeleteIntent();

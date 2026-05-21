@@ -39,6 +39,15 @@
             this.template = null;
             this.autoHideDelay = 7000;
             this._domBound = false;
+            this._confirmDialog = null;
+            this._confirmTitle = null;
+            this._confirmMessage = null;
+            this._confirmOkBtn = null;
+            this._confirmCancelBtn = null;
+            this._confirmBackdrop = null;
+            this._confirmResolve = null;
+            this._confirmPreviousFocus = null;
+            this._confirmKeyHandler = null;
             this._bindDom = this._bindDom.bind(this);
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', this._bindDom);
@@ -53,7 +62,39 @@
             }
             this.container = document.getElementById('notificationContainer');
             this.template = document.getElementById('notificationTemplate');
+            this._bindConfirmDom();
             this._domBound = true;
+        }
+
+        _bindConfirmDom() {
+            this._confirmDialog = document.getElementById('naqelConfirmDialog');
+            if (!this._confirmDialog) {
+                return;
+            }
+            this._confirmTitle = document.getElementById('naqelConfirmTitle');
+            this._confirmMessage = document.getElementById('naqelConfirmMessage');
+            this._confirmOkBtn = this._confirmDialog.querySelector('[data-naqel-confirm-ok]');
+            this._confirmCancelBtn = this._confirmDialog.querySelector('[data-naqel-confirm-cancel]');
+            this._confirmBackdrop = this._confirmDialog.querySelector('[data-naqel-confirm-dismiss]');
+            const self = this;
+            if (this._confirmOkBtn && !this._confirmOkBtn._naqelBound) {
+                this._confirmOkBtn._naqelBound = true;
+                this._confirmOkBtn.addEventListener('click', function () {
+                    self._finishConfirm(true);
+                });
+            }
+            if (this._confirmCancelBtn && !this._confirmCancelBtn._naqelBound) {
+                this._confirmCancelBtn._naqelBound = true;
+                this._confirmCancelBtn.addEventListener('click', function () {
+                    self._finishConfirm(false);
+                });
+            }
+            if (this._confirmBackdrop && !this._confirmBackdrop._naqelBound) {
+                this._confirmBackdrop._naqelBound = true;
+                this._confirmBackdrop.addEventListener('click', function () {
+                    self._finishConfirm(false);
+                });
+            }
         }
 
         _ensureDom() {
@@ -61,6 +102,124 @@
                 this._bindDom();
             }
             return !!(this.container && this.template);
+        }
+
+        _ensureConfirmDom() {
+            if (!this._confirmDialog) {
+                this._bindConfirmDom();
+            }
+            return !!(
+                this._confirmDialog &&
+                this._confirmTitle &&
+                this._confirmMessage &&
+                this._confirmOkBtn &&
+                this._confirmCancelBtn
+            );
+        }
+
+        /**
+         * Styled confirm dialog (replaces window.confirm).
+         * @param {string|object} options - message string, or { message, title?, confirmLabel?, cancelLabel?, variant? }
+         * @returns {Promise<boolean>}
+         */
+        confirm(options) {
+            const opts =
+                typeof options === 'string' ? { message: options } : options && typeof options === 'object' ? options : {};
+            const message = opts.message != null ? String(opts.message) : '';
+            const title = opts.title != null ? String(opts.title) : 'Confirm';
+            const confirmLabel =
+                opts.confirmLabel != null
+                    ? String(opts.confirmLabel)
+                    : opts.confirmText != null
+                      ? String(opts.confirmText)
+                      : 'Confirm';
+            const cancelLabel =
+                opts.cancelLabel != null
+                    ? String(opts.cancelLabel)
+                    : opts.cancelText != null
+                      ? String(opts.cancelText)
+                      : 'Cancel';
+            const variant = opts.variant === 'danger' ? 'danger' : 'default';
+
+            if (!this._ensureConfirmDom()) {
+                return Promise.resolve(false);
+            }
+
+            if (this._confirmResolve) {
+                this._finishConfirm(false);
+            }
+
+            const self = this;
+            return new Promise(function (resolve) {
+                self._confirmResolve = resolve;
+                self._confirmPreviousFocus = document.activeElement;
+
+                self._confirmDialog.setAttribute('data-variant', variant);
+                self._confirmTitle.textContent = title;
+                self._confirmMessage.textContent = message;
+                self._confirmOkBtn.textContent = confirmLabel;
+                self._confirmCancelBtn.textContent = cancelLabel;
+
+                self._confirmDialog.hidden = false;
+                self._confirmDialog.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('naqel-confirm-open');
+
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(function () {
+                        self._confirmDialog.classList.add('is-open');
+                        self._confirmOkBtn.focus();
+                    });
+                });
+
+                self._confirmKeyHandler = function (event) {
+                    if (event.key === 'Escape') {
+                        event.preventDefault();
+                        self._finishConfirm(false);
+                    }
+                };
+                document.addEventListener('keydown', self._confirmKeyHandler);
+            });
+        }
+
+        _finishConfirm(confirmed) {
+            const resolve = this._confirmResolve;
+            this._confirmResolve = null;
+
+            if (this._confirmKeyHandler) {
+                document.removeEventListener('keydown', this._confirmKeyHandler);
+                this._confirmKeyHandler = null;
+            }
+
+            if (!this._confirmDialog) {
+                if (typeof resolve === 'function') {
+                    resolve(!!confirmed);
+                }
+                return;
+            }
+
+            this._confirmDialog.classList.remove('is-open');
+            this._confirmDialog.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('naqel-confirm-open');
+
+            const previousFocus = this._confirmPreviousFocus;
+            this._confirmPreviousFocus = null;
+            const dialog = this._confirmDialog;
+
+            window.setTimeout(function () {
+                if (dialog) {
+                    dialog.hidden = true;
+                }
+                if (previousFocus && typeof previousFocus.focus === 'function') {
+                    try {
+                        previousFocus.focus();
+                    } catch (e) {
+                        /* ignore */
+                    }
+                }
+                if (typeof resolve === 'function') {
+                    resolve(!!confirmed);
+                }
+            }, 260);
         }
 
         /**
@@ -251,6 +410,11 @@
 
         info(message, duration) {
             return this.show(message, 'info', duration);
+        }
+
+        /** Alias for tryShow — preferred name for map and form modules. */
+        toast(message, type, duration, options) {
+            return this.tryShow(message, type, duration, options);
         }
     }
 

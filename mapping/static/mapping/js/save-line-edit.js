@@ -100,11 +100,8 @@
         return null;
     }
 
-    function showToastNotification(message, type) {
-        if (!message) {
-            return;
-        }
-        if (window.notify && typeof window.notify.tryShow === 'function') {
+    function toast(message, type) {
+        if (message && window.notify && typeof window.notify.tryShow === 'function') {
             window.notify.tryShow(message, type || 'info');
         }
     }
@@ -287,7 +284,7 @@
         }
         
         if (!geometry) {
-            alert('Unable to get road geometry. Please try again.');
+            toast('Unable to get road geometry. Please try again.', 'error');
             return null;
         }
 
@@ -504,7 +501,7 @@
         const editDataForReview = opts.editDataForReview || null;
 
         if (autoApproved) {
-            showToastNotification(
+            toast(
                 serverMessage || 'Your edit was applied to the live road network.',
                 'success'
             );
@@ -513,7 +510,7 @@
 
         if (pendingSubmitted) {
             if (closureApplied && typeof roadClosure === 'number') {
-                showToastNotification(
+                toast(
                     roadClosure === 1
                         ? 'Road closure is already live for everyone.'
                         : 'The road is shown as open for everyone.',
@@ -530,7 +527,7 @@
         }
 
         if (closureApplied && typeof roadClosure === 'number') {
-            showToastNotification(
+            toast(
                 roadClosure === 1
                     ? 'Road closure saved. Nothing else requires review.'
                     : 'Road reopening saved. Nothing else requires review.',
@@ -539,7 +536,7 @@
             return;
         }
 
-        showToastNotification(serverMessage || 'Saved.', 'info');
+        toast(serverMessage || 'Saved.', 'info');
     }
 
     function applySuccessfulSaveSideEffects(editData, pendingSubmitted) {
@@ -606,7 +603,7 @@
                     ? window.buildRiyadhRoadDeleteRequestPayload()
                     : null;
             if (!payload) {
-                showToastNotification('Select a road to delete.', 'warning');
+                toast('Select a road to delete.', 'warning');
                 return;
             }
             setSavingUi(true);
@@ -623,7 +620,7 @@
                 })
                 .then(function (data) {
                     if (!data || !data.success) {
-                        showToastNotification(
+                        toast(
                             (data && data.message) || 'Failed to submit delete request.',
                             'error'
                         );
@@ -650,7 +647,7 @@
                     }
 
                     if (autoApproved) {
-                        showToastNotification(
+                        toast(
                             data.message || 'Road deleted successfully.',
                             'success'
                         );
@@ -688,7 +685,7 @@
                     );
                 })
                 .catch(function () {
-                    showToastNotification('Failed to submit delete request.', 'error');
+                    toast('Failed to submit delete request.', 'error');
                 })
                 .finally(finishSaveUi);
             return;
@@ -696,13 +693,13 @@
 
         const editData = collectRoadEditData();
         if (!editData) {
-            alert('Please draw a road on the map before saving.');
+            toast('Please draw a road on the map before saving.', 'warning');
             return;
         }
 
         const featureTypeErr = validateFeatureTypeForSave(editData);
         if (featureTypeErr) {
-            showToastNotification(featureTypeErr, 'warning');
+            toast(featureTypeErr, 'warning');
             return;
         }
 
@@ -721,7 +718,7 @@
             })
             .then(function (data) {
                 if (!data || !data.success) {
-                    showToastNotification(
+                    toast(
                         'Error: ' + (data && data.message ? data.message : 'Failed to save edit request'),
                         'error'
                     );
@@ -784,7 +781,7 @@
                 applySuccessfulSaveSideEffects(editData, pendingSubmitted);
             })
             .catch(function () {
-                showToastNotification('Error saving edit request. Please try again.', 'error');
+                toast('Error saving edit request. Please try again.', 'error');
             })
             .finally(finishSaveUi);
     }
@@ -827,7 +824,6 @@
     }
 
     window.handleSaveLineEdit = handleSave;
-    window.showToastNotification = showToastNotification;
 
 })();
 

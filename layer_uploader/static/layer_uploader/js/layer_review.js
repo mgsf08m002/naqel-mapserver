@@ -545,7 +545,7 @@
                 return refreshAfterMutation();
             })
             .catch(function (err) {
-                window.alert(err.message || failureLabel);
+                window.notify.tryShow(err.message || failureLabel, 'error');
             });
     }
 
@@ -1506,7 +1506,7 @@
                 syncMapFeatureLayers();
             })
             .catch(function () {
-                window.alert('Failed to load review data.');
+                window.notify.tryShow('Failed to load review data.', 'error');
             });
     }
 
@@ -1543,7 +1543,7 @@
             statusFilterEl.addEventListener('change', function () {
                 statusFilter = statusFilterEl.value || '';
                 loadTablePage(1).catch(function () {
-                    window.alert('Failed to load table.');
+                    window.notify.tryShow('Failed to load table.', 'error');
                 });
             });
         }
@@ -1573,7 +1573,7 @@
                 return refreshAfterMutation();
             })
             .catch(function (err) {
-                window.alert(err.message || errorMessage);
+                window.notify.tryShow(err.message || errorMessage, 'error');
             });
     }
 
@@ -1590,53 +1590,73 @@
         });
     }
 
+    function submitLayerToManager() {
+        return fetch(submitUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+                Accept: 'application/json',
+            },
+            body: JSON.stringify({}),
+        })
+            .then(function (r) {
+                if (!r.ok) {
+                    return r.json().then(function (j) {
+                        throw new Error(j.detail || r.statusText);
+                    });
+                }
+                return r.json();
+            })
+            .then(function (payload) {
+                if (payload && payload.tiles_version && typeof window.triggerRiyadhTilesReload === 'function') {
+                    window.triggerRiyadhTilesReload(payload.tiles_version);
+                }
+                if (payload.redirect_url) {
+                    window.location.href = payload.redirect_url;
+                }
+            })
+            .catch(function (err) {
+                window.notify.tryShow(err.message || 'Could not submit layer', 'error');
+            });
+    }
+
     const btnSubmit = document.getElementById('btn-submit-manager');
     if (btnSubmit && submitUrl) {
         btnSubmit.addEventListener('click', function () {
             const nominatedEl = document.getElementById('cnt-nominated');
             const nominatedCount = nominatedEl ? parseInt(nominatedEl.textContent, 10) : 0;
             if (!nominatedCount || Number.isNaN(nominatedCount)) {
-                window.alert(
+                window.notify.tryShow(
                     isManagerUploader
                         ? 'Include at least one road before publishing.'
-                        : 'Include at least one road before submitting.'
+                        : 'Include at least one road before submitting.',
+                    'warning'
                 );
                 return;
             }
             const confirmMsg = isManagerUploader
                 ? 'Publish ' + nominatedCount + ' included road(s) to the map now? This cannot be undone.'
                 : 'Submit ' + nominatedCount + ' included road(s) for review? You will not be able to edit this layer afterward.';
-            if (!window.confirm(confirmMsg)) {
-                return;
-            }
-            fetch(submitUrl, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
-                    Accept: 'application/json',
-                },
-                body: JSON.stringify({}),
-            })
-                .then(function (r) {
-                    if (!r.ok) {
-                        return r.json().then(function (j) {
-                            throw new Error(j.detail || r.statusText);
-                        });
-                    }
-                    return r.json();
+            const confirmTitle = isManagerUploader ? 'Publish layer' : 'Submit for review';
+            const confirmLabel = isManagerUploader ? 'Publish' : 'Submit';
+
+            const runSubmit = function () {
+                submitLayerToManager();
+            };
+
+            window.notify
+                .confirm({
+                    title: confirmTitle,
+                    message: confirmMsg,
+                    confirmLabel: confirmLabel,
+                    cancelLabel: 'Cancel',
                 })
-                .then(function (payload) {
-                    if (payload && payload.tiles_version && typeof window.triggerRiyadhTilesReload === 'function') {
-                        window.triggerRiyadhTilesReload(payload.tiles_version);
+                .then(function (ok) {
+                    if (ok) {
+                        runSubmit();
                     }
-                    if (payload.redirect_url) {
-                        window.location.href = payload.redirect_url;
-                    }
-                })
-                .catch(function (err) {
-                    window.alert(err.message || 'Could not submit layer');
                 });
         });
     }

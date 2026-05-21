@@ -208,3 +208,137 @@
         transform: none;
     }
 }
+
+body.naqel-confirm-open {
+    overflow: hidden;
+}
+
+/* Confirm dialog — matches toast card aesthetic */
+.naqel-confirm {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.naqel-confirm.is-open {
+    pointer-events: auto;
+    opacity: 1;
+}
+
+.naqel-confirm__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(9, 9, 11, 0.32);
+    backdrop-filter: blur(6px);
+}
+
+.naqel-confirm__panel {
+    position: relative;
+    width: min(100%, 22.5rem);
+    padding: 1.5rem 1.5rem 1.25rem;
+    background: #ffffff;
+    color: #111827;
+    border: 1px solid rgba(17, 24, 39, 0.08);
+    border-radius: 14px;
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.8) inset,
+        0 12px 40px rgba(15, 23, 42, 0.12),
+        0 4px 12px rgba(15, 23, 42, 0.06);
+    transform: translateY(0.5rem) scale(0.99);
+    transition:
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity: 0;
+}
+
+.naqel-confirm.is-open .naqel-confirm__panel {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+
+.naqel-confirm__title {
+    margin: 0;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.35;
+    color: #111827;
+}
+
+.naqel-confirm__message {
+    margin: 0.75rem 0 0;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.55;
+    color: #4b5563;
+    word-wrap: break-word;
+}
+
+.naqel-confirm__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+}
+
+.naqel-confirm__btn {
+    min-width: 5.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.naqel-confirm__btn:focus-visible {
+    outline: 2px solid #111827;
+    outline-offset: 2px;
+}
+
+.naqel-confirm__btn--cancel {
+    border: 1px solid rgba(17, 24, 39, 0.12);
+    background: #ffffff;
+    color: #374151;
+}
+
+.naqel-confirm__btn--cancel:hover {
+    background: rgba(17, 24, 39, 0.04);
+}
+
+.naqel-confirm__btn--confirm {
+    border: 1px solid #111827;
+    background: #111827;
+    color: #ffffff;
+}
+
+.naqel-confirm__btn--confirm:hover {
+    background: #27272a;
+    border-color: #27272a;
+}
+
+.naqel-confirm[data-variant="danger"] .naqel-confirm__btn--confirm {
+    border-color: #b91c1c;
+    background: #b91c1c;
+}
+
+.naqel-confirm[data-variant="danger"] .naqel-confirm__btn--confirm:hover {
+    background: #991b1b;
+    border-color: #991b1b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .naqel-confirm,
+    .naqel-confirm__panel {
+        transition-duration: 0.01ms !important;
+    }
+}

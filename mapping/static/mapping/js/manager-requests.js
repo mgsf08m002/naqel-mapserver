@@ -16,6 +16,12 @@
         road_attribute_edit: 'bg-amber-50 text-amber-900 ring-amber-200/80'
     };
 
+    function showToast(message, type) {
+        if (message && window.notify && typeof window.notify.tryShow === 'function') {
+            window.notify.tryShow(message, type || 'info');
+        }
+    }
+
     const APPROVAL_FILTER_OPTIONS = [
         { key: 'all', label: 'All' },
         { key: 'new_road', label: 'New Road' },
@@ -738,14 +744,14 @@
                 showEditRequestOnMap(data.request);
             } else if (data) {
                 const message = data.message || 'Unknown error loading request.';
-                alert('Error loading request: ' + message);
+                showToast('Error loading request: ' + message, 'error');
             } else {
-                alert('Error loading request: Empty response from server.');
+                showToast('Error loading request: Empty response from server.', 'error');
             }
         })
         .catch(function(error) {
             const message = (error && error.message) ? error.message : 'Please try again.';
-            alert('Error loading request details: ' + message);
+            showToast('Error loading request details: ' + message, 'error');
         });
     }
 
@@ -819,7 +825,7 @@
     // Zoom the map to the request geometry, draw it, and open the details UI.
     function showEditRequestOnMap(request) {
         if (typeof map === 'undefined' || !map) {
-            alert('Map not initialized');
+            showToast('Map not initialized', 'error');
             return;
         }
 
@@ -1665,9 +1671,22 @@
         `;
         rejectBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            if (confirm('Are you sure you want to reject this approval request?')) {
+            const runReject = function () {
                 rejectRequest(request.id);
-            }
+            };
+            window.notify
+                .confirm({
+                    title: 'Reject request',
+                    message: 'Are you sure you want to reject this approval request?',
+                    confirmLabel: 'Reject',
+                    cancelLabel: 'Cancel',
+                    variant: 'danger',
+                })
+                .then(function (ok) {
+                    if (ok) {
+                        runReject();
+                    }
+                });
         });
         card.appendChild(rejectBtn);
 
@@ -1709,7 +1728,7 @@
         .then(function(result) {
             const data = result.data || {};
             if (result.ok && data.success) {
-                alert(data.message || 'Road edit approved successfully.');
+                showToast(data.message || 'Road edit approved successfully.', 'success');
                 cleanupRequestLines();
                 removeApproveRejectButtons();
                 approvalQueue = approvalQueue.filter(function(req) {
@@ -1742,11 +1761,11 @@
                     );
                 }
             } else {
-                alert('Error: ' + (data.message || 'Approval failed'));
+                showToast('Error: ' + (data.message || 'Approval failed'), 'error');
             }
         })
         .catch(function() {
-            alert('Error approving request');
+            showToast('Error approving request', 'error');
         });
     }
 
@@ -1762,7 +1781,7 @@
         })
         .then(function(data) {
             if (data.success) {
-                alert(data.message || 'Road edit rejected.');
+                showToast(data.message || 'Road edit rejected.', 'success');
                 cleanupRequestLines();
                 removeApproveRejectButtons();
                 approvalQueue = approvalQueue.filter(function(req) {
@@ -1770,11 +1789,11 @@
                 });
                 renderApprovalList();
             } else {
-                alert('Error: ' + data.message);
+                showToast('Error: ' + data.message, 'error');
             }
         })
         .catch(function(error) {
-            alert('Error rejecting request');
+            showToast('Error rejecting request', 'error');
         });
     }
 

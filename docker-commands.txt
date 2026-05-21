@@ -15,4 +15,4 @@ docker compose exec naqel_maps python manage.py makemigrations
 docker compose exec naqel_maps python manage.py migrate
 
 # Tests
-docker compose exec naqel_maps python manage.py test mapping layer_uploader
+docker compose exec naqel_maps python manage.py test notifications mapping layer_uploader system_admin --keepdb --noinput

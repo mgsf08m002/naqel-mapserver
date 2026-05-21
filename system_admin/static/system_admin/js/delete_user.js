@@ -40,12 +40,30 @@
 
         // Confirm deletion before submitting
         if (deleteForm) {
+            let deleteConfirmBypass = false;
             deleteForm.addEventListener('submit', function(e) {
-                const confirmed = confirm('Are you sure you want to delete this user? This action cannot be undone and will permanently delete the user and all associated data.');
-                if (!confirmed) {
-                    e.preventDefault();
-                    return false;
+                if (deleteConfirmBypass) {
+                    return;
                 }
+                e.preventDefault();
+                const submitDelete = function () {
+                    deleteConfirmBypass = true;
+                    deleteForm.requestSubmit();
+                };
+                window.notify
+                    .confirm({
+                        title: 'Delete user',
+                        message:
+                            'Are you sure you want to delete this user? This action cannot be undone and will permanently delete the user and all associated data.',
+                        confirmLabel: 'Delete',
+                        cancelLabel: 'Cancel',
+                        variant: 'danger',
+                    })
+                    .then(function (ok) {
+                        if (ok) {
+                            submitDelete();
+                        }
+                    });
             });
         }
     });

@@ -454,8 +454,8 @@
             ev.preventDefault();
             ev.stopPropagation();
             if (!workingCoords || workingCoords.length <= 2) {
-                if (typeof window.showToastNotification === 'function') {
-                    window.showToastNotification('A road needs at least two vertices.', 'warning');
+                if (window.notify && typeof window.notify.tryShow === 'function') {
+                    window.notify.tryShow('A road needs at least two vertices.', 'warning');
                 }
                 return;
             }
@@ -652,16 +652,16 @@
 
         var norm = normalizeGeometry(ctx.geometry);
         if (!norm) {
-            if (typeof window.showToastNotification === 'function') {
-                window.showToastNotification('Cannot edit this road: geometry is missing or unsupported.', 'error');
+            if (window.notify && typeof window.notify.tryShow === 'function') {
+                window.notify.tryShow('Cannot edit this road: geometry is missing or unsupported.', 'error');
             }
             return;
         }
 
         workingCoords = extractEditableCoordsWgs84(norm);
         if (!workingCoords) {
-            if (typeof window.showToastNotification === 'function') {
-                window.showToastNotification('Cannot edit this road: geometry must be WGS84 (lng/lat).', 'error');
+            if (window.notify && typeof window.notify.tryShow === 'function') {
+                window.notify.tryShow('Cannot edit this road: geometry must be WGS84 (lng/lat).', 'error');
             }
             return;
         }
