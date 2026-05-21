@@ -701,11 +701,6 @@
     color: #fff;
     border-color: var(--lr-fg);
   }
-  #layer-review-root .lr-badge-awaiting {
-    background: #fff;
-    color: var(--lr-fg);
-    border-color: var(--lr-border-strong);
-  }
   #layer-review-root .lr-badge-staged {
     background: #fff;
     color: var(--lr-fg);
@@ -821,13 +816,11 @@
 <div
   id="layer-review-root"
   class="lr-shell bg-white -mx-6 -my-6 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 min-h-[calc(100vh-64px)]"
-  data-review-mode="{{ review_mode }}"
-  data-geojson-url="{% if review_mode == 'manager' %}{% url 'layer_manager_review_geojson' layer.pk %}{% else %}{% url 'layer_review_geojson' layer.pk %}{% endif %}"
-  data-table-url="{% if review_mode == 'manager' %}{% url 'layer_manager_review_table' layer.pk %}{% else %}{% url 'layer_review_table' layer.pk %}{% endif %}"
-  data-action-url="{% if review_mode == 'manager' %}{% url 'layer_manager_review_action' layer.pk %}{% else %}{% url 'layer_review_action' layer.pk %}{% endif %}"
-  {% if review_mode == 'uploader' and can_submit %}data-submit-url="{% url 'layer_submit' layer.pk %}"{% endif %}
+  data-geojson-url="{% url 'layer_review_geojson' layer.pk %}"
+  data-table-url="{% url 'layer_review_table' layer.pk %}"
+  data-action-url="{% url 'layer_review_action' layer.pk %}"
+  {% if can_submit %}data-submit-url="{% url 'layer_submit' layer.pk %}"{% endif %}
   {% if is_manager_uploader %}data-is-manager-uploader="true"{% endif %}
-  {% if review_mode == 'manager' %}data-manager-queue-url="{% url 'layer_manager_queue' %}"{% endif %}
   {% if riyadh_roads_tile_url %}data-riyadh-roads-tile-url="{{ riyadh_roads_tile_url }}"{% endif %}
   {% if maptiler_api_key %}data-maptiler-api-key="{{ maptiler_api_key }}"{% endif %}
 >
@@ -835,23 +828,19 @@
 
   <header class="lr-head">
     <div class="lr-head-main">
-      <h1 class="lr-title">{% if review_mode == 'manager' %}Approve layer{% else %}Review layer{% endif %}</h1>
+      <h1 class="lr-title">Review layer</h1>
       <p class="lr-upload-line">
         <span class="lr-upload-label">Layer</span>
         <span class="lr-upload-name">{{ layer.name }}</span>
       </p>
     </div>
     <div class="flex flex-col gap-2 shrink-0">
-      {% if review_mode == 'manager' %}
-      <a href="{% url 'layer_manager_queue' %}" class="lr-btn-finish">Back to list</a>
-      {% else %}
       {% if can_submit %}
       <button type="button" id="btn-submit-manager" class="lr-btn-finish bg-black text-white border-black hover:bg-gray-800">
         {% if is_manager_uploader %}Publish layer{% else %}Submit layer{% endif %}
       </button>
       {% else %}
       <a id="btn-finish" href="{% url 'success' %}?submitted=1" class="lr-btn-finish">Done</a>
-      {% endif %}
       {% endif %}
     </div>
   </header>
@@ -911,12 +900,6 @@
       <div class="lr-aside-block">
         <h3 class="lr-aside-label">Counts</h3>
         <div class="lr-stat-grid" id="review-counts" aria-live="polite">
-          {% if review_mode == 'manager' %}
-          <div class="lr-stat">
-            <span class="lr-stat-label">Pending</span>
-            <span class="lr-stat-val" id="cnt-awaiting_manager">—</span>
-          </div>
-          {% else %}
           <div class="lr-stat">
             <span class="lr-stat-label">New</span>
             <span class="lr-stat-val" id="cnt-staged">—</span>
@@ -929,7 +912,6 @@
             <span class="lr-stat-label">Excluded</span>
             <span class="lr-stat-val" id="cnt-rejected_upload">—</span>
           </div>
-          {% endif %}
         </div>
       </div>
 
@@ -944,7 +926,7 @@
           </button>
         </div>
         <p class="lr-aside-note" id="lr-bulk-hint">
-          {% if review_mode == 'manager' %}Apply the same action to every pending row.{% else %}Apply the same action to every new row.{% endif %}
+          Apply the same action to every new row.
         </p>
       </div>
     </aside>
@@ -973,13 +955,9 @@
             </div>
             <p class="lr-zoom-panel-hint">Select a feature to focus the map</p>
             <div class="lr-zoom-chips" aria-live="polite">
-              {% if review_mode == 'manager' %}
-              <span class="lr-zoom-chip">Pending <strong id="lr-zoom-cnt-awaiting_manager">—</strong></span>
-              {% else %}
               <span class="lr-zoom-chip">New <strong id="lr-zoom-cnt-staged">—</strong></span>
               <span class="lr-zoom-chip">Included <strong id="lr-zoom-cnt-nominated">—</strong></span>
               <span class="lr-zoom-chip">Excluded <strong id="lr-zoom-cnt-rejected_upload">—</strong></span>
-              {% endif %}
             </div>
           </header>
           <div id="lr-zoom-feature-list" class="lr-zoom-feature-list" role="list"></div>

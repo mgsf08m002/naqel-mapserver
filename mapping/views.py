@@ -18,6 +18,12 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
+from layer_uploader.map_review import (
+    approve_layer_upload_edit_request,
+    is_layer_upload_edit_request,
+    reject_layer_upload_edit_request,
+)
+
 from .models import LineEditRequest, RiyadhRoad
 from .riyadh_fclass import ensure_riyadh_fclass_in_fields, feature_label_from_riyadh_fclass
 
@@ -1397,6 +1403,9 @@ def list_pending_requests(request):
                 else None
             )
 
+            fields_data = req.fields_data if isinstance(req.fields_data, dict) else {}
+            is_layer_upload = is_layer_upload_edit_request(req)
+
             requests_data.append(
                 {
                     "id": req.id,
@@ -1406,6 +1415,8 @@ def list_pending_requests(request):
                     "requester_role": req.get_requester_role(),
                     "profile_image_url": profile_image_url,
                     "edit_type": req.edit_type,
+                    "is_layer_upload": is_layer_upload,
+                    "layer_name": fields_data.get("layer_name") if is_layer_upload else None,
                     "feature_type": req.current_feature_label or "Line",
                     "current_feature_label": req.current_feature_label or "Line",
                     "created_at": req.created_at.isoformat(),
@@ -1461,6 +1472,11 @@ def get_edit_request_details(request, request_id):
             else None
         )
 
+        fields_data = (
+            edit_request.fields_data if isinstance(edit_request.fields_data, dict) else {}
+        )
+        is_layer_upload = is_layer_upload_edit_request(edit_request)
+
         return JsonResponse(
             {
                 "success": True,
@@ -1472,19 +1488,22 @@ def get_edit_request_details(request, request_id):
                     "requester_role": edit_request.get_requester_role(),
                     "profile_image_url": profile_image_url,
                     "edit_type": edit_request.edit_type,
+                    "is_layer_upload": is_layer_upload,
+                    "layer_name": fields_data.get("layer_name") if is_layer_upload else None,
                     "feature_type": edit_request.current_feature_label or "Line",
                     "current_feature_label": edit_request.current_feature_label
                     or "Line",
                     "geometry": geometry,
                     "original_geometry": original_geometry,
                     "geometry_changed": edit_request.geometry_changed,
-                    "fields_data": edit_request.fields_data or {},
+                    "fields_data": fields_data,
                     "tags_data": edit_request.tags_data or [],
                     "relations_data": edit_request.relations_data or [],
                     "created_at": edit_request.created_at.isoformat(),
                     "road_closure": edit_request.road_closure,
                     "is_riyadh_road": edit_request.is_riyadh_road,
                     "riyadh_road_id": edit_request.riyadh_road_id,
+                    "layer_upload_feature_id": edit_request.layer_upload_feature_id,
                 },
             }
         )
@@ -1513,6 +1532,18 @@ def approve_edit_request(request, request_id):
     try:
         edit_request = get_object_or_404(LineEditRequest, id=request_id, status="pending")
         remote_road_id = None
+
+        if is_layer_upload_edit_request(edit_request):
+            remote_road_id = approve_layer_upload_edit_request(edit_request)
+            edit_request.delete()
+            return JsonResponse(
+                {
+                    "success": True,
+                    "message": "Layer upload approved and published to the road network",
+                    "remote_road_id": remote_road_id,
+                    "tiles_version": _tiles_version_ms(),
+                }
+            )
 
         if (edit_request.edit_type or "").upper() == "DELETE":
             _apply_delete_to_base_network(edit_request)
@@ -1559,8 +1590,17 @@ def reject_edit_request(request, request_id):
     
     try:
         edit_request = get_object_or_404(LineEditRequest, id=request_id, status='pending')
+
+        if is_layer_upload_edit_request(edit_request):
+            reject_layer_upload_edit_request(edit_request)
+            edit_request.delete()
+            return JsonResponse({
+                'success': True,
+                'message': 'Layer upload rejected',
+            })
+
         edit_request.reject(request.user)
-        
+
         return JsonResponse({
             'success': True,
             'message': 'Edit request rejected'

@@ -1,14 +1,14 @@
-"""Access control for layer upload and manager approval flows."""
+"""Access control for the layer upload workflow."""
 
 from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import reverse
 
-from .models import Feature, Layer
+from .models import Layer
 
 
 def is_layer_upload_manager(user) -> bool:
-    """Manager approval queue — managers only (not system admins)."""
+    """True when the user can publish uploads without map review (manager role only)."""
     profile = getattr(user, "profile", None)
     return bool(profile and profile.role == "manager")
 
@@ -33,13 +33,6 @@ def enforce_layer_uploader_access(request):
     )
 
 
-def enforce_manager_access(request):
-    if is_layer_upload_manager(request.user):
-        return None
-    logout(request)
-    return redirect(f"{reverse('auth:login')}?session_ended=1")
-
-
 def can_access_uploader_review(user, layer: Layer) -> bool:
     if not has_layer_uploader_access(user):
         return False
@@ -55,10 +48,3 @@ def enforce_uploader_review_access(request, layer: Layer):
     return redirect(
         f"{reverse('auth:login')}?no_permission=1&permission_type=layer_uploader"
     )
-
-
-def can_access_manager_review(layer: Layer) -> bool:
-    """Layer is in the manager queue (submitted, with features awaiting decision)."""
-    if layer.status != Layer.Status.SUBMITTED:
-        return False
-    return layer.features.filter(status=Feature.Status.AWAITING_MANAGER).exists()

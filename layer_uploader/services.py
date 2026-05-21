@@ -1,4 +1,4 @@
-"""Layer upload workflow: local review, manager approval, publish to riyadh_roads."""
+"""Layer upload: shapefile staging, uploader review, publish to riyadh_roads."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ from mapping.riyadh_fclass import (
 )
 
 from .access import is_layer_upload_manager
+from .map_review import create_line_edit_requests_for_layer_upload
 from .models import Feature, Layer
 
 logger = logging.getLogger(__name__)
@@ -41,11 +42,10 @@ _PROPERTY_ALIASES: dict[str, tuple[str, ...]] = {
     "layer": ("layer", "LAYER", "z_layer", "Z_LAYER"),
 }
 
-_FEATURE_COUNT_KEYS = (
+_UPLOADER_REVIEW_COUNT_KEYS = (
     Feature.Status.STAGED,
     Feature.Status.NOMINATED,
     Feature.Status.REJECTED_UPLOAD,
-    Feature.Status.AWAITING_MANAGER,
 )
 
 
@@ -221,7 +221,7 @@ def publish_feature_list(features) -> tuple[list[float], list[str]]:
 
 
 def reject_feature_by_manager(feature: Feature) -> None:
-    """Discard a feature from local staging (not published)."""
+    """Discard a staged upload feature without publishing (manager map reject)."""
     layer = feature.layer
     feature.delete()
     refresh_layer_completion(layer)
@@ -251,49 +251,17 @@ def _discard_unnominated_staged_features(layer: Layer) -> None:
     layer.features.filter(status=Feature.Status.STAGED).delete()
 
 
-def _submit_to_manager_queue(layer: Layer, nominated_count: int) -> LayerSubmitResult:
-    layer.features.filter(status=Feature.Status.NOMINATED).update(
+def _submit_for_map_review(layer: Layer, nominated) -> LayerSubmitResult:
+    """Editor/system admin submit: one Pending Edit Request per road on the manager map."""
+    features = list(nominated)
+    create_line_edit_requests_for_layer_upload(layer, features)
+    Feature.objects.filter(pk__in=[f.pk for f in features]).update(
         status=Feature.Status.AWAITING_MANAGER
     )
     layer.status = Layer.Status.SUBMITTED
     layer.submitted_at = timezone.now()
     layer.save(update_fields=["status", "submitted_at"])
-    return LayerSubmitResult(feature_count=nominated_count, auto_published=False)
-
-
-def manager_approve_all_awaiting(layer: Layer) -> dict:
-    """Approve every feature awaiting manager review on this layer."""
-    features = list(
-        Feature.objects.filter(
-            layer=layer, status=Feature.Status.AWAITING_MANAGER
-        )
-    )
-    published_ids, errors = publish_feature_list(features)
-    layer.refresh_from_db()
-    if errors and not published_ids:
-        raise ValueError(errors[0])
-    return {
-        "published_count": len(published_ids),
-        "tiles_version": tiles_version_ms() if published_ids else None,
-        "errors": errors,
-        "layer_completed": layer.status == Layer.Status.COMPLETED,
-    }
-
-
-def manager_reject_all_awaiting(layer: Layer) -> dict:
-    """Reject (discard) every feature awaiting manager review on this layer."""
-    features = list(
-        Feature.objects.filter(
-            layer=layer, status=Feature.Status.AWAITING_MANAGER
-        )
-    )
-    for feature in features:
-        reject_feature_by_manager(feature)
-    layer.refresh_from_db()
-    return {
-        "rejected_count": len(features),
-        "layer_completed": layer.status == Layer.Status.COMPLETED,
-    }
+    return LayerSubmitResult(feature_count=len(features), auto_published=False)
 
 
 def _auto_publish_manager_self_upload(layer: Layer, nominated) -> LayerSubmitResult:
@@ -324,7 +292,7 @@ def submit_layer(layer: Layer, submitter: AbstractBaseUser) -> LayerSubmitResult
     """
     Finalize an upload after uploader review.
 
-    - Editor (or non-manager): nominated features enter the manager approval queue.
+    - Editor/system admin: nominated features become Pending Edit Requests on the map.
     - Manager submitter: nominated features publish straight to riyadh_roads.
     """
     if layer.status != Layer.Status.DRAFT:
@@ -340,11 +308,11 @@ def submit_layer(layer: Layer, submitter: AbstractBaseUser) -> LayerSubmitResult
     if is_layer_upload_manager(submitter):
         return _auto_publish_manager_self_upload(layer, nominated)
 
-    return _submit_to_manager_queue(layer, count)
+    return _submit_for_map_review(layer, nominated)
 
 
 def feature_counts_for_layer(layer: Layer) -> dict[str, int]:
-    counts = {key: 0 for key in _FEATURE_COUNT_KEYS}
+    counts = {key: 0 for key in _UPLOADER_REVIEW_COUNT_KEYS}
     for row in layer.features.values("status").annotate(c=Count("pk")):
         if row["status"] in counts:
             counts[row["status"]] = row["c"]
@@ -353,26 +321,6 @@ def feature_counts_for_layer(layer: Layer) -> dict[str, int]:
 
 def map_preview_statuses_uploader() -> list[str]:
     return [Feature.Status.STAGED, Feature.Status.NOMINATED]
-
-
-def map_preview_statuses_manager() -> list[str]:
-    return [Feature.Status.AWAITING_MANAGER]
-
-
-def layers_pending_manager_review():
-    """Layers submitted by editors that still have roads awaiting a manager decision."""
-    return (
-        Layer.objects.filter(
-            status=Layer.Status.SUBMITTED,
-            features__status=Feature.Status.AWAITING_MANAGER,
-        )
-        .distinct()
-        .order_by("-submitted_at")
-    )
-
-
-def pending_manager_layer_count() -> int:
-    return layers_pending_manager_review().count()
 
 
 def apply_uploader_review_action(
@@ -411,43 +359,3 @@ def apply_uploader_review_action(
     )
     feature.save(update_fields=["status"])
     return {"ok": True}
-
-
-def manager_review_action_result(layer: Layer, *, published: bool = False) -> dict:
-    layer.refresh_from_db()
-    payload = {"ok": True, "layer_completed": layer.status == Layer.Status.COMPLETED}
-    if published:
-        payload["tiles_version"] = tiles_version_ms()
-    return payload
-
-
-def apply_manager_review_action(
-    layer: Layer, action: str, *, feature_id: int | None = None
-) -> dict:
-    """API actions: approve/reject (single) or approve_all/reject_all (bulk)."""
-    if action == "approve_all":
-        result = manager_approve_all_awaiting(layer)
-        return {"ok": True, **result}
-
-    if action == "reject_all":
-        result = manager_reject_all_awaiting(layer)
-        return {"ok": True, **result}
-
-    if action not in ("approve", "reject"):
-        raise ValueError("Unknown action")
-
-    if feature_id is None:
-        raise ValueError("Invalid feature_id")
-
-    feature = Feature.objects.filter(
-        pk=feature_id, layer=layer, status=Feature.Status.AWAITING_MANAGER
-    ).first()
-    if not feature:
-        raise LookupError("Feature not found")
-
-    if action == "approve":
-        approve_and_publish_feature(feature)
-        return manager_review_action_result(layer, published=True)
-
-    reject_feature_by_manager(feature)
-    return manager_review_action_result(layer)

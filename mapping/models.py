@@ -72,7 +72,15 @@ class LineEditRequest(models.Model):
     )
     # Parent approved line reference for tracking edits to existing approved lines.
     parent_approved_line_id = models.IntegerField(blank=True, null=True, help_text='ID of the approved line being edited')
-    
+
+    # Staging feature from layer_uploader when edit_type is "Layer Upload".
+    layer_upload_feature_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="layer_uploader.Feature pk when edit_type is Layer Upload",
+    )
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

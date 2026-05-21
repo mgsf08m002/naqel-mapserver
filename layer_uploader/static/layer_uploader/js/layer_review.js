@@ -8,13 +8,10 @@
         return;
     }
 
-    const reviewMode = (root.dataset.reviewMode || 'uploader').trim();
-    const isManagerMode = reviewMode === 'manager';
     const geojsonUrl = root.dataset.geojsonUrl;
     const tableUrl = root.dataset.tableUrl;
     const actionUrl = root.dataset.actionUrl;
     const submitUrl = root.dataset.submitUrl || '';
-    const managerQueueUrl = root.dataset.managerQueueUrl || '';
     const isManagerUploader = root.dataset.isManagerUploader === 'true';
 
     const RIYADH_ROADS_TILE_URL = (root.dataset.riyadhRoadsTileUrl || '').trim();
@@ -440,33 +437,26 @@
         const approve = document.createElement('button');
         approve.type = 'button';
         approve.className = 'lr-action-btn lr-action-btn--approve';
-        approve.setAttribute(
-            'aria-label',
-            isManagerMode ? 'Approve feature' : 'Include feature'
-        );
-        approve.setAttribute('title', isManagerMode ? 'Approve' : 'Include');
+        approve.setAttribute('aria-label', 'Include feature');
+        approve.setAttribute('title', 'Include');
         approve.innerHTML = ICON_APPROVE_SVG;
 
         const reject = document.createElement('button');
         reject.type = 'button';
         reject.className = 'lr-action-btn lr-action-btn--reject';
-        reject.setAttribute('aria-label', isManagerMode ? 'Decline feature' : 'Exclude feature');
-        reject.setAttribute('title', isManagerMode ? 'Decline' : 'Exclude');
+        reject.setAttribute('aria-label', 'Exclude feature');
+        reject.setAttribute('title', 'Exclude');
         reject.innerHTML = ICON_REJECT_SVG;
 
         container.appendChild(approve);
         container.appendChild(reject);
     }
 
-    const STATUS_COUNT_IDS = isManagerMode
-        ? {
-              awaiting_manager: ['cnt-awaiting_manager', 'lr-zoom-cnt-awaiting_manager'],
-          }
-        : {
-              staged: ['cnt-staged', 'lr-zoom-cnt-staged'],
-              nominated: ['cnt-nominated', 'lr-zoom-cnt-nominated'],
-              rejected_upload: ['cnt-rejected_upload', 'lr-zoom-cnt-rejected_upload'],
-          };
+    const STATUS_COUNT_IDS = {
+        staged: ['cnt-staged', 'lr-zoom-cnt-staged'],
+        nominated: ['cnt-nominated', 'lr-zoom-cnt-nominated'],
+        rejected_upload: ['cnt-rejected_upload', 'lr-zoom-cnt-rejected_upload'],
+    };
 
     function featureListSelector(fid) {
         return mapZoomOpen
@@ -504,14 +494,7 @@
 
     function postFeatureAction(action, featureId, failureLabel) {
         return postAction({ action: action, feature_id: featureId })
-            .then(function (payload) {
-                if (payload && payload.tiles_version) {
-                    triggerLiveMapTileReload(payload.tiles_version);
-                }
-                if (payload && payload.layer_completed && managerQueueUrl) {
-                    window.location.href = managerQueueUrl;
-                    return;
-                }
+            .then(function () {
                 return refreshAll();
             })
             .catch(function (err) {
@@ -1051,18 +1034,16 @@
 
         const approve = el.querySelector('.lr-action-btn--approve');
         const reject = el.querySelector('.lr-action-btn--reject');
-        const approveAction = isManagerMode ? 'approve' : 'nominate';
-        const rejectAction = 'reject';
         if (approve) {
             approve.addEventListener('click', function (e) {
                 e.stopPropagation();
-                postFeatureAction(approveAction, f.id, isManagerMode ? 'Approve' : 'Include');
+                postFeatureAction('nominate', f.id, 'Include');
             });
         }
         if (reject) {
             reject.addEventListener('click', function (e) {
                 e.stopPropagation();
-                postFeatureAction(rejectAction, f.id, isManagerMode ? 'Decline' : 'Exclude');
+                postFeatureAction('reject', f.id, 'Exclude');
             });
         }
     }
@@ -1194,7 +1175,6 @@
         staged: 'New',
         nominated: 'Included',
         rejected_upload: 'Excluded',
-        awaiting_manager: 'Pending',
     };
 
     function statusBadge(status) {
@@ -1202,8 +1182,6 @@
         let cls = 'lr-badge-staged';
         if (status === 'nominated') {
             cls = 'lr-badge-nominated';
-        } else if (status === 'awaiting_manager') {
-            cls = 'lr-badge-awaiting';
         } else if (status === 'rejected_upload') {
             cls = 'lr-badge-rejected';
         }
@@ -1307,37 +1285,25 @@
 
     const btnAllA = document.getElementById('btn-approve-all');
     const btnAllR = document.getElementById('btn-reject-all');
-    const bulkApproveAction = isManagerMode ? 'approve_all' : 'nominate_all';
     if (btnAllA) {
         btnAllA.addEventListener('click', function () {
-            postAction({ action: bulkApproveAction })
-                .then(function (payload) {
-                    if (payload && payload.tiles_version) {
-                        triggerLiveMapTileReload(payload.tiles_version);
-                    }
-                    if (payload && payload.layer_completed && managerQueueUrl) {
-                        window.location.href = managerQueueUrl;
-                        return;
-                    }
+            postAction({ action: 'nominate_all' })
+                .then(function () {
                     return refreshAll();
                 })
                 .catch(function (err) {
-                    window.alert(err.message || (isManagerMode ? 'Could not approve all rows' : 'Could not include all rows'));
+                    window.alert(err.message || 'Could not include all rows');
                 });
         });
     }
     if (btnAllR) {
         btnAllR.addEventListener('click', function () {
             postAction({ action: 'reject_all' })
-                .then(function (payload) {
-                    if (payload && payload.layer_completed && managerQueueUrl) {
-                        window.location.href = managerQueueUrl;
-                        return;
-                    }
+                .then(function () {
                     return refreshAll();
                 })
                 .catch(function (err) {
-                    window.alert(err.message || (isManagerMode ? 'Could not decline all rows' : 'Could not exclude all rows'));
+                    window.alert(err.message || 'Could not exclude all rows');
                 });
         });
     }

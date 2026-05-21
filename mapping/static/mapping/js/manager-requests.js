@@ -52,6 +52,12 @@
         return container;
     }
 
+    function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
     // Build a single card row for one pending edit request.
     function createRequestCard(request) {
         const card = document.createElement('div');
@@ -88,15 +94,33 @@
         card.appendChild(header);
 
         const editType = document.createElement('div');
-        editType.className = 'mb-2';
+        editType.className = 'mb-2 flex flex-wrap gap-1.5';
         const badge = document.createElement('span');
         const isDelete = (request.edit_type || '').toUpperCase() === 'DELETE';
-        badge.className = isDelete
-            ? 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200'
-            : 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300';
-        badge.textContent = isDelete ? 'DELETE REQUEST' : request.edit_type;
+        const isLayerUpload = Boolean(request.is_layer_upload);
+        if (isLayerUpload) {
+            badge.className =
+                'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-sky-50 text-sky-800 border border-sky-200';
+            badge.textContent = 'Layer Upload';
+        } else if (isDelete) {
+            badge.className =
+                'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200';
+            badge.textContent = 'DELETE REQUEST';
+        } else {
+            badge.className =
+                'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300';
+            badge.textContent = request.edit_type || 'LINE EDIT';
+        }
         editType.appendChild(badge);
         card.appendChild(editType);
+
+        if (isLayerUpload && request.layer_name) {
+            const layerLine = document.createElement('div');
+            layerLine.className = 'text-xs text-gray-600 mb-2';
+            layerLine.innerHTML =
+                '<span class="font-medium">Layer:</span> ' + escapeHtml(String(request.layer_name));
+            card.appendChild(layerLine);
+        }
 
         const featureType = document.createElement('div');
         featureType.className = 'text-xs text-gray-700 mb-2';
@@ -116,7 +140,7 @@
 
         const viewBtn = document.createElement('button');
         viewBtn.className = 'w-full px-3 py-1.5 bg-black text-white rounded hover:bg-gray-800 transition-colors text-xs font-medium';
-        viewBtn.textContent = 'View Edit';
+        viewBtn.textContent = isLayerUpload ? 'View on map' : 'View Edit';
         viewBtn.addEventListener('click', function() {
             viewEditRequest(request.id);
         });
@@ -1274,7 +1298,9 @@
         card.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.2)';
         const infoText = document.createElement('span');
         infoText.className = 'text-sm font-medium text-gray-800 mr-2';
-        infoText.textContent = 'Review Edit Request';
+        infoText.textContent = request.is_layer_upload
+            ? 'Review Layer Upload'
+            : 'Review Edit Request';
         card.appendChild(infoText);
         const approveBtn = document.createElement('button');
         approveBtn.id = 'approveRequestBtn';
@@ -1341,7 +1367,7 @@
         })
         .then(function(data) {
             if (data.success) {
-                alert('Edit request approved successfully!');
+                alert(data.message || 'Edit request approved successfully!');
                 cleanupRequestLines();
                 removeApproveRejectButtons();
                 pendingRequests = pendingRequests.filter(function(req) {
@@ -1373,7 +1399,7 @@
         })
         .then(function(data) {
             if (data.success) {
-                alert('Edit request rejected');
+                alert(data.message || 'Edit request rejected');
                 cleanupRequestLines();
                 removeApproveRejectButtons();
                 pendingRequests = pendingRequests.filter(function(req) {

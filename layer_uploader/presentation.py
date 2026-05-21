@@ -38,14 +38,12 @@ def riyadh_tile_proxy_url(request) -> str:
     )
 
 
-def review_page_context(request, layer: Layer, *, review_mode: str) -> dict:
+def review_page_context(request, layer: Layer) -> dict:
     return {
         "base_template": resolve_base_template(request.user),
         "layer": layer,
-        "review_mode": review_mode,
         "riyadh_roads_tile_url": riyadh_tile_proxy_url(request),
         "maptiler_api_key": settings.MAPTILER_API_KEY or "",
-        "can_submit": review_mode == "uploader" and layer.status == Layer.Status.DRAFT,
-        "is_manager_uploader": review_mode == "uploader"
-        and is_layer_upload_manager(request.user),
+        "can_submit": layer.status == Layer.Status.DRAFT,
+        "is_manager_uploader": is_layer_upload_manager(request.user),
     }

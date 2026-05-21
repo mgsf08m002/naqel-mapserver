@@ -6,8 +6,10 @@ from django.contrib.gis.geos import GEOSGeometry
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
+from mapping.models import LineEditRequest
 from system_admin.models import UserProfile
 
+from .map_review import LAYER_UPLOAD_EDIT_TYPE
 from .models import Feature, Layer
 from .utils import _geometry_from_db_wkb, simplify_crs
 
@@ -121,7 +123,7 @@ class UploaderWorkflowTests(TestCase):
             uploaded_by=self.editor,
         )
 
-    def test_uploader_nominate_and_submit(self):
+    def test_uploader_nominate_and_submit_creates_pending_edit_requests(self):
         self.client.force_login(self.editor)
         action_url = reverse("layer_review_action", kwargs={"layer_id": self.layer.pk})
 
@@ -139,11 +141,19 @@ class UploaderWorkflowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["submitted_count"], 1)
+        self.assertFalse(payload["auto_published"])
 
         self.layer.refresh_from_db()
         self.feature.refresh_from_db()
         self.assertEqual(self.layer.status, Layer.Status.SUBMITTED)
         self.assertEqual(self.feature.status, Feature.Status.AWAITING_MANAGER)
+
+        edit_request = LineEditRequest.objects.get()
+        self.assertEqual(edit_request.edit_type, LAYER_UPLOAD_EDIT_TYPE)
+        self.assertEqual(edit_request.layer_upload_feature_id, self.feature.pk)
+        self.assertEqual(edit_request.requester_id, self.editor.pk)
+        self.assertEqual(edit_request.status, "pending")
+        self.assertEqual(edit_request.fields_data.get("layer_name"), "test_layer")
 
     def test_manager_self_upload_auto_publishes_on_submit(self):
         manager_layer = Layer.objects.create(
@@ -190,29 +200,27 @@ class UploaderWorkflowTests(TestCase):
         self.assertTrue(payload["auto_published"])
         self.assertEqual(payload["published_count"], 1)
         self.assertIn("auto_published=1", payload["redirect_url"])
+        self.assertEqual(LineEditRequest.objects.count(), 0)
 
         manager_layer.refresh_from_db()
         self.assertEqual(manager_layer.status, Layer.Status.COMPLETED)
-        self.assertFalse(
-            Feature.objects.filter(pk=manager_feature.pk).exists()
-        )
-        self.assertEqual(
-            Feature.objects.filter(
-                layer=manager_layer, status=Feature.Status.AWAITING_MANAGER
-            ).count(),
-            0,
-        )
+        self.assertFalse(Feature.objects.filter(pk=manager_feature.pk).exists())
 
-    def test_manager_approve_publishes_and_removes_local_feature(self):
+    def test_manager_approves_layer_upload_via_map_api(self):
         self.feature.status = Feature.Status.AWAITING_MANAGER
         self.feature.save(update_fields=["status"])
         self.layer.status = Layer.Status.SUBMITTED
         self.layer.save(update_fields=["status"])
 
-        self.client.force_login(self.manager)
-        action_url = reverse(
-            "layer_manager_review_action", kwargs={"layer_id": self.layer.pk}
+        edit_request = LineEditRequest.objects.create(
+            requester=self.editor,
+            edit_type=LAYER_UPLOAD_EDIT_TYPE,
+            geometry=json.loads(self.geom.geojson),
+            fields_data={"layer_name": self.layer.name, "layer_id": self.layer.pk},
+            layer_upload_feature_id=self.feature.pk,
         )
+
+        self.client.force_login(self.manager)
 
         def _fake_publish(feature):
             feature.delete()
@@ -226,34 +234,67 @@ class UploaderWorkflowTests(TestCase):
             side_effect=_fake_publish,
         ) as publish_mock:
             response = self.client.post(
-                action_url,
-                data=json.dumps({"action": "approve", "feature_id": self.feature.pk}),
-                content_type="application/json",
+                reverse(
+                    "mapping:approve_request",
+                    kwargs={"request_id": edit_request.pk},
+                )
             )
 
         self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
         publish_mock.assert_called_once()
+        self.assertFalse(LineEditRequest.objects.filter(pk=edit_request.pk).exists())
         self.assertFalse(Feature.objects.filter(pk=self.feature.pk).exists())
         self.layer.refresh_from_db()
         self.assertEqual(self.layer.status, Layer.Status.COMPLETED)
 
-    def test_manager_reject_removes_local_feature(self):
+    def test_manager_rejects_layer_upload_via_map_api(self):
         self.feature.status = Feature.Status.AWAITING_MANAGER
         self.feature.save(update_fields=["status"])
         self.layer.status = Layer.Status.SUBMITTED
         self.layer.save(update_fields=["status"])
 
+        edit_request = LineEditRequest.objects.create(
+            requester=self.editor,
+            edit_type=LAYER_UPLOAD_EDIT_TYPE,
+            geometry=json.loads(self.geom.geojson),
+            fields_data={"layer_name": self.layer.name},
+            layer_upload_feature_id=self.feature.pk,
+        )
+
         self.client.force_login(self.manager)
-        action_url = reverse(
-            "layer_manager_review_action", kwargs={"layer_id": self.layer.pk}
-        )
         response = self.client.post(
-            action_url,
-            data=json.dumps({"action": "reject", "feature_id": self.feature.pk}),
-            content_type="application/json",
+            reverse(
+                "mapping:reject_request",
+                kwargs={"request_id": edit_request.pk},
+            )
         )
+
         self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+        self.assertFalse(LineEditRequest.objects.filter(pk=edit_request.pk).exists())
         self.assertFalse(Feature.objects.filter(pk=self.feature.pk).exists())
+        self.layer.refresh_from_db()
+        self.assertEqual(self.layer.status, Layer.Status.COMPLETED)
+
+    def test_pending_requests_list_includes_layer_upload(self):
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            edit_type=LAYER_UPLOAD_EDIT_TYPE,
+            geometry=json.loads(self.geom.geojson),
+            fields_data={"layer_name": "roads_batch"},
+            layer_upload_feature_id=self.feature.pk,
+        )
+
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse("mapping:list_pending_requests"))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(len(payload["requests"]), 1)
+        self.assertTrue(payload["requests"][0]["is_layer_upload"])
+        self.assertEqual(payload["requests"][0]["edit_type"], LAYER_UPLOAD_EDIT_TYPE)
+        self.assertEqual(payload["requests"][0]["layer_name"], "roads_batch")
 
 
 class LayerReviewApiTests(TestCase):
@@ -306,37 +347,6 @@ class LayerReviewApiTests(TestCase):
         payload = response.json()
         self.assertEqual(payload["counts"]["staged"], 1)
         self.assertEqual(payload["counts"]["nominated"], 1)
-
-
-class ManagerAccessTests(TestCase):
-    def setUp(self):
-        user_model = get_user_model()
-        self.superuser = user_model.objects.create_superuser(
-            username="admin_only",
-            email="admin_only@example.com",
-            password="testpass123",
-        )
-        self.manager = user_model.objects.create_user(
-            username="mgr_only",
-            email="mgr_only@example.com",
-            password="testpass123",
-        )
-        UserProfile.objects.create(
-            user=self.manager,
-            role="manager",
-            password_setup_completed=True,
-        )
-
-    def test_superuser_cannot_access_manager_queue(self):
-        self.client.force_login(self.superuser)
-        response = self.client.get(reverse("layer_manager_queue"))
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("session_ended", response.url)
-
-    def test_manager_can_access_manager_queue(self):
-        self.client.force_login(self.manager)
-        response = self.client.get(reverse("layer_manager_queue"))
-        self.assertEqual(response.status_code, 200)
 
 
 class CrsParsingTests(SimpleTestCase):

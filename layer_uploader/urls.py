@@ -27,25 +27,4 @@ urlpatterns = [
         name="layer_submit",
     ),
     path("review/<int:layer_id>/", views.review_view, name="layer_review"),
-    path("manager/", views.manager_queue_view, name="layer_manager_queue"),
-    path(
-        "manager/<int:layer_id>/features.geojson",
-        views.manager_review_geojson_view,
-        name="layer_manager_review_geojson",
-    ),
-    path(
-        "manager/<int:layer_id>/table.json",
-        views.manager_review_table_json_view,
-        name="layer_manager_review_table",
-    ),
-    path(
-        "manager/<int:layer_id>/action/",
-        views.manager_review_action_view,
-        name="layer_manager_review_action",
-    ),
-    path(
-        "manager/<int:layer_id>/",
-        views.manager_review_view,
-        name="layer_manager_review",
-    ),
 ]

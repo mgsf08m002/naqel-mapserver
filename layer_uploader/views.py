@@ -8,20 +8,15 @@ from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from .access import (
-    can_access_manager_review,
     can_access_uploader_review,
     enforce_layer_uploader_access,
-    enforce_manager_access,
     enforce_uploader_review_access,
 )
 from .api import features_geojson, table_payload
 from .models import Feature, Layer
 from .presentation import post_upload_map_url, resolve_base_template, review_page_context
 from .services import (
-    apply_manager_review_action,
     apply_uploader_review_action,
-    layers_pending_manager_review,
-    map_preview_statuses_manager,
     map_preview_statuses_uploader,
     submit_layer,
 )
@@ -73,13 +68,10 @@ def _submit_success_response(result) -> JsonResponse:
     )
 
 
-def _review_features_qs(layer: Layer, *, for_manager: bool):
-    statuses = (
-        map_preview_statuses_manager()
-        if for_manager
-        else map_preview_statuses_uploader()
-    )
-    return Feature.objects.filter(layer=layer, status__in=statuses).order_by("pk")
+def _review_features_qs(layer: Layer):
+    return Feature.objects.filter(
+        layer=layer, status__in=map_preview_statuses_uploader()
+    ).order_by("pk")
 
 
 @login_required
@@ -212,7 +204,7 @@ def review_view(request, layer_id):
     return render(
         request,
         "layer_uploader/review.html",
-        review_page_context(request, layer, review_mode="uploader"),
+        review_page_context(request, layer),
     )
 
 
@@ -231,13 +223,7 @@ def review_table_json_view(request, layer_id):
     layer = get_object_or_404(Layer, pk=layer_id)
     if not can_access_uploader_review(request.user, layer):
         return _json_forbidden()
-    return JsonResponse(
-        table_payload(
-            layer,
-            for_manager=False,
-            features_qs=_review_features_qs(layer, for_manager=False),
-        )
-    )
+    return JsonResponse(table_payload(layer, _review_features_qs(layer)))
 
 
 @login_required
@@ -277,100 +263,3 @@ def submit_layer_view(request, layer_id):
         return JsonResponse({"detail": str(exc)}, status=400)
 
     return _submit_success_response(result)
-
-
-@login_required
-def manager_queue_view(request):
-    denied = enforce_manager_access(request)
-    if denied:
-        return denied
-    return render(
-        request,
-        "layer_uploader/manager_queue.html",
-        {
-            "base_template": "manager/base.html",
-            "queue": layers_pending_manager_review(),
-        },
-    )
-
-
-@login_required
-def manager_review_view(request, layer_id):
-    denied = enforce_manager_access(request)
-    if denied:
-        return denied
-
-    layer = get_object_or_404(Layer, pk=layer_id)
-    if not can_access_manager_review(layer):
-        return redirect("layer_manager_queue")
-
-    return render(
-        request,
-        "layer_uploader/review.html",
-        review_page_context(request, layer, review_mode="manager"),
-    )
-
-
-@login_required
-@require_http_methods(["GET"])
-def manager_review_geojson_view(request, layer_id):
-    denied = enforce_manager_access(request)
-    if denied:
-        return denied
-
-    layer = get_object_or_404(Layer, pk=layer_id)
-    if not can_access_manager_review(layer):
-        return _json_forbidden()
-
-    return JsonResponse(features_geojson(layer.pk, map_preview_statuses_manager()))
-
-
-@login_required
-@require_http_methods(["GET"])
-def manager_review_table_json_view(request, layer_id):
-    denied = enforce_manager_access(request)
-    if denied:
-        return denied
-
-    layer = get_object_or_404(Layer, pk=layer_id)
-    if not can_access_manager_review(layer):
-        return _json_forbidden()
-
-    return JsonResponse(
-        table_payload(
-            layer,
-            for_manager=True,
-            features_qs=_review_features_qs(layer, for_manager=True),
-        )
-    )
-
-
-@login_required
-@require_http_methods(["POST"])
-def manager_review_action_view(request, layer_id):
-    denied = enforce_manager_access(request)
-    if denied:
-        return denied
-
-    layer = get_object_or_404(Layer, pk=layer_id)
-    if not can_access_manager_review(layer):
-        return _json_forbidden()
-
-    body = _parse_action_body(request)
-    if body is None:
-        return JsonResponse({"detail": "Invalid JSON"}, status=400)
-
-    try:
-        payload = apply_manager_review_action(
-            layer,
-            body.get("action"),
-            feature_id=_parse_feature_id(body),
-        )
-    except ValueError as exc:
-        return _action_error_response(exc)
-    except LookupError as exc:
-        return _action_error_response(exc)
-    except Exception as exc:
-        return JsonResponse({"detail": str(exc)}, status=400)
-
-    return JsonResponse(payload)

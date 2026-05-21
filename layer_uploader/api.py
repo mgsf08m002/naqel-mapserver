@@ -65,18 +65,13 @@ def features_geojson(layer_id: int, statuses: Iterable[str]) -> dict:
     }
 
 
-def table_payload(layer: Layer, *, for_manager: bool, features_qs) -> dict:
-    layer_info = {
-        "id": layer.pk,
-        "name": layer.name,
-        "status": layer.status,
-    }
-    if for_manager:
-        layer_info["uploaded_by"] = (
-            layer.uploaded_by.get_full_name() or layer.uploaded_by.username
-        )
+def table_payload(layer: Layer, features_qs) -> dict:
     return {
-        "layer": layer_info,
+        "layer": {
+            "id": layer.pk,
+            "name": layer.name,
+            "status": layer.status,
+        },
         "counts": feature_counts_for_layer(layer),
         "features": [feature_row_dict(f) for f in features_qs],
     }
