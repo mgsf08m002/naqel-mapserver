@@ -51,6 +51,72 @@
   color: var(--lr-fg);
 }
 
+#layer-review-root .lr-layer-hint {
+  margin: 0.5rem 0 0;
+  max-width: 42rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--lr-muted);
+}
+
+#layer-review-root .lr-table-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+#layer-review-root .lr-table-filter-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--lr-muted);
+}
+
+#layer-review-root .lr-table-filter-select {
+  font-size: 0.8125rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--lr-border);
+  border-radius: 0.375rem;
+  background: #fff;
+  color: var(--lr-fg);
+}
+
+#layer-review-root .lr-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem 1rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--lr-border-light);
+}
+
+#layer-review-root .lr-pagination[hidden] {
+  display: none;
+}
+
+#layer-review-root .lr-page-btn {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--lr-fg);
+  background: #fff;
+  border: 1px solid var(--lr-border);
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
+#layer-review-root .lr-page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#layer-review-root .lr-page-status {
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--lr-muted);
+}
+
 #layer-review-root .lr-btn-finish {
   display: inline-flex;
   align-items: center;

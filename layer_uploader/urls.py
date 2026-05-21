@@ -17,6 +17,11 @@ urlpatterns = [
         name="layer_review_table",
     ),
     path(
+        "review/<int:layer_id>/features/<int:feature_id>.json",
+        views.review_feature_json_view,
+        name="layer_review_feature",
+    ),
+    path(
         "review/<int:layer_id>/action/",
         views.review_action_view,
         name="layer_review_action",

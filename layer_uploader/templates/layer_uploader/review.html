@@ -16,6 +16,9 @@
   data-geojson-url="{% url 'layer_review_geojson' layer.pk %}"
   data-table-url="{% url 'layer_review_table' layer.pk %}"
   data-action-url="{% url 'layer_review_action' layer.pk %}"
+  data-feature-count="{{ review_feature_count }}"
+  data-page-size="{{ review_page_size }}"
+  {% if review_large_layer %}data-large-layer="true"{% endif %}
   {% if can_submit %}data-submit-url="{% url 'layer_submit' layer.pk %}"{% endif %}
   {% if is_manager_uploader %}data-is-manager-uploader="true"{% endif %}
   {% if riyadh_roads_tile_url %}data-riyadh-roads-tile-url="{{ riyadh_roads_tile_url }}"{% endif %}
@@ -26,7 +29,13 @@
   <header class="lr-head">
     <div>
       <h1 class="lr-title">Review layer</h1>
-      <p class="lr-layer-meta">Layer <strong>{{ layer.name }}</strong></p>
+      <p class="lr-layer-meta">
+        Layer <strong>{{ layer.name }}</strong>
+        · <span id="lr-layer-feature-total">{{ review_feature_count|floatformat:0 }}</span> roads
+      </p>
+      {% if review_large_layer %}
+      <p class="lr-layer-hint">Large layer: the map loads roads in the current view; the table shows {{ review_page_size }} rows per page.</p>
+      {% endif %}
     </div>
     {% if not can_submit %}
     <a id="btn-finish" href="{% url 'success' %}?submitted=1" class="lr-btn-finish">Done</a>
@@ -58,6 +67,15 @@
         <div class="lr-table-toolbar">
           <h2 id="lr-table-heading" class="lr-section-label">Features</h2>
           <div class="lr-table-toolbar-actions">
+            <label class="lr-table-filter">
+              <span class="lr-table-filter-label">Show</span>
+              <select id="lr-status-filter" class="lr-table-filter-select" aria-label="Filter by status">
+                <option value="">All statuses</option>
+                <option value="staged">New</option>
+                <option value="nominated">Included</option>
+                <option value="rejected_upload">Excluded</option>
+              </select>
+            </label>
             <span class="lr-table-bulk-label">Bulk</span>
             <div class="lr-actions-bulk">
               <button type="button" id="btn-approve-all" class="lr-action-btn lr-action-btn--approve lr-action-btn--bulk" aria-label="Include all" title="Include all">
@@ -92,6 +110,11 @@
             </tbody>
           </table>
         </div>
+        <nav id="lr-table-pagination" class="lr-pagination" aria-label="Feature table pages" hidden>
+          <button type="button" id="lr-page-prev" class="lr-page-btn" disabled>Previous</button>
+          <span id="lr-page-status" class="lr-page-status">Page 1 of 1</span>
+          <button type="button" id="lr-page-next" class="lr-page-btn" disabled>Next</button>
+        </nav>
       </section>
     </div>
 

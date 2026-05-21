@@ -11,10 +11,27 @@
 {% include 'layer_uploader/includes/flow_shell.html' %}
     {% include 'layer_uploader/includes/flow_header.html' with title='Layer details' subtitle='Confirm the information below, then continue to review.' %}
 
-    <form method="post" class="mt-10">
+    <form method="post" class="mt-10" id="lu-validate-form">
       {% csrf_token %}
       {% include 'layer_uploader/includes/layer_details_card.html' %}
+      <p id="lu-validate-busy" class="lu-validate-busy hidden" role="status" aria-live="polite">
+        Comparing roads to the network and preparing review… This may take a few minutes for large shapefiles.
+      </p>
       {% include 'layer_uploader/includes/flow_actions.html' with submit_label='Review layer' secondary_url=upload_reset_url secondary_label='Start over' %}
     </form>
+    <script>
+      (function () {
+        var form = document.getElementById('lu-validate-form');
+        var busy = document.getElementById('lu-validate-busy');
+        if (!form || !busy) return;
+        form.addEventListener('submit', function () {
+          busy.classList.remove('hidden');
+          form.querySelectorAll('button, a').forEach(function (el) {
+            el.setAttribute('aria-disabled', 'true');
+            if (el.tagName === 'BUTTON') el.disabled = true;
+          });
+        });
+      })();
+    </script>
 {% include 'layer_uploader/includes/flow_shell_end.html' %}
 {% endblock %}

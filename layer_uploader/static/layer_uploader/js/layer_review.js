@@ -13,6 +13,13 @@
     const actionUrl = root.dataset.actionUrl;
     const submitUrl = root.dataset.submitUrl || '';
     const isManagerUploader = root.dataset.isManagerUploader === 'true';
+    const largeLayer = root.dataset.largeLayer === 'true';
+    const pageSize = parseInt(root.dataset.pageSize || '50', 10) || 50;
+    const layerFeatureTotal = parseInt(root.dataset.featureCount || '0', 10) || 0;
+
+    function featureDetailUrl(featureId) {
+        return tableUrl.replace(/table\.json.*/, 'features/' + String(featureId) + '.json');
+    }
 
     const RIYADH_ROADS_TILE_URL = (root.dataset.riyadhRoadsTileUrl || '').trim();
     const HAS_RIYADH_ROADS_TILES = RIYADH_ROADS_TILE_URL.length > 0;
@@ -286,6 +293,18 @@
 
     let selectedFeatureId = null;
     const featureGeomById = {};
+    let layerExtent = null;
+    let currentPage = 1;
+    let statusFilter = '';
+    let mapLoadTimer = null;
+    let mapLoadInFlight = false;
+
+    const paginationNav = document.getElementById('lr-table-pagination');
+    const btnPagePrev = document.getElementById('lr-page-prev');
+    const btnPageNext = document.getElementById('lr-page-next');
+    const pageStatusEl = document.getElementById('lr-page-status');
+    const statusFilterEl = document.getElementById('lr-status-filter');
+    const layerTotalEl = document.getElementById('lr-layer-feature-total');
 
     function reviewTileUrl(baseUrl) {
         if (!baseUrl) {
@@ -425,7 +444,7 @@
         return {
             bbox: f.bbox,
             center: f.center,
-            geometry: f.geometry,
+            geometry: featureGeomById[f.id] || f.geometry || null,
         };
     }
 
@@ -523,22 +542,153 @@
     function postFeatureAction(action, featureId, failureLabel) {
         return postAction({ action: action, feature_id: featureId })
             .then(function () {
-                return refreshAll();
+                return refreshAfterMutation();
             })
             .catch(function (err) {
                 window.alert(err.message || failureLabel);
             });
     }
 
-    function indexFeatureGeometries(feats) {
-        Object.keys(featureGeomById).forEach(function (k) {
-            delete featureGeomById[k];
-        });
-        feats.forEach(function (f) {
-            if (f.geometry) {
-                featureGeomById[f.id] = f.geometry;
+    function indexGeojsonFeatures(geo) {
+        if (!geo || !geo.features) {
+            return;
+        }
+        geo.features.forEach(function (feat) {
+            const props = feat.properties || {};
+            const fid =
+                feat.id != null
+                    ? parseInt(String(feat.id), 10)
+                    : parseInt(String(props.upload_feature_id), 10);
+            if (!Number.isNaN(fid) && feat.geometry) {
+                featureGeomById[fid] = feat.geometry;
             }
         });
+    }
+
+    function ensureFeatureGeometry(fid) {
+        if (featureGeomById[fid]) {
+            return Promise.resolve(featureGeomById[fid]);
+        }
+        return fetchReviewJson(featureDetailUrl(fid)).then(function (row) {
+            if (row.geometry) {
+                featureGeomById[fid] = row.geometry;
+            }
+            return row.geometry;
+        });
+    }
+
+    function tableQueryUrl(page) {
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('page_size', String(pageSize));
+        if (statusFilter) {
+            params.set('status', statusFilter);
+        }
+        const join = tableUrl.indexOf('?') >= 0 ? '&' : '?';
+        return tableUrl + join + params.toString();
+    }
+
+    function geojsonQueryUrl(bbox) {
+        if (!bbox) {
+            return geojsonUrl;
+        }
+        const join = geojsonUrl.indexOf('?') >= 0 ? '&' : '?';
+        return geojsonUrl + join + 'bbox=' + encodeURIComponent(bbox.join(','));
+    }
+
+    function updatePaginationUi(pagination) {
+        if (!paginationNav || !pagination) {
+            return;
+        }
+        const totalPages = pagination.total_pages || 1;
+        const show = totalPages > 1 || (pagination.total || 0) > pageSize;
+        paginationNav.hidden = !show;
+        if (pageStatusEl) {
+            pageStatusEl.textContent =
+                'Page ' + String(pagination.page) + ' of ' + String(totalPages) +
+                ' · ' + String(pagination.total) + ' rows';
+        }
+        if (btnPagePrev) {
+            btnPagePrev.disabled = pagination.page <= 1;
+        }
+        if (btnPageNext) {
+            btnPageNext.disabled = pagination.page >= totalPages;
+        }
+    }
+
+    function loadTablePage(page) {
+        currentPage = page;
+        return fetchReviewJson(tableQueryUrl(page)).then(function (payload) {
+            renderTable(payload);
+            return payload;
+        });
+    }
+
+    function fitLayerExtent(extent) {
+        if (!extent || extent.length !== 2) {
+            return;
+        }
+        try {
+            map.fitBounds(new maplibregl.LngLatBounds(extent[0], extent[1]), {
+                padding: { top: 80, bottom: 80, left: 80, right: 80 },
+                maxZoom: 14,
+                duration: 0,
+            });
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    function loadMapViewport() {
+        if (!map.isStyleLoaded()) {
+            return Promise.resolve();
+        }
+        if (mapLoadInFlight) {
+            return Promise.resolve();
+        }
+        const bounds = map.getBounds();
+        const bbox = [
+            bounds.getWest(),
+            bounds.getSouth(),
+            bounds.getEast(),
+            bounds.getNorth(),
+        ];
+        mapLoadInFlight = true;
+        return fetchReviewJson(geojsonQueryUrl(bbox))
+            .then(function (geo) {
+                setStagingSourceData(geo);
+                indexGeojsonFeatures(geo);
+                if (largeLayer && map.getSource(SOURCE_ALL)) {
+                    map.getSource(SOURCE_ALL).setData(geo);
+                }
+            })
+            .finally(function () {
+                mapLoadInFlight = false;
+            });
+    }
+
+    function scheduleMapReload() {
+        clearTimeout(mapLoadTimer);
+        mapLoadTimer = setTimeout(function () {
+            loadMapViewport();
+        }, 320);
+    }
+
+    function refreshMapData() {
+        if (largeLayer) {
+            return loadMapViewport();
+        }
+        return fetchReviewJson(geojsonUrl).then(function (geo) {
+            setStagingSourceData(geo);
+            indexGeojsonFeatures(geo);
+            if (map.getSource(SOURCE_ALL)) {
+                map.getSource(SOURCE_ALL).setData(geo);
+            }
+        });
+    }
+
+    function refreshAfterMutation() {
+        return Promise.all([loadTablePage(currentPage), refreshMapData()]);
     }
 
     function clearFeatureSelection() {
@@ -551,15 +701,21 @@
 
     function restoreFeatureSelection() {
         const restore = selectedFeatureId;
-        if (restore == null || !featureGeomById[restore]) {
+        if (restore == null) {
+            clearFeatureSelection();
+            return;
+        }
+        const el = document.querySelector(featureListSelector(restore));
+        const ref = rowRefFromElement(el);
+        if (!ref) {
             clearFeatureSelection();
             return;
         }
         setRowSelected(restore);
-        const ref = rowRefFromElement(document.querySelector(featureListSelector(restore)));
-        if (ref) {
-            zoomToFeature(ref);
-        }
+        zoomToFeature(ref);
+        ensureFeatureGeometry(restore).then(function () {
+            setSelectionHighlight(restore);
+        });
     }
 
     function setZoomPanelOpen(open) {
@@ -720,12 +876,31 @@
         if (!map.isStyleLoaded()) {
             return;
         }
+        if (largeLayer) {
+            setLayerGroupVisibility(UPLOAD_LAYER_IDS, true);
+            setLayerGroupVisibility(ALL_LAYER_IDS, false);
+            return;
+        }
         ensureAllFeaturesSourceAndLayers();
         setLayerGroupVisibility(UPLOAD_LAYER_IDS, !mapZoomOpen);
         setLayerGroupVisibility(ALL_LAYER_IDS, mapZoomOpen);
     }
 
     function zoomToAllFeatures() {
+        if (layerExtent) {
+            const padded =
+                boundsArea(layerExtent) < 1e-12 ? padBounds(layerExtent, 0.01) : layerExtent;
+            try {
+                map.fitBounds(new maplibregl.LngLatBounds(padded[0], padded[1]), {
+                    padding: mapZoomOpen ? mapZoomFitPadding() : { top: 80, bottom: 80, left: 80, right: 80 },
+                    maxZoom: 16,
+                    duration: 900,
+                });
+            } catch (e) {
+                /* ignore */
+            }
+            return;
+        }
         const bbList = [];
         Object.keys(featureGeomById).forEach(function (k) {
             const bb = boundsFromGeometry(featureGeomById[k]);
@@ -776,7 +951,12 @@
         setZoomPanelOpen(true);
         syncMapFeatureLayers();
         updateZoomModalSubtitle();
-        resizeMapSoon(zoomToAllFeatures);
+        resizeMapSoon(function () {
+            zoomToAllFeatures();
+            if (largeLayer) {
+                loadMapViewport();
+            }
+        });
     }
 
     function closeMapZoomModal() {
@@ -795,6 +975,9 @@
     function focusFeature(fid, rowRef) {
         setRowSelected(fid);
         zoomToFeature(rowRef);
+        ensureFeatureGeometry(fid).then(function () {
+            setSelectionHighlight(fid);
+        });
         if (!mapZoomOpen) {
             mapEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
@@ -928,20 +1111,38 @@
         if (!src) {
             return;
         }
-        if (fid == null || fid < 0 || !featureGeomById[fid]) {
+        if (fid == null || fid < 0) {
             src.setData({ type: 'FeatureCollection', features: [] });
             return;
         }
         const g = featureGeomById[fid];
-        src.setData({
-            type: 'FeatureCollection',
-            features: [
-                {
-                    type: 'Feature',
-                    geometry: g,
-                    properties: { upload_feature_id: fid },
-                },
-            ],
+        if (g) {
+            src.setData({
+                type: 'FeatureCollection',
+                features: [
+                    {
+                        type: 'Feature',
+                        geometry: g,
+                        properties: { upload_feature_id: fid },
+                    },
+                ],
+            });
+            return;
+        }
+        ensureFeatureGeometry(fid).then(function (geom) {
+            if (!geom || selectedFeatureId !== fid) {
+                return;
+            }
+            src.setData({
+                type: 'FeatureCollection',
+                features: [
+                    {
+                        type: 'Feature',
+                        geometry: geom,
+                        properties: { upload_feature_id: fid },
+                    },
+                ],
+            });
         });
     }
 
@@ -1136,14 +1337,14 @@
         });
     }
 
-    function buildTableRow(f, idx) {
+    function buildTableRow(f, displayIndex) {
         const tr = document.createElement('tr');
         tr.className = 'lr-table-row';
         stampFeatureDataset(tr, f);
 
         const tdNum = document.createElement('td');
         tdNum.className = 'lr-td-num';
-        tdNum.textContent = String(idx + 1);
+        tdNum.textContent = String(displayIndex);
 
         const tdSt = document.createElement('td');
         tdSt.className = 'lr-td-status';
@@ -1257,35 +1458,55 @@
         }
         renderStatusCounts(payload.counts || {});
 
+        if (payload.extent) {
+            layerExtent = payload.extent;
+        }
+        if (payload.total_features != null && layerTotalEl) {
+            layerTotalEl.textContent = String(payload.total_features);
+        }
+        updatePaginationUi(payload.pagination || null);
+
         const feats = payload.features || [];
-        indexFeatureGeometries(feats);
+        const pagination = payload.pagination || {};
+        const rowOffset = ((pagination.page || 1) - 1) * (pagination.page_size || pageSize);
+
         tbody.innerHTML = '';
         if (!feats.length) {
             tbody.innerHTML =
-                '<tr><td colspan="4" class="lr-empty">No roads to review in this layer.</td></tr>';
+                '<tr><td colspan="4" class="lr-empty">No roads match this filter on this page.</td></tr>';
             renderZoomFeaturePanel([], payload.counts || {});
-            syncMapFeatureLayers();
             return;
         }
 
         feats.forEach(function (f, idx) {
-            tbody.appendChild(buildTableRow(f, idx));
+            tbody.appendChild(buildTableRow(f, rowOffset + idx + 1));
         });
 
         renderZoomFeaturePanel(feats, payload.counts || {});
         restoreFeatureSelection();
-        syncMapFeatureLayers();
     }
 
-    function refreshAll() {
-        return Promise.all([fetchReviewJson(geojsonUrl), fetchReviewJson(tableUrl)])
-            .then(function (results) {
-                setStagingSourceData(results[0]);
-                renderTable(results[1]);
+    function initReviewData() {
+        return loadTablePage(1)
+            .then(function (payload) {
+                if (payload.extent) {
+                    layerExtent = payload.extent;
+                    fitLayerExtent(layerExtent);
+                }
+                if (largeLayer) {
+                    return loadMapViewport();
+                }
+                return fetchReviewJson(geojsonUrl).then(function (geo) {
+                    setStagingSourceData(geo);
+                    indexGeojsonFeatures(geo);
+                });
+            })
+            .then(function () {
                 applyOverlayThemeForBasemap(currentBasemapId);
+                syncMapFeatureLayers();
             })
             .catch(function () {
-                window.alert('Failed to refresh data.');
+                window.alert('Failed to load review data.');
             });
     }
 
@@ -1312,8 +1533,34 @@
         });
 
         map.on('click', focusFeatureFromMapClick);
+        map.on('moveend', function () {
+            if (largeLayer) {
+                scheduleMapReload();
+            }
+        });
 
-        refreshAll().then(function () {
+        if (statusFilterEl) {
+            statusFilterEl.addEventListener('change', function () {
+                statusFilter = statusFilterEl.value || '';
+                loadTablePage(1).catch(function () {
+                    window.alert('Failed to load table.');
+                });
+            });
+        }
+        if (btnPagePrev) {
+            btnPagePrev.addEventListener('click', function () {
+                if (currentPage > 1) {
+                    loadTablePage(currentPage - 1);
+                }
+            });
+        }
+        if (btnPageNext) {
+            btnPageNext.addEventListener('click', function () {
+                loadTablePage(currentPage + 1);
+            });
+        }
+
+        initReviewData().then(function () {
             setTimeout(function () {
                 map.resize();
             }, 50);
@@ -1323,7 +1570,7 @@
     function runBulkAction(action, errorMessage) {
         postAction({ action: action })
             .then(function () {
-                return refreshAll();
+                return refreshAfterMutation();
             })
             .catch(function (err) {
                 window.alert(err.message || errorMessage);

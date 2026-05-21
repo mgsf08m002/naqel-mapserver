@@ -3,6 +3,7 @@
 from django.urls import reverse
 
 from .access import is_layer_upload_manager
+from .constants import LARGE_LAYER_FEATURE_THRESHOLD, TABLE_PAGE_SIZE_DEFAULT
 from .models import Layer
 
 
@@ -48,9 +49,13 @@ def upload_flow_context(request, **extra) -> dict:
 
 def review_page_context(request, layer: Layer) -> dict:
     """Layer review template context (tile URL / MapTiler key come from context processors)."""
+    feature_count = layer.features.count()
     return {
         "base_template": resolve_base_template(request.user),
         "layer": layer,
         "can_submit": layer.status == Layer.Status.DRAFT,
         "is_manager_uploader": is_layer_upload_manager(request.user),
+        "review_feature_count": feature_count,
+        "review_large_layer": feature_count > LARGE_LAYER_FEATURE_THRESHOLD,
+        "review_page_size": TABLE_PAGE_SIZE_DEFAULT,
     }

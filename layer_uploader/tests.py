@@ -15,6 +15,7 @@ from mapping.approval_categories import (
 )
 from .models import Feature, Layer
 from .utils import _geometry_from_db_wkb, simplify_crs
+from . import api as review_api
 
 
 class _StubFionaSource:
@@ -370,10 +371,50 @@ class LayerReviewApiTests(TestCase):
         self.assertEqual(payload["counts"]["staged"], 1)
         self.assertEqual(payload["counts"]["nominated"], 1)
         self.assertEqual(payload["counts"]["rejected_upload"], 1)
+        self.assertEqual(payload["pagination"]["total"], 3)
         row_ids = {row["id"] for row in payload["features"]}
         self.assertEqual(row_ids, {self.staged.pk, self.nominated.pk, self.rejected.pk})
         rejected_row = next(r for r in payload["features"] if r["id"] == self.rejected.pk)
         self.assertEqual(rejected_row["status"], Feature.Status.REJECTED_UPLOAD)
+        self.assertNotIn("geometry", rejected_row)
+
+    def test_review_table_pagination_and_status_filter(self):
+        response = self.client.get(
+            reverse("layer_review_table", kwargs={"layer_id": self.layer.pk}),
+            {"page": 1, "page_size": 2, "status": Feature.Status.STAGED},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["pagination"]["page_size"], 2)
+        self.assertEqual(payload["pagination"]["total"], 1)
+        self.assertEqual(len(payload["features"]), 1)
+        self.assertEqual(payload["features"][0]["id"], self.staged.pk)
+
+    def test_review_feature_detail_includes_geometry(self):
+        response = self.client.get(
+            reverse(
+                "layer_review_feature",
+                kwargs={"layer_id": self.layer.pk, "feature_id": self.staged.pk},
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["id"], self.staged.pk)
+        self.assertIn("geometry", payload)
+        self.assertEqual(payload["geometry"]["type"], "LineString")
+
+    def test_review_geojson_requires_bbox_for_large_layers(self):
+        with patch.object(review_api, "LARGE_LAYER_FEATURE_THRESHOLD", 2):
+            payload = review_api.features_geojson(
+                self.layer.pk,
+                [
+                    Feature.Status.STAGED,
+                    Feature.Status.NOMINATED,
+                    Feature.Status.REJECTED_UPLOAD,
+                ],
+            )
+        self.assertTrue(payload["requires_bbox"])
+        self.assertEqual(payload["features"], [])
 
     def test_review_reset_returns_feature_to_staged(self):
         action_url = reverse("layer_review_action", kwargs={"layer_id": self.layer.pk})

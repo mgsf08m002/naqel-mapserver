@@ -12,7 +12,15 @@ from .access import (
     enforce_layer_uploader_access,
     enforce_uploader_review_access,
 )
-from .api import features_geojson, table_payload
+from .api import (
+    feature_detail_dict,
+    features_geojson,
+    parse_bbox_param,
+    parse_status_filter,
+    parse_table_pagination,
+    table_payload,
+)
+from .constants import BULK_CREATE_BATCH_SIZE, TABLE_PAGE_SIZE_DEFAULT
 from .models import Feature, Layer
 from .presentation import post_upload_map_url, review_page_context, upload_flow_context
 from .services import (
@@ -83,6 +91,25 @@ def _shapefile_details(shp_path: str) -> dict:
         "crs_name": crs_name,
         "epsg": epsg if epsg else "Not defined",
     }
+
+
+def _bulk_create_staged_features(layer: Layer, user, features_data: list) -> None:
+    batch: list[Feature] = []
+    for feat in features_data:
+        batch.append(
+            Feature(
+                layer=layer,
+                geom=feat["geom"],
+                properties=feat["properties"],
+                uploaded_by=user,
+                status=Feature.Status.STAGED,
+            )
+        )
+        if len(batch) >= BULK_CREATE_BATCH_SIZE:
+            Feature.objects.bulk_create(batch, batch_size=BULK_CREATE_BATCH_SIZE)
+            batch.clear()
+    if batch:
+        Feature.objects.bulk_create(batch, batch_size=BULK_CREATE_BATCH_SIZE)
 
 
 def _validate_template_context(request, selected: str, shp_path: str, **extra):
@@ -183,18 +210,7 @@ def validate_view(request):
             status=Layer.Status.DRAFT,
         )
 
-        Feature.objects.bulk_create(
-            [
-                Feature(
-                    layer=layer,
-                    geom=feat["geom"],
-                    properties=feat["properties"],
-                    uploaded_by=request.user,
-                    status=Feature.Status.STAGED,
-                )
-                for feat in new_features_data
-            ]
-        )
+        _bulk_create_staged_features(layer, request.user, new_features_data)
 
         return redirect("layer_review", layer_id=layer.pk)
 
@@ -241,7 +257,13 @@ def review_geojson_view(request, layer_id):
     layer = get_object_or_404(Layer, pk=layer_id)
     if not can_access_uploader_review(request.user, layer):
         return _json_forbidden()
-    return JsonResponse(features_geojson(layer.pk, map_preview_statuses_uploader()))
+    bbox = parse_bbox_param(request.GET.get("bbox"))
+    payload = features_geojson(
+        layer.pk,
+        map_preview_statuses_uploader(),
+        bbox=bbox,
+    )
+    return JsonResponse(payload)
 
 
 @login_required
@@ -250,7 +272,39 @@ def review_table_json_view(request, layer_id):
     layer = get_object_or_404(Layer, pk=layer_id)
     if not can_access_uploader_review(request.user, layer):
         return _json_forbidden()
-    return JsonResponse(table_payload(layer, _review_features_qs(layer)))
+    page, page_size = parse_table_pagination(
+        request.GET.get("page"),
+        request.GET.get("page_size"),
+        default_page_size=TABLE_PAGE_SIZE_DEFAULT,
+    )
+    status_filter = parse_status_filter(
+        request.GET.get("status"),
+        map_preview_statuses_uploader(),
+    )
+    return JsonResponse(
+        table_payload(
+            layer,
+            _review_features_qs(layer),
+            page=page,
+            page_size=page_size,
+            status_filter=status_filter,
+        )
+    )
+
+
+@login_required
+@require_http_methods(["GET"])
+def review_feature_json_view(request, layer_id, feature_id):
+    layer = get_object_or_404(Layer, pk=layer_id)
+    if not can_access_uploader_review(request.user, layer):
+        return _json_forbidden()
+    feature = get_object_or_404(
+        Feature,
+        pk=feature_id,
+        layer=layer,
+        status__in=map_preview_statuses_uploader(),
+    )
+    return JsonResponse(feature_detail_dict(feature))
 
 
 @login_required

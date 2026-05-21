@@ -8,6 +8,8 @@ from django.db import connections, transaction
 from psycopg2 import Binary, sql
 from psycopg2.extras import execute_values
 
+from .constants import SHAPEFILE_INSERT_BATCH_SIZE
+
 
 class _SafeJsonEncoder(json.JSONEncoder):
     """Fallback encoder that converts any non-serializable value to its string
@@ -143,32 +145,18 @@ def find_new_features_against_riyadh_roads(
     target_srid = int(target_srid)
     output_srid = int(output_srid)
     temp_table_name = f"temp_layer_upload_{uuid.uuid4().hex[:12]}"
-    rows_to_insert = []
 
-    with fiona.open(shapefile_path) as source:
-        source_srid = _extract_source_epsg(source.crs) or target_srid
-
-        for feature in source:
-            geometry_data = feature.get("geometry")
-            if not geometry_data:
-                continue
-
-            # Fiona 2.x returns fiona.model.Geometry objects, not plain dicts.
-            # Convert via __geo_interface__ to get a JSON-serializable dict.
-            if hasattr(geometry_data, "__geo_interface__"):
-                geometry_data = geometry_data.__geo_interface__
-
-            geom = GEOSGeometry(json.dumps(geometry_data))
-            geom.srid = int(source_srid)
-            if geom.srid != target_srid:
-                geom.transform(target_srid)
-
-            raw_props = feature.get("properties") or {}
-            properties = dict(raw_props)
-            rows_to_insert.append((Binary(bytes(geom.wkb)), json.dumps(properties, cls=_SafeJsonEncoder)))
-
-    if not rows_to_insert:
-        return []
+    def _flush_batch(cursor, quoted_temp_table, batch):
+        if not batch:
+            return
+        execute_values(
+            cursor,
+            f"INSERT INTO {quoted_temp_table} (geom, properties) VALUES %s",
+            batch,
+            template="(ST_GeomFromEWKB(%s), %s::jsonb)",
+            page_size=1000,
+        )
+        batch.clear()
 
     new_features = []
 
@@ -177,7 +165,6 @@ def find_new_features_against_riyadh_roads(
             temp_table_identifier = sql.Identifier(temp_table_name)
             target_table_identifier = sql.Identifier(target_schema, target_table)
 
-            # Create temp table with geometry + properties columns.
             cursor.execute(
                 sql.SQL(
                     "CREATE TEMP TABLE {} ("
@@ -190,19 +177,40 @@ def find_new_features_against_riyadh_roads(
                 )
             )
 
-            # Bulk-insert all shapefile geometries + properties.
-            # as_string() needs a raw psycopg2 connection, not Django's cursor wrapper.
             raw_conn = connections[connection_alias].connection
             quoted_temp_table = temp_table_identifier.as_string(raw_conn)
-            execute_values(
-                cursor,
-                f"INSERT INTO {quoted_temp_table} (geom, properties) VALUES %s",
-                rows_to_insert,
-                # GEOSGeometry.wkb returns EWKB (Extended WKB with embedded SRID).
-                # ST_GeomFromEWKB handles EWKB natively; ST_GeomFromWKB would reject it.
-                template="(ST_GeomFromEWKB(%s), %s::jsonb)",
-                page_size=1000,
-            )
+            insert_batch = []
+            row_count = 0
+
+            with fiona.open(shapefile_path) as source:
+                source_srid = _extract_source_epsg(source.crs) or target_srid
+
+                for feature in source:
+                    geometry_data = feature.get("geometry")
+                    if not geometry_data:
+                        continue
+
+                    if hasattr(geometry_data, "__geo_interface__"):
+                        geometry_data = geometry_data.__geo_interface__
+
+                    geom = GEOSGeometry(json.dumps(geometry_data))
+                    geom.srid = int(source_srid)
+                    if geom.srid != target_srid:
+                        geom.transform(target_srid)
+
+                    raw_props = feature.get("properties") or {}
+                    properties = dict(raw_props)
+                    insert_batch.append(
+                        (Binary(bytes(geom.wkb)), json.dumps(properties, cls=_SafeJsonEncoder))
+                    )
+                    row_count += 1
+                    if len(insert_batch) >= SHAPEFILE_INSERT_BATCH_SIZE:
+                        _flush_batch(cursor, quoted_temp_table, insert_batch)
+
+            if row_count == 0:
+                return []
+
+            _flush_batch(cursor, quoted_temp_table, insert_batch)
 
             # Find features that don't exist in the target table,
             # transforming geometry to output_srid for storage in Feature model.
