@@ -126,11 +126,18 @@
 
     /** Matches `--lr-zoom-panel-width` (24rem) plus map control margin. */
     const ZOOM_PANEL_MAP_PADDING_PX = 400;
+    const ESRI_SATELLITE_BASEMAP_ID = 'esri-satellite';
+    const DEFAULT_BASEMAP_MAX_ZOOM = 19;
+    /** Above source maxzoom so MapLibre upscales tiles instead of requesting blanks. */
+    const BASEMAP_RASTER_LAYER_MAX_ZOOM = 22;
+    const ZOOM_OVERVIEW_MAX_INLINE = 16;
+    const ZOOM_OVERVIEW_MAX_MODAL = 15;
+    const ZOOM_POINT_MAX_INLINE = 17;
 
     function buildBasemapDefinitions() {
         const defs = [
             {
-                id: 'esri-satellite',
+                id: ESRI_SATELLITE_BASEMAP_ID,
                 label: 'Satellite',
                 theme: 'imagery',
                 sourceId: 'review-bm-esri',
@@ -139,6 +146,7 @@
                     'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                 ],
                 attribution: 'Esri, Maxar, Earthstar Geographics',
+                maxZoom: DEFAULT_BASEMAP_MAX_ZOOM,
             },
         ];
         if (HAS_MAPTILER) {
@@ -153,6 +161,8 @@
                     layerId: 'review-bm-mt-streets-layer',
                     tiles: [mb + '/streets-v2/256/{z}/{x}/{y}.png?key=' + k],
                     attribution: '© MapTiler © OpenStreetMap contributors',
+                    maxZoom: 17,
+                    preferSatelliteInZoom: true,
                 },
                 {
                     id: 'maptiler-outdoor',
@@ -162,6 +172,8 @@
                     layerId: 'review-bm-mt-outdoor-layer',
                     tiles: [mb + '/outdoor-v2/256/{z}/{x}/{y}.png?key=' + k],
                     attribution: '© MapTiler © OpenStreetMap contributors',
+                    maxZoom: 17,
+                    preferSatelliteInZoom: true,
                 }
             );
         }
@@ -169,7 +181,57 @@
     }
 
     const BASEMAP_DEFINITIONS = buildBasemapDefinitions();
-    let currentBasemapId = 'esri-satellite';
+    let currentBasemapId = ESRI_SATELLITE_BASEMAP_ID;
+    let basemapIdBeforeZoom = null;
+
+    function basemapDefById(basemapId) {
+        return BASEMAP_DEFINITIONS.find(function (d) {
+            return d.id === basemapId;
+        });
+    }
+
+    function activeBasemapMaxZoom() {
+        const def = basemapDefById(currentBasemapId);
+        return def && def.maxZoom != null ? def.maxZoom : DEFAULT_BASEMAP_MAX_ZOOM;
+    }
+
+    function overviewFitMaxZoom() {
+        if (mapZoomOpen) {
+            return Math.min(ZOOM_OVERVIEW_MAX_MODAL, activeBasemapMaxZoom());
+        }
+        return ZOOM_OVERVIEW_MAX_INLINE;
+    }
+
+    function applyBasemapZoomLimits() {
+        const maxZ = activeBasemapMaxZoom();
+        try {
+            map.setMaxZoom(maxZ);
+            if (map.getZoom() > maxZ + 0.05) {
+                map.easeTo({ zoom: maxZ, duration: 280 });
+            }
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    function prepareBasemapForZoomModal() {
+        const def = basemapDefById(currentBasemapId);
+        if (!def || !def.preferSatelliteInZoom) {
+            return;
+        }
+        if (basemapIdBeforeZoom == null) {
+            basemapIdBeforeZoom = currentBasemapId;
+        }
+        setBasemap(ESRI_SATELLITE_BASEMAP_ID);
+    }
+
+    function restoreBasemapAfterZoomModal() {
+        if (!basemapIdBeforeZoom) {
+            return;
+        }
+        setBasemap(basemapIdBeforeZoom);
+        basemapIdBeforeZoom = null;
+    }
 
     function buildInitialStyle() {
         const sources = {};
@@ -179,7 +241,7 @@
                 type: 'raster',
                 tiles: def.tiles,
                 tileSize: 256,
-                maxzoom: 22,
+                maxzoom: def.maxZoom != null ? def.maxZoom : DEFAULT_BASEMAP_MAX_ZOOM,
                 attribution: def.attribution,
             };
             layers.push({
@@ -190,7 +252,7 @@
                     visibility: def.id === currentBasemapId ? 'visible' : 'none',
                 },
                 minzoom: 0,
-                maxzoom: 22,
+                maxzoom: BASEMAP_RASTER_LAYER_MAX_ZOOM,
             });
         });
         return {
@@ -205,7 +267,7 @@
         container: 'review-map',
         center: [46.727866, 24.72358],
         zoom: 9.5,
-        maxZoom: 19,
+        maxZoom: activeBasemapMaxZoom(),
         maxBounds: bounds,
         style: buildInitialStyle(),
     });
@@ -269,9 +331,7 @@
     }
 
     function themeForBasemapId(basemapId) {
-        const def = BASEMAP_DEFINITIONS.find(function (d) {
-            return d.id === basemapId;
-        });
+        const def = basemapDefById(basemapId);
         return def && def.theme ? def.theme : 'light';
     }
 
@@ -298,10 +358,7 @@
     }
 
     function setBasemap(basemapId) {
-        const ok = BASEMAP_DEFINITIONS.some(function (d) {
-            return d.id === basemapId;
-        });
-        if (!ok) {
+        if (!basemapDefById(basemapId)) {
             return;
         }
         currentBasemapId = basemapId;
@@ -312,6 +369,7 @@
             map.setLayoutProperty(def.layerId, 'visibility', def.id === basemapId ? 'visible' : 'none');
         });
         applyOverlayThemeForBasemap(basemapId);
+        applyBasemapZoomLimits();
         syncBasemapButtons();
     }
 
@@ -344,6 +402,7 @@
             strip.appendChild(btn);
         });
         syncBasemapButtons();
+        applyBasemapZoomLimits();
     }
 
     let selectedFeatureId = null;
@@ -997,13 +1056,14 @@
     }
 
     function zoomToAllFeatures() {
+        const extentMaxZoom = overviewFitMaxZoom();
         if (layerExtent) {
             const padded =
                 boundsArea(layerExtent) < 1e-12 ? padBounds(layerExtent, 0.01) : layerExtent;
             try {
                 map.fitBounds(new maplibregl.LngLatBounds(padded[0], padded[1]), {
                     padding: mapZoomOpen ? mapZoomFitPadding() : { top: 80, bottom: 80, left: 80, right: 80 },
-                    maxZoom: 16,
+                    maxZoom: extentMaxZoom,
                     duration: 900,
                 });
             } catch (e) {
@@ -1026,7 +1086,7 @@
         try {
             map.fitBounds(new maplibregl.LngLatBounds(padded[0], padded[1]), {
                 padding: mapZoomOpen ? mapZoomFitPadding() : { top: 80, bottom: 80, left: 80, right: 80 },
-                maxZoom: 16,
+                maxZoom: extentMaxZoom,
                 duration: 900,
             });
         } catch (e) {
@@ -1059,6 +1119,7 @@
         mapZoomOpen = true;
         document.body.style.overflow = 'hidden';
         setZoomPanelOpen(true);
+        prepareBasemapForZoomModal();
         syncMapFeatureLayers();
         updateZoomModalSubtitle();
         resizeMapSoon(function () {
@@ -1081,6 +1142,7 @@
         mapZoomOverlay.setAttribute('aria-hidden', 'true');
         mapZoomOpen = false;
         document.body.style.overflow = '';
+        restoreBasemapAfterZoomModal();
         syncMapFeatureLayers();
         resizeMapSoon();
     }
@@ -1097,6 +1159,10 @@
     }
 
     function zoomToFeature(row) {
+        if (mapZoomOpen) {
+            prepareBasemapForZoomModal();
+        }
+        const focusMaxZoom = activeBasemapMaxZoom();
         let bb = row.bbox;
         const center = row.center;
         const geom = row.geometry;
@@ -1111,7 +1177,14 @@
         }
 
         if (center && Array.isArray(center) && center.length === 2 && (!bb || boundsArea(bb) < 1e-16)) {
-            map.easeTo({ center: center, zoom: mapZoomOpen ? 18 : 17, duration: 750 });
+            const pointZoom = mapZoomOpen
+                ? focusMaxZoom
+                : Math.min(ZOOM_POINT_MAX_INLINE, focusMaxZoom);
+            map.easeTo({
+                center: center,
+                zoom: pointZoom,
+                duration: 750,
+            });
             return;
         }
 
@@ -1120,7 +1193,7 @@
                 const lngLatBounds = new maplibregl.LngLatBounds(bb[0], bb[1]);
                 map.fitBounds(lngLatBounds, {
                     padding: fitPadding,
-                    maxZoom: 18,
+                    maxZoom: focusMaxZoom,
                     duration: 850,
                 });
             } catch (e) {
@@ -1138,7 +1211,7 @@
                 try {
                     map.fitBounds(new maplibregl.LngLatBounds(padded[0], padded[1]), {
                         padding: fitPadding,
-                        maxZoom: 18,
+                        maxZoom: focusMaxZoom,
                         duration: 850,
                     });
                 } catch (e2) {
