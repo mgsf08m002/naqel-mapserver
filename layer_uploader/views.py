@@ -16,6 +16,7 @@ from .api import (
     feature_detail_dict,
     features_geojson,
     parse_bbox_param,
+    parse_list_all_param,
     parse_status_filter,
     parse_table_pagination,
     table_payload,
@@ -272,6 +273,7 @@ def review_table_json_view(request, layer_id):
     layer = get_object_or_404(Layer, pk=layer_id)
     if not can_access_uploader_review(request.user, layer):
         return _json_forbidden()
+    list_all = parse_list_all_param(request.GET.get("list"))
     page, page_size = parse_table_pagination(
         request.GET.get("page"),
         request.GET.get("page_size"),
@@ -281,15 +283,18 @@ def review_table_json_view(request, layer_id):
         request.GET.get("status"),
         map_preview_statuses_uploader(),
     )
-    return JsonResponse(
-        table_payload(
+    try:
+        payload = table_payload(
             layer,
             _review_features_qs(layer),
             page=page,
             page_size=page_size,
             status_filter=status_filter,
+            list_all=list_all,
         )
-    )
+    except ValueError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
+    return JsonResponse(payload)
 
 
 @login_required

@@ -14,6 +14,7 @@ from .constants import (
     GEOJSON_SMALL_LAYER_LIMIT,
     GEOJSON_VIEWPORT_LIMIT,
     LARGE_LAYER_FEATURE_THRESHOLD,
+    TABLE_LIST_ALL_MAX,
     TABLE_PAGE_SIZE_DEFAULT,
     TABLE_PAGE_SIZE_MAX,
 )
@@ -132,6 +133,11 @@ def parse_status_filter(raw: str | None, allowed: Iterable[str]) -> str | None:
     return status if status in allowed_set else None
 
 
+def parse_list_all_param(raw) -> bool:
+    """True when table.json is called with ``list=all`` (full-screen features panel)."""
+    return str(raw or "").strip().lower() == "all"
+
+
 def paginate_queryset(qs: QuerySet, page: int, page_size: int) -> tuple[list, dict]:
     total = qs.count()
     total_pages = max(1, (total + page_size - 1) // page_size)
@@ -153,13 +159,32 @@ def table_payload(
     page: int = 1,
     page_size: int = TABLE_PAGE_SIZE_DEFAULT,
     status_filter: str | None = None,
+    list_all: bool = False,
 ) -> dict:
     qs = features_qs.order_by("pk")
     if status_filter:
         qs = qs.filter(status=status_filter)
 
     total_all = features_qs.count()
-    page_items, pagination = paginate_queryset(qs, page, page_size)
+    filtered_total = qs.count()
+
+    if list_all:
+        if filtered_total > TABLE_LIST_ALL_MAX:
+            raise ValueError(
+                f"Too many features to list at once ({filtered_total}). "
+                f"Maximum is {TABLE_LIST_ALL_MAX}."
+            )
+        page_items = list(qs[:TABLE_LIST_ALL_MAX])
+        pagination = {
+            "page": 1,
+            "page_size": filtered_total,
+            "total": filtered_total,
+            "total_pages": 1,
+            "list_all": True,
+        }
+    else:
+        page_items, pagination = paginate_queryset(qs, page, page_size)
+
     extent = layer_features_extent(features_qs)
 
     return {

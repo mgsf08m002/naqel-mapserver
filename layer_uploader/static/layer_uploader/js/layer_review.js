@@ -15,7 +15,6 @@
     const isManagerUploader = root.dataset.isManagerUploader === 'true';
     const largeLayer = root.dataset.largeLayer === 'true';
     const pageSize = parseInt(root.dataset.pageSize || '50', 10) || 50;
-    const layerFeatureTotal = parseInt(root.dataset.featureCount || '0', 10) || 0;
 
     function featureDetailUrl(featureId) {
         return tableUrl.replace(/table\.json.*/, 'features/' + String(featureId) + '.json');
@@ -62,6 +61,50 @@
     /** Warm neutral road color (matches main map on imagery); works on Satellite, Streets, Outdoor. */
     const RIYADH_ROADS_LINE_COLOR = '#e3d1a3';
 
+    /** Selected feature on map: cyan stroke with a soft light casing (readable on imagery). */
+    const SELECTION_CYAN = '#00E5FF';
+    const SELECTION_CYAN_SOFT = '#06B6D4';
+    const SELECTION_LINE_LAYOUT = { 'line-cap': 'round', 'line-join': 'round' };
+    const SELECTION_LINE_PAINT = {
+        casing: {
+            'line-color': '#ffffff',
+            'line-width': 10,
+            'line-opacity': 0.7,
+            'line-blur': 0.2,
+        },
+        core: {
+            'line-color': SELECTION_CYAN,
+            'line-width': 5,
+            'line-opacity': 0.9,
+        },
+    };
+    const SELECTION_FILL_PAINT = {
+        'fill-color': SELECTION_CYAN_SOFT,
+        'fill-opacity': 0.16,
+        'fill-outline-color': SELECTION_CYAN,
+    };
+    const SELECTION_POINT_PAINT = {
+        'circle-radius': 9,
+        'circle-color': SELECTION_CYAN,
+        'circle-opacity': 0.92,
+        'circle-stroke-width': 2.5,
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-opacity': 0.85,
+    };
+
+    const SELECTION_LAYER_IDS = [
+        'lr-sel-fill',
+        'lr-sel-line-casing',
+        'lr-sel-line-core',
+        'lr-sel-point',
+    ];
+
+    const UPLOAD_FEATURE_LAYER_GROUPS = [
+        { layerIds: ['lr-lines', 'lr-all-lines'], geomFilter: GEOM_FILTER_LINE },
+        { layerIds: ['lr-fill', 'lr-all-fill'], geomFilter: GEOM_FILTER_POLY },
+        { layerIds: ['lr-points', 'lr-all-points'], geomFilter: GEOM_FILTER_POINT },
+    ];
+
     const ICON_APPROVE_SVG =
         '<svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>';
     const ICON_REJECT_SVG =
@@ -79,6 +122,7 @@
 
     let mapZoomOpen = false;
     let zoomPanelOpen = true;
+    let zoomFeatureListRequestId = 0;
 
     /** Matches `--lr-zoom-panel-width` (24rem) plus map control margin. */
     const ZOOM_PANEL_MAP_PADDING_PX = 400;
@@ -180,20 +224,48 @@
             return {
                 riyadh: RIYADH_ROADS_LINE_COLOR,
                 staging: '#e8e8e8',
-                selHalo: '#ffffff',
-                selCore: '#141414',
-                fillOutline: '#ffffff',
                 pointStroke: '#ffffff',
             };
         }
         return {
             riyadh: RIYADH_ROADS_LINE_COLOR,
             staging: '#525252',
-            selHalo: '#ffffff',
-            selCore: '#0a0a0a',
-            fillOutline: '#525252',
             pointStroke: '#fafafa',
         };
+    }
+
+    function uploadFeatureExcludeFilter(geomFilter) {
+        if (selectedFeatureId == null) {
+            return geomFilter;
+        }
+        return ['all', geomFilter, ['!=', ['id'], selectedFeatureId]];
+    }
+
+    function syncSelectionExclusionFilters() {
+        try {
+            UPLOAD_FEATURE_LAYER_GROUPS.forEach(function (group) {
+                group.layerIds.forEach(function (layerId) {
+                    if (map.getLayer(layerId)) {
+                        map.setFilter(layerId, uploadFeatureExcludeFilter(group.geomFilter));
+                    }
+                });
+            });
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    function moveSelectionLayersToTop() {
+        SELECTION_LAYER_IDS.forEach(function (layerId) {
+            if (!map.getLayer(layerId)) {
+                return;
+            }
+            try {
+                map.moveLayer(layerId);
+            } catch (e) {
+                /* ignore */
+            }
+        });
     }
 
     function themeForBasemapId(basemapId) {
@@ -219,23 +291,6 @@
             if (map.getLayer('lr-points')) {
                 map.setPaintProperty('lr-points', 'circle-color', pal.staging);
                 map.setPaintProperty('lr-points', 'circle-stroke-color', pal.pointStroke);
-            }
-            if (map.getLayer('lr-sel-fill')) {
-                map.setPaintProperty('lr-sel-fill', 'fill-color', pal.selCore);
-                map.setPaintProperty('lr-sel-fill', 'fill-outline-color', pal.fillOutline);
-            }
-            if (map.getLayer('lr-sel-line-halo')) {
-                map.setPaintProperty('lr-sel-line-halo', 'line-color', pal.selHalo);
-            }
-            if (map.getLayer('lr-sel-line-core')) {
-                map.setPaintProperty('lr-sel-line-core', 'line-color', pal.selCore);
-            }
-            if (map.getLayer('lr-sel-points-halo')) {
-                map.setPaintProperty('lr-sel-points-halo', 'circle-color', pal.selHalo);
-            }
-            if (map.getLayer('lr-sel-points-core')) {
-                map.setPaintProperty('lr-sel-points-core', 'circle-color', pal.selCore);
-                map.setPaintProperty('lr-sel-points-core', 'circle-stroke-color', pal.selHalo);
             }
         } catch (e) {
             /* ignore missing layers during startup */
@@ -530,13 +585,64 @@
         });
     }
 
-    function renderZoomPanelFeatureCount(featureCount) {
+    function renderZoomPanelFeatureCount(count) {
         const countEl = document.getElementById('lr-zoom-panel-count');
         if (!countEl) {
             return;
         }
-        const n = featureCount != null ? featureCount : 0;
+        const n = count != null ? count : 0;
         countEl.textContent = n === 1 ? '1 feature' : String(n) + ' features';
+    }
+
+    function setZoomFeatureListLoading(loading) {
+        if (!zoomFeatureList) {
+            return;
+        }
+        zoomFeatureList.classList.toggle('lr-zoom-feature-list--loading', !!loading);
+        if (loading) {
+            zoomFeatureList.innerHTML =
+                '<p class="lr-zoom-empty lr-zoom-loading">Loading features…</p>';
+        }
+    }
+
+    function zoomTableQueryUrl() {
+        const params = new URLSearchParams();
+        params.set('list', 'all');
+        if (statusFilter) {
+            params.set('status', statusFilter);
+        }
+        const join = tableUrl.indexOf('?') >= 0 ? '&' : '?';
+        return tableUrl + join + params.toString();
+    }
+
+    function loadZoomFeatureList() {
+        if (!zoomFeatureList) {
+            return Promise.resolve();
+        }
+        const requestId = ++zoomFeatureListRequestId;
+        setZoomFeatureListLoading(true);
+        return fetchReviewJson(zoomTableQueryUrl())
+            .then(function (payload) {
+                if (requestId !== zoomFeatureListRequestId) {
+                    return payload;
+                }
+                const counts = payload.counts || {};
+                const feats = payload.features || [];
+                renderStatusCounts(counts);
+                renderZoomFeaturePanel(feats);
+                restoreFeatureSelection();
+                return payload;
+            })
+            .catch(function (err) {
+                if (requestId !== zoomFeatureListRequestId) {
+                    return;
+                }
+                zoomFeatureList.innerHTML =
+                    '<p class="lr-zoom-empty">Could not load features. ' +
+                    escapeHtml(err.message || 'Try again.') +
+                    '</p>';
+                window.notify.tryShow('Failed to load features for the panel.', 'error');
+            });
     }
 
     function postFeatureAction(action, featureId, failureLabel) {
@@ -688,7 +794,7 @@
     }
 
     function refreshAfterMutation() {
-        return Promise.all([loadTablePage(currentPage), refreshMapData()]);
+        return Promise.all([refreshMapData(), reloadTableAndZoomPanel(currentPage)]);
     }
 
     function clearFeatureSelection() {
@@ -813,7 +919,9 @@
 
     function ensureAllFeaturesSourceAndLayers() {
         const data = buildAllFeaturesCollection();
-        const beforeId = map.getLayer('lr-sel-fill') ? 'lr-sel-fill' : undefined;
+        const beforeId = SELECTION_LAYER_IDS.find(function (id) {
+            return map.getLayer(id);
+        });
         if (!map.getSource(SOURCE_ALL)) {
             map.addSource(SOURCE_ALL, {
                 type: 'geojson',
@@ -870,6 +978,8 @@
         } else {
             map.getSource(SOURCE_ALL).setData(data);
         }
+        moveSelectionLayersToTop();
+        syncSelectionExclusionFilters();
     }
 
     function syncMapFeatureLayers() {
@@ -952,10 +1062,12 @@
         syncMapFeatureLayers();
         updateZoomModalSubtitle();
         resizeMapSoon(function () {
-            zoomToAllFeatures();
-            if (largeLayer) {
-                loadMapViewport();
-            }
+            loadZoomFeatureList().then(function () {
+                zoomToAllFeatures();
+                if (largeLayer) {
+                    loadMapViewport();
+                }
+            });
         });
     }
 
@@ -963,6 +1075,7 @@
         if (!mapZoomOverlay || !mapInlineHome || !mapZoomOpen) {
             return;
         }
+        zoomFeatureListRequestId += 1;
         mapInlineHome.appendChild(mapEl);
         mapZoomOverlay.hidden = true;
         mapZoomOverlay.setAttribute('aria-hidden', 'true');
@@ -1035,74 +1148,64 @@
         }
     }
 
-    function ensureSelectionSourceAndLayers() {
-        if (map.getSource(SOURCE_SELECTION)) {
-            return;
-        }
+    function selectionFeatureGeoJson(fid, geometry) {
+        return {
+            type: 'Feature',
+            id: fid,
+            geometry: geometry,
+            properties: { upload_feature_id: fid },
+        };
+    }
+
+    function finishSelectionHighlightUpdate() {
+        moveSelectionLayersToTop();
+        syncSelectionExclusionFilters();
+    }
+
+    function addSelectionMapLayers() {
         map.addSource(SOURCE_SELECTION, {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [] },
+            promoteId: 'upload_feature_id',
         });
-
         map.addLayer({
             id: 'lr-sel-fill',
             type: 'fill',
             source: SOURCE_SELECTION,
             filter: GEOM_FILTER_POLY,
-            paint: {
-                'fill-color': '#0a0a0a',
-                'fill-opacity': 0.22,
-                'fill-outline-color': '#ffffff',
-            },
+            paint: SELECTION_FILL_PAINT,
         });
         map.addLayer({
-            id: 'lr-sel-line-halo',
+            id: 'lr-sel-line-casing',
             type: 'line',
             source: SOURCE_SELECTION,
             filter: GEOM_FILTER_LINE,
-            layout: { 'line-cap': 'round', 'line-join': 'round' },
-            paint: {
-                'line-color': '#ffffff',
-                'line-width': 12,
-                'line-opacity': 1,
-            },
+            layout: SELECTION_LINE_LAYOUT,
+            paint: SELECTION_LINE_PAINT.casing,
         });
         map.addLayer({
             id: 'lr-sel-line-core',
             type: 'line',
             source: SOURCE_SELECTION,
             filter: GEOM_FILTER_LINE,
-            layout: { 'line-cap': 'round', 'line-join': 'round' },
-            paint: {
-                'line-color': '#0a0a0a',
-                'line-width': 5,
-                'line-opacity': 1,
-            },
+            layout: SELECTION_LINE_LAYOUT,
+            paint: SELECTION_LINE_PAINT.core,
         });
         map.addLayer({
-            id: 'lr-sel-points-halo',
+            id: 'lr-sel-point',
             type: 'circle',
             source: SOURCE_SELECTION,
             filter: GEOM_FILTER_POINT,
-            paint: {
-                'circle-radius': 14,
-                'circle-color': '#ffffff',
-                'circle-opacity': 1,
-            },
+            paint: SELECTION_POINT_PAINT,
         });
-        map.addLayer({
-            id: 'lr-sel-points-core',
-            type: 'circle',
-            source: SOURCE_SELECTION,
-            filter: GEOM_FILTER_POINT,
-            paint: {
-                'circle-radius': 7,
-                'circle-color': '#0a0a0a',
-                'circle-stroke-width': 2,
-                'circle-stroke-color': '#ffffff',
-            },
-        });
-        applyOverlayThemeForBasemap(currentBasemapId);
+    }
+
+    function ensureSelectionSourceAndLayers() {
+        if (!map.getSource(SOURCE_SELECTION)) {
+            addSelectionMapLayers();
+            applyOverlayThemeForBasemap(currentBasemapId);
+        }
+        finishSelectionHighlightUpdate();
     }
 
     function setSelectionHighlight(fid) {
@@ -1113,20 +1216,16 @@
         }
         if (fid == null || fid < 0) {
             src.setData({ type: 'FeatureCollection', features: [] });
+            finishSelectionHighlightUpdate();
             return;
         }
         const g = featureGeomById[fid];
         if (g) {
             src.setData({
                 type: 'FeatureCollection',
-                features: [
-                    {
-                        type: 'Feature',
-                        geometry: g,
-                        properties: { upload_feature_id: fid },
-                    },
-                ],
+                features: [selectionFeatureGeoJson(fid, g)],
             });
+            finishSelectionHighlightUpdate();
             return;
         }
         ensureFeatureGeometry(fid).then(function (geom) {
@@ -1135,14 +1234,9 @@
             }
             src.setData({
                 type: 'FeatureCollection',
-                features: [
-                    {
-                        type: 'Feature',
-                        geometry: geom,
-                        properties: { upload_feature_id: fid },
-                    },
-                ],
+                features: [selectionFeatureGeoJson(fid, geom)],
             });
+            finishSelectionHighlightUpdate();
         });
     }
 
@@ -1192,6 +1286,8 @@
             });
         }
         bindFeatureLayerHandlers();
+        syncSelectionExclusionFilters();
+        moveSelectionLayersToTop();
 
         if (HAS_RIYADH_ROADS_TILES && map.getLayer(PUBLIC_LAYER_ID_RIYADH)) {
             const anchorId = UPLOAD_LAYER_IDS.find(function (id) {
@@ -1320,21 +1416,24 @@
         return card;
     }
 
-    function renderZoomFeaturePanel(feats, counts) {
+    function renderZoomFeaturePanel(feats) {
         if (!zoomFeatureList) {
             return;
         }
-        renderStatusCounts(counts);
-        renderZoomPanelFeatureCount(feats ? feats.length : 0);
+        const list = feats || [];
+        renderZoomPanelFeatureCount(list.length);
+        zoomFeatureList.classList.remove('lr-zoom-feature-list--loading');
         zoomFeatureList.innerHTML = '';
-        if (!feats.length) {
+        if (!list.length) {
             zoomFeatureList.innerHTML =
-                '<p class="lr-zoom-empty">No features in this upload.</p>';
+                '<p class="lr-zoom-empty">No features match the current filter.</p>';
             return;
         }
-        feats.forEach(function (f, idx) {
-            zoomFeatureList.appendChild(buildZoomFeatureCard(f, idx));
+        const fragment = document.createDocumentFragment();
+        list.forEach(function (f, idx) {
+            fragment.appendChild(buildZoomFeatureCard(f, idx));
         });
+        zoomFeatureList.appendChild(fragment);
     }
 
     function buildTableRow(f, displayIndex) {
@@ -1474,16 +1573,28 @@
         if (!feats.length) {
             tbody.innerHTML =
                 '<tr><td colspan="4" class="lr-empty">No roads match this filter on this page.</td></tr>';
-            renderZoomFeaturePanel([], payload.counts || {});
+        } else {
+            feats.forEach(function (f, idx) {
+                tbody.appendChild(buildTableRow(f, rowOffset + idx + 1));
+            });
+        }
+        afterTableRendered();
+    }
+
+    function afterTableRendered() {
+        if (mapZoomOpen) {
+            loadZoomFeatureList();
             return;
         }
-
-        feats.forEach(function (f, idx) {
-            tbody.appendChild(buildTableRow(f, rowOffset + idx + 1));
-        });
-
-        renderZoomFeaturePanel(feats, payload.counts || {});
         restoreFeatureSelection();
+    }
+
+    function reloadTableAndZoomPanel(page) {
+        return loadTablePage(page || currentPage).then(function () {
+            if (mapZoomOpen) {
+                return loadZoomFeatureList();
+            }
+        });
     }
 
     function initReviewData() {
@@ -1542,7 +1653,7 @@
         if (statusFilterEl) {
             statusFilterEl.addEventListener('change', function () {
                 statusFilter = statusFilterEl.value || '';
-                loadTablePage(1).catch(function () {
+                reloadTableAndZoomPanel(1).catch(function () {
                     window.notify.tryShow('Failed to load table.', 'error');
                 });
             });

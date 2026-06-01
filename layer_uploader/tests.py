@@ -390,6 +390,21 @@ class LayerReviewApiTests(TestCase):
         self.assertEqual(len(payload["features"]), 1)
         self.assertEqual(payload["features"][0]["id"], self.staged.pk)
 
+    def test_review_table_list_all_returns_every_row(self):
+        response = self.client.get(
+            reverse("layer_review_table", kwargs={"layer_id": self.layer.pk}),
+            {"list": "all"},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["pagination"]["list_all"])
+        self.assertEqual(payload["pagination"]["total"], 3)
+        self.assertEqual(len(payload["features"]), 3)
+        self.assertEqual(
+            {row["id"] for row in payload["features"]},
+            {self.staged.pk, self.nominated.pk, self.rejected.pk},
+        )
+
     def test_review_feature_detail_includes_geometry(self):
         response = self.client.get(
             reverse(
