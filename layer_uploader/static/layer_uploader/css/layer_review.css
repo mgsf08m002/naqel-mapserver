@@ -148,7 +148,7 @@
 
 @media (min-width: 1024px) {
   #layer-review-root .lr-body {
-    grid-template-columns: minmax(0, 1fr) 260px;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 300px);
     gap: 1.75rem;
   }
 }
@@ -184,7 +184,7 @@
 
 #layer-review-root .lr-stat-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0;
 }
 
@@ -192,24 +192,33 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 0.25rem;
-  padding: 1rem 0.5rem;
+  min-width: 0;
+  padding: 0.875rem 0.625rem;
   text-align: center;
   border-right: 1px solid var(--lr-border-light);
+  border-bottom: 1px solid var(--lr-border-light);
 }
 
-#layer-review-root .lr-stat:last-child {
+#layer-review-root .lr-stat:nth-child(2n) {
   border-right: 0;
+}
+
+#layer-review-root .lr-stat:nth-child(n + 3) {
+  border-bottom: 0;
 }
 
 #layer-review-root .lr-stat-label {
   font-size: 0.75rem;
   font-weight: 500;
+  line-height: 1.2;
   color: var(--lr-muted);
 }
 
 #layer-review-root .lr-stat-val {
-  font-size: 1.375rem;
+  max-width: 100%;
+  font-size: 1.25rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--lr-fg);
