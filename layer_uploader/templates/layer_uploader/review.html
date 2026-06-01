@@ -16,7 +16,6 @@
   data-geojson-url="{% url 'layer_review_geojson' layer.pk %}"
   data-table-url="{% url 'layer_review_table' layer.pk %}"
   data-action-url="{% url 'layer_review_action' layer.pk %}"
-  data-feature-count="{{ review_feature_count }}"
   data-page-size="{{ review_page_size }}"
   {% if review_large_layer %}data-large-layer="true"{% endif %}
   {% if can_submit %}data-submit-url="{% url 'layer_submit' layer.pk %}"{% endif %}
@@ -31,7 +30,8 @@
       <h1 class="lr-title">Review layer</h1>
       <p class="lr-layer-meta">
         Layer <strong>{{ layer.name }}</strong>
-        · <span id="lr-layer-feature-total">{{ review_feature_count|floatformat:0 }}</span> roads
+        · <span id="lr-layer-feature-new">{{ review_new_features|floatformat:0 }}</span> new
+        · <span id="lr-layer-feature-total">{{ review_total_features|floatformat:0 }}</span> total in upload
       </p>
       {% if review_large_layer %}
       <p class="lr-layer-hint">Large layer: the map loads roads in the current view; the table shows {{ review_page_size }} rows per page.</p>
@@ -92,6 +92,7 @@
             <colgroup>
               <col class="lr-col-num" />
               <col class="lr-col-status" />
+              <col class="lr-col-road-name" />
               <col class="lr-col-props" />
               <col class="lr-col-actions" />
             </colgroup>
@@ -99,13 +100,14 @@
               <tr>
                 <th scope="col">#</th>
                 <th scope="col">Status</th>
+                <th scope="col">Road name</th>
                 <th scope="col">Properties</th>
                 <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody id="review-feature-rows">
               <tr>
-                <td colspan="4" class="lr-empty">Loading…</td>
+                <td colspan="5" class="lr-empty">Loading…</td>
               </tr>
             </tbody>
           </table>
@@ -122,6 +124,10 @@
       <div class="lr-sidebar-card">
         <p class="lr-sidebar-card__head">Summary</p>
         <div class="lr-stat-grid" aria-live="polite">
+          <div class="lr-stat">
+            <span class="lr-stat-val" id="cnt-total">—</span>
+            <span class="lr-stat-label">Total</span>
+          </div>
           <div class="lr-stat">
             <span class="lr-stat-val" id="cnt-staged">—</span>
             <span class="lr-stat-label">New</span>

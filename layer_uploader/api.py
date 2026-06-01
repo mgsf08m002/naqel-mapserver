@@ -20,25 +20,7 @@ from .constants import (
 )
 from .models import Feature, Layer
 from .services import feature_counts_for_layer
-
-
-def property_entries(properties, max_rows: int = 24) -> list[dict[str, str]]:
-    if not properties or not isinstance(properties, dict):
-        return []
-    rows = []
-    for key in sorted(properties.keys(), key=lambda k: str(k).lower()):
-        if len(rows) >= max_rows:
-            break
-        val = properties[key]
-        if isinstance(val, (dict, list)):
-            try:
-                val_str = json.dumps(val, ensure_ascii=False)
-            except TypeError:
-                val_str = str(val)
-        else:
-            val_str = "" if val is None else str(val)
-        rows.append({"key": str(key), "value": val_str})
-    return rows
+from .shapefile_properties import extract_road_display_name, table_property_entries
 
 
 def feature_geometry_json(feature: Feature, *, simplify_tolerance: float = 0) -> dict:
@@ -55,7 +37,8 @@ def feature_row_dict(feature: Feature) -> dict:
     return {
         "id": feature.pk,
         "status": feature.status,
-        "property_entries": property_entries(
+        "road_name": extract_road_display_name(feature.properties),
+        "property_entries": table_property_entries(
             feature.properties, max_rows=FEATURE_PROPERTY_ROWS_TABLE
         ),
         "center": [cx, cy],
@@ -97,7 +80,12 @@ def parse_bbox_param(raw: str | None) -> tuple[float, float, float, float] | Non
     if len(parts) != 4:
         return None
     try:
-        xmin, ymin, xmax, ymax = (float(parts[0]), float(parts[1]), float(parts[2]), float(parts[3]))
+        xmin, ymin, xmax, ymax = (
+            float(parts[0]),
+            float(parts[1]),
+            float(parts[2]),
+            float(parts[3]),
+        )
     except ValueError:
         return None
     if xmin > xmax:
@@ -141,7 +129,7 @@ def parse_list_all_param(raw) -> bool:
 def paginate_queryset(qs: QuerySet, page: int, page_size: int) -> tuple[list, dict]:
     total = qs.count()
     total_pages = max(1, (total + page_size - 1) // page_size)
-    page = min(page, total_pages)
+    page = max(1, min(page, total_pages))
     offset = (page - 1) * page_size
     items = list(qs[offset : offset + page_size])
     return items, {
@@ -165,7 +153,7 @@ def table_payload(
     if status_filter:
         qs = qs.filter(status=status_filter)
 
-    total_all = features_qs.count()
+    total_in_upload = int(layer.total_features or features_qs.count())
     filtered_total = qs.count()
 
     if list_all:
@@ -192,8 +180,8 @@ def table_payload(
         "features": [feature_row_dict(f) for f in page_items],
         "pagination": pagination,
         "extent": extent,
-        "total_features": total_all,
-        "optimized": total_all > LARGE_LAYER_FEATURE_THRESHOLD,
+        "total_features": total_in_upload,
+        "optimized": features_qs.count() > LARGE_LAYER_FEATURE_THRESHOLD,
     }
 
 

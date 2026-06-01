@@ -14,6 +14,7 @@ from mapping.approval_categories import (
     UPLOAD_SHAPEFILE_FIELD_KEY,
 )
 from .models import Feature, Layer
+from .shapefile_properties import coerce_feature_properties, extract_road_display_name
 from .utils import _geometry_from_db_wkb, simplify_crs
 from . import api as review_api
 
@@ -368,15 +369,35 @@ class LayerReviewApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         payload = response.json()
+        self.assertEqual(payload["counts"]["total"], 3)
         self.assertEqual(payload["counts"]["staged"], 1)
         self.assertEqual(payload["counts"]["nominated"], 1)
         self.assertEqual(payload["counts"]["rejected_upload"], 1)
+        self.assertEqual(payload["total_features"], 3)
         self.assertEqual(payload["pagination"]["total"], 3)
         row_ids = {row["id"] for row in payload["features"]}
         self.assertEqual(row_ids, {self.staged.pk, self.nominated.pk, self.rejected.pk})
         rejected_row = next(r for r in payload["features"] if r["id"] == self.rejected.pk)
         self.assertEqual(rejected_row["status"], Feature.Status.REJECTED_UPLOAD)
+        self.assertEqual(rejected_row["road_name"], "rejected_road")
         self.assertNotIn("geometry", rejected_row)
+
+    def test_review_table_reads_json_string_properties(self):
+        encoded = Feature.objects.create(
+            layer=self.layer,
+            geom=GEOSGeometry("LINESTRING(46.71 24.74, 46.72 24.75)", srid=4326),
+            properties=json.dumps({"name": "Encoded Road", "highway": "tertiary"}),
+            status=Feature.Status.STAGED,
+            uploaded_by=self.user,
+        )
+        response = self.client.get(
+            reverse("layer_review_table", kwargs={"layer_id": self.layer.pk}),
+            {"status": Feature.Status.STAGED},
+        )
+        self.assertEqual(response.status_code, 200)
+        row = next(r for r in response.json()["features"] if r["id"] == encoded.pk)
+        self.assertEqual(row["road_name"], "Encoded Road")
+        self.assertTrue(any(e["key"] == "highway" for e in row["property_entries"]))
 
     def test_review_table_pagination_and_status_filter(self):
         response = self.client.get(
@@ -530,3 +551,48 @@ class GeometryLoadingTests(SimpleTestCase):
         self.assertIsInstance(geos_input, memoryview)
         self.assertEqual(geos_input.tobytes(), b"\x01\x02\x03\x04")
         self.assertEqual(result.srid, 3857)
+
+
+class RoadNameExtractionTests(SimpleTestCase):
+    def test_direct_name_field(self):
+        self.assertEqual(
+            extract_road_display_name({"name": "King Fahd Road"}),
+            "King Fahd Road",
+        )
+
+    def test_bilingual_from_osm_other_tags(self):
+        props = {
+            "name": "شارع أسماء بنت مالك",
+            "other_tags": (
+                '"name:ar"=>"شارع أسماء بنت مالك",'
+                '"name:en"=>"Asma Bint Malik Street","oneway"=>"yes"'
+            ),
+        }
+        self.assertEqual(
+            extract_road_display_name(props),
+            "Asma Bint Malik Street / شارع أسماء بنت مالك",
+        )
+
+    def test_arabic_only_name(self):
+        self.assertEqual(
+            extract_road_display_name({"name": "طريق الملك"}),
+            "طريق الملك",
+        )
+
+    def test_arabic_direct_with_english_in_other_tags(self):
+        props = {
+            "name": "طريق الأمير خالد بن بندر",
+            "other_tags": '"name:en"=>"Khaled Ibn Bandar Street","oneway"=>"yes"',
+        }
+        self.assertEqual(
+            extract_road_display_name(props),
+            "Khaled Ibn Bandar Street / طريق الأمير خالد بن بندر",
+        )
+
+    def test_json_string_properties(self):
+        props = json.dumps({"name": "Airport Road", "highway": "primary"})
+        self.assertEqual(extract_road_display_name(props), "Airport Road")
+        self.assertEqual(
+            coerce_feature_properties(props),
+            {"name": "Airport Road", "highway": "primary"},
+        )

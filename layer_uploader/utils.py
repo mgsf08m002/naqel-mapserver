@@ -8,7 +8,8 @@ from django.db import connections, transaction
 from psycopg2 import Binary, sql
 from psycopg2.extras import execute_values
 
-from .constants import SHAPEFILE_INSERT_BATCH_SIZE
+from .constants import ROAD_NETWORK_OVERLAP_TOLERANCE_M, SHAPEFILE_INSERT_BATCH_SIZE
+from .shapefile_properties import coerce_feature_properties
 
 
 class _SafeJsonEncoder(json.JSONEncoder):
@@ -212,8 +213,9 @@ def find_new_features_against_riyadh_roads(
 
             _flush_batch(cursor, quoted_temp_table, insert_batch)
 
-            # Find features that don't exist in the target table,
-            # transforming geometry to output_srid for storage in Feature model.
+            # Exclude upload features within ROAD_NETWORK_OVERLAP_TOLERANCE_M of the
+            # live network. Only non-overlapping rows are staged for review.
+            overlap_tolerance = sql.Literal(float(ROAD_NETWORK_OVERLAP_TOLERANCE_M))
             cursor.execute(
                 sql.SQL(
                     """
@@ -224,11 +226,12 @@ def find_new_features_against_riyadh_roads(
                         SELECT 1
                         FROM {target} r
                         WHERE s.geom && r.geom
-                          AND ST_Equals(s.geom, r.geom)
+                          AND ST_DWithin(s.geom, r.geom, {overlap_tolerance})
                     )
                     """
                 ).format(
                     output_srid=sql.Literal(output_srid),
+                    overlap_tolerance=overlap_tolerance,
                     temp=temp_table_identifier,
                     target=target_table_identifier,
                 )
@@ -236,7 +239,7 @@ def find_new_features_against_riyadh_roads(
 
             for row in cursor.fetchall():
                 wkb_data = row[0]
-                props = row[1] if row[1] else {}
+                props = coerce_feature_properties(row[1])
                 if wkb_data:
                     geom = _geometry_from_db_wkb(wkb_data, srid=output_srid)
                     new_features.append({

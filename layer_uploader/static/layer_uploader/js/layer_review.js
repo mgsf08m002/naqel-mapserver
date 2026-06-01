@@ -417,6 +417,7 @@
     const pageStatusEl = document.getElementById('lr-page-status');
     const statusFilterEl = document.getElementById('lr-status-filter');
     const layerTotalEl = document.getElementById('lr-layer-feature-total');
+    const layerNewEl = document.getElementById('lr-layer-feature-new');
 
     function reviewTileUrl(baseUrl) {
         if (!baseUrl) {
@@ -618,6 +619,7 @@
     }
 
     const STATUS_COUNT_IDS = {
+        total: ['cnt-total', 'lr-zoom-cnt-total'],
         staged: ['cnt-staged', 'lr-zoom-cnt-staged'],
         nominated: ['cnt-nominated', 'lr-zoom-cnt-nominated'],
         rejected_upload: ['cnt-rejected_upload', 'lr-zoom-cnt-rejected_upload'],
@@ -640,6 +642,17 @@
                 }
             });
         });
+    }
+
+    function updateReviewSummary(payload) {
+        const counts = payload.counts || {};
+        renderStatusCounts(counts);
+        if (payload.total_features != null && layerTotalEl) {
+            layerTotalEl.textContent = String(payload.total_features);
+        }
+        if (counts.staged != null && layerNewEl) {
+            layerNewEl.textContent = String(counts.staged);
+        }
     }
 
     function renderZoomPanelFeatureCount(count) {
@@ -683,9 +696,8 @@
                 if (requestId !== zoomFeatureListRequestId) {
                     return payload;
                 }
-                const counts = payload.counts || {};
                 const feats = payload.features || [];
-                renderStatusCounts(counts);
+                updateReviewSummary(payload);
                 renderZoomFeaturePanel(feats);
                 restoreFeatureSelection();
                 return payload;
@@ -1478,7 +1490,7 @@
 
         const props = document.createElement('div');
         props.className = 'lr-zoom-card-props';
-        props.innerHTML = renderPropertiesCell(f);
+        props.innerHTML = renderRoadNameCell(f) + renderPropertiesCell(f);
 
         card.appendChild(row);
         card.appendChild(props);
@@ -1520,6 +1532,10 @@
         tdSt.className = 'lr-td-status';
         tdSt.innerHTML = statusBadge(f.status);
 
+        const tdName = document.createElement('td');
+        tdName.className = 'lr-td-road-name';
+        tdName.innerHTML = renderRoadNameCell(f);
+
         const tdProps = document.createElement('td');
         tdProps.className = 'lr-td-props';
         tdProps.innerHTML = renderPropertiesCell(f);
@@ -1530,6 +1546,7 @@
 
         tr.appendChild(tdNum);
         tr.appendChild(tdSt);
+        tr.appendChild(tdName);
         tr.appendChild(tdProps);
         tr.appendChild(tdAct);
         applyFeatureStatusClasses(tr, f.status);
@@ -1596,6 +1613,14 @@
         return '<span class="lr-badge ' + cls + '">' + escapeHtml(String(label)) + '</span>';
     }
 
+    function renderRoadNameCell(f) {
+        const name = f.road_name != null ? String(f.road_name).trim() : '';
+        if (!name) {
+            return '<span class="lr-road-name lr-road-name--empty">Unnamed road</span>';
+        }
+        return '<span class="lr-road-name">' + escapeHtml(name) + '</span>';
+    }
+
     function renderPropertiesCell(f) {
         const entries = f.property_entries;
         if (!entries || !entries.length) {
@@ -1626,13 +1651,10 @@
         if (!tbody) {
             return;
         }
-        renderStatusCounts(payload.counts || {});
+        updateReviewSummary(payload);
 
         if (payload.extent) {
             layerExtent = payload.extent;
-        }
-        if (payload.total_features != null && layerTotalEl) {
-            layerTotalEl.textContent = String(payload.total_features);
         }
         updatePaginationUi(payload.pagination || null);
 
@@ -1643,7 +1665,7 @@
         tbody.innerHTML = '';
         if (!feats.length) {
             tbody.innerHTML =
-                '<tr><td colspan="4" class="lr-empty">No roads match this filter on this page.</td></tr>';
+                '<tr><td colspan="5" class="lr-empty">No roads match this filter on this page.</td></tr>';
         } else {
             feats.forEach(function (f, idx) {
                 tbody.appendChild(buildTableRow(f, rowOffset + idx + 1));

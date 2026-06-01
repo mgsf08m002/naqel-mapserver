@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -23,30 +22,17 @@ from mapping.riyadh_network import tiles_version_ms
 
 from .access import is_layer_upload_manager
 from .models import Feature, Layer
+from .shapefile_properties import (
+    _split_bilingual_label,
+    coerce_feature_properties,
+    pick_shapefile_property,
+    resolve_road_name_fields,
+)
 
 logger = logging.getLogger(__name__)
 
 RIYADH_CONNECTION = "riyadh_roads"
 TARGET_TABLE = "public.riyadh_roads"
-
-_PROPERTY_ALIASES: dict[str, tuple[str, ...]] = {
-    "name": ("name", "NAME", "Name", "road_name", "ROAD_NAME"),
-    "ref": ("ref", "REF", "Ref"),
-    "fclass": ("fclass", "FCLASS", "highway", "HIGHWAY", "class", "CLASS"),
-    "oneway": ("oneway", "ONEWAY", "ONE_WAY"),
-    "maxspeed": ("maxspeed", "MAXSPEED", "max_speed"),
-    "osm_id": ("osm_id", "OSM_ID", "osmid"),
-    "code": ("code", "CODE"),
-    "bridge": ("bridge", "BRIDGE"),
-    "tunnel": ("tunnel", "TUNNEL"),
-    "layer": ("layer", "LAYER", "z_layer", "Z_LAYER"),
-}
-
-_UPLOADER_REVIEW_COUNT_KEYS = (
-    Feature.Status.STAGED,
-    Feature.Status.NOMINATED,
-    Feature.Status.REJECTED_UPLOAD,
-)
 
 
 def _norm_str(value) -> str:
@@ -55,35 +41,25 @@ def _norm_str(value) -> str:
     return str(value).strip()
 
 
-def _pick_property(props: dict[str, Any], field: str):
-    if not props:
-        return None
-    for key in _PROPERTY_ALIASES.get(field, (field,)):
-        if key in props and props[key] not in (None, ""):
-            return props[key]
-        lower_map = {str(k).lower(): v for k, v in props.items()}
-        if key.lower() in lower_map and lower_map[key.lower()] not in (None, ""):
-            return lower_map[key.lower()]
-    return None
-
-
 def properties_to_road_fields(properties: dict[str, Any] | None) -> dict[str, Any]:
-    props = properties if isinstance(properties, dict) else {}
-    name = _norm_str(_pick_property(props, "name"))
-    fclass_raw = _pick_property(props, "fclass")
+    props = coerce_feature_properties(properties)
+    names = resolve_road_name_fields(props)
+    fclass_raw = pick_shapefile_property(props, "fclass")
     fclass = _norm_str(fclass_raw).lower() if fclass_raw is not None else ""
 
     fields: dict[str, Any] = {
-        "name": name,
-        "ref": _norm_str(_pick_property(props, "ref")),
+        "name": names["name"],
+        "name_en": names["name_en"],
+        "name_ar": names["name_ar"],
+        "ref": _norm_str(pick_shapefile_property(props, "ref")),
         "fclass": fclass,
-        "oneway": _norm_str(_pick_property(props, "oneway")),
-        "maxspeed": _pick_property(props, "maxspeed"),
-        "osm_id": _norm_str(_pick_property(props, "osm_id")),
-        "code": _pick_property(props, "code"),
-        "bridge": _norm_str(_pick_property(props, "bridge")),
-        "tunnel": _norm_str(_pick_property(props, "tunnel")),
-        "layer": _pick_property(props, "layer"),
+        "oneway": _norm_str(pick_shapefile_property(props, "oneway")),
+        "maxspeed": pick_shapefile_property(props, "maxspeed"),
+        "osm_id": _norm_str(pick_shapefile_property(props, "osm_id")),
+        "code": pick_shapefile_property(props, "code"),
+        "bridge": _norm_str(pick_shapefile_property(props, "bridge")),
+        "tunnel": _norm_str(pick_shapefile_property(props, "tunnel")),
+        "layer": pick_shapefile_property(props, "layer"),
         "road_closure": 0,
     }
 
@@ -94,23 +70,6 @@ def properties_to_road_fields(properties: dict[str, Any] | None) -> dict[str, An
         feature_type=label,
     )
     return fields
-
-
-def _derive_bilingual_label_values(label_text: str) -> tuple[str, str]:
-    raw_label = (label_text or "").strip()
-    if not raw_label:
-        return "", ""
-
-    arabic = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
-    latin = re.compile(r"[A-Za-z]")
-    has_ar = bool(arabic.search(raw_label))
-    has_latin = bool(latin.search(raw_label))
-
-    if has_ar and not has_latin:
-        return "", raw_label
-    if has_latin and not has_ar:
-        return raw_label, ""
-    return raw_label, ""
 
 
 def _geometry_to_wgs84_geojson(geom) -> dict:
@@ -199,7 +158,10 @@ def _insert_road_into_riyadh_roads(
     """Insert one road row; return the new ``id`` assigned in riyadh_roads."""
     line_geometry = normalize_geometry_json_for_roads(geometry_json)
     name = fields.get("name") or ""
-    name_en, name_ar = _derive_bilingual_label_values(name)
+    name_en = _norm_str(fields.get("name_en"))
+    name_ar = _norm_str(fields.get("name_ar"))
+    if not name_en and not name_ar:
+        name_en, name_ar = _split_bilingual_label(name)
 
     with transaction.atomic(using=RIYADH_CONNECTION):
         from mapping.models import RiyadhRoad
@@ -396,7 +358,12 @@ def submit_layer(layer: Layer, submitter: AbstractBaseUser) -> LayerSubmitResult
 
 
 def feature_counts_for_layer(layer: Layer) -> dict[str, int]:
-    counts = {key: 0 for key in _UPLOADER_REVIEW_COUNT_KEYS}
+    counts = {
+        "total": int(layer.total_features or 0),
+        Feature.Status.STAGED: 0,
+        Feature.Status.NOMINATED: 0,
+        Feature.Status.REJECTED_UPLOAD: 0,
+    }
     for row in layer.features.values("status").annotate(c=Count("pk")):
         if row["status"] in counts:
             counts[row["status"]] = row["c"]

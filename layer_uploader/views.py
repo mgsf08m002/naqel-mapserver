@@ -30,6 +30,7 @@ from .services import (
     submit_layer,
 )
 from .shapefile_io import collect_detected_shapefiles, extract_upload_to_temp, find_shapefile_path
+from .shapefile_properties import coerce_feature_properties
 from .utils import coerce_epsg, find_new_features_against_riyadh_roads, simplify_crs
 
 
@@ -101,7 +102,7 @@ def _bulk_create_staged_features(layer: Layer, user, features_data: list) -> Non
             Feature(
                 layer=layer,
                 geom=feat["geom"],
-                properties=feat["properties"],
+                properties=coerce_feature_properties(feat.get("properties")),
                 uploaded_by=user,
                 status=Feature.Status.STAGED,
             )

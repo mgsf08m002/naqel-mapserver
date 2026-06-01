@@ -184,7 +184,7 @@
 
 #layer-review-root .lr-stat-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 0;
 }
 
@@ -419,6 +419,7 @@
 
 #layer-review-root .lr-col-num { width: 2.75rem; }
 #layer-review-root .lr-col-status { width: 6.5rem; }
+#layer-review-root .lr-col-road-name { width: 14rem; }
 #layer-review-root .lr-col-props { width: auto; }
 #layer-review-root .lr-col-actions { width: 10.5rem; }
 
@@ -494,6 +495,31 @@
 #layer-review-root .lr-td-status {
   padding: 0.75rem 0.5rem 0.75rem 0;
   white-space: nowrap;
+}
+
+#layer-review-root .lr-td-road-name {
+  padding: 0.75rem 0.85rem;
+  min-width: 0;
+  max-width: 14rem;
+  word-break: break-word;
+}
+
+#layer-review-root .lr-road-name {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--lr-fg);
+  line-height: 1.35;
+}
+
+#layer-review-root .lr-road-name--empty {
+  font-weight: 500;
+  color: var(--lr-muted);
+  font-style: italic;
+}
+
+#layer-review-root .lr-zoom-card-props .lr-road-name {
+  margin-bottom: 0.35rem;
 }
 
 #layer-review-root .lr-td-props {

@@ -49,13 +49,14 @@ def upload_flow_context(request, **extra) -> dict:
 
 def review_page_context(request, layer: Layer) -> dict:
     """Layer review template context (tile URL / MapTiler key come from context processors)."""
-    feature_count = layer.features.count()
+    staged_count = layer.features.count()
     return {
         "base_template": resolve_base_template(request.user),
         "layer": layer,
         "can_submit": layer.status == Layer.Status.DRAFT,
         "is_manager_uploader": is_layer_upload_manager(request.user),
-        "review_feature_count": feature_count,
-        "review_large_layer": feature_count > LARGE_LAYER_FEATURE_THRESHOLD,
+        "review_total_features": int(layer.total_features or staged_count),
+        "review_new_features": int(layer.new_features or staged_count),
+        "review_large_layer": staged_count > LARGE_LAYER_FEATURE_THRESHOLD,
         "review_page_size": TABLE_PAGE_SIZE_DEFAULT,
     }
