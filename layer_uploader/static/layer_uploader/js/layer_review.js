@@ -124,11 +124,9 @@
     let zoomPanelOpen = true;
     let zoomFeatureListRequestId = 0;
 
-    /** Matches `--lr-zoom-panel-width` (24rem) plus map control margin. */
     const ZOOM_PANEL_MAP_PADDING_PX = 400;
     const ESRI_SATELLITE_BASEMAP_ID = 'esri-satellite';
     const DEFAULT_BASEMAP_MAX_ZOOM = 19;
-    /** Above source maxzoom so MapLibre upscales tiles instead of requesting blanks. */
     const BASEMAP_RASTER_LAYER_MAX_ZOOM = 22;
     const ZOOM_OVERVIEW_MAX_INLINE = 16;
     const ZOOM_OVERVIEW_MAX_MODAL = 15;
