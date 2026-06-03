@@ -1,0 +1,92 @@
+/* Draggable search icon + centered modal overlay (EN / AR). */
+.map-road-search {
+    position: absolute;
+    top: 1rem;
+    right: 0.75rem;
+    left: auto;
+    bottom: auto;
+    width: max-content;
+    pointer-events: none;
+}
+
+.map-road-search__toggle {
+    pointer-events: auto;
+    cursor: grab;
+    touch-action: none;
+}
+
+.map-road-search--above-overlay {
+    z-index: 56;
+}
+
+.map-road-search--dragging {
+    z-index: 60;
+}
+
+.map-road-search--dragging .map-road-search__toggle {
+    cursor: grabbing;
+}
+
+.map-road-search-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 55;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: rgba(15, 23, 42, 0.38);
+    pointer-events: auto;
+}
+
+.map-road-search-overlay.hidden {
+    display: none;
+}
+
+.map-road-search__panel {
+    width: min(20rem, 100%);
+    max-height: min(70vh, 24rem);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.map-road-search__results {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.map-road-search__result {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 0.6rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    color: #18181b;
+    transition: background 0.12s ease;
+}
+
+.map-road-search__result:hover,
+.map-road-search__result:focus-visible {
+    background: var(--naqel-selection-selected-bg, #ecfeff);
+    outline: none;
+}
+
+.map-road-search__result-primary {
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.map-road-search__result-secondary {
+    font-size: 0.6875rem;
+    color: #71717a;
+    line-height: 1.2;
+}

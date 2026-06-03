@@ -4636,8 +4636,11 @@
         } catch (eVis) {}
     }
 
-    function showRiyadhRoadAsLineFeature(lineFeatureData) {
+    function showRiyadhRoadAsLineFeature(lineFeatureData, options) {
         if (!lineFeatureData) return;
+
+        const opts = options || {};
+        const enterEditMode = opts.enterEditMode !== false;
 
         if (window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
             window.roadGeometryEdit.stop();
@@ -4661,7 +4664,7 @@
             updateCurrentFeatureLabel(featureLabel);
         } catch (e) {}
 
-        if (window.autoEnterEditModeOnRoadSelection) {
+        if (enterEditMode && window.autoEnterEditModeOnRoadSelection) {
             setTimeout(function() {
                 window.autoEnterEditModeOnRoadSelection();
             }, 0);

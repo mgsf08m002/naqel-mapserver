@@ -4,6 +4,7 @@
  * CSS only for markers and UI elements
  */
 @import url('road-selection.css');
+@import url('road-search.css');
 
 /* Map canvas: subtle feedback when hovering clickable roads (see map.js) */
 .maplibregl-canvas.map-road-hover {

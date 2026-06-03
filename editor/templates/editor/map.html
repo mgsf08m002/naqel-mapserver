@@ -53,6 +53,7 @@
             aria-label="Current longitude and latitude"
         ></div>
 
+        {% include 'mapping/includes/map_road_search.html' %}
         {% include 'mapping/includes/basemap_gallery.html' %}
         <div id="editToolbar" class="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 hidden max-w-[calc(100vw-1rem)]">
             <div class="flex flex-wrap items-center gap-2 bg-white rounded-lg shadow-lg border border-gray-200 px-3 py-2 justify-center">
@@ -187,6 +188,8 @@
 {% block extra_js %}
 <script src="{% static 'mapping/js/map-line-selection.js' %}"></script>
 <script src="{% static 'mapping/js/map.js' %}"></script>
+<script src="{% static 'mapping/js/map-road-select.js' %}"></script>
+<script src="{% static 'mapping/js/map-road-search.js' %}"></script>
 <script src="{% static 'mapping/js/geometry-normalize.js' %}"></script>
 <script src="{% static 'mapping/js/line-drawing.js' %}"></script>
 <script src="{% static 'mapping/js/road-geometry-edit.js' %}"></script>

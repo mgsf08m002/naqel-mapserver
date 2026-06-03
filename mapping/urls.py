@@ -11,6 +11,7 @@ urlpatterns = [
     ),
     path('api/save-line-edit/', views.save_line_edit_request, name='save_line_edit'),
     path('api/riyadh-road-labels/', views.riyadh_road_labels, name='riyadh_road_labels'),
+    path('api/riyadh-road-search/', views.riyadh_road_search, name='riyadh_road_search'),
     path('api/request/delete/', views.create_delete_request, name='create_delete_request'),
     path('api/riyadh-road/<int:road_gid>/', views.get_riyadh_road_details, name='get_riyadh_road_details'),
     path('api/pending-requests/', views.list_pending_requests, name='list_pending_requests'),

@@ -372,3 +372,51 @@ class ApprovalCategoryTests(TestCase):
             fields_data={"name": "New Label"},
         )
         self.assertEqual(req.request_category, "add_road_label")
+
+
+class RiyadhRoadSearchApiTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(
+            username="search_user",
+            email="search@example.com",
+            password="testpass123",
+        )
+        self.client = Client()
+        self.client.force_login(self.user)
+
+    def test_search_requires_minimum_query_length(self):
+        response = self.client.get(reverse("mapping:riyadh_road_search"), {"q": "a"})
+        self.assertEqual(response.status_code, 400)
+        payload = response.json()
+        self.assertFalse(payload["success"])
+
+    def test_search_requires_login(self):
+        anon = Client()
+        response = anon.get(reverse("mapping:riyadh_road_search"), {"q": "king"})
+        self.assertEqual(response.status_code, 302)
+
+    @patch("mapping.views.connections")
+    def test_search_returns_results(self, mock_connections):
+        geometry = json.dumps(
+            {"type": "LineString", "coordinates": [[46.7, 24.7], [46.71, 24.71]]}
+        )
+        cursor = MagicMock()
+        cursor.fetchall.return_value = [
+            (42, "King Fahd Road", "طريق الملك فهد", "King Fahd Road", geometry, 0),
+        ]
+        mock_connections.__getitem__.return_value.cursor.return_value.__enter__.return_value = (
+            cursor
+        )
+
+        response = self.client.get(reverse("mapping:riyadh_road_search"), {"q": "King"})
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(len(payload["results"]), 1)
+        self.assertEqual(payload["results"][0]["id"], 42)
+        self.assertEqual(payload["results"][0]["display_name"], "King Fahd Road")
+        self.assertEqual(payload["results"][0]["name_en"], "King Fahd Road")
+        self.assertEqual(payload["results"][0]["name_ar"], "طريق الملك فهد")
+        self.assertNotIn("query", payload)
+        self.assertEqual(payload["results"][0]["geometry"]["type"], "LineString")

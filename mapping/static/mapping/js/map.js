@@ -236,6 +236,9 @@ const map = new maplibregl.Map({
     },
 });
 
+/** MapLibre instance for other scripts. Do not use `window.map` — the #map div id shadows it. */
+window.naqelMaplibreMap = map;
+
 function setBasemapVisibility(targetId) {
     if (!map || !targetId) return;
 
@@ -1013,131 +1016,8 @@ map.on('load', () => {
                                     e.originalEvent.preventDefault();
                                 }
 
-                                // Update the highlight layer immediately so the
-                                // user sees which road is selected even before
-                                // the details API responds.
-                                if (typeof window.setRiyadhRoadSelectedId === 'function') {
-                                    window.setRiyadhRoadSelectedId(roadId);
-                                }
-                                if (typeof window.applyMapSidePanelOpen === 'function') {
-                                    window.applyMapSidePanelOpen(true);
-                                }
-
-                                const url = `/mapping/api/riyadh-road/${roadId}/`;
-                                const resp = await fetch(url, {
-                                    method: 'GET',
-                                    headers: { 'Content-Type': 'application/json' }
-                                });
-                                if (!resp.ok) return;
-
-                                const data = await resp.json();
-                                if (!data || !data.success || !data.road) return;
-
-                                // Tiles often include name/ref while the DB `name` column can be empty
-                                // for the same feature; prefer DB when set, otherwise use tile attributes.
-                                const fd = data.road.fields_data || {};
-                                const firstTileString = function () {
-                                    for (let i = 0; i < arguments.length; i++) {
-                                        const x = arguments[i];
-                                        if (x == null) {
-                                            continue;
-                                        }
-                                        const s = String(x).trim();
-                                        if (s !== '') {
-                                            return s;
-                                        }
-                                    }
-                                    return '';
-                                };
-                                const tName = firstTileString(
-                                    props.name,
-                                    props.Name,
-                                    props.NAME,
-                                );
-                                const tRef = firstTileString(props.ref, props.Ref, props.REF);
-                                if (!String(fd.name || '').trim() && tName) {
-                                    fd.name = tName;
-                                }
-                                if (!String(fd.ref || '').trim() && tRef) {
-                                    fd.ref = tRef;
-                                }
-                                data.road.fields_data = fd;
-                                const clientLabel =
-                                    data.road.current_feature_label || data.road.feature_type || '';
-                                let dbFclass = '';
-                                if (
-                                    typeof window.resolveRiyadhFclassForFeatureState === 'function' &&
-                                    clientLabel
-                                ) {
-                                    dbFclass = window.resolveRiyadhFclassForFeatureState(clientLabel) || '';
-                                }
-                                if (!dbFclass && fd.fclass != null) {
-                                    dbFclass = String(fd.fclass).trim();
-                                }
-                                if (dbFclass && typeof window.applyRiyadhRoadDbFclassFromDatabase === 'function') {
-                                    window.applyRiyadhRoadDbFclassFromDatabase(roadId, dbFclass);
-                                }
-                                const skipTags = {
-                                    name: true,
-                                    road_closure: true,
-                                    common_name: true,
-                                    multilingual_names: true
-                                };
-                                data.road.tags_data = [];
-                                Object.keys(fd).forEach(function (k) {
-                                    if (skipTags[k]) {
-                                        return;
-                                    }
-                                    const v = fd[k];
-                                    if (v === undefined || v === null || v === '') {
-                                        return;
-                                    }
-                                    data.road.tags_data.push({ key: k, value: String(v) });
-                                });
-
-                                try {
-                                    if (!window.riyadhRoadOriginalState) {
-                                        window.riyadhRoadOriginalState = {};
-                                    }
-                                    const originalLabel = data.road.current_feature_label || data.road.feature_type || 'Line';
-                                    window.riyadhRoadOriginalState[String(roadId)] = {
-                                        feature_label: originalLabel,
-                                        geometry: data.road.geometry
-                                            ? JSON.parse(JSON.stringify(data.road.geometry))
-                                            : null,
-                                        fields_data: fd && typeof fd === 'object'
-                                            ? JSON.parse(JSON.stringify(fd))
-                                            : {},
-                                        tags_data: Array.isArray(data.road.tags_data)
-                                            ? JSON.parse(JSON.stringify(data.road.tags_data))
-                                            : []
-                                    };
-                                    data.road._original_feature_label = originalLabel;
-                                } catch (e2) {}
-
-                                window.selectedRiyadhRoad = data.road;
-                                window.approvedLineBeingEdited = data.road;
-
-                                if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showRiyadhRoadAsLineFeature === 'function') {
-                                    window.lineDrawingHandler.showRiyadhRoadAsLineFeature(data.road);
-                                } else if (typeof window.showRiyadhRoadAsLineFeature === 'function') {
-                                    window.showRiyadhRoadAsLineFeature(data.road);
-                                }
-
-                                if (
-                                    window.__roadGeometryEditActiveId != null &&
-                                    window.roadGeometryEdit &&
-                                    typeof window.roadGeometryEdit.startFromRiyadhContext === 'function'
-                                ) {
-                                    setTimeout(function () {
-                                        try {
-                                            const editScreenEl = document.getElementById('editFeatureScreen');
-                                            if (editScreenEl && editScreenEl.getAttribute('data-geometry-readonly') === 'true') {
-                                                return;
-                                            }
-                                            window.roadGeometryEdit.startFromRiyadhContext();
-                                        } catch (e) {}
-                                    }, 0);
+                                if (typeof window.openRiyadhRoadById === 'function') {
+                                    await window.openRiyadhRoadById(roadId, props);
                                 }
                             } catch (err) {
                             }

@@ -131,6 +131,31 @@ def _get_riyadh_road_bilingual_names_by_gid(gid_value):
     return (row[0] or "").strip(), (row[1] or "").strip()
 
 
+RIYADH_ROAD_SEARCH_MIN_QUERY_LEN = 2
+RIYADH_ROAD_SEARCH_DEFAULT_LIMIT = 12
+RIYADH_ROAD_SEARCH_MAX_LIMIT = 20
+
+
+def _riyadh_road_display_name(name_en, name_ar, name=""):
+    """Preferred label for search results and UI (EN, then AR, then legacy name)."""
+    return (
+        (name_en or "").strip()
+        or (name_ar or "").strip()
+        or (name or "").strip()
+        or "Unnamed road"
+    )
+
+
+def _parse_riyadh_road_geometry_geojson(geometry_geojson):
+    if not geometry_geojson:
+        return None
+    try:
+        geometry = json.loads(geometry_geojson)
+    except Exception:
+        return None
+    return geometry if isinstance(geometry, dict) else None
+
+
 def _persist_riyadh_road_label_columns(road, label_text):
     """
     Persist editor Road Label to remote bilingual columns.
@@ -327,6 +352,106 @@ def riyadh_road_labels(request):
             "features": features,
         }
     )
+
+
+@login_required
+@require_http_methods(["GET"])
+def riyadh_road_search(request):
+    """
+    Find Riyadh roads by English (name_en / name) or Arabic (name_ar) labels.
+    Returns tile network id, display names, and WGS84 geometry for map zoom.
+    """
+    query = (request.GET.get("q") or "").strip()
+    if len(query) < RIYADH_ROAD_SEARCH_MIN_QUERY_LEN:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": (
+                    f"Enter at least {RIYADH_ROAD_SEARCH_MIN_QUERY_LEN} characters to search."
+                ),
+                "results": [],
+            },
+            status=400,
+        )
+
+    try:
+        limit = int(request.GET.get("limit", str(RIYADH_ROAD_SEARCH_DEFAULT_LIMIT)))
+    except (TypeError, ValueError):
+        limit = RIYADH_ROAD_SEARCH_DEFAULT_LIMIT
+    limit = max(1, min(limit, RIYADH_ROAD_SEARCH_MAX_LIMIT))
+
+    pattern = f"%{query}%"
+    prefix = f"{query}%"
+    query_lower = query.lower()
+
+    sql = """
+        SELECT
+            CAST(id AS BIGINT) AS road_id,
+            COALESCE(NULLIF(TRIM(name_en), ''), '') AS name_en,
+            COALESCE(NULLIF(TRIM(name_ar), ''), '') AS name_ar,
+            COALESCE(NULLIF(TRIM(name), ''), '') AS name,
+            ST_AsGeoJSON(
+                ST_Transform(ST_LineMerge(geom), 4326)
+            ) AS geometry_geojson,
+            CASE
+                WHEN LOWER(COALESCE(name_en, '')) = %s THEN 0
+                WHEN LOWER(COALESCE(name_ar, '')) = %s THEN 0
+                WHEN LOWER(COALESCE(name, '')) = %s THEN 0
+                WHEN COALESCE(name_en, '') ILIKE %s THEN 1
+                WHEN COALESCE(name_ar, '') ILIKE %s THEN 1
+                WHEN COALESCE(name, '') ILIKE %s THEN 1
+                ELSE 2
+            END AS rank_key
+        FROM public.riyadh_roads
+        WHERE
+            COALESCE(name_en, '') ILIKE %s
+            OR COALESCE(name_ar, '') ILIKE %s
+            OR COALESCE(name, '') ILIKE %s
+        ORDER BY rank_key,
+            length(COALESCE(NULLIF(TRIM(name_en), ''), NULLIF(TRIM(name_ar), ''), name, ''))
+        LIMIT %s
+    """
+
+    params = [
+        query_lower,
+        query_lower,
+        query_lower,
+        prefix,
+        prefix,
+        prefix,
+        pattern,
+        pattern,
+        pattern,
+        limit,
+    ]
+
+    results = []
+    try:
+        with connections["riyadh_roads"].cursor() as cursor:
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+
+        for road_id, name_en, name_ar, name, geometry_geojson, _rank in rows:
+            geometry = _parse_riyadh_road_geometry_geojson(geometry_geojson)
+            if road_id is None or geometry is None:
+                continue
+            results.append(
+                {
+                    "id": int(road_id),
+                    "name_en": name_en or "",
+                    "name_ar": name_ar or "",
+                    "display_name": _riyadh_road_display_name(name_en, name_ar, name),
+                    "geometry": geometry,
+                }
+            )
+    except Exception as exc:
+        logger.warning("Riyadh road search failed: %s", exc)
+        return JsonResponse(
+            {"success": False, "message": "Search is temporarily unavailable.", "results": []},
+            status=500,
+        )
+
+    return JsonResponse({"success": True, "results": results})
 
 
 def _geometry_looks_like_wgs84(geometry):

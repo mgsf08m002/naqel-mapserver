@@ -1,0 +1,43 @@
+{% if request.user.is_authenticated %}
+<div id="mapRoadSearch" class="map-road-search z-40">
+    <button
+        type="button"
+        id="mapRoadSearchToggle"
+        class="map-road-search__toggle inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white/95 text-gray-700 shadow-md backdrop-blur transition hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+        title="Drag to move · Click to search"
+        aria-label="Search road by name. Drag to reposition."
+        aria-expanded="false"
+        aria-controls="mapRoadSearchOverlay"
+    >
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z"></path>
+        </svg>
+    </button>
+</div>
+<div
+    id="mapRoadSearchOverlay"
+    class="map-road-search-overlay hidden"
+    aria-hidden="true"
+    role="presentation"
+>
+    <div
+        id="mapRoadSearchPanel"
+        class="map-road-search__panel rounded-xl border border-gray-200/80 bg-white/95 p-3 shadow-xl backdrop-blur"
+        role="search"
+        aria-label="Search road by name"
+    >
+        <label for="mapRoadSearchInput" class="sr-only">Search road by name in English or Arabic</label>
+        <input
+            type="search"
+            id="mapRoadSearchInput"
+            class="map-road-search__input w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-zinc-900"
+            placeholder="Road name (EN or AR)"
+            autocomplete="off"
+            enterkeyhint="search"
+            dir="auto"
+        />
+        <p id="mapRoadSearchStatus" class="map-road-search__status hidden px-1 pt-1.5 text-[11px] text-gray-500" aria-live="polite"></p>
+        <ul id="mapRoadSearchResults" class="map-road-search__results mt-1 max-h-48 overflow-y-auto"></ul>
+    </div>
+</div>
+{% endif %}
