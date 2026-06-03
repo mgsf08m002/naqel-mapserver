@@ -1,0 +1,10 @@
+/**
+ * Road/feature selection tokens (map + layer review UI).
+ * Keep in sync with mapping/static/mapping/js/map-line-selection.js
+ */
+:root {
+    --naqel-selection-core: #00e5ff;
+    --naqel-selection-soft: #06b6d4;
+    --naqel-selection-casing: #ffffff;
+    --naqel-selection-selected-bg: #ecfeff;
+}

@@ -418,10 +418,14 @@ map.on('load', () => {
             const LABEL_LAYER_ID_EN = 'riyadh-roads-label-en-layer';
             const LABEL_LAYER_ID_AR = 'riyadh-roads-label-ar-layer';
             const LABELS_SOURCE_ID = 'riyadh-roads-labels-source';
-            const MLS = typeof window.MapLineSelection !== 'undefined' ? window.MapLineSelection : null;
-            const OUTLINE_LAYER_ID = MLS ? MLS.RIYADH_OUTLINE_LAYER_ID : 'riyadh-roads-selected-outline-layer';
-            const RING_LAYER_ID = MLS ? MLS.RIYADH_RING_LAYER_ID : 'riyadh-roads-selected-ring-layer';
-            const SELECTED_LAYER_ID = MLS ? MLS.RIYADH_CORE_LAYER_ID : 'riyadh-roads-selected-layer';
+            const MLS = window.MapLineSelection;
+            if (!MLS) {
+                console.error('map.js requires mapping/js/map-line-selection.js before map.js');
+                return;
+            }
+            const OUTLINE_LAYER_ID = MLS.RIYADH_OUTLINE_LAYER_ID;
+            const RING_LAYER_ID = MLS.RIYADH_RING_LAYER_ID;
+            const SELECTED_LAYER_ID = MLS.RIYADH_CORE_LAYER_ID;
             const SOURCE_LAYER = 'riyadh_roads';
             const HOVER_NONE_ID = -999999;
             const ROAD_CLOSURE_ICON_LAYER_ID = 'riyadh-roads-closure-icons';
@@ -867,7 +871,7 @@ map.on('load', () => {
                         });
                     }
 
-                    // Selection casing (under symbology core): dark outline + light ring — shared across all roads.
+                    // Selection casing (under cyan core): white outline + soft cyan ring — shared across all roads.
                     if (!map.getLayer(OUTLINE_LAYER_ID)) {
                         map.addLayer({
                             id: OUTLINE_LAYER_ID,
@@ -880,10 +884,10 @@ map.on('load', () => {
                                 'line-join': 'round'
                             },
                             paint: {
-                                'line-color': MLS ? MLS.OUTLINE_COLOR : '#0f172a',
-                                'line-width': MLS ? MLS.riyadhTileOutlineWidthExpression(widthExpression) : ['+', widthExpression, 7],
-                                'line-opacity': MLS ? MLS.OUTLINE_OPACITY : 0.93,
-                                'line-blur': MLS ? MLS.OUTLINE_BLUR : 0.45
+                                'line-color': MLS.OUTLINE_COLOR,
+                                'line-width': MLS.riyadhTileOutlineWidthExpression(widthExpression),
+                                'line-opacity': MLS.OUTLINE_OPACITY,
+                                'line-blur': MLS.OUTLINE_BLUR,
                             }
                         });
                     }
@@ -899,15 +903,15 @@ map.on('load', () => {
                                 'line-join': 'round'
                             },
                             paint: {
-                                'line-color': MLS ? MLS.RING_COLOR : '#ffffff',
-                                'line-width': MLS ? MLS.riyadhTileRingWidthExpression(widthExpression) : ['+', widthExpression, 4],
-                                'line-opacity': MLS ? MLS.RING_OPACITY : 1,
-                                'line-blur': MLS ? MLS.RING_BLUR : 0
+                                'line-color': MLS.RING_COLOR,
+                                'line-width': MLS.riyadhTileRingWidthExpression(widthExpression),
+                                'line-opacity': MLS.RING_OPACITY,
+                                'line-blur': MLS.RING_BLUR,
                             }
                         });
                     }
 
-                    // Selected road core: same catalog expressions as STYLED_LAYER (fclass + db_fclass).
+                    // Selected road core: unified cyan highlight (not catalog symbology).
                     if (!map.getLayer(SELECTED_LAYER_ID)) {
                         map.addLayer({
                             id: SELECTED_LAYER_ID,
@@ -916,14 +920,14 @@ map.on('load', () => {
                             'source-layer': SOURCE_LAYER,
                             filter: ['==', ['get', 'id'], -1],
                             layout: {
-                                'line-cap': 'butt',
+                                'line-cap': 'round',
                                 'line-join': 'round'
                             },
                             paint: {
-                                'line-color': colorExpression,
+                                'line-color': MLS.CORE_COLOR,
                                 'line-width': widthExpression,
-                                'line-dasharray': dashExpression,
-                                'line-opacity': 1
+                                'line-dasharray': [1, 0],
+                                'line-opacity': MLS.GEOJSON_CORE_OPACITY,
                             }
                         });
 
@@ -1178,19 +1182,19 @@ map.on('load', () => {
                         if (map.getLayer(HOVER_LAYER_ID)) {
                             map.setPaintProperty(HOVER_LAYER_ID, 'line-width', ['+', widthExpression, 2]);
                         }
-                        applySymbologyPaintToLayer(SELECTED_LAYER_ID, colorExpression, widthExpression, dashExpression);
+                        MLS.applySelectedCoreLinePaint(map, SELECTED_LAYER_ID, widthExpression, [1, 0]);
                         if (map.getLayer(OUTLINE_LAYER_ID)) {
                             map.setPaintProperty(
                                 OUTLINE_LAYER_ID,
                                 'line-width',
-                                MLS ? MLS.riyadhTileOutlineWidthExpression(widthExpression) : ['+', widthExpression, 7]
+                                MLS.riyadhTileOutlineWidthExpression(widthExpression)
                             );
                         }
                         if (map.getLayer(RING_LAYER_ID)) {
                             map.setPaintProperty(
                                 RING_LAYER_ID,
                                 'line-width',
-                                MLS ? MLS.riyadhTileRingWidthExpression(widthExpression) : ['+', widthExpression, 4]
+                                MLS.riyadhTileRingWidthExpression(widthExpression)
                             );
                         }
                     } catch (e) {}

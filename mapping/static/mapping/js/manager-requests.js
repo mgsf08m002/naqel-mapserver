@@ -1102,10 +1102,10 @@
 
         const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
 
-        if (!window.MapLineSelection) {
+        var mls = window.MapLineSelection;
+        if (!mls) {
             return;
         }
-        var mls = window.MapLineSelection;
         var pair = mls.maplibreSelectionCasingPaintPair(
             style.lineWidth,
             lineDasharray,
@@ -1148,12 +1148,7 @@
                 id: layerId,
                 type: 'line',
                 source: sourceId,
-                paint: {
-                    'line-color': style.lineColor,
-                    'line-width': style.lineWidth,
-                    'line-opacity': 1,
-                    'line-dasharray': lineDasharray
-                }
+                paint: mls.geoJsonSelectionCorePaint(lineDasharray)
             });
         } catch (error) {}
     }

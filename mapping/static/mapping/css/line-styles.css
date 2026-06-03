@@ -3,6 +3,7 @@
  * MapLibre native layers handle line rendering
  * CSS only for markers and UI elements
  */
+@import url('road-selection.css');
 
 /* Map canvas: subtle feedback when hovering clickable roads (see map.js) */
 .maplibregl-canvas.map-road-hover {
@@ -228,7 +229,7 @@
 }
 
 .road-geometry-edit-hint__strip-line--fallback {
-    background: linear-gradient(90deg, #94a3b8, #64748b);
+    background: linear-gradient(90deg, var(--naqel-selection-core), var(--naqel-selection-soft));
     height: 4px;
     border-radius: 2px;
     opacity: 0.9;

@@ -1,22 +1,31 @@
 /**
- * Unified road/line selection on the map: dark outline + light ring under the symbology core.
- * Core keeps catalog color, width, and dash; casing adds a larger, high-contrast footprint.
+ * Road/line selection styling for MapLibre (map, layer review, approval preview).
+ * Cyan core + white outer casing + soft cyan ring on variable-width lines.
  */
 (function (global) {
     'use strict';
 
-    /** Extra width (px) on top of symbology core stroke — tuned for visibility without clutter. */
+    var CORE_COLOR = '#00E5FF';
+    var SOFT_COLOR = '#06B6D4';
+    var CASING_COLOR = '#ffffff';
+
     var RING_WIDTH_ADD = 4;
     var OUTLINE_WIDTH_ADD = 7;
 
-    var OUTLINE_COLOR = '#0f172a';
-    var RING_COLOR = '#ffffff';
+    var OUTLINE_COLOR = CASING_COLOR;
+    var RING_COLOR = SOFT_COLOR;
 
-    var OUTLINE_OPACITY = 0.93;
-    var RING_OPACITY = 1;
-    /** Slight blur softens the outer edge on raster basemaps. */
-    var OUTLINE_BLUR = 0.45;
+    var OUTLINE_OPACITY = 0.7;
+    var RING_OPACITY = 0.85;
+    var OUTLINE_BLUR = 0.2;
     var RING_BLUR = 0;
+
+    var GEOJSON_CASING_WIDTH = 10;
+    var GEOJSON_CORE_WIDTH = 5;
+    var GEOJSON_CASING_OPACITY = 0.7;
+    var GEOJSON_CORE_OPACITY = 0.9;
+
+    var SELECTION_LINE_LAYOUT = { 'line-cap': 'round', 'line-join': 'round' };
 
     var RIYADH_OUTLINE_LAYER_ID = 'riyadh-roads-selected-outline-layer';
     var RIYADH_RING_LAYER_ID = 'riyadh-roads-selected-ring-layer';
@@ -24,6 +33,7 @@
 
     var OVERLAY_OUTLINE_LAYER_ID = 'selected-road-overlay-outline';
     var OVERLAY_RING_LAYER_ID = 'selected-road-overlay-ring';
+    /** Visible selection core on GeoJSON overlay (legacy layer id). */
     var OVERLAY_GRADIENT_LAYER_ID = 'selected-road-overlay-gradient';
     var OVERLAY_LINE_LAYER_ID = 'selected-road-overlay-line';
 
@@ -34,7 +44,7 @@
     function casingWidthFromCore(coreWidth, addPx) {
         var w = Number(coreWidth);
         if (!Number.isFinite(w) || w <= 0) {
-            w = 3;
+            w = GEOJSON_CORE_WIDTH;
         }
         return w + addPx;
     }
@@ -47,32 +57,57 @@
         return ['+', widthExpression, RING_WIDTH_ADD];
     }
 
-    function defaultGeoJsonOutlinePaint() {
+    function geoJsonSelectionCasingPaint() {
         return {
             'line-color': OUTLINE_COLOR,
-            'line-width': casingWidthFromCore(4, OUTLINE_WIDTH_ADD),
-            'line-opacity': OUTLINE_OPACITY,
+            'line-width': GEOJSON_CASING_WIDTH,
+            'line-opacity': GEOJSON_CASING_OPACITY,
             'line-blur': OUTLINE_BLUR,
         };
     }
 
-    function defaultGeoJsonRingPaint() {
+    function geoJsonSelectionRingPaint() {
         return {
             'line-color': RING_COLOR,
-            'line-width': casingWidthFromCore(4, RING_WIDTH_ADD),
+            'line-width': casingWidthFromCore(GEOJSON_CORE_WIDTH, RING_WIDTH_ADD),
             'line-opacity': RING_OPACITY,
             'line-blur': RING_BLUR,
         };
     }
 
-    /**
-     * When dashOnlyOnCore is true, outline/ring use a solid stroke ([1, 0]) while the core stays dashed.
-     * Applying the same dasharray to all three layers mis-phases strokes at different widths (moiré, zebra).
-     */
+    function geoJsonSelectionCorePaint(lineDasharray) {
+        var dash = normalizeDash(lineDasharray);
+        return {
+            'line-color': CORE_COLOR,
+            'line-width': GEOJSON_CORE_WIDTH,
+            'line-opacity': GEOJSON_CORE_OPACITY,
+            'line-dasharray': dash,
+        };
+    }
+
+    function geoJsonSelectionFillPaint() {
+        return {
+            'fill-color': SOFT_COLOR,
+            'fill-opacity': 0.16,
+            'fill-outline-color': CORE_COLOR,
+        };
+    }
+
+    function geoJsonSelectionPointPaint() {
+        return {
+            'circle-radius': 9,
+            'circle-color': CORE_COLOR,
+            'circle-opacity': 0.92,
+            'circle-stroke-width': 2.5,
+            'circle-stroke-color': CASING_COLOR,
+            'circle-stroke-opacity': 0.85,
+        };
+    }
+
     function maplibreSelectionCasingPaintPair(coreLineWidth, lineDasharray, options) {
         options = options || {};
         var dash = normalizeDash(lineDasharray);
-        var w = Number(coreLineWidth) || 4;
+        var w = Number(coreLineWidth) || GEOJSON_CORE_WIDTH;
         var casingDash = dash;
         if (options.dashOnlyOnCore && dash.length >= 2 && dash[1] > 0) {
             casingDash = [1, 0];
@@ -95,30 +130,44 @@
         };
     }
 
+    function applyLinePaint(map, layerId, paint) {
+        if (!map || !layerId || !paint) {
+            return;
+        }
+        try {
+            if (!map.getLayer(layerId)) {
+                return;
+            }
+            Object.keys(paint).forEach(function (key) {
+                map.setPaintProperty(layerId, key, paint[key]);
+            });
+        } catch (e) {}
+    }
+
     function applyGeoJsonCasingFromCoreWidth(map, outlineLayerId, ringLayerId, coreLineWidth, lineDasharray, options) {
         if (!map) {
             return;
         }
         var pair = maplibreSelectionCasingPaintPair(coreLineWidth, lineDasharray, options);
-        try {
-            if (map.getLayer(outlineLayerId)) {
-                map.setPaintProperty(outlineLayerId, 'line-color', pair.outline['line-color']);
-                map.setPaintProperty(outlineLayerId, 'line-width', pair.outline['line-width']);
-                map.setPaintProperty(outlineLayerId, 'line-opacity', pair.outline['line-opacity']);
-                map.setPaintProperty(outlineLayerId, 'line-blur', pair.outline['line-blur']);
-                map.setPaintProperty(outlineLayerId, 'line-dasharray', pair.outline['line-dasharray']);
-            }
-            if (map.getLayer(ringLayerId)) {
-                map.setPaintProperty(ringLayerId, 'line-color', pair.ring['line-color']);
-                map.setPaintProperty(ringLayerId, 'line-width', pair.ring['line-width']);
-                map.setPaintProperty(ringLayerId, 'line-opacity', pair.ring['line-opacity']);
-                map.setPaintProperty(ringLayerId, 'line-blur', pair.ring['line-blur']);
-                map.setPaintProperty(ringLayerId, 'line-dasharray', pair.ring['line-dasharray']);
-            }
-        } catch (e) {}
+        applyLinePaint(map, outlineLayerId, pair.outline);
+        applyLinePaint(map, ringLayerId, pair.ring);
+    }
+
+    function applySelectedCoreLinePaint(map, layerId, widthExpression, lineDasharray) {
+        if (!map || !layerId) {
+            return;
+        }
+        var paint = geoJsonSelectionCorePaint(lineDasharray);
+        if (widthExpression !== undefined && widthExpression !== null) {
+            paint['line-width'] = widthExpression;
+        }
+        applyLinePaint(map, layerId, paint);
     }
 
     global.MapLineSelection = {
+        CORE_COLOR: CORE_COLOR,
+        SOFT_COLOR: SOFT_COLOR,
+        CASING_COLOR: CASING_COLOR,
         OUTLINE_COLOR: OUTLINE_COLOR,
         RING_COLOR: RING_COLOR,
         OUTLINE_WIDTH_ADD: OUTLINE_WIDTH_ADD,
@@ -127,22 +176,28 @@
         RING_OPACITY: RING_OPACITY,
         OUTLINE_BLUR: OUTLINE_BLUR,
         RING_BLUR: RING_BLUR,
-
+        GEOJSON_CASING_WIDTH: GEOJSON_CASING_WIDTH,
+        GEOJSON_CORE_WIDTH: GEOJSON_CORE_WIDTH,
+        GEOJSON_CORE_OPACITY: GEOJSON_CORE_OPACITY,
+        SELECTION_LINE_LAYOUT: SELECTION_LINE_LAYOUT,
         RIYADH_OUTLINE_LAYER_ID: RIYADH_OUTLINE_LAYER_ID,
         RIYADH_RING_LAYER_ID: RIYADH_RING_LAYER_ID,
         RIYADH_CORE_LAYER_ID: RIYADH_CORE_LAYER_ID,
-
         OVERLAY_OUTLINE_LAYER_ID: OVERLAY_OUTLINE_LAYER_ID,
         OVERLAY_RING_LAYER_ID: OVERLAY_RING_LAYER_ID,
         OVERLAY_GRADIENT_LAYER_ID: OVERLAY_GRADIENT_LAYER_ID,
         OVERLAY_LINE_LAYER_ID: OVERLAY_LINE_LAYER_ID,
-
         riyadhTileOutlineWidthExpression: riyadhTileOutlineWidthExpression,
         riyadhTileRingWidthExpression: riyadhTileRingWidthExpression,
         casingWidthFromCore: casingWidthFromCore,
         maplibreSelectionCasingPaintPair: maplibreSelectionCasingPaintPair,
         applyGeoJsonCasingFromCoreWidth: applyGeoJsonCasingFromCoreWidth,
-        defaultGeoJsonOutlinePaint: defaultGeoJsonOutlinePaint,
-        defaultGeoJsonRingPaint: defaultGeoJsonRingPaint,
+        applySelectedCoreLinePaint: applySelectedCoreLinePaint,
+        applyLinePaint: applyLinePaint,
+        geoJsonSelectionCasingPaint: geoJsonSelectionCasingPaint,
+        geoJsonSelectionRingPaint: geoJsonSelectionRingPaint,
+        geoJsonSelectionCorePaint: geoJsonSelectionCorePaint,
+        geoJsonSelectionFillPaint: geoJsonSelectionFillPaint,
+        geoJsonSelectionPointPaint: geoJsonSelectionPointPaint,
     };
 })(typeof window !== 'undefined' ? window : this);

@@ -5,7 +5,9 @@
 
 {% block layer_assets %}
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css" />
+<link rel="stylesheet" href="{% static 'mapping/css/road-selection.css' %}">
 <link rel="stylesheet" href="{% static 'layer_uploader/css/layer_review.css' %}">
+<script src="{% static 'mapping/js/map-line-selection.js' %}"></script>
 <script src="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js"></script>
 {% endblock %}
 

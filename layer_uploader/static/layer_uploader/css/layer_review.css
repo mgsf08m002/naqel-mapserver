@@ -8,10 +8,10 @@
   --lr-surface: #f9fafb;
   --lr-map-placeholder: #e5e7eb;
   --lr-hover: #f9fafb;
-  --lr-selected-bg: #ecfeff;
-  --lr-selected-bar: #06b6d4;
-  --lr-selection-accent: #06b6d4;
-  --lr-selection-accent-bright: #00e5ff;
+  --lr-selected-bg: var(--naqel-selection-selected-bg, #ecfeff);
+  --lr-selected-bar: var(--naqel-selection-soft, #06b6d4);
+  --lr-selection-accent: var(--naqel-selection-soft, #06b6d4);
+  --lr-selection-accent-bright: var(--naqel-selection-core, #00e5ff);
   --lr-radius: 0.75rem;
   background: #fff;
   color: var(--lr-fg);

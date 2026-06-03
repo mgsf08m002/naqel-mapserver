@@ -7,6 +7,10 @@
     if (!root || !mapEl || typeof maplibregl === 'undefined') {
         return;
     }
+    if (!window.MapLineSelection) {
+        console.error('layer_review.js requires mapping/js/map-line-selection.js');
+        return;
+    }
 
     const geojsonUrl = root.dataset.geojsonUrl;
     const tableUrl = root.dataset.tableUrl;
@@ -61,36 +65,14 @@
     /** Warm neutral road color (matches main map on imagery); works on Satellite, Streets, Outdoor. */
     const RIYADH_ROADS_LINE_COLOR = '#e3d1a3';
 
-    /** Selected feature on map: cyan stroke with a soft light casing (readable on imagery). */
-    const SELECTION_CYAN = '#00E5FF';
-    const SELECTION_CYAN_SOFT = '#06B6D4';
-    const SELECTION_LINE_LAYOUT = { 'line-cap': 'round', 'line-join': 'round' };
+    const MLS = window.MapLineSelection;
+    const SELECTION_LINE_LAYOUT = MLS.SELECTION_LINE_LAYOUT;
     const SELECTION_LINE_PAINT = {
-        casing: {
-            'line-color': '#ffffff',
-            'line-width': 10,
-            'line-opacity': 0.7,
-            'line-blur': 0.2,
-        },
-        core: {
-            'line-color': SELECTION_CYAN,
-            'line-width': 5,
-            'line-opacity': 0.9,
-        },
+        casing: MLS.geoJsonSelectionCasingPaint(),
+        core: MLS.geoJsonSelectionCorePaint([1, 0]),
     };
-    const SELECTION_FILL_PAINT = {
-        'fill-color': SELECTION_CYAN_SOFT,
-        'fill-opacity': 0.16,
-        'fill-outline-color': SELECTION_CYAN,
-    };
-    const SELECTION_POINT_PAINT = {
-        'circle-radius': 9,
-        'circle-color': SELECTION_CYAN,
-        'circle-opacity': 0.92,
-        'circle-stroke-width': 2.5,
-        'circle-stroke-color': '#ffffff',
-        'circle-stroke-opacity': 0.85,
-    };
+    const SELECTION_FILL_PAINT = MLS.geoJsonSelectionFillPaint();
+    const SELECTION_POINT_PAINT = MLS.geoJsonSelectionPointPaint();
 
     const SELECTION_LAYER_IDS = [
         'lr-sel-fill',

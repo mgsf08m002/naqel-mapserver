@@ -284,9 +284,9 @@
         var lineGeom = { type: 'LineString', coordinates: coords };
         var beforeId = null;
         try {
-            var mlsSel = typeof window.MapLineSelection !== 'undefined' ? window.MapLineSelection : null;
-            var overlayOutlineId = (mlsSel && mlsSel.OVERLAY_OUTLINE_LAYER_ID) || 'selected-road-overlay-outline';
-            var overlayLineId = (mlsSel && mlsSel.OVERLAY_LINE_LAYER_ID) || 'selected-road-overlay-line';
+            var mlsSel = window.MapLineSelection;
+            var overlayOutlineId = mlsSel ? mlsSel.OVERLAY_OUTLINE_LAYER_ID : null;
+            var overlayLineId = mlsSel ? mlsSel.OVERLAY_LINE_LAYER_ID : null;
             if (mapRef.getLayer(overlayOutlineId)) {
                 beforeId = overlayOutlineId;
             } else if (mapRef.getLayer(overlayLineId)) {

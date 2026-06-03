@@ -22,9 +22,8 @@
         multilingual_names: true
     };
 
-    /** Shared selection casing helpers; see map-line-selection.js */
     function mapLineSelection() {
-        return typeof window.MapLineSelection !== 'undefined' ? window.MapLineSelection : null;
+        return window.MapLineSelection;
     }
 
     function getCookie(name) {
@@ -391,16 +390,16 @@
     window.initMapSidePanelChrome = initMapSidePanelChrome;
 
     // Selected-feature overlay (GeoJSON): same selection chrome as tile roads / drawn lines.
+    const _MLS = mapLineSelection();
+    if (!_MLS) {
+        console.error('line-drawing.js requires mapping/js/map-line-selection.js before line-drawing.js');
+        return;
+    }
     const SELECTED_OVERLAY_SOURCE_ID = 'selected-road-overlay-v2';
-    const _MLS_OVERLAY = mapLineSelection();
-    const SELECTED_OVERLAY_OUTLINE_LAYER_ID =
-        (_MLS_OVERLAY && _MLS_OVERLAY.OVERLAY_OUTLINE_LAYER_ID) || 'selected-road-overlay-outline';
-    const SELECTED_OVERLAY_RING_LAYER_ID =
-        (_MLS_OVERLAY && _MLS_OVERLAY.OVERLAY_RING_LAYER_ID) || 'selected-road-overlay-ring';
-    const SELECTED_OVERLAY_GRADIENT_LAYER_ID =
-        (_MLS_OVERLAY && _MLS_OVERLAY.OVERLAY_GRADIENT_LAYER_ID) || 'selected-road-overlay-gradient';
-    const SELECTED_OVERLAY_LINE_LAYER_ID =
-        (_MLS_OVERLAY && _MLS_OVERLAY.OVERLAY_LINE_LAYER_ID) || 'selected-road-overlay-line';
+    const SELECTED_OVERLAY_OUTLINE_LAYER_ID = _MLS.OVERLAY_OUTLINE_LAYER_ID;
+    const SELECTED_OVERLAY_RING_LAYER_ID = _MLS.OVERLAY_RING_LAYER_ID;
+    const SELECTED_OVERLAY_GRADIENT_LAYER_ID = _MLS.OVERLAY_GRADIENT_LAYER_ID;
+    const SELECTED_OVERLAY_LINE_LAYER_ID = _MLS.OVERLAY_LINE_LAYER_ID;
 
     function ensureSelectedOverlayLayers() {
         if (typeof map === 'undefined' || !map) {
@@ -425,36 +424,24 @@
         }
 
         try {
+            const mls = mapLineSelection();
+            const selLayout = mls.SELECTION_LINE_LAYOUT;
             if (!map.getLayer(SELECTED_OVERLAY_OUTLINE_LAYER_ID)) {
-                const mls = mapLineSelection();
-                const op = mls ? mls.defaultGeoJsonOutlinePaint() : {
-                    'line-color': '#0f172a',
-                    'line-width': 11,
-                    'line-opacity': 0.93,
-                    'line-blur': 0.45,
-                };
                 map.addLayer({
                     id: SELECTED_OVERLAY_OUTLINE_LAYER_ID,
                     type: 'line',
                     source: SELECTED_OVERLAY_SOURCE_ID,
-                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: op,
+                    layout: selLayout,
+                    paint: mls.geoJsonSelectionCasingPaint(),
                 });
             }
             if (!map.getLayer(SELECTED_OVERLAY_RING_LAYER_ID)) {
-                const mls2 = mapLineSelection();
-                const rp = mls2 ? mls2.defaultGeoJsonRingPaint() : {
-                    'line-color': '#ffffff',
-                    'line-width': 8,
-                    'line-opacity': 1,
-                    'line-blur': 0,
-                };
                 map.addLayer({
                     id: SELECTED_OVERLAY_RING_LAYER_ID,
                     type: 'line',
                     source: SELECTED_OVERLAY_SOURCE_ID,
-                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: rp,
+                    layout: selLayout,
+                    paint: mls.geoJsonSelectionRingPaint(),
                 });
             }
             if (!map.getLayer(SELECTED_OVERLAY_GRADIENT_LAYER_ID)) {
@@ -462,12 +449,8 @@
                     id: SELECTED_OVERLAY_GRADIENT_LAYER_ID,
                     type: 'line',
                     source: SELECTED_OVERLAY_SOURCE_ID,
-                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: {
-                        'line-color': '#94a3b8',
-                        'line-width': 4,
-                        'line-opacity': 0.95,
-                    },
+                    layout: selLayout,
+                    paint: Object.assign({}, mls.geoJsonSelectionCorePaint([1, 0]), { 'line-opacity': 0 }),
                 });
             }
             if (!map.getLayer(SELECTED_OVERLAY_LINE_LAYER_ID)) {
@@ -475,13 +458,8 @@
                     id: SELECTED_OVERLAY_LINE_LAYER_ID,
                     type: 'line',
                     source: SELECTED_OVERLAY_SOURCE_ID,
-                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: {
-                        'line-color': '#ffffff',
-                        'line-width': 5,
-                        /* Hidden until applySelectedOverlaySymbologyPaint (avoids white core flash). */
-                        'line-opacity': 0,
-                    },
+                    layout: selLayout,
+                    paint: Object.assign({}, mls.geoJsonSelectionCorePaint([1, 0]), { 'line-opacity': 0 }),
                 });
             }
 
@@ -813,8 +791,9 @@
     /** SVG previews: stack outline → ring → core to match map selection (no blur glow). */
     function appendSvgLinePathsWithMapSelectionCasing(svg, pathData, style, svgDasharray, strokeScale) {
         const mls = mapLineSelection();
-        const oColor = (mls && mls.OUTLINE_COLOR) || '#0f172a';
-        const rColor = (mls && mls.RING_COLOR) || '#ffffff';
+        const oColor = mls.OUTLINE_COLOR;
+        const rColor = mls.RING_COLOR;
+        const coreColor = mls.CORE_COLOR;
         const oAdd = (mls && mls.OUTLINE_WIDTH_ADD != null) ? mls.OUTLINE_WIDTH_ADD : 7;
         const rAdd = (mls && mls.RING_WIDTH_ADD != null) ? mls.RING_WIDTH_ADD : 4;
         const oOp = (mls && mls.OUTLINE_OPACITY != null) ? mls.OUTLINE_OPACITY : 0.93;
@@ -842,7 +821,7 @@
 
         addPath(outlineW, oColor, oOp);
         addPath(ringW, rColor, rOp);
-        addPath(coreW, style.lineColor || '#52525b', 1);
+        addPath(coreW, coreColor, 1);
     }
 
     function renderPreviewPlaceholder(container, message) {
@@ -1822,9 +1801,7 @@
                 });
                 return;
             }
-            if (!mapLineSelection()) {
-                return;
-            }
+            const mls = mapLineSelection();
             const lineDasharray = getEffectiveDashArray(style);
             const casingOpts = getCasingOptionsForDash(lineDasharray);
             const drawnLineLayout = {
@@ -1844,11 +1821,8 @@
                         features: [feature]
                     });
 
-                    mapLineSelection().applyGeoJsonCasingFromCoreWidth(map, outlineLayerId, ringLayerId, style.lineWidth, lineDasharray, casingOpts);
-                    
-                    map.setPaintProperty(layerId, 'line-color', style.lineColor);
-                    map.setPaintProperty(layerId, 'line-width', style.lineWidth);
-                    map.setPaintProperty(layerId, 'line-dasharray', lineDasharray);
+                    mls.applyGeoJsonCasingFromCoreWidth(map, outlineLayerId, ringLayerId, style.lineWidth, lineDasharray, casingOpts);
+                    mls.applyLinePaint(map, layerId, mls.geoJsonSelectionCorePaint(lineDasharray));
                     [outlineLayerId, ringLayerId, layerId].forEach(function (lid) {
                         if (map.getLayer(lid)) {
                             try {
@@ -1890,35 +1864,27 @@
                 }
             });
             
-            (function () {
-                const pair = mapLineSelection().maplibreSelectionCasingPaintPair(style.lineWidth, lineDasharray, casingOpts);
-                map.addLayer({
-                    id: outlineLayerId,
-                    type: 'line',
-                    source: sourceId,
-                    layout: drawnLineLayout,
-                    paint: pair.outline,
-                });
-                map.addLayer({
-                    id: ringLayerId,
-                    type: 'line',
-                    source: sourceId,
-                    layout: drawnLineLayout,
-                    paint: pair.ring,
-                });
-            })();
-            
+            const pair = mls.maplibreSelectionCasingPaintPair(style.lineWidth, lineDasharray, casingOpts);
+            map.addLayer({
+                id: outlineLayerId,
+                type: 'line',
+                source: sourceId,
+                layout: drawnLineLayout,
+                paint: pair.outline,
+            });
+            map.addLayer({
+                id: ringLayerId,
+                type: 'line',
+                source: sourceId,
+                layout: drawnLineLayout,
+                paint: pair.ring,
+            });
             map.addLayer({
                 id: layerId,
                 type: 'line',
                 source: sourceId,
                 layout: drawnLineLayout,
-                paint: {
-                    'line-color': style.lineColor,
-                    'line-width': style.lineWidth,
-                    'line-opacity': 1,
-                    'line-dasharray': lineDasharray
-                }
+                paint: mls.geoJsonSelectionCorePaint(lineDasharray),
             });
             
             if (!map._drawnLineLayers) {
@@ -4225,26 +4191,6 @@
         });
     }
 
-    function mixHexTowardWhite(hex, amountTowardWhite) {
-        var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
-        if (!m) {
-            return '#f1f5f9';
-        }
-        var n = parseInt(m[1], 16);
-        var r = (n >> 16) & 255;
-        var g = (n >> 8) & 255;
-        var b = n & 255;
-        var t = Math.max(0, Math.min(1, amountTowardWhite));
-        r = Math.round(r + (255 - r) * t);
-        g = Math.round(g + (255 - g) * t);
-        b = Math.round(b + (255 - b) * t);
-        function h2(x) {
-            var h = x.toString(16);
-            return h.length === 1 ? '0' + h : h;
-        }
-        return '#' + h2(r) + h2(g) + h2(b);
-    }
-
     function applySelectedOverlaySymbologyPaint(featureLabel) {
         if (typeof map === 'undefined' || !map) {
             return;
@@ -4266,9 +4212,10 @@
                 ? closureCatalog.lineDasharray
                 : baseDasharray;
         const casingOpts = getCasingOptionsForDash(lineDasharray);
+        const mls = mapLineSelection();
         const w = Number(style.lineWidth) || 4;
-        const c = style.lineColor || '#52525b';
-        const coreW = Math.max(2, Math.min(8, w * 0.45));
+        const c = mls.CORE_COLOR;
+        const coreW = mls.GEOJSON_CORE_WIDTH;
         const coreLineW =
             isClosed && closureCatalog
                 ? Math.max(
@@ -4276,7 +4223,6 @@
                       baseCatalog ? Number(baseCatalog.lineWidth) || 0 : 0
                   )
                 : w;
-        const mls = mapLineSelection();
         const geomEditActive =
             typeof window.__roadGeometryEditActiveId !== 'undefined' &&
             window.__roadGeometryEditActiveId != null;
@@ -4325,7 +4271,7 @@
             }
             if (map.getLayer(SELECTED_OVERLAY_LINE_LAYER_ID)) {
                 if (geomEditActive) {
-                    map.setPaintProperty(SELECTED_OVERLAY_LINE_LAYER_ID, 'line-color', mixHexTowardWhite(c, 0.5));
+                    map.setPaintProperty(SELECTED_OVERLAY_LINE_LAYER_ID, 'line-color', c);
                     map.setPaintProperty(SELECTED_OVERLAY_LINE_LAYER_ID, 'line-width', coreW);
                     map.setPaintProperty(SELECTED_OVERLAY_LINE_LAYER_ID, 'line-opacity', 1);
                 } else {
