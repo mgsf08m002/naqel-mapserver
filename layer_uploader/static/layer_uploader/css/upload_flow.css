@@ -1,18 +1,50 @@
 /* Layer upload flow */
 
-.lu-validate-busy {
-  margin: 0 0 1rem;
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
-  line-height: 1.45;
-  color: #374151;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
+.lu-validate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: auto;
 }
 
-.lu-validate-busy.hidden {
+.lu-validate-overlay.hidden {
   display: none;
+}
+
+body.lu-validate-overlay-open {
+  overflow: hidden;
+}
+
+.lu-validate-overlay__panel {
+  max-width: 22rem;
+  text-align: center;
+  padding: 1.75rem 2rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(228, 228, 231, 0.9);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 24px 64px -24px rgba(0, 0, 0, 0.18);
+}
+
+.lu-validate-overlay__message {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #18181b;
+}
+
+.lu-validate-overlay__hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #52525b;
 }
 
 .lu-visually-hidden {
