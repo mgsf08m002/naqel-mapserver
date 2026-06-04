@@ -22,6 +22,7 @@ class UserProfile(models.Model):
     can_access_security = models.BooleanField(default=False)
     can_access_account_information = models.BooleanField(default=False)
     can_access_layer_uploader = models.BooleanField(default=False)
+    can_access_my_edits = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

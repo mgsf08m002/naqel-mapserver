@@ -101,6 +101,14 @@
                             <span class="flex-1">Security</span>
                         </a>
                         {% endif %}
+                        {% if user.is_superuser or user_profile.can_access_my_edits %}
+                        <a href="{% url 'editor:my_edits' %}" id="menu-my-edits" class="menu-item w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2.5">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                            </svg>
+                            <span class="flex-1">My Edits</span>
+                        </a>
+                        {% endif %}
                         {% if user_profile.can_access_layer_uploader %}
                         <a href="{% url 'upload' %}" id="menu-layer-uploader" class="menu-item w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2.5">
                             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,7 +117,7 @@
                             <span class="flex-1">Layer Uploader</span>
                         </a>
                         {% endif %}
-                        {% if user_profile.can_access_account_information or user_profile.can_access_security or user_profile.can_access_layer_uploader %}
+                        {% if user_profile.can_access_account_information or user_profile.can_access_security or user_profile.can_access_layer_uploader or user_profile.can_access_my_edits %}
                         <div class="border-t border-gray-100 my-1"></div>
                         {% endif %}
                         <form method="post" action="{% url 'auth:logout' %}">

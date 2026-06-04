@@ -1,0 +1,66 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'mapping/css/my-edits.css' %}">
+
+<div class="bg-white -mx-6 -my-6 px-6 py-10 min-h-[calc(100vh-64px)]" id="review-history-root"
+     data-api-url="{{ review_history_api_url }}"
+     data-map-url="{{ review_history_map_url }}">
+    <div class="max-w-5xl mx-auto space-y-8">
+        <header class="space-y-3">
+            <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
+                <span class="h-px w-6 bg-gray-300"></span>
+                <span>Manager</span>
+            </div>
+            <div class="flex flex-col gap-2">
+                <h1 class="text-3xl font-semibold text-gray-900">Review history</h1>
+                <p class="text-sm text-gray-600 max-w-2xl">Browse approved and rejected road edits submitted by editors and system admins. Open approved roads on the map.</p>
+            </div>
+        </header>
+
+        <div class="space-y-4">
+            <div>
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Scope</p>
+                <div class="inline-flex rounded-full border border-gray-200 bg-gray-50 p-0.5" id="review-history-scope" role="tablist" aria-label="Review scope">
+                    <button type="button" class="review-history-scope-btn is-active rounded-full px-4 py-1.5 text-xs font-semibold text-gray-800" data-scope="all">All team edits</button>
+                    <button type="button" class="review-history-scope-btn rounded-full px-4 py-1.5 text-xs font-semibold text-gray-600" data-scope="mine">My reviews</button>
+                </div>
+            </div>
+
+            <div>
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Status</p>
+                <div class="flex flex-wrap items-center gap-2" id="review-history-status-filters" role="tablist" aria-label="Filter by status">
+                    <button type="button" class="my-edits-filter-chip is-active" data-status="">All</button>
+                    <button type="button" class="my-edits-filter-chip" data-status="approved">Approved</button>
+                    <button type="button" class="my-edits-filter-chip" data-status="rejected">Rejected</button>
+                </div>
+            </div>
+
+            <div>
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Road type</p>
+                <div class="flex flex-wrap items-center gap-2" id="review-history-category-filters" role="tablist" aria-label="Filter by road type">
+                    <button type="button" class="my-edits-filter-chip is-active" data-category="">All</button>
+                    <button type="button" class="my-edits-filter-chip" data-category="new_road">New Road</button>
+                    <button type="button" class="my-edits-filter-chip" data-category="add_road_label">Add Label</button>
+                    <button type="button" class="my-edits-filter-chip" data-category="change_road_label">Change Label</button>
+                    <button type="button" class="my-edits-filter-chip" data-category="new_road_geometry">Geometry</button>
+                    <button type="button" class="my-edits-filter-chip" data-category="new_feature_type">Road Type</button>
+                    <button type="button" class="my-edits-filter-chip" data-category="delete_road">Delete Road</button>
+                    <button type="button" class="my-edits-filter-chip" data-category="layer_upload">Layer Upload</button>
+                    <button type="button" class="my-edits-filter-chip" data-category="road_attribute_edit">Attributes</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="review-history-loading" class="rounded-2xl border border-gray-200 bg-gray-50 px-6 py-12 text-center text-sm text-gray-500">
+            Loading review history…
+        </div>
+
+        <div id="review-history-empty" class="hidden rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 px-6 py-14 text-center">
+            <p class="text-sm font-semibold text-gray-800">No edits match these filters</p>
+            <p class="mt-1 text-xs text-gray-500 max-w-sm mx-auto">Try a different scope, status, or road type.</p>
+        </div>
+
+        <div id="review-history-list" class="hidden space-y-2" aria-live="polite"></div>
+    </div>
+</div>
+
+<script src="{% static 'mapping/js/manager-review-history.js' %}" defer></script>

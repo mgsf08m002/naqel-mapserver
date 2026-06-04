@@ -94,6 +94,11 @@ class LineEditRequest(models.Model):
         db_index=True,
         help_text='layer_uploader.Feature pk for layer_upload requests',
     )
+    published_road_id = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Tile/network id after approval (for map deep links)",
+    )
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

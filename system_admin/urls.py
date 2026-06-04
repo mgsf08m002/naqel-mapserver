@@ -15,6 +15,7 @@ urlpatterns = [
     path('permissions/', views.permissions_view, name='permissions'),
     path('permissions/grant/<int:user_id>/', views.grant_permission_view, name='grant_permission'),
     path('permissions/check/<int:user_id>/', views.check_permission_view, name='check_permission'),
+    path('my-edits/', views.my_edits_view, name='my_edits'),
     path('account-information/', views.account_information_view, name='account_information'),
     path('security/', views.security_view, name='security'),
     path('upload-profile-image/', views.upload_profile_image_view, name='upload_profile_image'),

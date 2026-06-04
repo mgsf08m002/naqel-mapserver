@@ -6,7 +6,15 @@ from django.contrib.gis.geos import GEOSGeometry
 from django.test import Client, RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
-from mapping.approval_categories import classify_approval_request, create_pending_road_edit_request
+from mapping.approval_api import (
+    serialize_manager_review_history_item,
+    serialize_my_edit_request_item,
+)
+from mapping.approval_categories import (
+    EDIT_TYPE_DELETE,
+    classify_approval_request,
+    create_pending_road_edit_request,
+)
 from mapping.models import LineEditRequest
 from mapping.riyadh_network import riyadh_tile_proxy_absolute_url, tiles_version_ms
 from system_admin.models import UserProfile
@@ -155,6 +163,35 @@ class DeleteRequestApiTests(TestCase):
         self.assertEqual(payload["deleted_road_id"], 108801)
         self.assertIsNotNone(payload.get("tiles_version"))
         apply_mock.assert_called_once()
+        edit_request.refresh_from_db()
+        self.assertEqual(edit_request.status, "approved")
+        self.assertIsNone(edit_request.published_road_id)
+        self.assertTrue(LineEditRequest.objects.filter(pk=edit_request.pk).exists())
+
+    @patch("mapping.views._apply_delete_to_base_network")
+    @patch("mapping.views._resolve_riyadh_road")
+    @patch("mapping.views._get_riyadh_road_geometry_wgs84")
+    def test_manager_auto_delete_keeps_history_row(
+        self, geom_mock, resolve_mock, apply_mock
+    ):
+        resolve_mock.return_value = object()
+        geom_mock.return_value = json.loads(self.geom.geojson)
+
+        response = self.client.post(
+            reverse("mapping:create_delete_request"),
+            data=json.dumps(
+                {
+                    "target_type": "riyadh_road",
+                    "target_id": 108801,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        req = LineEditRequest.objects.get()
+        self.assertEqual(req.status, "approved")
+        self.assertIsNone(req.published_road_id)
 
 
 class ApprovalCategoryTests(TestCase):
@@ -420,3 +457,347 @@ class RiyadhRoadSearchApiTests(TestCase):
         self.assertEqual(payload["results"][0]["name_ar"], "طريق الملك فهد")
         self.assertNotIn("query", payload)
         self.assertEqual(payload["results"][0]["geometry"]["type"], "LineString")
+
+
+class MyEditsApiTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.editor = user_model.objects.create_user(
+            username="edits_editor",
+            email="edits_editor@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=self.editor,
+            role="editor",
+            password_setup_completed=True,
+            can_access_my_edits=True,
+        )
+        self.denied_editor = user_model.objects.create_user(
+            username="edits_denied",
+            email="edits_denied@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=self.denied_editor,
+            role="editor",
+            password_setup_completed=True,
+            can_access_my_edits=False,
+        )
+        self.manager = user_model.objects.create_user(
+            username="edits_mgr",
+            email="edits_mgr@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=self.manager,
+            role="manager",
+            password_setup_completed=True,
+            can_access_my_edits=True,
+        )
+        self.client = Client()
+        self.geom = {"type": "LineString", "coordinates": [[46.68, 24.71], [46.69, 24.72]]}
+
+    def test_list_requires_my_edits_permission(self):
+        self.client.force_login(self.denied_editor)
+        response = self.client.get(reverse("mapping:list_my_edit_requests"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_list_returns_only_requester_rows(self):
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="pending",
+            request_category="new_road",
+            current_feature_label="Primary Road",
+            fields_data={"name": "Test Rd"},
+        )
+        LineEditRequest.objects.create(
+            requester=self.manager,
+            geometry=self.geom,
+            status="approved",
+            request_category="new_road_geometry",
+            published_road_id=42,
+            reviewed_by=self.manager,
+            is_riyadh_road=True,
+            riyadh_road_id=42,
+        )
+
+        self.client.force_login(self.editor)
+        response = self.client.get(reverse("mapping:list_my_edit_requests"))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(len(payload["requests"]), 1)
+        self.assertEqual(payload["requests"][0]["status"], "pending")
+
+    def test_my_edits_category_filter(self):
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="approved",
+            request_category="layer_upload",
+            reviewed_by=self.manager,
+            fields_data={"layer_name": "roads.zip"},
+        )
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="pending",
+            request_category="new_road",
+        )
+        self.client.force_login(self.editor)
+        response = self.client.get(
+            reverse("mapping:list_my_edit_requests"),
+            {"category": "layer_upload"},
+        )
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(len(payload["requests"]), 1)
+        self.assertEqual(payload["requests"][0]["request_category"], "layer_upload")
+
+    def test_serialize_approved_non_delete_can_open_map(self):
+        user_model = get_user_model()
+        reviewer = user_model.objects.create_user(
+            username="rev_user",
+            email="rev@example.com",
+            password="testpass123",
+        )
+        req = LineEditRequest.objects.create(
+            requester=self.editor,
+            status="approved",
+            request_category="new_road_geometry",
+            published_road_id=108801,
+            is_riyadh_road=True,
+            riyadh_road_id=108801,
+            geometry=self.geom,
+            reviewed_by=reviewer,
+        )
+        item = serialize_my_edit_request_item(req)
+        self.assertTrue(item["can_open_on_map"])
+        self.assertEqual(item["map_road_id"], 108801)
+        self.assertEqual(item["reviewer"]["username"], "rev_user")
+
+    def test_serialize_approved_delete_cannot_open_map(self):
+        req = LineEditRequest.objects.create(
+            requester=self.editor,
+            status="approved",
+            edit_type=EDIT_TYPE_DELETE,
+            request_category="delete_road",
+            geometry=self.geom,
+            is_riyadh_road=True,
+            riyadh_road_id=99,
+        )
+        item = serialize_my_edit_request_item(req)
+        self.assertFalse(item["can_open_on_map"])
+        self.assertIsNone(item["map_road_id"])
+
+    @patch("mapping.views._apply_riyadh_edit_to_base_network")
+    @patch("mapping.views._resolve_riyadh_road")
+    def test_approve_riyadh_edit_retains_row_with_published_id(
+        self, resolve_mock, apply_mock
+    ):
+        resolve_mock.return_value = object()
+        edit_request = LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="pending",
+            is_riyadh_road=True,
+            riyadh_road_id=555,
+            current_feature_label="Motorway",
+            fields_data={"name": "Main", "fclass": "motorway"},
+        )
+        self.client.force_login(self.manager)
+        response = self.client.post(
+            reverse(
+                "mapping:approve_request",
+                kwargs={"request_id": edit_request.pk},
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+        edit_request.refresh_from_db()
+        self.assertEqual(edit_request.status, "approved")
+        self.assertEqual(edit_request.published_road_id, 555)
+        self.assertEqual(edit_request.reviewed_by_id, self.manager.pk)
+
+
+class ManagerReviewHistoryApiTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.editor = user_model.objects.create_user(
+            username="rh_editor",
+            email="rh_editor@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=self.editor,
+            role="editor",
+            password_setup_completed=True,
+        )
+        self.manager = user_model.objects.create_user(
+            username="rh_mgr",
+            email="rh_mgr@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=self.manager,
+            role="manager",
+            password_setup_completed=True,
+        )
+        self.other_manager = user_model.objects.create_user(
+            username="rh_mgr2",
+            email="rh_mgr2@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=self.other_manager,
+            role="manager",
+            password_setup_completed=True,
+        )
+        self.client = Client()
+        self.geom = {"type": "LineString", "coordinates": [[46.68, 24.71], [46.69, 24.72]]}
+
+    def test_non_manager_forbidden(self):
+        self.client.force_login(self.editor)
+        response = self.client.get(reverse("mapping:list_manager_review_history"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_excludes_manager_requester_rows(self):
+        LineEditRequest.objects.create(
+            requester=self.manager,
+            geometry=self.geom,
+            status="approved",
+            request_category="new_road",
+            reviewed_by=self.manager,
+        )
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="approved",
+            request_category="new_road",
+            reviewed_by=self.manager,
+        )
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse("mapping:list_manager_review_history"))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(len(payload["requests"]), 1)
+        self.assertEqual(payload["requests"][0]["requester"]["username"], "rh_editor")
+
+    def test_includes_superuser_requester_rows(self):
+        user_model = get_user_model()
+        admin = user_model.objects.create_user(
+            username="rh_admin",
+            email="rh_admin@example.com",
+            password="testpass123",
+            is_superuser=True,
+        )
+        UserProfile.objects.create(user=admin, role=None)
+        LineEditRequest.objects.create(
+            requester=admin,
+            geometry=self.geom,
+            status="approved",
+            request_category="new_road_geometry",
+            geometry_changed=True,
+            reviewed_by=self.manager,
+            published_road_id=108799,
+        )
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse("mapping:list_manager_review_history"))
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        usernames = [r["requester"]["username"] for r in payload["requests"]]
+        self.assertIn("rh_admin", usernames)
+
+    def test_scope_mine_filters_by_reviewer(self):
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="approved",
+            request_category="new_road",
+            reviewed_by=self.manager,
+        )
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="rejected",
+            request_category="delete_road",
+            reviewed_by=self.other_manager,
+        )
+        self.client.force_login(self.manager)
+        response = self.client.get(
+            reverse("mapping:list_manager_review_history"),
+            {"scope": "mine"},
+        )
+        payload = response.json()
+        self.assertEqual(len(payload["requests"]), 1)
+        self.assertEqual(payload["requests"][0]["status"], "approved")
+
+    def test_status_filter(self):
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="approved",
+            request_category="new_road",
+            reviewed_by=self.manager,
+        )
+        rejected_row = LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="rejected",
+            request_category="new_road_geometry",
+            reviewed_by=self.manager,
+            fields_data={"name": "StatusFilterMarker"},
+        )
+        self.client.force_login(self.manager)
+        response = self.client.get(
+            reverse("mapping:list_manager_review_history"),
+            {"status": "rejected"},
+        )
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertTrue(all(r["status"] == "rejected" for r in payload["requests"]))
+        ids = [r["id"] for r in payload["requests"]]
+        self.assertIn(rejected_row.id, ids)
+
+    def test_category_filter(self):
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="approved",
+            request_category="layer_upload",
+            reviewed_by=self.manager,
+            fields_data={"layer_name": "batch.zip"},
+        )
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="approved",
+            request_category="new_road",
+            reviewed_by=self.manager,
+        )
+        self.client.force_login(self.manager)
+        response = self.client.get(
+            reverse("mapping:list_manager_review_history"),
+            {"category": "layer_upload"},
+        )
+        payload = response.json()
+        self.assertEqual(len(payload["requests"]), 1)
+        self.assertEqual(payload["requests"][0]["request_category"], "layer_upload")
+
+    def test_serializer_includes_requester_and_map_link(self):
+        req = LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="approved",
+            request_category="new_road_geometry",
+            published_road_id=42,
+            is_riyadh_road=True,
+            riyadh_road_id=42,
+            reviewed_by=self.manager,
+        )
+        item = serialize_manager_review_history_item(req)
+        self.assertEqual(item["requester"]["username"], "rh_editor")
+        self.assertTrue(item["can_open_on_map"])
+        self.assertEqual(item["map_road_id"], 42)

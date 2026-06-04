@@ -5,8 +5,11 @@ from __future__ import annotations
 from .approval_categories import (
     UPLOAD_SHAPEFILE_FIELD_KEY,
     category_label_for_key,
+    is_delete_road_request,
     resolve_request_category_key,
 )
+
+MY_EDITS_LIST_LIMIT = 200
 
 
 def _shapefile_name_from_request(req) -> str | None:
@@ -81,3 +84,54 @@ def serialize_approval_request_detail(
     if shapefile:
         payload["shapefile_name"] = shapefile
     return payload
+
+
+def _road_name_from_request(req) -> str:
+    fields = req.fields_data if isinstance(req.fields_data, dict) else {}
+    name = (fields.get("name") or "").strip()
+    if name:
+        return name
+    return req.current_feature_label or "Unnamed Road"
+
+
+def serialize_my_edit_request_item(req, *, road=None) -> dict:
+    category_key = resolve_request_category_key(req, road=road)
+    reviewer = None
+    if req.reviewed_by_id and req.reviewed_by:
+        reviewer = {
+            "name": req.reviewed_by.get_full_name() or req.reviewed_by.username,
+            "username": req.reviewed_by.username,
+        }
+    can_open = (
+        req.status == "approved"
+        and not is_delete_road_request(req)
+        and req.published_road_id is not None
+    )
+    item = {
+        "id": req.id,
+        "status": req.status,
+        "request_category": category_key,
+        "request_category_label": category_label_for_key(category_key),
+        "current_feature_label": req.current_feature_label or "Unnamed Road",
+        "road_name": _road_name_from_request(req),
+        "created_at": req.created_at.isoformat(),
+        "reviewed_at": req.reviewed_at.isoformat() if req.reviewed_at else None,
+        "reviewer": reviewer,
+        "can_open_on_map": can_open,
+        "map_road_id": req.published_road_id if can_open else None,
+    }
+    shapefile = _shapefile_name_from_request(req)
+    if shapefile:
+        item["shapefile_name"] = shapefile
+    return item
+
+
+def serialize_manager_review_history_item(req, *, road=None) -> dict:
+    item = serialize_my_edit_request_item(req, road=road)
+    requester = req.requester
+    item["requester"] = {
+        "name": requester.get_full_name() or requester.username,
+        "username": requester.username,
+        "role": req.get_requester_role(),
+    }
+    return item

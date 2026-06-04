@@ -5,6 +5,7 @@ from django.contrib.auth import logout
 from django.urls import reverse
 from django.http import JsonResponse
 from system_admin.models import UserProfile
+from mapping.presentation import enforce_my_edits_access, my_edits_page_context
 
 
 @login_required(login_url='/login/')
@@ -186,3 +187,18 @@ def remove_profile_image_view(request):
         'message': 'Invalid request',
         'notification': {'message': 'Invalid request', 'type': 'error'}
     }, status=400)
+
+
+@login_required(login_url='/login/')
+def my_edits_view(request):
+    """My Edits history for the editor."""
+    if not hasattr(request.user, "profile") or request.user.profile.role != "editor":
+        logout(request)
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
+
+    denied = enforce_my_edits_access(request)
+    if denied:
+        return denied
+
+    context = my_edits_page_context(request.user)
+    return render(request, "editor/my_edits.html", context)

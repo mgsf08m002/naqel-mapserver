@@ -10,6 +10,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from .models import UserProfile
+from mapping.presentation import enforce_my_edits_access, my_edits_page_context
 import json
 
 
@@ -208,17 +209,20 @@ def add_user_view(request):
                     can_access_security = request.POST.get('can_access_security') == 'on'
                     can_access_account_information = request.POST.get('can_access_account_information') == 'on'
                     can_access_layer_uploader = request.POST.get('can_access_layer_uploader') == 'on'
+                    can_access_my_edits = request.POST.get('can_access_my_edits') == 'on'
                 # For editors, read the selected permission flags.
                 elif role == 'editor':
                     can_access_dashboard = False  # Editors never receive dashboard access.
                     can_access_security = request.POST.get('can_access_security') == 'on'
                     can_access_account_information = request.POST.get('can_access_account_information') == 'on'
                     can_access_layer_uploader = request.POST.get('can_access_layer_uploader') == 'on'
+                    can_access_my_edits = request.POST.get('can_access_my_edits') == 'on'
                 else:
                     can_access_dashboard = False
                     can_access_security = False
                     can_access_account_information = False
                     can_access_layer_uploader = False
+                    can_access_my_edits = False
                 
                 # Create the base Django user.
                 user = User.objects.create_user(
@@ -238,6 +242,7 @@ def add_user_view(request):
                     can_access_security=can_access_security,
                     can_access_account_information=can_access_account_information,
                     can_access_layer_uploader=can_access_layer_uploader,
+                    can_access_my_edits=can_access_my_edits,
                 )
                 profile.set_account_creation_datetime()
                 
@@ -728,11 +733,13 @@ def grant_permission_view(request, user_id):
                     profile.can_access_security = request.POST.get('can_access_security') == 'on'
                     profile.can_access_account_information = request.POST.get('can_access_account_information') == 'on'
                     profile.can_access_layer_uploader = request.POST.get('can_access_layer_uploader') == 'on'
+                    profile.can_access_my_edits = request.POST.get('can_access_my_edits') == 'on'
                 elif role == 'editor':
                     profile.can_access_dashboard = False
                     profile.can_access_security = request.POST.get('can_access_security') == 'on'
                     profile.can_access_account_information = request.POST.get('can_access_account_information') == 'on'
                     profile.can_access_layer_uploader = request.POST.get('can_access_layer_uploader') == 'on'
+                    profile.can_access_my_edits = request.POST.get('can_access_my_edits') == 'on'
                 
                 profile.save()
                 messages.success(
@@ -793,6 +800,7 @@ def check_permission_view(request, user_id):
                     profile.can_access_security = request.POST.get('can_access_security') == 'on'
                     profile.can_access_account_information = request.POST.get('can_access_account_information') == 'on'
                 profile.can_access_layer_uploader = request.POST.get('can_access_layer_uploader') == 'on'
+                profile.can_access_my_edits = request.POST.get('can_access_my_edits') == 'on'
 
                 profile.save()
                 messages.success(
@@ -840,6 +848,7 @@ def permissions_api_view(request):
                 'can_access_security': False,
                 'can_access_account_information': False,
                 'can_access_layer_uploader': False,
+                'can_access_my_edits': False,
             }
             
             if profile and role in ['manager', 'editor']:
@@ -847,11 +856,13 @@ def permissions_api_view(request):
                 permissions['can_access_security'] = profile.can_access_security
                 permissions['can_access_account_information'] = profile.can_access_account_information
                 permissions['can_access_layer_uploader'] = profile.can_access_layer_uploader
+                permissions['can_access_my_edits'] = profile.can_access_my_edits
                 has_permissions = any([
                     permissions['can_access_dashboard'],
                     permissions['can_access_security'],
                     permissions['can_access_account_information'],
                     permissions['can_access_layer_uploader'],
+                    permissions['can_access_my_edits'],
                 ])
             
             user_data = {
@@ -927,6 +938,7 @@ def update_permissions_api_view(request, user_id):
             profile.can_access_security = data.get('can_access_security', False)
             profile.can_access_account_information = data.get('can_access_account_information', False)
         profile.can_access_layer_uploader = data.get('can_access_layer_uploader', False)
+        profile.can_access_my_edits = data.get('can_access_my_edits', False)
         
         profile.save()
         
@@ -945,3 +957,18 @@ def update_permissions_api_view(request, user_id):
             'success': False,
             'message': str(e)
         }, status=500)
+
+
+@login_required(login_url='/login/')
+def my_edits_view(request):
+    """My Edits history for system administrators."""
+    if not request.user.is_superuser:
+        logout(request)
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
+
+    denied = enforce_my_edits_access(request)
+    if denied:
+        return denied
+
+    context = my_edits_page_context(request.user)
+    return render(request, "system_admin/my_edits.html", context)

@@ -471,4 +471,6 @@
             initMapRoadSearch();
         }
     }
+
+    global.naqelZoomToRoadGeometry = zoomToGeometry;
 })(typeof window !== 'undefined' ? window : this);

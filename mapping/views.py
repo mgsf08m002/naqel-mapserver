@@ -6,7 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.contrib.gis.geos import GEOSGeometry, Polygon, MultiLineString, LineString
 from django.db import transaction, connections
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.conf import settings
 from decimal import Decimal
 import json
@@ -23,9 +23,14 @@ from layer_uploader.map_review import (
 )
 
 from .approval_api import (
+    MY_EDITS_LIST_LIMIT,
     serialize_approval_request_detail,
     serialize_approval_request_list_item,
+    serialize_manager_review_history_item,
+    serialize_my_edit_request_item,
 )
+from .approval_categories import CATEGORY_LABELS
+from .presentation import has_my_edits_access
 from .approval_categories import (
     EDIT_TYPE_DELETE,
     create_pending_road_edit_request,
@@ -865,6 +870,9 @@ def save_line_edit_request(request):
                     remote_road_id = edit_request.riyadh_road_id
                 else:
                     remote_road_id = _apply_manual_approval_to_remote_network(edit_request)
+                _set_published_road_id_after_approval(
+                    edit_request, remote_road_id=remote_road_id
+                )
                 edit_request.approve(request.user)
             except Exception as e:
                 try:
@@ -878,11 +886,6 @@ def save_line_edit_request(request):
                     },
                     status=500,
                 )
-
-            try:
-                edit_request.delete()
-            except Exception:
-                pass
 
             return JsonResponse(
                 {
@@ -1137,6 +1140,22 @@ def _apply_manual_approval_to_remote_network(edit_request):
 def _get_user_is_manager(user):
     profile = getattr(user, "profile", None)
     return bool(profile and profile.role == "manager")
+
+
+def _set_published_road_id_after_approval(edit_request, *, remote_road_id=None):
+    """Persist map target id on approved rows; deletes leave null."""
+    if is_delete_road_request(edit_request):
+        edit_request.published_road_id = None
+    elif remote_road_id is not None:
+        try:
+            edit_request.published_road_id = int(float(remote_road_id))
+        except (TypeError, ValueError):
+            edit_request.published_road_id = None
+    elif edit_request.riyadh_road_id is not None:
+        edit_request.published_road_id = int(edit_request.riyadh_road_id)
+    else:
+        edit_request.published_road_id = None
+    edit_request.save(update_fields=["published_road_id", "updated_at"])
 
 
 def _apply_riyadh_road_closure_remote(riyadh_road_id_int, road_closure: int):
@@ -1480,13 +1499,9 @@ def create_delete_request(request):
         try:
             _apply_delete_to_base_network(delete_request)
             deleted_road_id = riyadh_road_id_int
+            _set_published_road_id_after_approval(delete_request)
             delete_request.approve(request.user)
             auto_approved = True
-
-            try:
-                delete_request.delete()
-            except Exception:
-                pass
         except Exception as e:
             return JsonResponse(
                 {
@@ -1513,6 +1528,150 @@ def create_delete_request(request):
             ),
         }
     )
+
+
+@login_required
+def list_my_edit_requests(request):
+    """Return the current user's road edit submission history."""
+    if not has_my_edits_access(request.user):
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "You do not have permission to view My Edits.",
+            },
+            status=403,
+        )
+
+    try:
+        qs = (
+            LineEditRequest.objects.filter(requester=request.user)
+            .select_related("reviewed_by")
+            .order_by("-created_at")
+        )
+
+        status_filter = (request.GET.get("status") or "").strip().lower()
+        if status_filter in {"pending", "approved", "rejected"}:
+            qs = qs.filter(status=status_filter)
+
+        category_filter = (request.GET.get("category") or "").strip()
+        if category_filter and category_filter in CATEGORY_LABELS:
+            qs = qs.filter(request_category=category_filter)
+
+        requests = list(qs[:MY_EDITS_LIST_LIMIT])
+
+        riyadh_ids = [
+            req.riyadh_road_id
+            for req in requests
+            if req.is_riyadh_road and req.riyadh_road_id is not None
+        ]
+        roads_by_id = {}
+        if riyadh_ids:
+            for road in RiyadhRoad.objects.using("riyadh_roads").filter(gid__in=riyadh_ids):
+                roads_by_id[int(road.gid)] = road
+
+        items = []
+        for req in requests:
+            road = (
+                roads_by_id.get(int(req.riyadh_road_id))
+                if req.riyadh_road_id is not None
+                else None
+            )
+            items.append(serialize_my_edit_request_item(req, road=road))
+
+        return JsonResponse(
+            {
+                "success": True,
+                "requests": items,
+                "count": len(items),
+                "limit": MY_EDITS_LIST_LIMIT,
+            }
+        )
+    except Exception as e:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": f"Error fetching edit history: {str(e)}",
+            },
+            status=500,
+        )
+
+
+@login_required
+def list_manager_review_history(request):
+    """Return approved/rejected editor submissions for manager review history."""
+    if not _get_user_is_manager(request.user):
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Only managers can access review history.",
+            },
+            status=403,
+        )
+
+    try:
+        # Editors and system admins submit via the map; exclude manager self-approvals only.
+        qs = (
+            LineEditRequest.objects.filter(
+                status__in=["approved", "rejected"],
+            )
+            .filter(
+                Q(requester__profile__role="editor") | Q(requester__is_superuser=True)
+            )
+            .exclude(requester__profile__role="manager")
+            .select_related("requester", "requester__profile", "reviewed_by")
+            .order_by("-reviewed_at", "-created_at")
+        )
+
+        scope = (request.GET.get("scope") or "all").strip().lower()
+        if scope == "mine":
+            qs = qs.filter(reviewed_by=request.user)
+
+        status_filter = (request.GET.get("status") or "").strip().lower()
+        if status_filter in {"approved", "rejected"}:
+            qs = qs.filter(status=status_filter)
+
+        category_filter = (request.GET.get("category") or "").strip()
+        if category_filter and category_filter in CATEGORY_LABELS:
+            qs = qs.filter(request_category=category_filter)
+
+        requests = list(qs[:MY_EDITS_LIST_LIMIT])
+
+        riyadh_ids = [
+            req.riyadh_road_id
+            for req in requests
+            if req.is_riyadh_road and req.riyadh_road_id is not None
+        ]
+        roads_by_id = {}
+        if riyadh_ids:
+            for road in RiyadhRoad.objects.using("riyadh_roads").filter(gid__in=riyadh_ids):
+                roads_by_id[int(road.gid)] = road
+
+        items = []
+        for req in requests:
+            road = (
+                roads_by_id.get(int(req.riyadh_road_id))
+                if req.riyadh_road_id is not None
+                else None
+            )
+            items.append(serialize_manager_review_history_item(req, road=road))
+
+        return JsonResponse(
+            {
+                "success": True,
+                "requests": items,
+                "count": len(items),
+                "limit": MY_EDITS_LIST_LIMIT,
+                "scope": scope if scope in {"all", "mine"} else "all",
+            }
+        )
+    except Exception as e:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": f"Error fetching review history: {str(e)}",
+            },
+            status=500,
+        )
 
 
 @login_required
@@ -1664,7 +1823,10 @@ def approve_edit_request(request, request_id):
             remote_road_id, published_fclass = approve_layer_upload_edit_request(
                 edit_request
             )
-            edit_request.delete()
+            _set_published_road_id_after_approval(
+                edit_request, remote_road_id=remote_road_id
+            )
+            edit_request.approve(request.user)
             return JsonResponse(
                 {
                     "success": True,
@@ -1691,8 +1853,10 @@ def approve_edit_request(request, request_id):
                 # Approved manual road: migrate to remote base network and remove local trace.
                 remote_road_id = _apply_manual_approval_to_remote_network(edit_request)
 
+        _set_published_road_id_after_approval(
+            edit_request, remote_road_id=remote_road_id
+        )
         edit_request.approve(request.user)
-        edit_request.delete()
 
         payload = {
             "success": True,
@@ -1731,7 +1895,7 @@ def reject_edit_request(request, request_id):
 
         if is_layer_upload_request(edit_request):
             reject_layer_upload_edit_request(edit_request)
-            edit_request.delete()
+            edit_request.reject(request.user)
             return JsonResponse({
                 'success': True,
                 'message': 'Layer upload rejected',

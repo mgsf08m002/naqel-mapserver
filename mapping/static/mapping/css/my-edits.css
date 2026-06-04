@@ -1,0 +1,99 @@
+.my-edits-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.375rem 0.875rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #52525b;
+    background: #fff;
+    border: 1px solid #e4e4e7;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.my-edits-filter-chip:hover {
+    background: #f4f4f5;
+}
+
+.my-edits-filter-chip.is-active {
+    color: #fff;
+    background: #000;
+    border-color: #000;
+}
+
+.review-history-scope-btn.is-active {
+    color: #fff;
+    background: #000;
+}
+
+.my-edits-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.75rem 1rem;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: #fff;
+    border: 1px solid #e4e4e7;
+    border-radius: 1rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.my-edits-row.is-clickable {
+    cursor: pointer;
+}
+
+.my-edits-row.is-clickable:hover {
+    border-color: #d4d4d8;
+    box-shadow: 0 4px 16px -8px rgba(0, 0, 0, 0.12);
+}
+
+.my-edits-row-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+    font-size: 0.75rem;
+    color: #71717a;
+}
+
+.my-edits-category-badge {
+    display: inline-flex;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    ring: 1px;
+}
+
+.my-edits-status-pill {
+    display: inline-flex;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-radius: 9999px;
+}
+
+.my-edits-status-pill--pending {
+    background: #fffbeb;
+    color: #b45309;
+}
+
+.my-edits-status-pill--approved {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.my-edits-status-pill--rejected {
+    background: #fff1f2;
+    color: #be123c;
+}
+
+@media (min-width: 640px) {
+    .my-edits-row {
+        grid-template-columns: 1fr auto auto;
+    }
+}

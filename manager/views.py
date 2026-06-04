@@ -5,6 +5,11 @@ from django.contrib.auth import logout
 from django.urls import reverse
 from django.http import JsonResponse
 from system_admin.models import UserProfile
+from mapping.presentation import (
+    enforce_my_edits_access,
+    my_edits_page_context,
+    review_history_page_context,
+)
 
 
 @login_required(login_url='/login/')
@@ -186,3 +191,35 @@ def remove_profile_image_view(request):
         'message': 'Invalid request',
         'notification': {'message': 'Invalid request', 'type': 'error'}
     }, status=400)
+
+
+@login_required(login_url='/login/')
+def my_edits_view(request):
+    """My Edits history for the manager."""
+    if not hasattr(request.user, "profile") or request.user.profile.role != "manager":
+        logout(request)
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
+
+    denied = enforce_my_edits_access(request)
+    if denied:
+        return denied
+
+    context = my_edits_page_context(request.user)
+    return render(request, "manager/my_edits.html", context)
+
+
+@login_required(login_url='/login/')
+def review_history_view(request):
+    """Approved/rejected editor submissions for managers."""
+    if not hasattr(request.user, "profile") or request.user.profile.role != "manager":
+        logout(request)
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
+    if not request.user.profile.password_setup_completed:
+        messages.info(
+            request,
+            "Set your password to finish signing in.",
+        )
+        return redirect("auth:password_setup")
+
+    context = review_history_page_context()
+    return render(request, "manager/review_history.html", context)
