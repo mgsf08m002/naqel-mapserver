@@ -120,7 +120,7 @@ const MAP_GLYPHS_URL = HAS_MAPTILER
     ? `https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_API_KEY}`
     : 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf';
 /** Neutral basemap color for the Riyadh MVT public layer (all users). */
-const RIYADH_PUBLIC_ROAD_LINE_COLOR = '#e3d1a3';
+const RIYADH_PUBLIC_ROAD_LINE_COLOR = '#686d75';
 const RTL_TEXT_PLUGIN_URL = 'https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.2.3/mapbox-gl-rtl-text.js';
 
 function ensureRtlTextPluginLoaded() {
