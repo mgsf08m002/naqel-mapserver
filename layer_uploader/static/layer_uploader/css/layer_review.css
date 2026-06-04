@@ -587,20 +587,20 @@
 
 #layer-review-root .lr-badge-nominated {
   background: #ecfdf5;
-  color: #047857;
-  border-color: #a7f3d0;
+  color: #006100;
+  border-color: #86efac;
 }
 
 #layer-review-root .lr-badge-staged {
-  background: var(--lr-surface);
-  color: var(--lr-fg);
-  border-color: var(--lr-border);
+  background: #eff6ff;
+  color: #0000f7;
+  border-color: #bfdbfe;
 }
 
 #layer-review-root .lr-badge-rejected {
-  background: #fef2f2;
-  color: #b91c1c;
-  border-color: #fecaca;
+  background: #fff5f5;
+  color: #c45a5a;
+  border-color: #f77e7e;
 }
 
 /* —— Properties —— */

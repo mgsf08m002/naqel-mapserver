@@ -1,5 +1,5 @@
 /**
- * Layer review: map preview, feature table, and per-row / bulk include–exclude actions.
+ * Layer review: map preview, feature table, and per-row / bulk approve–reject actions.
  */
 (function () {
     const root = document.getElementById('layer-review-root');
@@ -62,8 +62,13 @@
         [48.733, 25.664],
     ];
 
-    /** Warm neutral road color (matches main map on imagery); works on Satellite, Streets, Outdoor. */
-    const RIYADH_ROADS_LINE_COLOR = '#e3d1a3';
+    /** Network roads overlay (matches main map public layer color). */
+    const RIYADH_ROADS_LINE_COLOR = '#686d75';
+
+    /** Upload feature colors by review status (geojson `properties.status`). */
+    const UPLOAD_COLOR_NEW = '#0000F7';
+    const UPLOAD_COLOR_APPROVED = '#006100';
+    const UPLOAD_COLOR_REJECTED = '#F77E7E';
 
     const MLS = window.MapLineSelection;
     const SELECTION_LINE_LAYOUT = MLS.SELECTION_LINE_LAYOUT;
@@ -265,14 +270,52 @@
         if (theme === 'imagery') {
             return {
                 riyadh: RIYADH_ROADS_LINE_COLOR,
-                staging: '#e8e8e8',
                 pointStroke: '#ffffff',
             };
         }
         return {
             riyadh: RIYADH_ROADS_LINE_COLOR,
-            staging: '#525252',
             pointStroke: '#fafafa',
+        };
+    }
+
+    function uploadFeatureColorMatch(fallback) {
+        return [
+            'match',
+            ['get', 'status'],
+            'nominated',
+            UPLOAD_COLOR_APPROVED,
+            'rejected_upload',
+            UPLOAD_COLOR_REJECTED,
+            'staged',
+            UPLOAD_COLOR_NEW,
+            fallback || UPLOAD_COLOR_NEW,
+        ];
+    }
+
+    function uploadFeatureLinePaint() {
+        return {
+            'line-color': uploadFeatureColorMatch(),
+            'line-width': 4,
+            'line-opacity': 0.95,
+        };
+    }
+
+    function uploadFeatureFillPaint() {
+        const color = uploadFeatureColorMatch();
+        return {
+            'fill-color': color,
+            'fill-opacity': 0.15,
+            'fill-outline-color': color,
+        };
+    }
+
+    function uploadFeaturePointPaint(pointStroke) {
+        return {
+            'circle-radius': 6,
+            'circle-color': uploadFeatureColorMatch(),
+            'circle-stroke-width': 2,
+            'circle-stroke-color': pointStroke,
         };
     }
 
@@ -321,16 +364,11 @@
             if (map.getLayer(PUBLIC_LAYER_ID_RIYADH)) {
                 map.setPaintProperty(PUBLIC_LAYER_ID_RIYADH, 'line-color', pal.riyadh);
             }
-            if (map.getLayer('lr-lines')) {
-                map.setPaintProperty('lr-lines', 'line-color', pal.staging);
-            }
-            if (map.getLayer('lr-fill')) {
-                map.setPaintProperty('lr-fill', 'fill-color', pal.staging);
-                map.setPaintProperty('lr-fill', 'fill-outline-color', pal.staging);
-            }
             if (map.getLayer('lr-points')) {
-                map.setPaintProperty('lr-points', 'circle-color', pal.staging);
                 map.setPaintProperty('lr-points', 'circle-stroke-color', pal.pointStroke);
+            }
+            if (map.getLayer('lr-all-points')) {
+                map.setPaintProperty('lr-all-points', 'circle-stroke-color', pal.pointStroke);
             }
         } catch (e) {
             /* ignore missing layers during startup */
@@ -387,6 +425,7 @@
 
     let selectedFeatureId = null;
     const featureGeomById = {};
+    const featureStatusById = {};
     let layerExtent = null;
     let currentPage = 1;
     let statusFilter = '';
@@ -573,15 +612,15 @@
             const approve = document.createElement('button');
             approve.type = 'button';
             approve.className = 'lr-action-btn lr-action-btn--approve';
-            approve.setAttribute('aria-label', 'Include feature');
-            approve.setAttribute('title', 'Include');
+            approve.setAttribute('aria-label', 'Approve feature');
+            approve.setAttribute('title', 'Approve');
             approve.innerHTML = ICON_APPROVE_SVG;
 
             const reject = document.createElement('button');
             reject.type = 'button';
             reject.className = 'lr-action-btn lr-action-btn--reject';
-            reject.setAttribute('aria-label', 'Exclude feature');
-            reject.setAttribute('title', 'Exclude');
+            reject.setAttribute('aria-label', 'Reject feature');
+            reject.setAttribute('title', 'Reject');
             reject.innerHTML = ICON_REJECT_SVG;
 
             container.appendChild(approve);
@@ -595,7 +634,7 @@
             reset.className = 'lr-btn-reset';
             reset.textContent = 'Reset';
             reset.setAttribute('aria-label', 'Reset to new');
-            reset.setAttribute('title', 'Move back to new so you can include or exclude again');
+            reset.setAttribute('title', 'Move back to new so you can approve or reject again');
             container.appendChild(reset);
         }
     }
@@ -718,6 +757,9 @@
                     : parseInt(String(props.upload_feature_id), 10);
             if (!Number.isNaN(fid) && feat.geometry) {
                 featureGeomById[fid] = feat.geometry;
+            }
+            if (!Number.isNaN(fid) && props.status) {
+                featureStatusById[fid] = props.status;
             }
         });
     }
@@ -953,7 +995,10 @@
                 type: 'Feature',
                 id: fid,
                 geometry: geom,
-                properties: { upload_feature_id: fid },
+                properties: {
+                    upload_feature_id: fid,
+                    status: featureStatusById[fid] || 'staged',
+                },
             });
         });
         return { type: 'FeatureCollection', features: features };
@@ -986,11 +1031,7 @@
                     source: SOURCE_ALL,
                     filter: GEOM_FILTER_POLY,
                     layout: { visibility: 'none' },
-                    paint: {
-                        'fill-color': '#a3a3a3',
-                        'fill-opacity': 0.18,
-                        'fill-outline-color': '#737373',
-                    },
+                    paint: uploadFeatureFillPaint(),
                 },
                 beforeId
             );
@@ -1001,11 +1042,7 @@
                     source: SOURCE_ALL,
                     filter: GEOM_FILTER_LINE,
                     layout: { visibility: 'none', 'line-cap': 'round', 'line-join': 'round' },
-                    paint: {
-                        'line-color': '#737373',
-                        'line-width': 3,
-                        'line-opacity': 0.9,
-                    },
+                    paint: uploadFeatureLinePaint(),
                 },
                 beforeId
             );
@@ -1016,12 +1053,7 @@
                     source: SOURCE_ALL,
                     filter: GEOM_FILTER_POINT,
                     layout: { visibility: 'none' },
-                    paint: {
-                        'circle-radius': 5,
-                        'circle-color': '#737373',
-                        'circle-stroke-width': 2,
-                        'circle-stroke-color': '#fafafa',
-                    },
+                    paint: uploadFeaturePointPaint('#fafafa'),
                 },
                 beforeId
             );
@@ -1316,11 +1348,7 @@
                 type: 'line',
                 source: SOURCE_STAGING,
                 filter: GEOM_FILTER_LINE,
-                paint: {
-                    'line-color': '#525252',
-                    'line-width': 4,
-                    'line-opacity': 0.95,
-                },
+                paint: uploadFeatureLinePaint(),
             });
         }
         if (!map.getLayer('lr-fill')) {
@@ -1329,11 +1357,7 @@
                 type: 'fill',
                 source: SOURCE_STAGING,
                 filter: GEOM_FILTER_POLY,
-                paint: {
-                    'fill-color': '#525252',
-                    'fill-opacity': 0.1,
-                    'fill-outline-color': '#525252',
-                },
+                paint: uploadFeatureFillPaint(),
             });
         }
         if (!map.getLayer('lr-points')) {
@@ -1342,12 +1366,7 @@
                 type: 'circle',
                 source: SOURCE_STAGING,
                 filter: GEOM_FILTER_POINT,
-                paint: {
-                    'circle-radius': 6,
-                    'circle-color': '#525252',
-                    'circle-stroke-width': 2,
-                    'circle-stroke-color': '#fafafa',
-                },
+                paint: uploadFeaturePointPaint('#fafafa'),
             });
         }
         bindFeatureLayerHandlers();
@@ -1428,13 +1447,13 @@
         if (approve) {
             approve.addEventListener('click', function (e) {
                 e.stopPropagation();
-                postFeatureAction('nominate', f.id, 'Include');
+                postFeatureAction('nominate', f.id, 'Approve');
             });
         }
         if (reject) {
             reject.addEventListener('click', function (e) {
                 e.stopPropagation();
-                postFeatureAction('reject', f.id, 'Exclude');
+                postFeatureAction('reject', f.id, 'Reject');
             });
         }
         if (reset) {
@@ -1580,8 +1599,8 @@
 
     const STATUS_LABELS = {
         staged: 'New',
-        nominated: 'Included',
-        rejected_upload: 'Excluded',
+        nominated: 'Approved',
+        rejected_upload: 'Rejected',
     };
 
     function statusBadge(status) {
@@ -1643,6 +1662,12 @@
         const feats = payload.features || [];
         const pagination = payload.pagination || {};
         const rowOffset = ((pagination.page || 1) - 1) * (pagination.page_size || pageSize);
+
+        feats.forEach(function (f) {
+            if (f.status) {
+                featureStatusById[f.id] = f.status;
+            }
+        });
 
         tbody.innerHTML = '';
         if (!feats.length) {
@@ -1767,12 +1792,12 @@
     const btnRejectAll = document.getElementById('btn-reject-all');
     if (btnApproveAll) {
         btnApproveAll.addEventListener('click', function () {
-            runBulkAction('nominate_all', 'Could not include all rows');
+            runBulkAction('nominate_all', 'Could not approve all rows');
         });
     }
     if (btnRejectAll) {
         btnRejectAll.addEventListener('click', function () {
-            runBulkAction('reject_all', 'Could not exclude all rows');
+            runBulkAction('reject_all', 'Could not reject all rows');
         });
     }
 
@@ -1816,15 +1841,15 @@
             if (!nominatedCount || Number.isNaN(nominatedCount)) {
                 window.notify.tryShow(
                     isManagerUploader
-                        ? 'Include at least one road before publishing.'
-                        : 'Include at least one road before submitting.',
+                        ? 'Approve at least one road before publishing.'
+                        : 'Approve at least one road before submitting.',
                     'warning'
                 );
                 return;
             }
             const confirmMsg = isManagerUploader
-                ? 'Publish ' + nominatedCount + ' included road(s) to the map now? This cannot be undone.'
-                : 'Submit ' + nominatedCount + ' included road(s) for review? You will not be able to edit this layer afterward.';
+                ? 'Publish ' + nominatedCount + ' approved road(s) to the map now? This cannot be undone.'
+                : 'Submit ' + nominatedCount + ' approved road(s) for review? You will not be able to edit this layer afterward.';
             const confirmTitle = isManagerUploader ? 'Publish layer' : 'Submit for review';
             const confirmLabel = isManagerUploader ? 'Publish' : 'Submit';
 

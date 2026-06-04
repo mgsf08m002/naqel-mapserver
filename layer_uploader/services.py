@@ -347,7 +347,7 @@ def submit_layer(layer: Layer, submitter: AbstractBaseUser) -> LayerSubmitResult
     nominated = layer.features.filter(status=Feature.Status.NOMINATED)
     count = nominated.count()
     if count == 0:
-        raise ValueError("Include at least one road before submitting.")
+        raise ValueError("Approve at least one road before submitting.")
 
     _discard_unnominated_staged_features(layer)
 
@@ -410,7 +410,7 @@ def apply_uploader_review_action(
             Feature.Status.NOMINATED,
             Feature.Status.REJECTED_UPLOAD,
         ):
-            raise ValueError("Only included or excluded features can be reset")
+            raise ValueError("Only approved or rejected features can be reset")
         feature.status = Feature.Status.STAGED
         feature.save(update_fields=["status"])
         return {"ok": True}

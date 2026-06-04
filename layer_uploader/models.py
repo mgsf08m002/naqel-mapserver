@@ -36,8 +36,8 @@ class Layer(models.Model):
 class Feature(models.Model):
     class Status(models.TextChoices):
         STAGED = "staged", "New"
-        NOMINATED = "nominated", "Included"
-        REJECTED_UPLOAD = "rejected_upload", "Excluded"
+        NOMINATED = "nominated", "Approved"
+        REJECTED_UPLOAD = "rejected_upload", "Rejected"
         AWAITING_MANAGER = "awaiting_manager", "Awaiting review"
 
     layer = models.ForeignKey(Layer, on_delete=models.CASCADE, related_name="features")

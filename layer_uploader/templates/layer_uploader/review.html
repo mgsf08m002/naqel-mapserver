@@ -74,16 +74,16 @@
               <select id="lr-status-filter" class="lr-table-filter-select" aria-label="Filter by status">
                 <option value="">All statuses</option>
                 <option value="staged">New</option>
-                <option value="nominated">Included</option>
-                <option value="rejected_upload">Excluded</option>
+                <option value="nominated">Approved</option>
+                <option value="rejected_upload">Rejected</option>
               </select>
             </label>
             <span class="lr-table-bulk-label">Bulk</span>
             <div class="lr-actions-bulk">
-              <button type="button" id="btn-approve-all" class="lr-action-btn lr-action-btn--approve lr-action-btn--bulk" aria-label="Include all" title="Include all">
+              <button type="button" id="btn-approve-all" class="lr-action-btn lr-action-btn--approve lr-action-btn--bulk" aria-label="Approve all" title="Approve all">
                 <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
               </button>
-              <button type="button" id="btn-reject-all" class="lr-action-btn lr-action-btn--reject lr-action-btn--bulk" aria-label="Exclude all" title="Exclude all">
+              <button type="button" id="btn-reject-all" class="lr-action-btn lr-action-btn--reject lr-action-btn--bulk" aria-label="Reject all" title="Reject all">
                 <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
               </button>
             </div>
@@ -136,11 +136,11 @@
           </div>
           <div class="lr-stat">
             <span class="lr-stat-val" id="cnt-nominated">—</span>
-            <span class="lr-stat-label">Included</span>
+            <span class="lr-stat-label">Approved</span>
           </div>
           <div class="lr-stat">
             <span class="lr-stat-val" id="cnt-rejected_upload">—</span>
-            <span class="lr-stat-label">Excluded</span>
+            <span class="lr-stat-label">Rejected</span>
           </div>
         </div>
         {% if can_submit %}

@@ -7,7 +7,7 @@
     {% if auto_published %}
     {% include 'layer_uploader/includes/flow_header.html' with title='Layer published' subtitle='Your selected roads have been added to the map network.' %}
     {% elif submitted_to_manager %}
-    {% include 'layer_uploader/includes/flow_header.html' with title='Layer submitted' subtitle='Your included roads were sent to the manager map for approval.' %}
+    {% include 'layer_uploader/includes/flow_header.html' with title='Layer submitted' subtitle='Your approved roads were sent to the manager map for approval.' %}
     {% else %}
     {% include 'layer_uploader/includes/flow_header.html' with title='Layer saved' subtitle='Your layer is ready. Open the map to continue working.' %}
     {% endif %}
