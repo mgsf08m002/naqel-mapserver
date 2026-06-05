@@ -40,6 +40,28 @@
             
             <!-- Right Section: User Info -->
             <div class="flex items-center flex-1 justify-end space-x-2">
+                {% if request.resolver_match.url_name == 'map' and user_profile.role == 'manager' %}
+                <div class="relative" id="approvalRequestsBellWrap">
+                    <button
+                        type="button"
+                        id="approvalRequestsBell"
+                        class="group relative flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                        aria-expanded="false"
+                        aria-controls="approvalRequestsPanel"
+                        aria-label="Approval requests"
+                    >
+                        <svg class="h-[1.35rem] w-[1.35rem]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                        </svg>
+                        <span
+                            id="approvalRequestsBellBadge"
+                            class="absolute -right-0.5 -top-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full border-2 border-white bg-white px-0.5 text-[11px] font-extrabold leading-none text-green-600 tabular-nums shadow-sm"
+                            aria-hidden="true"
+                        >0</span>
+                    </button>
+                    {% include 'manager/includes/approval_requests_dropdown.html' %}
+                </div>
+                {% endif %}
                 <!-- User Avatar & Dropdown -->
                 <div class="relative">
                     <button id="userMenuBtn" class="flex items-center space-x-2 p-1.5 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-200">

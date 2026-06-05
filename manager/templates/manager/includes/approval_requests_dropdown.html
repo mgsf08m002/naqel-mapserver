@@ -1,0 +1,18 @@
+<div
+    id="approvalRequestsPanel"
+    class="absolute right-0 top-full z-50 mt-2 hidden w-[22rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-xl shadow-zinc-900/[0.07] max-h-[min(36rem,calc(100vh-6rem))]"
+>
+    <div class="shrink-0 border-b border-zinc-100 bg-zinc-50/60 px-4 py-3">
+        <h2 class="text-sm font-semibold tracking-tight text-zinc-900">Approval Requests</h2>
+        <p id="approvalRequestsPanelSummary" class="mt-0.5 text-xs text-zinc-500">Open to review submissions</p>
+    </div>
+    <div
+        id="approvalRequestsFilterBar"
+        class="hidden shrink-0 gap-1.5 overflow-x-auto border-b border-zinc-100 bg-white px-3 py-2"
+        role="toolbar"
+        aria-label="Filter approval requests by type"
+    >
+        {% include 'mapping/includes/approval_filter_chips.html' %}
+    </div>
+    <div id="approvalRequestsList" class="flex-1 divide-y divide-zinc-100 overflow-y-auto overscroll-contain"></div>
+</div>

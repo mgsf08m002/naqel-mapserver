@@ -1,0 +1,4 @@
+<button type="button" data-approval-filter="all" class="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ring-1 transition-colors bg-zinc-900 text-white ring-zinc-900" aria-pressed="true">All</button>
+{% for key, label in edit_filter_categories %}
+<button type="button" data-approval-filter="{{ key }}" class="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ring-1 transition-colors bg-white text-zinc-600 ring-zinc-200/90" aria-pressed="false">{{ label }}</button>
+{% endfor %}

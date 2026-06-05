@@ -1,4 +1,4 @@
-// Manager approval queue: widget UI, API sync, map review, and approve/reject flow.
+// Manager approval queue: header bell dropdown, API sync, map review, and approve/reject flow.
 (function() {
     'use strict';
 
@@ -21,18 +21,6 @@
             window.notify.tryShow(message, type || 'info');
         }
     }
-
-    const APPROVAL_FILTER_OPTIONS = [
-        { key: 'all', label: 'All' },
-        { key: 'new_road', label: 'New Road' },
-        { key: 'add_road_label', label: 'Add Label' },
-        { key: 'change_road_label', label: 'Change Label' },
-        { key: 'new_road_geometry', label: 'Geometry' },
-        { key: 'new_feature_type', label: 'Road Type' },
-        { key: 'delete_road', label: 'Delete Road' },
-        { key: 'layer_upload', label: 'Layer Upload' },
-        { key: 'road_attribute_edit', label: 'Attributes' }
-    ];
 
     function approvalEmptyHtml() {
         return `
@@ -123,32 +111,25 @@
 
     function setApprovalPanelOpen(open) {
         const panel = document.getElementById('approvalRequestsPanel');
-        const toggle = document.getElementById('approvalRequestsToggle');
-        const chevron = document.getElementById('approvalRequestsChevron');
+        const bell = document.getElementById('approvalRequestsBell');
         if (!panel) {
             return;
         }
         if (open) {
             panel.classList.remove('hidden');
             panel.classList.add('flex');
-            if (toggle) {
-                toggle.setAttribute('aria-expanded', 'true');
+            if (bell) {
+                bell.setAttribute('aria-expanded', 'true');
             }
-            if (chevron) {
-                chevron.classList.add('rotate-180');
-            }
-            syncApprovalWidget();
+            syncApprovalUI();
         } else {
             panel.classList.add('hidden');
             panel.classList.remove('flex');
-            if (toggle) {
-                toggle.setAttribute('aria-expanded', 'false');
-            }
-            if (chevron) {
-                chevron.classList.remove('rotate-180');
+            if (bell) {
+                bell.setAttribute('aria-expanded', 'false');
             }
             removeApproveRejectButtons();
-            syncApprovalWidget();
+            syncApprovalUI();
         }
     }
 
@@ -172,203 +153,47 @@
         setManagerReviewMode(true);
     }
 
-    const APPROVAL_WIDGET_POSITION_KEY = 'naqel.approvalRequests.position';
-
-    function clampApprovalWidgetPosition(left, top, width, height) {
-        const margin = 8;
-        const maxLeft = Math.max(margin, window.innerWidth - width - margin);
-        const maxTop = Math.max(margin, window.innerHeight - height - margin);
-        return {
-            left: Math.min(Math.max(margin, left), maxLeft),
-            top: Math.min(Math.max(margin, top), maxTop)
-        };
-    }
-
-    function applyApprovalWidgetPosition(root, left, top) {
-        const rect = root.getBoundingClientRect();
-        const clamped = clampApprovalWidgetPosition(left, top, rect.width, rect.height);
-        root.style.left = clamped.left + 'px';
-        root.style.top = clamped.top + 'px';
-        root.style.right = 'auto';
-        return clamped;
-    }
-
-    function restoreApprovalWidgetPosition(root) {
-        try {
-            const raw = localStorage.getItem(APPROVAL_WIDGET_POSITION_KEY);
-            if (!raw) {
-                return;
-            }
-            const saved = JSON.parse(raw);
-            if (typeof saved.left === 'number' && typeof saved.top === 'number') {
-                applyApprovalWidgetPosition(root, saved.left, saved.top);
-            }
-        } catch (err) {
-            /* ignore invalid saved position */
-        }
-    }
-
-    function saveApprovalWidgetPosition(root) {
-        const rect = root.getBoundingClientRect();
-        localStorage.setItem(
-            APPROVAL_WIDGET_POSITION_KEY,
-            JSON.stringify({ left: Math.round(rect.left), top: Math.round(rect.top) })
-        );
-    }
-
-    function attachApprovalWidgetDrag(root, handle) {
-        let dragging = false;
-        let didDrag = false;
-        let pointerId = null;
-        let offsetX = 0;
-        let offsetY = 0;
-
-        handle.addEventListener('pointerdown', function(event) {
-            if (event.button !== 0) {
-                return;
-            }
-            dragging = true;
-            didDrag = false;
-            pointerId = event.pointerId;
-            const rect = root.getBoundingClientRect();
-            applyApprovalWidgetPosition(root, rect.left, rect.top);
-            offsetX = event.clientX - rect.left;
-            offsetY = event.clientY - rect.top;
-            handle.setPointerCapture(pointerId);
-            handle.classList.add('cursor-grabbing');
-            root.classList.add('select-none');
-            event.preventDefault();
-        });
-
-        handle.addEventListener('pointermove', function(event) {
-            if (!dragging || event.pointerId !== pointerId) {
-                return;
-            }
-            didDrag = true;
-            applyApprovalWidgetPosition(
-                root,
-                event.clientX - offsetX,
-                event.clientY - offsetY
-            );
-        });
-
-        function endDrag(event) {
-            if (!dragging || (event && event.pointerId !== pointerId)) {
-                return;
-            }
-            dragging = false;
-            handle.classList.remove('cursor-grabbing');
-            root.classList.remove('select-none');
-            if (handle.hasPointerCapture(pointerId)) {
-                handle.releasePointerCapture(pointerId);
-            }
-            pointerId = null;
-            if (didDrag) {
-                saveApprovalWidgetPosition(root);
-            }
+    function wireApprovalDropdown() {
+        const bellWrap = document.getElementById('approvalRequestsBellWrap');
+        const bell = document.getElementById('approvalRequestsBell');
+        const filterBar = document.getElementById('approvalRequestsFilterBar');
+        if (!bellWrap || !bell) {
+            return;
         }
 
-        handle.addEventListener('pointerup', endDrag);
-        handle.addEventListener('pointercancel', endDrag);
+        if (filterBar) {
+            filterBar.querySelectorAll('[data-approval-filter]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    approvalFilterKey = btn.getAttribute('data-approval-filter') || 'all';
+                    syncApprovalFilterBar();
+                    renderApprovalList();
+                });
+            });
+        }
 
-        return function consumeDragClick() {
-            const consumed = didDrag;
-            didDrag = false;
-            return consumed;
-        };
-    }
-
-    function buildApprovalWidget() {
-        const root = document.createElement('div');
-        root.id = 'approvalRequestsRoot';
-        root.className = 'fixed top-[4.5rem] right-4 z-40 w-[22rem] max-w-[calc(100vw-2rem)]';
-
-        const widget = document.createElement('div');
-        widget.className =
-            'flex flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-xl shadow-zinc-900/[0.07]';
-
-        const toggleBtn = document.createElement('button');
-        toggleBtn.type = 'button';
-        toggleBtn.id = 'approvalRequestsToggle';
-        toggleBtn.className =
-            'group flex w-full cursor-grab items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-zinc-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/15 focus-visible:ring-inset active:cursor-grabbing';
-        toggleBtn.setAttribute('aria-expanded', 'false');
-        toggleBtn.setAttribute('aria-controls', 'approvalRequestsPanel');
-        toggleBtn.setAttribute('aria-label', 'Approval requests. Drag to move. Click to expand.');
-        toggleBtn.innerHTML = `
-            <span id="approvalRequestsCountDisplay" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-lg font-semibold tabular-nums text-zinc-500 ring-1 ring-inset ring-zinc-200/80" aria-hidden="true">0</span>
-            <span class="min-w-0 flex-1">
-                <span class="block text-[15px] font-semibold tracking-tight text-zinc-900">Approval Requests</span>
-                <span id="approvalRequestsSummary" class="block text-xs text-zinc-500">Open to review submissions</span>
-            </span>
-            <svg id="approvalRequestsChevron" class="h-5 w-5 shrink-0 text-zinc-400 transition-transform duration-200 group-hover:text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
-        `;
-        const consumeDragClick = attachApprovalWidgetDrag(root, toggleBtn);
-        toggleBtn.addEventListener('click', function(event) {
-            if (consumeDragClick()) {
-                event.preventDefault();
-                event.stopPropagation();
-                return;
-            }
+        bell.addEventListener('click', function(event) {
+            event.stopPropagation();
             const willOpen = !isApprovalPanelOpen();
             setApprovalPanelOpen(willOpen);
             if (willOpen) {
                 refreshApprovalQueue();
             }
         });
-        widget.appendChild(toggleBtn);
 
-        const panel = document.createElement('div');
-        panel.id = 'approvalRequestsPanel';
-        panel.className = 'hidden flex-col border-t border-zinc-100/90 max-h-[min(36rem,calc(100vh-9rem))]';
-
-        const listHeader = document.createElement('div');
-        listHeader.id = 'approvalRequestsListHeader';
-        listHeader.className =
-            'hidden shrink-0 items-center justify-between gap-2 border-b border-zinc-100 bg-zinc-50/60 px-4 py-2';
-        listHeader.innerHTML =
-            '<span id="approvalRequestsCount" class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500"></span>' +
-            '<span class="text-[11px] text-zinc-400">Newest first</span>';
-        panel.appendChild(listHeader);
-
-        const filterBar = document.createElement('div');
-        filterBar.id = 'approvalRequestsFilterBar';
-        filterBar.className =
-            'hidden shrink-0 gap-1.5 overflow-x-auto border-b border-zinc-100 bg-white px-3 py-2';
-        filterBar.setAttribute('role', 'toolbar');
-        filterBar.setAttribute('aria-label', 'Filter approval requests by type');
-        APPROVAL_FILTER_OPTIONS.forEach(function(opt) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.setAttribute('data-approval-filter', opt.key);
-            btn.className =
-                'shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ring-1 transition-colors';
-            btn.textContent = opt.label;
-            btn.addEventListener('click', function() {
-                approvalFilterKey = opt.key;
-                syncApprovalFilterBar();
-                renderApprovalList();
-            });
-            filterBar.appendChild(btn);
+        document.addEventListener('click', function(event) {
+            if (!isApprovalPanelOpen()) {
+                return;
+            }
+            if (bellWrap.contains(event.target)) {
+                return;
+            }
+            setApprovalPanelOpen(false);
         });
-        panel.appendChild(filterBar);
 
-        const requestsList = document.createElement('div');
-        requestsList.id = 'approvalRequestsList';
-        requestsList.className = 'flex-1 divide-y divide-zinc-100 overflow-y-auto overscroll-contain';
-        panel.appendChild(requestsList);
-
-        widget.appendChild(panel);
-        root.appendChild(widget);
-        document.body.appendChild(root);
-        restoreApprovalWidgetPosition(root);
-
-        window.addEventListener('resize', function() {
-            const rect = root.getBoundingClientRect();
-            applyApprovalWidgetPosition(root, rect.left, rect.top);
-            saveApprovalWidgetPosition(root);
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && isApprovalPanelOpen()) {
+                setApprovalPanelOpen(false);
+            }
         });
     }
 
@@ -456,45 +281,38 @@
         return card;
     }
 
-    function syncApprovalWidget() {
+    function syncApprovalUI() {
         const count = approvalQueue.length;
-        const summary = document.getElementById('approvalRequestsSummary');
-        const listHeader = document.getElementById('approvalRequestsListHeader');
-        const countEl = document.getElementById('approvalRequestsCount');
-        const countDisplay = document.getElementById('approvalRequestsCountDisplay');
-
-        if (countDisplay) {
-            countDisplay.textContent = String(count);
-            countDisplay.classList.toggle('text-zinc-500', count === 0);
-            countDisplay.classList.toggle('text-zinc-900', count > 0);
-        }
-
-        if (summary) {
-            if (count === 0) {
-                summary.textContent = 'Open to review submissions';
-            } else if (count === 1) {
-                summary.textContent = '1 submission needs review';
-            } else {
-                summary.textContent = count + ' submissions need review';
-            }
-        }
+        const summary = document.getElementById('approvalRequestsPanelSummary');
+        const badge = document.getElementById('approvalRequestsBellBadge');
+        const bell = document.getElementById('approvalRequestsBell');
         const filterBar = document.getElementById('approvalRequestsFilterBar');
         const filtered = getFilteredApprovalQueue();
         const shown = filtered.length;
 
-        if (listHeader && countEl) {
-            if (count > 0 && isApprovalPanelOpen()) {
-                listHeader.classList.remove('hidden');
-                listHeader.classList.add('flex');
-                if (approvalFilterKey !== 'all' && shown !== count) {
-                    countEl.textContent = shown + ' of ' + count + ' shown';
-                } else {
-                    countEl.textContent =
-                        count === 1 ? '1 pending' : count + ' pending';
-                }
+        if (badge) {
+            badge.textContent = String(count);
+            badge.classList.remove('text-red-600', 'text-green-600');
+            badge.classList.add(count === 0 ? 'text-green-600' : 'text-red-600');
+        }
+        if (bell) {
+            const label = count === 0
+                ? '0 approval requests'
+                : count === 1
+                    ? '1 approval request'
+                    : count + ' approval requests';
+            bell.setAttribute('aria-label', label);
+        }
+
+        if (summary) {
+            if (count === 0) {
+                summary.textContent = 'No submissions waiting for review';
+            } else if (approvalFilterKey !== 'all' && shown !== count) {
+                summary.textContent = shown + ' of ' + count + ' shown · Newest first';
+            } else if (count === 1) {
+                summary.textContent = '1 submission needs review';
             } else {
-                listHeader.classList.add('hidden');
-                listHeader.classList.remove('flex');
+                summary.textContent = count + ' submissions need review';
             }
         }
         if (filterBar) {
@@ -710,7 +528,7 @@
             const emptyState = document.createElement('div');
             emptyState.innerHTML = approvalEmptyHtml();
             requestsList.appendChild(emptyState);
-            syncApprovalWidget();
+            syncApprovalUI();
             return;
         }
 
@@ -719,14 +537,14 @@
             emptyFilter.className = 'px-4 py-10 text-center text-xs text-zinc-500';
             emptyFilter.textContent = 'No requests match this filter.';
             requestsList.appendChild(emptyFilter);
-            syncApprovalWidget();
+            syncApprovalUI();
             return;
         }
 
         filtered.forEach(function(request) {
             requestsList.appendChild(buildApprovalRow(request));
         });
-        syncApprovalWidget();
+        syncApprovalUI();
     }
 
     function openApprovalRequest(requestId) {
@@ -1794,16 +1612,16 @@
         return cookieValue;
     }
 
-    function initApprovalQueue() {
-        buildApprovalWidget();
+    function initApprovalRequests() {
+        wireApprovalDropdown();
         refreshApprovalQueue();
         setInterval(refreshApprovalQueue, 30000);
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initApprovalQueue);
+        document.addEventListener('DOMContentLoaded', initApprovalRequests);
     } else {
-        initApprovalQueue();
+        initApprovalRequests();
     }
 
     window.refreshApprovalQueue = refreshApprovalQueue;
