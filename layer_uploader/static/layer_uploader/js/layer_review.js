@@ -69,6 +69,10 @@
     const UPLOAD_COLOR_NEW = '#0000F7';
     const UPLOAD_COLOR_APPROVED = '#006100';
     const UPLOAD_COLOR_REJECTED = '#F77E7E';
+    const UPLOAD_LINE_WIDTH_NEW = 4;
+    const UPLOAD_LINE_WIDTH_DECIDED = 7;
+    const UPLOAD_POINT_RADIUS_NEW = 6;
+    const UPLOAD_POINT_RADIUS_DECIDED = 9;
 
     const MLS = window.MapLineSelection;
     const SELECTION_LINE_LAYOUT = MLS.SELECTION_LINE_LAYOUT;
@@ -279,6 +283,20 @@
         };
     }
 
+    function uploadFeatureStatusMatch(stagedValue, decidedValue, fallback) {
+        return [
+            'match',
+            ['get', 'status'],
+            'nominated',
+            decidedValue,
+            'rejected_upload',
+            decidedValue,
+            'staged',
+            stagedValue,
+            fallback != null ? fallback : stagedValue,
+        ];
+    }
+
     function uploadFeatureColorMatch(fallback) {
         return [
             'match',
@@ -296,7 +314,10 @@
     function uploadFeatureLinePaint() {
         return {
             'line-color': uploadFeatureColorMatch(),
-            'line-width': 4,
+            'line-width': uploadFeatureStatusMatch(
+                UPLOAD_LINE_WIDTH_NEW,
+                UPLOAD_LINE_WIDTH_DECIDED
+            ),
             'line-opacity': 0.95,
         };
     }
@@ -312,7 +333,10 @@
 
     function uploadFeaturePointPaint(pointStroke) {
         return {
-            'circle-radius': 6,
+            'circle-radius': uploadFeatureStatusMatch(
+                UPLOAD_POINT_RADIUS_NEW,
+                UPLOAD_POINT_RADIUS_DECIDED
+            ),
             'circle-color': uploadFeatureColorMatch(),
             'circle-stroke-width': 2,
             'circle-stroke-color': pointStroke,
