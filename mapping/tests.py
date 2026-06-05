@@ -579,6 +579,73 @@ class MyEditsApiTests(TestCase):
         self.assertEqual(len(payload["requests"]), 1)
         self.assertEqual(payload["requests"][0]["request_category"], "layer_upload")
 
+    def test_my_edits_date_filter(self):
+        from datetime import datetime
+
+        from django.utils import timezone
+
+        older = LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="approved",
+            request_category="new_road",
+            reviewed_by=self.manager,
+        )
+        newer = LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="pending",
+            request_category="delete_road",
+        )
+        LineEditRequest.objects.filter(pk=older.pk).update(
+            created_at=timezone.make_aware(datetime(2026, 5, 1, 10, 0))
+        )
+        LineEditRequest.objects.filter(pk=newer.pk).update(
+            created_at=timezone.make_aware(datetime(2026, 6, 5, 10, 0))
+        )
+
+        self.client.force_login(self.editor)
+        response = self.client.get(
+            reverse("mapping:list_my_edit_requests"),
+            {"start_date": "2026-06-01", "end_date": "2026-06-30"},
+        )
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(len(payload["requests"]), 1)
+        self.assertEqual(payload["requests"][0]["request_category"], "delete_road")
+
+    def test_my_edits_multi_category_filter(self):
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="approved",
+            request_category="layer_upload",
+            reviewed_by=self.manager,
+        )
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="pending",
+            request_category="new_road",
+        )
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="rejected",
+            request_category="delete_road",
+            reviewed_by=self.manager,
+        )
+        self.client.force_login(self.editor)
+        response = self.client.get(
+            reverse("mapping:list_my_edit_requests"),
+            [("category", "layer_upload"), ("category", "delete_road")],
+        )
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(len(payload["requests"]), 2)
+        categories = {row["request_category"] for row in payload["requests"]}
+        self.assertEqual(categories, {"layer_upload", "delete_road"})
+
     def test_serialize_approved_non_delete_can_open_map(self):
         user_model = get_user_model()
         reviewer = user_model.objects.create_user(

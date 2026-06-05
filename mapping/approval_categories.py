@@ -30,6 +30,18 @@ CATEGORY_LABELS = {
     "road_attribute_edit": "Road Attribute Edit",
 }
 
+# Short labels for My Edits / Review history filter chips.
+EDIT_FILTER_CATEGORIES = (
+    ("new_road", "New Road"),
+    ("add_road_label", "Add Label"),
+    ("change_road_label", "Change Label"),
+    ("new_road_geometry", "Geometry"),
+    ("new_feature_type", "Road Type"),
+    ("delete_road", "Delete Road"),
+    ("layer_upload", "Layer Upload"),
+    ("road_attribute_edit", "Attributes"),
+)
+
 
 def _norm(value) -> str:
     if value is None:

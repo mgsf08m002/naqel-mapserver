@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'mapping/css/my-edits.css' %}">
+<link rel="stylesheet" href="{% static 'mapping/css/review-history.css' %}">
 
 <div class="bg-white -mx-6 -my-6 px-6 py-10 min-h-[calc(100vh-64px)]" id="review-history-root"
      data-api-url="{{ review_history_api_url }}"
@@ -28,24 +28,16 @@
             <div>
                 <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Status</p>
                 <div class="flex flex-wrap items-center gap-2" id="review-history-status-filters" role="tablist" aria-label="Filter by status">
-                    <button type="button" class="my-edits-filter-chip is-active" data-status="">All</button>
-                    <button type="button" class="my-edits-filter-chip" data-status="approved">Approved</button>
-                    <button type="button" class="my-edits-filter-chip" data-status="rejected">Rejected</button>
+                    <button type="button" class="rh-filter-chip is-active" data-status="">All</button>
+                    <button type="button" class="rh-filter-chip" data-status="approved">Approved</button>
+                    <button type="button" class="rh-filter-chip" data-status="rejected">Rejected</button>
                 </div>
             </div>
 
             <div>
                 <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Road type</p>
                 <div class="flex flex-wrap items-center gap-2" id="review-history-category-filters" role="tablist" aria-label="Filter by road type">
-                    <button type="button" class="my-edits-filter-chip is-active" data-category="">All</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="new_road">New Road</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="add_road_label">Add Label</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="change_road_label">Change Label</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="new_road_geometry">Geometry</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="new_feature_type">Road Type</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="delete_road">Delete Road</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="layer_upload">Layer Upload</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="road_attribute_edit">Attributes</button>
+                    {% include 'mapping/includes/edit_filter_category_chips.html' with chip_class='rh-filter-chip' %}
                 </div>
             </div>
         </div>
@@ -54,12 +46,12 @@
             Loading review history…
         </div>
 
-        <div id="review-history-empty" class="hidden rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 px-6 py-14 text-center">
+        <div id="review-history-empty" class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 px-6 py-14 text-center" hidden>
             <p class="text-sm font-semibold text-gray-800">No edits match these filters</p>
             <p class="mt-1 text-xs text-gray-500 max-w-sm mx-auto">Try a different scope, status, or road type.</p>
         </div>
 
-        <div id="review-history-list" class="hidden space-y-2" aria-live="polite"></div>
+        <div id="review-history-list" class="space-y-2" aria-live="polite" hidden></div>
     </div>
 </div>
 

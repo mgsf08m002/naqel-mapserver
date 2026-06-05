@@ -80,7 +80,7 @@
         var status = item.status || 'approved';
 
         var row = document.createElement('article');
-        row.className = 'my-edits-row' + (clickable ? ' is-clickable' : '');
+        row.className = 'rh-row' + (clickable ? ' is-clickable' : '');
         row.setAttribute('role', clickable ? 'button' : 'listitem');
         if (clickable) {
             row.setAttribute('tabindex', '0');
@@ -94,8 +94,8 @@
         row.innerHTML =
             '<div class="min-w-0">' +
             '<p class="text-sm font-semibold text-gray-900 truncate">' + escapeHtml(title) + '</p>' +
-            '<div class="my-edits-row-meta">' +
-            '<span class="my-edits-category-badge ring-1 ' + catClass + '">' +
+            '<div class="rh-row__meta">' +
+            '<span class="rh-category-badge ring-1 ' + catClass + '">' +
             escapeHtml(item.request_category_label || 'Edit') +
             '</span>' +
             '<span>By ' + requesterLabel(item) + '</span>' +
@@ -110,7 +110,7 @@
             (item.reviewed_at ? '<span class="block mt-0.5 text-gray-400">' + formatDate(item.reviewed_at) + '</span>' : '') +
             '</div>' +
             '<div class="flex justify-end sm:order-2">' +
-            '<span class="my-edits-status-pill my-edits-status-pill--' + escapeHtml(status) + '">' +
+            '<span class="rh-status-pill rh-status-pill--' + escapeHtml(status) + '">' +
             escapeHtml(status) +
             '</span>' +
             '</div>';
@@ -139,23 +139,23 @@
         });
     }
 
+    function setViewState(state) {
+        if (loadingEl) loadingEl.hidden = state !== 'loading';
+        if (emptyEl) emptyEl.hidden = state !== 'empty';
+        if (listEl) listEl.hidden = state !== 'list';
+    }
+
     function showEmpty() {
-        loadingEl.classList.add('hidden');
-        emptyEl.classList.remove('hidden');
-        listEl.classList.add('hidden');
+        setViewState('empty');
     }
 
     function showList(items) {
-        loadingEl.classList.add('hidden');
-        emptyEl.classList.add('hidden');
-        listEl.classList.remove('hidden');
         renderList(items);
+        setViewState('list');
     }
 
     function fetchItems() {
-        loadingEl.classList.remove('hidden');
-        emptyEl.classList.add('hidden');
-        listEl.classList.add('hidden');
+        setViewState('loading');
 
         fetch(buildApiUrl(), {
             method: 'GET',
@@ -181,17 +181,18 @@
                 showList(items);
             })
             .catch(function (err) {
-                loadingEl.classList.add('hidden');
-                emptyEl.classList.remove('hidden');
-                emptyEl.querySelector('p').textContent = 'Could not load review history';
-                var sub = emptyEl.querySelector('p + p');
-                if (sub) sub.textContent = err.message || 'Please try again later.';
+                setViewState('empty');
+                if (emptyEl) {
+                    emptyEl.querySelector('p').textContent = 'Could not load review history';
+                    var sub = emptyEl.querySelector('p + p');
+                    if (sub) sub.textContent = err.message || 'Please try again later.';
+                }
             });
     }
 
     function setActiveChip(container, btn) {
         if (!container) return;
-        container.querySelectorAll('.my-edits-filter-chip').forEach(function (chip) {
+        container.querySelectorAll('.rh-filter-chip').forEach(function (chip) {
             chip.classList.toggle('is-active', chip === btn);
         });
     }

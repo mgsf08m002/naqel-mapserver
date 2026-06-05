@@ -34,6 +34,7 @@ from .approval_api import (
     serialize_my_edit_request_item,
 )
 from .approval_categories import CATEGORY_LABELS
+from .my_edits_query import apply_my_edits_filters
 from .presentation import has_my_edits_access
 from .approval_categories import (
     EDIT_TYPE_DELETE,
@@ -1514,14 +1515,7 @@ def list_my_edit_requests(request):
             .order_by("-created_at")
         )
 
-        status_filter = (request.GET.get("status") or "").strip().lower()
-        if status_filter in {"pending", "approved", "rejected"}:
-            qs = qs.filter(status=status_filter)
-
-        category_filter = (request.GET.get("category") or "").strip()
-        if category_filter and category_filter in CATEGORY_LABELS:
-            qs = qs.filter(request_category=category_filter)
-
+        qs = apply_my_edits_filters(qs, request)
         requests = list(qs[:MY_EDITS_LIST_LIMIT])
 
         riyadh_ids = [

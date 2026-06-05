@@ -1,60 +1,83 @@
 {% load static %}
 <link rel="stylesheet" href="{% static 'mapping/css/my-edits.css' %}">
 
-<div class="bg-white -mx-6 -my-6 px-6 py-10 min-h-[calc(100vh-64px)]" id="my-edits-root"
+<div class="me-page" id="my-edits-root"
      data-api-url="{{ my_edits_api_url }}"
      data-map-url="{{ my_edits_map_url }}">
-    <div class="max-w-5xl mx-auto space-y-8">
-        <header class="space-y-3">
-            <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
-                <span class="h-px w-6 bg-gray-300"></span>
-                <span>Editing</span>
+    <div class="me-panel">
+        <header class="me-head">
+            <div class="me-head__text">
+                <h1 class="me-head__title">My edits</h1>
+                <p class="me-head__sub">Track submissions from the map and layer uploader. Approved edits open on the map.</p>
             </div>
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                    <h1 class="text-3xl font-semibold text-gray-900">My edits</h1>
-                    <p class="text-sm text-gray-600 max-w-2xl mt-1">Track road edits you submitted from the map and layer uploader. Approved edits can be opened on the map.</p>
-                </div>
-            </div>
+            <p class="me-head__count" id="my-edits-count" hidden>
+                <span id="my-edits-count-value">0</span> edits
+            </p>
         </header>
 
-        <div class="space-y-4">
-            <div>
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Status</p>
-                <div class="flex flex-wrap items-center gap-2" id="my-edits-status-filters" role="tablist" aria-label="Filter by status">
-                    <button type="button" class="my-edits-filter-chip is-active" data-status="">All</button>
-                    <button type="button" class="my-edits-filter-chip" data-status="pending">Pending</button>
-                    <button type="button" class="my-edits-filter-chip" data-status="approved">Approved</button>
-                    <button type="button" class="my-edits-filter-chip" data-status="rejected">Rejected</button>
+        <div class="me-layout">
+            <div class="me-main" aria-live="polite">
+                <div id="my-edits-loading" class="me-placeholder">Loading your edits…</div>
+
+                <div id="my-edits-empty" class="me-placeholder me-placeholder--empty" hidden>
+                    <p>No edits match these filters.</p>
+                </div>
+
+                <div id="my-edits-list" class="me-table" hidden>
+                    <div class="me-table__head">
+                        <span>Road</span>
+                        <span>Type</span>
+                        <span>Status</span>
+                        <span>Submitted</span>
+                        <span>Reviewer</span>
+                    </div>
+                    <div id="my-edits-table-body" class="me-table__body"></div>
                 </div>
             </div>
 
-            <div>
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Road type</p>
-                <div class="flex flex-wrap items-center gap-2" id="my-edits-category-filters" role="tablist" aria-label="Filter by road type">
-                    <button type="button" class="my-edits-filter-chip is-active" data-category="">All</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="new_road">New Road</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="add_road_label">Add Label</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="change_road_label">Change Label</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="new_road_geometry">Geometry</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="new_feature_type">Road Type</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="delete_road">Delete Road</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="layer_upload">Layer Upload</button>
-                    <button type="button" class="my-edits-filter-chip" data-category="road_attribute_edit">Attributes</button>
+            <aside class="me-filters" aria-label="Filters">
+                <div class="me-filter-panel">
+                    <div class="me-filter-panel__head">
+                        <h2 class="me-filter-panel__title">Filters</h2>
+                        <button type="button" id="my-edits-clear-filters" class="me-clear" hidden>Reset</button>
+                    </div>
+
+                    <section class="me-filter-block">
+                        <h3 class="me-filter-block__label">Submitted date</h3>
+                        <div class="me-filter-block__dates">
+                            <label class="me-date-field">
+                                <span class="me-date-field__label">From</span>
+                                <input type="date" id="my-edits-start-date" class="me-date" aria-label="Start date">
+                            </label>
+                            <label class="me-date-field">
+                                <span class="me-date-field__label">To</span>
+                                <input type="date" id="my-edits-end-date" class="me-date" aria-label="End date">
+                            </label>
+                        </div>
+                    </section>
+
+                    <section class="me-filter-block">
+                        <h3 class="me-filter-block__label">Status</h3>
+                        <div class="me-filter-chips" id="my-edits-status-filters" role="tablist" aria-label="Filter by status">
+                            <button type="button" class="me-chip is-active" data-status="">All</button>
+                            <button type="button" class="me-chip" data-status="pending">Pending</button>
+                            <button type="button" class="me-chip" data-status="approved">Approved</button>
+                            <button type="button" class="me-chip" data-status="rejected">Rejected</button>
+                        </div>
+                    </section>
+
+                    <section class="me-filter-block">
+                        <div class="me-filter-block__head">
+                            <h3 class="me-filter-block__label">Road type</h3>
+                            <span class="me-filter-block__hint">Multi-select</span>
+                        </div>
+                        <div class="me-filter-chips me-filter-chips--wrap" id="my-edits-category-filters" aria-label="Filter by road type">
+                            {% include 'mapping/includes/edit_filter_category_chips.html' with chip_class='me-chip' %}
+                        </div>
+                    </section>
                 </div>
-            </div>
+            </aside>
         </div>
-
-        <div id="my-edits-loading" class="rounded-2xl border border-gray-200 bg-gray-50 px-6 py-12 text-center text-sm text-gray-500">
-            Loading your edits…
-        </div>
-
-        <div id="my-edits-empty" class="hidden rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 px-6 py-14 text-center">
-            <p class="text-sm font-semibold text-gray-800">No edits match these filters</p>
-            <p class="mt-1 text-xs text-gray-500 max-w-sm mx-auto">Try a different status or road type, or submit an edit from the map or layer uploader.</p>
-        </div>
-
-        <div id="my-edits-list" class="hidden space-y-2" aria-live="polite"></div>
     </div>
 </div>
 

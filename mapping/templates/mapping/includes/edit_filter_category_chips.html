@@ -1,0 +1,4 @@
+<button type="button" class="{{ chip_class }} is-active" data-category="" data-category-all>All</button>
+{% for key, label in edit_filter_categories %}
+<button type="button" class="{{ chip_class }}" data-category="{{ key }}">{{ label }}</button>
+{% endfor %}
