@@ -41,8 +41,22 @@
       <div id="lr-feature-list" class="lr-feature-list" role="list"></div>
       {% if can_submit %}
       <footer class="lr-panel-submit">
-        <button type="button" id="btn-submit-manager" class="lr-btn-submit">
-          {% if is_manager_uploader %}Publish layer{% else %}Submit layer{% endif %}
+        <button
+          type="button"
+          id="btn-submit-manager"
+          class="lr-btn-submit{% if is_manager_uploader %} lr-btn-submit--publish{% endif %}"
+        >
+          {% if is_manager_uploader %}
+          <svg class="lr-btn-submit__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>
+          </svg>
+          <span class="lr-btn-submit__label">Publish layer</span>
+          {% else %}
+          <svg class="lr-btn-submit__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9 22 2z"/>
+          </svg>
+          <span class="lr-btn-submit__label">Submit layer</span>
+          {% endif %}
         </button>
       </footer>
       {% endif %}
