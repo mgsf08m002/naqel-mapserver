@@ -1731,9 +1731,6 @@
                 });
                 renderApprovalList();
                 if (data.deleted_road_id != null) {
-                    if (typeof window.clearRiyadhRoadDbFclassFromDatabase === 'function') {
-                        window.clearRiyadhRoadDbFclassFromDatabase(data.deleted_road_id);
-                    }
                     try {
                         window.selectedRiyadhRoad = null;
                         window.approvedLineBeingEdited = null;
@@ -1741,19 +1738,9 @@
                             window.setSelectedOverlayGeometry(null);
                         }
                     } catch (eSel) {}
-                } else if (
-                    data.remote_road_id != null &&
-                    typeof window.applyRiyadhRoadDbFclassFromDatabase === 'function'
-                ) {
-                    window.applyRiyadhRoadDbFclassFromDatabase(
-                        data.remote_road_id,
-                        data.fclass || 'unclassified'
-                    );
                 }
-                if (typeof window.triggerRiyadhTilesReload === 'function') {
-                    window.triggerRiyadhTilesReload(
-                        data.tiles_version != null ? data.tiles_version : Date.now()
-                    );
+                if (typeof window.applyLiveNetworkEditToMap === 'function') {
+                    window.applyLiveNetworkEditToMap(data, { reloadDelayMs: 0 });
                 }
             } else {
                 showToast('Error: ' + (data.message || 'Approval failed'), 'error');

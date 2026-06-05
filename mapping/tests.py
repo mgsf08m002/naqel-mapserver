@@ -16,7 +16,13 @@ from mapping.approval_categories import (
     create_pending_road_edit_request,
 )
 from mapping.models import LineEditRequest
-from mapping.riyadh_network import riyadh_tile_proxy_absolute_url, tiles_version_ms
+from mapping.riyadh_network import (
+    network_mutation_payload,
+    normalize_published_fclass,
+    published_fclass_from_edit_request,
+    riyadh_tile_proxy_absolute_url,
+    tiles_version_ms,
+)
 from system_admin.models import UserProfile
 
 
@@ -38,6 +44,23 @@ class RiyadhNetworkUtilTests(SimpleTestCase):
     def test_tile_proxy_url_empty_when_upstream_missing(self):
         request = RequestFactory().get("/")
         self.assertEqual(riyadh_tile_proxy_absolute_url(request), "")
+
+    def test_normalize_published_fclass_defaults_unclassified(self):
+        self.assertEqual(normalize_published_fclass(""), "unclassified")
+        self.assertEqual(normalize_published_fclass("Primary"), "primary")
+
+    def test_network_mutation_payload_includes_tiles_version(self):
+        payload = network_mutation_payload(remote_road_id=42, fclass="primary")
+        self.assertIn("tiles_version", payload)
+        self.assertEqual(payload["remote_road_id"], 42)
+        self.assertEqual(payload["fclass"], "primary")
+
+    def test_published_fclass_from_edit_request_uses_label(self):
+        request = MagicMock()
+        request.fields_data = {}
+        request.current_feature_label = "Primary Road"
+        request.feature_type = "Primary Road"
+        self.assertEqual(published_fclass_from_edit_request(request), "primary")
 
 
 class RiyadhRoadsTileProxyTests(TestCase):

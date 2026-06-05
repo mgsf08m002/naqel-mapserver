@@ -47,7 +47,7 @@ RIYADH_ROADS_TILE_URL = os.getenv(
     "http://139.162.60.105:3000/riyadh_roads/{z}/{x}/{y}",
 ).strip()
 RIYADH_ROADS_TILE_PROXY_TIMEOUT_SECONDS = _env_int("RIYADH_ROADS_TILE_PROXY_TIMEOUT_SECONDS", 20)
-# Live edits: proxy does not cache MVT. Martin must use cache.size_mb: 0 (deploy/martin/).
+# Live edits: proxy uses no-store; Martin must run with --cache-size 0 (see deploy/martin/README.md).
 RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE = _env_int("RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE", 0)
 
 _riyadh_tile_url = urlparse(RIYADH_ROADS_TILE_URL)

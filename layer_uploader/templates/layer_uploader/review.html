@@ -8,13 +8,14 @@
 <link rel="stylesheet" href="{% static 'mapping/css/road-selection.css' %}">
 <link rel="stylesheet" href="{% static 'layer_uploader/css/layer_review.css' %}">
 <script src="{% static 'mapping/js/map-line-selection.js' %}"></script>
+<script src="{% static 'mapping/js/riyadh-tiles-reload.js' %}"></script>
 <script src="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js"></script>
 {% endblock %}
 
 {% block layer_content %}
 <div
   id="layer-review-root"
-  class="lr-shell -mx-6 -my-6 px-4 sm:px-6 py-10 sm:py-12 min-h-[calc(100vh-64px)]"
+  class="lr-shell lr-shell--workspace -mx-6 -my-6 px-4 sm:px-6 py-4 sm:py-5 min-h-[calc(100vh-64px)]"
   data-geojson-url="{% url 'layer_review_geojson' layer.pk %}"
   data-table-url="{% url 'layer_review_table' layer.pk %}"
   data-action-url="{% url 'layer_review_action' layer.pk %}"
@@ -36,7 +37,7 @@
         · <span id="lr-layer-feature-total">{{ review_total_features|floatformat:0 }}</span> total in upload
       </p>
       {% if review_large_layer %}
-      <p class="lr-layer-hint">Large layer: the map loads roads in the current view; the table shows {{ review_page_size }} rows per page.</p>
+      <p class="lr-layer-hint">Large layer: the map loads roads in the current view.</p>
       {% endif %}
     </div>
     {% if not can_submit %}
@@ -44,117 +45,7 @@
     {% endif %}
   </header>
 
-  <div class="lr-body">
-    <div class="lr-main">
-      <section class="lr-map-panel" aria-labelledby="lr-map-heading">
-        <div class="lr-map-head">
-          <h2 id="lr-map-heading" class="lr-section-label">Map</h2>
-          <div class="lr-map-head-actions">
-            <div class="lr-basemap-row">
-              <span class="lr-basemap-label">Basemap</span>
-              <div id="review-basemap-strip" class="lr-basemap-strip" role="group" aria-label="Basemap style"></div>
-            </div>
-            <button type="button" id="btn-map-open-zoom" class="lr-zoom-btn" title="Open full-screen map">
-              <svg class="lr-zoom-btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-              Full screen
-            </button>
-          </div>
-        </div>
-        <div class="lr-map-shell" id="lr-map-inline-home">
-          <div id="review-map" class="review-map-frame" role="application" aria-label="Feature map"></div>
-        </div>
-      </section>
-
-      <section class="lr-table-panel" aria-labelledby="lr-table-heading">
-        <div class="lr-table-toolbar">
-          <h2 id="lr-table-heading" class="lr-section-label">Features</h2>
-          <div class="lr-table-toolbar-actions">
-            <label class="lr-table-filter">
-              <span class="lr-table-filter-label">Show</span>
-              <select id="lr-status-filter" class="lr-table-filter-select" aria-label="Filter by status">
-                <option value="">All statuses</option>
-                <option value="staged">New</option>
-                <option value="nominated">Approved</option>
-                <option value="rejected_upload">Rejected</option>
-              </select>
-            </label>
-            <span class="lr-table-bulk-label">Bulk</span>
-            <div class="lr-actions-bulk">
-              <button type="button" id="btn-approve-all" class="lr-action-btn lr-action-btn--approve lr-action-btn--bulk" aria-label="Approve all" title="Approve all">
-                <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
-              </button>
-              <button type="button" id="btn-reject-all" class="lr-action-btn lr-action-btn--reject lr-action-btn--bulk" aria-label="Reject all" title="Reject all">
-                <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-        <div class="lr-table-wrap">
-          <table class="lr-table">
-            <colgroup>
-              <col class="lr-col-num" />
-              <col class="lr-col-status" />
-              <col class="lr-col-road-name" />
-              <col class="lr-col-props" />
-              <col class="lr-col-actions" />
-            </colgroup>
-            <thead class="lr-table-head">
-              <tr>
-                <th scope="col">#</th>
-                <th scope="col">Status</th>
-                <th scope="col">Road name</th>
-                <th scope="col">Properties</th>
-                <th scope="col">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="review-feature-rows">
-              <tr>
-                <td colspan="5" class="lr-empty">Loading…</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <nav id="lr-table-pagination" class="lr-pagination" aria-label="Feature table pages" hidden>
-          <button type="button" id="lr-page-prev" class="lr-page-btn" disabled>Previous</button>
-          <span id="lr-page-status" class="lr-page-status">Page 1 of 1</span>
-          <button type="button" id="lr-page-next" class="lr-page-btn" disabled>Next</button>
-        </nav>
-      </section>
-    </div>
-
-    <aside class="lr-aside" aria-label="Summary and submit">
-      <div class="lr-sidebar-card">
-        <p class="lr-sidebar-card__head">Summary</p>
-        <div class="lr-stat-grid" aria-live="polite">
-          <div class="lr-stat">
-            <span class="lr-stat-val" id="cnt-total">—</span>
-            <span class="lr-stat-label">Total</span>
-          </div>
-          <div class="lr-stat">
-            <span class="lr-stat-val" id="cnt-staged">—</span>
-            <span class="lr-stat-label">New</span>
-          </div>
-          <div class="lr-stat">
-            <span class="lr-stat-val" id="cnt-nominated">—</span>
-            <span class="lr-stat-label">Approved</span>
-          </div>
-          <div class="lr-stat">
-            <span class="lr-stat-val" id="cnt-rejected_upload">—</span>
-            <span class="lr-stat-label">Rejected</span>
-          </div>
-        </div>
-        {% if can_submit %}
-        <div class="lr-aside-submit">
-          <button type="button" id="btn-submit-manager" class="lr-btn-submit">
-            {% if is_manager_uploader %}Publish layer{% else %}Submit layer{% endif %}
-          </button>
-        </div>
-        {% endif %}
-      </div>
-    </aside>
-  </div>
-
-  {% include 'layer_uploader/includes/review_zoom_overlay.html' %}
+  {% include 'layer_uploader/includes/review_workspace.html' %}
 </div>
 
 <script src="{% static 'layer_uploader/js/layer_review.js' %}" defer></script>

@@ -1,5 +1,5 @@
 /**
- * Layer review: map preview, feature table, and per-row / bulk approve–reject actions.
+ * Layer review: full-width map workspace with feature panel and approve–reject actions.
  */
 (function () {
     const root = document.getElementById('layer-review-root');
@@ -18,8 +18,6 @@
     const submitUrl = root.dataset.submitUrl || '';
     const isManagerUploader = root.dataset.isManagerUploader === 'true';
     const largeLayer = root.dataset.largeLayer === 'true';
-    const pageSize = parseInt(root.dataset.pageSize || '50', 10) || 50;
-
     function featureDetailUrl(featureId) {
         return tableUrl.replace(/table\.json.*/, 'features/' + String(featureId) + '.json');
     }
@@ -101,27 +99,19 @@
     const ICON_REJECT_SVG =
         '<svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>';
 
-    const mapInlineHome = document.getElementById('lr-map-inline-home');
-    const mapZoomOverlay = document.getElementById('lr-map-zoom-overlay');
-    const mapZoomBody = document.getElementById('lr-map-zoom-body');
-    const mapZoomSub = document.getElementById('lr-map-zoom-sub');
-    const btnMapOpenZoom = document.getElementById('btn-map-open-zoom');
-    const btnMapZoomClose = document.getElementById('btn-map-zoom-close');
+    const workspaceSub = document.getElementById('lr-workspace-sub');
     const zoomPanel = document.getElementById('lr-zoom-panel');
     const btnZoomPanelToggle = document.getElementById('lr-zoom-panel-toggle');
     const zoomFeatureList = document.getElementById('lr-zoom-feature-list');
 
-    let mapZoomOpen = false;
     let zoomPanelOpen = true;
-    let zoomFeatureListRequestId = 0;
+    let featureListRequestId = 0;
 
     const ZOOM_PANEL_MAP_PADDING_PX = 400;
     const ESRI_SATELLITE_BASEMAP_ID = 'esri-satellite';
     const DEFAULT_BASEMAP_MAX_ZOOM = 19;
     const BASEMAP_RASTER_LAYER_MAX_ZOOM = 22;
-    const ZOOM_OVERVIEW_MAX_INLINE = 16;
-    const ZOOM_OVERVIEW_MAX_MODAL = 15;
-    const ZOOM_POINT_MAX_INLINE = 17;
+    const ZOOM_OVERVIEW_MAX = 15;
 
     function buildBasemapDefinitions() {
         const defs = [
@@ -171,7 +161,6 @@
 
     const BASEMAP_DEFINITIONS = buildBasemapDefinitions();
     let currentBasemapId = ESRI_SATELLITE_BASEMAP_ID;
-    let basemapIdBeforeZoom = null;
 
     function basemapDefById(basemapId) {
         return BASEMAP_DEFINITIONS.find(function (d) {
@@ -185,10 +174,7 @@
     }
 
     function overviewFitMaxZoom() {
-        if (mapZoomOpen) {
-            return Math.min(ZOOM_OVERVIEW_MAX_MODAL, activeBasemapMaxZoom());
-        }
-        return ZOOM_OVERVIEW_MAX_INLINE;
+        return Math.min(ZOOM_OVERVIEW_MAX, activeBasemapMaxZoom());
     }
 
     function applyBasemapZoomLimits() {
@@ -203,23 +189,12 @@
         }
     }
 
-    function prepareBasemapForZoomModal() {
+    function prepareBasemapForFeatureFocus() {
         const def = basemapDefById(currentBasemapId);
         if (!def || !def.preferSatelliteInZoom) {
             return;
         }
-        if (basemapIdBeforeZoom == null) {
-            basemapIdBeforeZoom = currentBasemapId;
-        }
         setBasemap(ESRI_SATELLITE_BASEMAP_ID);
-    }
-
-    function restoreBasemapAfterZoomModal() {
-        if (!basemapIdBeforeZoom) {
-            return;
-        }
-        setBasemap(basemapIdBeforeZoom);
-        basemapIdBeforeZoom = null;
     }
 
     function buildInitialStyle() {
@@ -451,35 +426,22 @@
     const featureGeomById = {};
     const featureStatusById = {};
     let layerExtent = null;
-    let currentPage = 1;
     let statusFilter = '';
     let mapLoadTimer = null;
     let mapLoadInFlight = false;
 
-    const paginationNav = document.getElementById('lr-table-pagination');
-    const btnPagePrev = document.getElementById('lr-page-prev');
-    const btnPageNext = document.getElementById('lr-page-next');
-    const pageStatusEl = document.getElementById('lr-page-status');
     const statusFilterEl = document.getElementById('lr-status-filter');
     const layerTotalEl = document.getElementById('lr-layer-feature-total');
     const layerNewEl = document.getElementById('lr-layer-feature-new');
-
-    function reviewTileUrl(baseUrl) {
-        if (!baseUrl) {
-            return baseUrl;
-        }
-        if (typeof window.buildRiyadhRoadsTileUrl === 'function') {
-            return window.buildRiyadhRoadsTileUrl(baseUrl, window.__riyadhTilesVersion || Date.now());
-        }
-        const sep = baseUrl.indexOf('?') >= 0 ? '&' : '?';
-        return baseUrl + sep + 'v=' + encodeURIComponent(String(Date.now()));
-    }
 
     function ensureRiyadhRoadsSource() {
         if (!HAS_RIYADH_ROADS_TILES || map.getSource(SOURCE_ID_RIYADH)) {
             return;
         }
-        const bustedUrl = reviewTileUrl(RIYADH_ROADS_TILE_URL);
+        const bustedUrl =
+            typeof window.buildRiyadhRoadsTileUrl === 'function'
+                ? window.buildRiyadhRoadsTileUrl(RIYADH_ROADS_TILE_URL, null)
+                : RIYADH_ROADS_TILE_URL;
         const promote = {};
         promote[SOURCE_LAYER_RIYADH] = 'id';
         map.addSource(SOURCE_ID_RIYADH, {
@@ -489,6 +451,20 @@
             maxzoom: 14,
             promoteId: promote,
         });
+    }
+
+    function reloadRiyadhRoadsTilesOnReviewMap(version) {
+        if (!HAS_RIYADH_ROADS_TILES || typeof map === 'undefined' || !map) {
+            return;
+        }
+        if (typeof window.reloadMaplibreVectorTileSource === 'function') {
+            window.reloadMaplibreVectorTileSource(
+                map,
+                SOURCE_ID_RIYADH,
+                RIYADH_ROADS_TILE_URL,
+                version
+            );
+        }
     }
 
     function addRiyadhPublicRoadLayer() {
@@ -664,16 +640,14 @@
     }
 
     const STATUS_COUNT_IDS = {
-        total: ['cnt-total', 'lr-zoom-cnt-total'],
-        staged: ['cnt-staged', 'lr-zoom-cnt-staged'],
-        nominated: ['cnt-nominated', 'lr-zoom-cnt-nominated'],
-        rejected_upload: ['cnt-rejected_upload', 'lr-zoom-cnt-rejected_upload'],
+        total: ['lr-zoom-cnt-total'],
+        staged: ['lr-zoom-cnt-staged'],
+        nominated: ['lr-zoom-cnt-nominated'],
+        rejected_upload: ['lr-zoom-cnt-rejected_upload'],
     };
 
     function featureListSelector(fid) {
-        return mapZoomOpen
-            ? '.lr-zoom-feature-card[data-feature-id="' + String(fid) + '"]'
-            : '#review-feature-rows tr[data-feature-id="' + String(fid) + '"]';
+        return '.lr-zoom-feature-card[data-feature-id="' + String(fid) + '"]';
     }
 
     function renderStatusCounts(counts) {
@@ -720,7 +694,7 @@
         }
     }
 
-    function zoomTableQueryUrl() {
+    function featureListQueryUrl() {
         const params = new URLSearchParams();
         params.set('list', 'all');
         if (statusFilter) {
@@ -730,25 +704,33 @@
         return tableUrl + join + params.toString();
     }
 
-    function loadZoomFeatureList() {
+    function loadFeatureList() {
         if (!zoomFeatureList) {
             return Promise.resolve();
         }
-        const requestId = ++zoomFeatureListRequestId;
+        const requestId = ++featureListRequestId;
         setZoomFeatureListLoading(true);
-        return fetchReviewJson(zoomTableQueryUrl())
+        return fetchReviewJson(featureListQueryUrl())
             .then(function (payload) {
-                if (requestId !== zoomFeatureListRequestId) {
+                if (requestId !== featureListRequestId) {
                     return payload;
                 }
+                if (payload.extent) {
+                    layerExtent = payload.extent;
+                }
                 const feats = payload.features || [];
+                feats.forEach(function (f) {
+                    if (f.status) {
+                        featureStatusById[f.id] = f.status;
+                    }
+                });
                 updateReviewSummary(payload);
                 renderZoomFeaturePanel(feats);
                 restoreFeatureSelection();
                 return payload;
             })
             .catch(function (err) {
-                if (requestId !== zoomFeatureListRequestId) {
+                if (requestId !== featureListRequestId) {
                     return;
                 }
                 zoomFeatureList.innerHTML =
@@ -800,66 +782,12 @@
         });
     }
 
-    function tableQueryUrl(page) {
-        const params = new URLSearchParams();
-        params.set('page', String(page));
-        params.set('page_size', String(pageSize));
-        if (statusFilter) {
-            params.set('status', statusFilter);
-        }
-        const join = tableUrl.indexOf('?') >= 0 ? '&' : '?';
-        return tableUrl + join + params.toString();
-    }
-
     function geojsonQueryUrl(bbox) {
         if (!bbox) {
             return geojsonUrl;
         }
         const join = geojsonUrl.indexOf('?') >= 0 ? '&' : '?';
         return geojsonUrl + join + 'bbox=' + encodeURIComponent(bbox.join(','));
-    }
-
-    function updatePaginationUi(pagination) {
-        if (!paginationNav || !pagination) {
-            return;
-        }
-        const totalPages = pagination.total_pages || 1;
-        const show = totalPages > 1 || (pagination.total || 0) > pageSize;
-        paginationNav.hidden = !show;
-        if (pageStatusEl) {
-            pageStatusEl.textContent =
-                'Page ' + String(pagination.page) + ' of ' + String(totalPages) +
-                ' · ' + String(pagination.total) + ' rows';
-        }
-        if (btnPagePrev) {
-            btnPagePrev.disabled = pagination.page <= 1;
-        }
-        if (btnPageNext) {
-            btnPageNext.disabled = pagination.page >= totalPages;
-        }
-    }
-
-    function loadTablePage(page) {
-        currentPage = page;
-        return fetchReviewJson(tableQueryUrl(page)).then(function (payload) {
-            renderTable(payload);
-            return payload;
-        });
-    }
-
-    function fitLayerExtent(extent) {
-        if (!extent || extent.length !== 2) {
-            return;
-        }
-        try {
-            map.fitBounds(new maplibregl.LngLatBounds(extent[0], extent[1]), {
-                padding: { top: 80, bottom: 80, left: 80, right: 80 },
-                maxZoom: 14,
-                duration: 0,
-            });
-        } catch (e) {
-            /* ignore */
-        }
     }
 
     function loadMapViewport() {
@@ -911,7 +839,7 @@
     }
 
     function refreshAfterMutation() {
-        return Promise.all([refreshMapData(), reloadTableAndZoomPanel(currentPage)]);
+        return Promise.all([refreshMapData(), loadFeatureList()]);
     }
 
     function clearFeatureSelection() {
@@ -950,13 +878,11 @@
         if (btnZoomPanelToggle) {
             btnZoomPanelToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         }
-        if (mapZoomOpen) {
-            resizeMapSoon();
-        }
+        resizeMapSoon();
     }
 
     function activeFeatureLayerIds() {
-        const ids = mapZoomOpen ? ALL_LAYER_IDS : UPLOAD_LAYER_IDS;
+        const ids = largeLayer ? UPLOAD_LAYER_IDS : ALL_LAYER_IDS;
         return ids.filter(function (id) {
             return map.getLayer(id);
         });
@@ -1099,8 +1025,8 @@
             return;
         }
         ensureAllFeaturesSourceAndLayers();
-        setLayerGroupVisibility(UPLOAD_LAYER_IDS, !mapZoomOpen);
-        setLayerGroupVisibility(ALL_LAYER_IDS, mapZoomOpen);
+        setLayerGroupVisibility(UPLOAD_LAYER_IDS, false);
+        setLayerGroupVisibility(ALL_LAYER_IDS, true);
     }
 
     function zoomToAllFeatures() {
@@ -1110,7 +1036,7 @@
                 boundsArea(layerExtent) < 1e-12 ? padBounds(layerExtent, 0.01) : layerExtent;
             try {
                 map.fitBounds(new maplibregl.LngLatBounds(padded[0], padded[1]), {
-                    padding: mapZoomOpen ? mapZoomFitPadding() : { top: 80, bottom: 80, left: 80, right: 80 },
+                    padding: mapZoomFitPadding(),
                     maxZoom: extentMaxZoom,
                     duration: 900,
                 });
@@ -1133,7 +1059,7 @@
         const padded = boundsArea(merged) < 1e-12 ? padBounds(merged, 0.01) : merged;
         try {
             map.fitBounds(new maplibregl.LngLatBounds(padded[0], padded[1]), {
-                padding: mapZoomOpen ? mapZoomFitPadding() : { top: 80, bottom: 80, left: 80, right: 80 },
+                padding: mapZoomFitPadding(),
                 maxZoom: extentMaxZoom,
                 duration: 900,
             });
@@ -1142,57 +1068,16 @@
         }
     }
 
-    function updateZoomModalSubtitle() {
-        if (!mapZoomSub) {
-            return;
-        }
-        if (!mapZoomOpen) {
+    function updateWorkspaceSubtitle() {
+        if (!workspaceSub) {
             return;
         }
         if (selectedFeatureId != null && featureGeomById[selectedFeatureId]) {
-            mapZoomSub.textContent =
+            workspaceSub.textContent =
                 'Focused on feature #' + String(selectedFeatureId) + '. Select another in the panel to refocus.';
             return;
         }
-        mapZoomSub.textContent = 'All features are shown. Open the Features panel to select one.';
-    }
-
-    function openMapZoomModal() {
-        if (!mapZoomOverlay || !mapZoomBody || !mapInlineHome || mapZoomOpen) {
-            return;
-        }
-        mapZoomBody.appendChild(mapEl);
-        mapZoomOverlay.hidden = false;
-        mapZoomOverlay.setAttribute('aria-hidden', 'false');
-        mapZoomOpen = true;
-        document.body.style.overflow = 'hidden';
-        setZoomPanelOpen(true);
-        prepareBasemapForZoomModal();
-        syncMapFeatureLayers();
-        updateZoomModalSubtitle();
-        resizeMapSoon(function () {
-            loadZoomFeatureList().then(function () {
-                zoomToAllFeatures();
-                if (largeLayer) {
-                    loadMapViewport();
-                }
-            });
-        });
-    }
-
-    function closeMapZoomModal() {
-        if (!mapZoomOverlay || !mapInlineHome || !mapZoomOpen) {
-            return;
-        }
-        zoomFeatureListRequestId += 1;
-        mapInlineHome.appendChild(mapEl);
-        mapZoomOverlay.hidden = true;
-        mapZoomOverlay.setAttribute('aria-hidden', 'true');
-        mapZoomOpen = false;
-        document.body.style.overflow = '';
-        restoreBasemapAfterZoomModal();
-        syncMapFeatureLayers();
-        resizeMapSoon();
+        workspaceSub.textContent = 'All features shown. Select one in the panel to focus.';
     }
 
     function focusFeature(fid, rowRef) {
@@ -1201,20 +1086,15 @@
         ensureFeatureGeometry(fid).then(function () {
             setSelectionHighlight(fid);
         });
-        if (!mapZoomOpen) {
-            mapEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        }
     }
 
     function zoomToFeature(row) {
-        if (mapZoomOpen) {
-            prepareBasemapForZoomModal();
-        }
+        prepareBasemapForFeatureFocus();
         const focusMaxZoom = activeBasemapMaxZoom();
         let bb = row.bbox;
         const center = row.center;
         const geom = row.geometry;
-        const fitPadding = mapZoomOpen ? mapZoomFitPadding() : { top: 72, bottom: 72, left: 72, right: 72 };
+        const fitPadding = mapZoomFitPadding();
 
         if (!bb || !Array.isArray(bb) || bb.length !== 2) {
             bb = geom ? boundsFromGeometry(geom) : null;
@@ -1225,12 +1105,9 @@
         }
 
         if (center && Array.isArray(center) && center.length === 2 && (!bb || boundsArea(bb) < 1e-16)) {
-            const pointZoom = mapZoomOpen
-                ? focusMaxZoom
-                : Math.min(ZOOM_POINT_MAX_INLINE, focusMaxZoom);
             map.easeTo({
                 center: center,
-                zoom: pointZoom,
+                zoom: focusMaxZoom,
                 duration: 750,
             });
             return;
@@ -1443,9 +1320,7 @@
 
     function setRowSelected(fid) {
         selectedFeatureId = fid;
-        document
-            .querySelectorAll('.lr-table-row[data-feature-id], .lr-zoom-feature-card[data-feature-id]')
-            .forEach(function (el) {
+        document.querySelectorAll('.lr-zoom-feature-card[data-feature-id]').forEach(function (el) {
                 const id = parseInt(el.getAttribute('data-feature-id'), 10);
                 const on = id === fid;
                 el.classList.toggle('lr-row-selected', on);
@@ -1454,7 +1329,7 @@
                 }
             });
         setSelectionHighlight(fid);
-        updateZoomModalSubtitle();
+        updateWorkspaceSubtitle();
     }
 
     function wireFeatureInteractions(el, f, rowRef) {
@@ -1542,41 +1417,6 @@
             fragment.appendChild(buildZoomFeatureCard(f, idx));
         });
         zoomFeatureList.appendChild(fragment);
-    }
-
-    function buildTableRow(f, displayIndex) {
-        const tr = document.createElement('tr');
-        tr.className = 'lr-table-row';
-        stampFeatureDataset(tr, f);
-
-        const tdNum = document.createElement('td');
-        tdNum.className = 'lr-td-num';
-        tdNum.textContent = String(displayIndex);
-
-        const tdSt = document.createElement('td');
-        tdSt.className = 'lr-td-status';
-        tdSt.innerHTML = statusBadge(f.status);
-
-        const tdName = document.createElement('td');
-        tdName.className = 'lr-td-road-name';
-        tdName.innerHTML = renderRoadNameCell(f);
-
-        const tdProps = document.createElement('td');
-        tdProps.className = 'lr-td-props';
-        tdProps.innerHTML = renderPropertiesCell(f);
-
-        const tdAct = document.createElement('td');
-        tdAct.className = 'lr-td-actions';
-        fillActionCell(tdAct, f.status);
-
-        tr.appendChild(tdNum);
-        tr.appendChild(tdSt);
-        tr.appendChild(tdName);
-        tr.appendChild(tdProps);
-        tr.appendChild(tdAct);
-        applyFeatureStatusClasses(tr, f.status);
-        wireFeatureInteractions(tr, f, featureRowRef(f));
-        return tr;
     }
 
     function getCsrfToken() {
@@ -1671,63 +1511,9 @@
         return d.innerHTML;
     }
 
-    function renderTable(payload) {
-        const tbody = document.getElementById('review-feature-rows');
-        if (!tbody) {
-            return;
-        }
-        updateReviewSummary(payload);
-
-        if (payload.extent) {
-            layerExtent = payload.extent;
-        }
-        updatePaginationUi(payload.pagination || null);
-
-        const feats = payload.features || [];
-        const pagination = payload.pagination || {};
-        const rowOffset = ((pagination.page || 1) - 1) * (pagination.page_size || pageSize);
-
-        feats.forEach(function (f) {
-            if (f.status) {
-                featureStatusById[f.id] = f.status;
-            }
-        });
-
-        tbody.innerHTML = '';
-        if (!feats.length) {
-            tbody.innerHTML =
-                '<tr><td colspan="5" class="lr-empty">No roads match this filter on this page.</td></tr>';
-        } else {
-            feats.forEach(function (f, idx) {
-                tbody.appendChild(buildTableRow(f, rowOffset + idx + 1));
-            });
-        }
-        afterTableRendered();
-    }
-
-    function afterTableRendered() {
-        if (mapZoomOpen) {
-            loadZoomFeatureList();
-            return;
-        }
-        restoreFeatureSelection();
-    }
-
-    function reloadTableAndZoomPanel(page) {
-        return loadTablePage(page || currentPage).then(function () {
-            if (mapZoomOpen) {
-                return loadZoomFeatureList();
-            }
-        });
-    }
-
     function initReviewData() {
-        return loadTablePage(1)
-            .then(function (payload) {
-                if (payload.extent) {
-                    layerExtent = payload.extent;
-                    fitLayerExtent(layerExtent);
-                }
+        return loadFeatureList()
+            .then(function () {
                 if (largeLayer) {
                     return loadMapViewport();
                 }
@@ -1739,6 +1525,7 @@
             .then(function () {
                 applyOverlayThemeForBasemap(currentBasemapId);
                 syncMapFeatureLayers();
+                zoomToAllFeatures();
             })
             .catch(function () {
                 window.notify.tryShow('Failed to load review data.', 'error');
@@ -1749,23 +1536,15 @@
         initBasemapControls();
         ensureRiyadhRoadsSource();
         addRiyadhPublicRoadLayer();
+        if (typeof window.registerRiyadhRoadsTileReloader === 'function') {
+            window.registerRiyadhRoadsTileReloader(reloadRiyadhRoadsTilesOnReviewMap);
+        }
 
-        if (btnMapOpenZoom) {
-            btnMapOpenZoom.addEventListener('click', openMapZoomModal);
-        }
-        if (btnMapZoomClose) {
-            btnMapZoomClose.addEventListener('click', closeMapZoomModal);
-        }
         if (btnZoomPanelToggle) {
             btnZoomPanelToggle.addEventListener('click', function () {
                 setZoomPanelOpen(!zoomPanelOpen);
             });
         }
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && mapZoomOpen) {
-                closeMapZoomModal();
-            }
-        });
 
         map.on('click', focusFeatureFromMapClick);
         map.on('moveend', function () {
@@ -1777,21 +1556,9 @@
         if (statusFilterEl) {
             statusFilterEl.addEventListener('change', function () {
                 statusFilter = statusFilterEl.value || '';
-                reloadTableAndZoomPanel(1).catch(function () {
-                    window.notify.tryShow('Failed to load table.', 'error');
+                loadFeatureList().catch(function () {
+                    window.notify.tryShow('Failed to load features.', 'error');
                 });
-            });
-        }
-        if (btnPagePrev) {
-            btnPagePrev.addEventListener('click', function () {
-                if (currentPage > 1) {
-                    loadTablePage(currentPage - 1);
-                }
-            });
-        }
-        if (btnPageNext) {
-            btnPageNext.addEventListener('click', function () {
-                loadTablePage(currentPage + 1);
             });
         }
 
@@ -1845,11 +1612,14 @@
                 return r.json();
             })
             .then(function (payload) {
-                if (payload && payload.tiles_version && typeof window.triggerRiyadhTilesReload === 'function') {
-                    window.triggerRiyadhTilesReload(payload.tiles_version);
+                if (typeof window.applyLiveNetworkEditToMap === 'function') {
+                    window.applyLiveNetworkEditToMap(payload, { reloadDelayMs: 0 });
                 }
                 if (payload.redirect_url) {
-                    window.location.href = payload.redirect_url;
+                    const delay = payload && payload.tiles_version ? 400 : 0;
+                    setTimeout(function () {
+                        window.location.href = payload.redirect_url;
+                    }, delay);
                 }
             })
             .catch(function (err) {
@@ -1860,7 +1630,7 @@
     const btnSubmit = document.getElementById('btn-submit-manager');
     if (btnSubmit && submitUrl) {
         btnSubmit.addEventListener('click', function () {
-            const nominatedEl = document.getElementById('cnt-nominated');
+            const nominatedEl = document.getElementById('lr-zoom-cnt-nominated');
             const nominatedCount = nominatedEl ? parseInt(nominatedEl.textContent, 10) : 0;
             if (!nominatedCount || Number.isNaN(nominatedCount)) {
                 window.notify.tryShow(

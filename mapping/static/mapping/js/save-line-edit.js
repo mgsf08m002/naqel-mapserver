@@ -539,7 +539,8 @@
         toast(serverMessage || 'Saved.', 'info');
     }
 
-    function applySuccessfulSaveSideEffects(editData, pendingSubmitted) {
+    function applySuccessfulSaveSideEffects(editData, pendingSubmitted, saveMeta) {
+        saveMeta = saveMeta || {};
         if (window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
             window.roadGeometryEdit.stop();
         }
@@ -550,8 +551,14 @@
             window.syncRiyadhRoadDeleteToolbarButton();
         }
 
-        if (pendingSubmitted && editData) {
-            revertPendingApprovalVisualization(editData);
+        const clearDraftOverlay =
+            (pendingSubmitted && editData) ||
+            (saveMeta.autoApproved && editData && !editData.is_riyadh_road);
+
+        if (clearDraftOverlay) {
+            if (pendingSubmitted) {
+                revertPendingApprovalVisualization(editData);
+            }
             try {
                 if (currentLineId && typeof window.removeMapLibreLineLayer === 'function') {
                     window.removeMapLibreLineLayer(currentLineId);
@@ -637,13 +644,11 @@
 
                     const deletedRoadId =
                         data.deleted_road_id != null ? data.deleted_road_id : payload.target_id;
-                    if (autoApproved && deletedRoadId != null) {
-                        if (typeof window.clearRiyadhRoadDbFclassFromDatabase === 'function') {
-                            window.clearRiyadhRoadDbFclassFromDatabase(deletedRoadId);
-                        }
-                        if (data.tiles_version != null && typeof window.triggerRiyadhTilesReload === 'function') {
-                            window.triggerRiyadhTilesReload(data.tiles_version);
-                        }
+                    if (autoApproved && typeof window.applyLiveNetworkEditToMap === 'function') {
+                        window.applyLiveNetworkEditToMap(
+                            Object.assign({}, data, { deleted_road_id: deletedRoadId }),
+                            { reloadDelayMs: 0 }
+                        );
                     }
 
                     if (autoApproved) {
@@ -744,26 +749,20 @@
 
                 if (
                     !pendingSubmitted &&
-                    editData.is_riyadh_road &&
-                    editData.riyadh_road_id != null &&
-                    typeof window.resolveRiyadhFclassForFeatureState === 'function'
+                    typeof window.applyLiveNetworkEditToMap === 'function'
                 ) {
-                    const fc = window.resolveRiyadhFclassForFeatureState(
-                        editData.current_feature_label || editData.feature_type
-                    );
-                    if (fc) {
-                        if (typeof window.applyRiyadhRoadDbFclassFromDatabase === 'function') {
-                            window.applyRiyadhRoadDbFclassFromDatabase(editData.riyadh_road_id, fc);
-                        }
-                    } else if (typeof window.clearRiyadhRoadDbFclassFromDatabase === 'function') {
-                        window.clearRiyadhRoadDbFclassFromDatabase(editData.riyadh_road_id);
+                    const livePayload = Object.assign({}, data);
+                    if (
+                        livePayload.remote_road_id == null &&
+                        editData.is_riyadh_road &&
+                        editData.riyadh_road_id != null
+                    ) {
+                        livePayload.remote_road_id = editData.riyadh_road_id;
                     }
-                }
-
-                if (data.tiles_version != null && typeof window.triggerRiyadhTilesReload === 'function') {
-                    setTimeout(function () {
-                        window.triggerRiyadhTilesReload(data.tiles_version);
-                    }, autoApproved ? 900 : 400);
+                    window.applyLiveNetworkEditToMap(livePayload, {
+                        editData: editData,
+                        reloadDelayMs: autoApproved ? 400 : 0,
+                    });
                 }
 
                 const outcomeOpts = {
@@ -778,7 +777,9 @@
                 }
                 showSaveOutcomeUI(outcomeOpts);
 
-                applySuccessfulSaveSideEffects(editData, pendingSubmitted);
+                applySuccessfulSaveSideEffects(editData, pendingSubmitted, {
+                    autoApproved: autoApproved,
+                });
             })
             .catch(function () {
                 toast('Error saving edit request. Please try again.', 'error');

@@ -6,7 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.contrib.gis.geos import GEOSGeometry, Polygon, MultiLineString, LineString
 from django.db import transaction, connections
-from django.db.models import Max, Q
+from django.db.models import Q
 from django.conf import settings
 from decimal import Decimal
 import json
@@ -20,6 +20,10 @@ from urllib.error import HTTPError, URLError
 from layer_uploader.map_review import (
     approve_layer_upload_edit_request,
     reject_layer_upload_edit_request,
+)
+from layer_uploader.services import (
+    prepare_road_fields_for_publish,
+    publish_geometry_to_riyadh_roads,
 )
 
 from .approval_api import (
@@ -39,7 +43,12 @@ from .approval_categories import (
 )
 from .models import LineEditRequest, RiyadhRoad
 from .riyadh_fclass import ensure_riyadh_fclass_in_fields, feature_label_from_riyadh_fclass
-from .riyadh_network import tiles_version_ms
+from .riyadh_network import (
+    network_mutation_payload,
+    normalize_published_fclass,
+    published_fclass_from_edit_request,
+    tiles_version_ms,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -862,14 +871,18 @@ def save_line_edit_request(request):
             )
             created_request_id = edit_request.id
             remote_road_id = None
+            published_fclass = None
             try:
                 if is_delete_road_request(edit_request):
                     _apply_delete_to_base_network(edit_request)
                 elif edit_request.is_riyadh_road:
                     _apply_riyadh_edit_to_base_network(edit_request)
                     remote_road_id = edit_request.riyadh_road_id
+                    published_fclass = published_fclass_from_edit_request(edit_request)
                 else:
-                    remote_road_id = _apply_manual_approval_to_remote_network(edit_request)
+                    remote_road_id, published_fclass = (
+                        _publish_manual_new_road_from_edit_request(edit_request)
+                    )
                 _set_published_road_id_after_approval(
                     edit_request, remote_road_id=remote_road_id
                 )
@@ -896,8 +909,10 @@ def save_line_edit_request(request):
                     "pending_submitted": False,
                     "closure_applied": bool(closure_changed),
                     "road_closure": road_closure,
-                    "remote_road_id": remote_road_id,
-                    "tiles_version": tiles_version_ms() or closure_tiles_version,
+                    **network_mutation_payload(
+                        remote_road_id=remote_road_id,
+                        fclass=published_fclass,
+                    ),
                 }
             )
 
@@ -1054,87 +1069,40 @@ def _apply_riyadh_edit_to_base_network(edit_request):
     _persist_riyadh_road_label_columns(road, fields.get("name") or "")
 
 
-def _apply_manual_approval_to_remote_network(edit_request):
-    """Create a new RiyadhRoad row for an approved manual road, then return its assigned id."""
-    if not edit_request:
-        return None
+def _publish_manual_new_road_from_edit_request(edit_request):
+    """
+    Insert an approved hand-drawn road into riyadh_roads.
 
-    if edit_request.is_riyadh_road:
-        return edit_request.riyadh_road_id
+    Returns (remote road id, fclass stored for MVT symbology).
+    """
+    if not edit_request:
+        return None, None
 
     geometry_json = edit_request.geometry
     if not geometry_json:
         raise ValueError("Missing geometry for approved manual road.")
 
+    normalized_geometry = _ensure_wgs84_geometry(geometry_json, source_srid=3857)
     try:
-        _validate_line_geojson_for_edit(
-            _ensure_wgs84_geometry(geometry_json, source_srid=3857)
-        )
+        _validate_line_geojson_for_edit(normalized_geometry)
     except ValueError as exc:
         logger.warning("Invalid manual road geometry on apply: %s", exc)
         raise
 
-    fields = edit_request.fields_data or {}
-    ensure_riyadh_fclass_in_fields(
-        fields,
-        current_feature_label=edit_request.current_feature_label,
-        feature_type=edit_request.feature_type,
+    fields_data = (
+        edit_request.fields_data if isinstance(edit_request.fields_data, dict) else None
     )
-
-    with transaction.atomic(using="riyadh_roads"):
-        max_id = RiyadhRoad.objects.using("riyadh_roads").aggregate(max_id=Max("id")).get("max_id")
-        next_id = int(max_id or 0) + 1
-
-        # Insert using PostGIS to guarantee correct SRID/projection and MultiLineString type.
-        geometry_geojson = json.dumps(geometry_json)
-        name = fields.get("name") or ""
-        ref = fields.get("ref") or ""
-        fclass = fields.get("fclass") or ""
-        oneway = fields.get("oneway") or ""
-        maxspeed = fields.get("maxspeed")
-        code = fields.get("code")
-        bridge = fields.get("bridge") or ""
-        tunnel = fields.get("tunnel") or ""
-        layer = fields.get("layer")
-        road_closure = edit_request.road_closure or 0
-        name_en, name_ar = _derive_bilingual_label_values(name)
-
-        with connections["riyadh_roads"].cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO public.riyadh_roads
-                    (id, geom, name, name_en, name_ar, ref, fclass, oneway, maxspeed, code, bridge, tunnel, layer, road_closure)
-                VALUES
-                    (
-                        %s,
-                        ST_Multi(
-                            ST_Transform(
-                                ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326),
-                                3857
-                            )
-                        ),
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                    )
-                """,
-                [
-                    float(next_id),
-                    geometry_geojson,
-                    name,
-                    name_en,
-                    name_ar,
-                    ref,
-                    fclass,
-                    oneway,
-                    maxspeed,
-                    code,
-                    bridge,
-                    tunnel,
-                    layer,
-                    road_closure,
-                ],
-            )
-
-        return next_id
+    fields = prepare_road_fields_for_publish(
+        fields_data=fields_data,
+        current_feature_label=edit_request.current_feature_label,
+    )
+    remote_id = publish_geometry_to_riyadh_roads(
+        normalized_geometry,
+        fields_data=fields,
+        current_feature_label=edit_request.current_feature_label,
+        road_closure=int(edit_request.road_closure or 0),
+    )
+    return remote_id, normalize_published_fclass(fields.get("fclass"))
 
 
 def _get_user_is_manager(user):
@@ -1511,23 +1479,20 @@ def create_delete_request(request):
                 status=500,
             )
 
-    return JsonResponse(
-        {
-            "success": True,
-            "message": "Delete request submitted." if not auto_approved else "Delete request approved and applied.",
-            "request_id": delete_request.id,
-            "auto_approved": auto_approved,
-            "pending_submitted": not auto_approved,
-            **(
-                {
-                    "tiles_version": tiles_version_ms(),
-                    "deleted_road_id": deleted_road_id,
-                }
-                if auto_approved
-                else {}
-            ),
-        }
-    )
+    payload = {
+        "success": True,
+        "message": (
+            "Delete request submitted."
+            if not auto_approved
+            else "Delete request approved and applied."
+        ),
+        "request_id": delete_request.id,
+        "auto_approved": auto_approved,
+        "pending_submitted": not auto_approved,
+    }
+    if auto_approved:
+        payload.update(network_mutation_payload(deleted_road_id=deleted_road_id))
+    return JsonResponse(payload)
 
 
 @login_required
@@ -1831,13 +1796,15 @@ def approve_edit_request(request, request_id):
                 {
                     "success": True,
                     "message": "Layer upload approved and published to the road network",
-                    "remote_road_id": remote_road_id,
-                    "fclass": published_fclass,
-                    "tiles_version": tiles_version_ms(),
+                    **network_mutation_payload(
+                        remote_road_id=remote_road_id,
+                        fclass=published_fclass,
+                    ),
                 }
             )
 
         deleted_road_id = None
+        published_fclass = None
         if is_delete_road_request(edit_request):
             deleted_road_id = (
                 int(edit_request.riyadh_road_id)
@@ -1849,25 +1816,32 @@ def approve_edit_request(request, request_id):
             if edit_request.is_riyadh_road:
                 _apply_riyadh_edit_to_base_network(edit_request)
                 remote_road_id = edit_request.riyadh_road_id
+                published_fclass = published_fclass_from_edit_request(edit_request)
             else:
-                # Approved manual road: migrate to remote base network and remove local trace.
-                remote_road_id = _apply_manual_approval_to_remote_network(edit_request)
+                remote_road_id, published_fclass = (
+                    _publish_manual_new_road_from_edit_request(edit_request)
+                )
 
         _set_published_road_id_after_approval(
             edit_request, remote_road_id=remote_road_id
         )
         edit_request.approve(request.user)
 
-        payload = {
-            "success": True,
-            "message": "Road edit approved successfully",
-            "remote_road_id": remote_road_id,
-            "tiles_version": tiles_version_ms(),
-        }
+        message = "Road edit approved successfully"
         if deleted_road_id is not None:
-            payload["deleted_road_id"] = deleted_road_id
-            payload["message"] = "Delete request approved; road removed from the network"
-        return JsonResponse(payload)
+            message = "Delete request approved; road removed from the network"
+
+        return JsonResponse(
+            {
+                "success": True,
+                "message": message,
+                **network_mutation_payload(
+                    remote_road_id=remote_road_id,
+                    fclass=published_fclass,
+                    deleted_road_id=deleted_road_id,
+                ),
+            }
+        )
 
     except Exception as e:
         return JsonResponse(

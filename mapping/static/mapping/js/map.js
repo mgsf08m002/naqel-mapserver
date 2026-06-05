@@ -81,37 +81,6 @@ function getRiyadhRoadsTileUrl() {
     return trimmed;
 }
 
-window.__riyadhTilesVersion = null;
-
-function getDefaultRiyadhTilesVersion() {
-    return String(Date.now());
-}
-
-function getRiyadhTilesVersionOrDefault(version) {
-    if (version !== undefined && version !== null) {
-        const trimmed = String(version).trim();
-        if (trimmed.length) return trimmed;
-    }
-    return window.__riyadhTilesVersion || getDefaultRiyadhTilesVersion();
-}
-
-function buildCacheBustedUrl(baseUrl, version) {
-    if (!baseUrl) return baseUrl;
-    const v = getRiyadhTilesVersionOrDefault(version);
-    const sep = baseUrl.indexOf('?') >= 0 ? '&' : '?';
-    return `${baseUrl}${sep}v=${encodeURIComponent(String(v))}`;
-}
-window.buildRiyadhRoadsTileUrl = buildCacheBustedUrl;
-
-window.triggerRiyadhTilesReload = function(tilesVersion) {
-    const resolved = getRiyadhTilesVersionOrDefault(tilesVersion);
-    window.__riyadhTilesVersion = resolved;
-
-    if (typeof window.reloadRiyadhRoadsSource === 'function') {
-        window.reloadRiyadhRoadsSource(resolved);
-    }
-};
-
 const MAPTILER_API_KEY = getMaptilerApiKey();
 const HAS_MAPTILER = !!MAPTILER_API_KEY;
 const RIYADH_ROADS_TILE_URL = getRiyadhRoadsTileUrl();
@@ -215,12 +184,6 @@ BASEMAP_DEFINITIONS.forEach((def) => {
         },
     });
 });
-
-// Ensure each page load starts with a fresh tile version so browser/CDN caches
-// cannot keep serving stale vector tiles after road mutations.
-if (!window.__riyadhTilesVersion) {
-    window.__riyadhTilesVersion = getDefaultRiyadhTilesVersion();
-}
 
 const map = new maplibregl.Map({
     container: 'map',
@@ -562,7 +525,7 @@ map.on('load', () => {
                     });
             }
 
-            // Symbology: coalesce(feature-state db_fclass, tile fclass); reload tiles via triggerRiyadhTilesReload after network edits.
+            // Symbology: coalesce(feature-state db_fclass, tile fclass).
             window.__riyadhRoadDbFclassById = window.__riyadhRoadDbFclassById || {};
 
             function normalizeRiyadhDbFclassForTiles(raw) {
@@ -634,23 +597,11 @@ map.on('load', () => {
                 } catch (eR) {}
             }
 
-            function clearRiyadhVectorTileCache() {
-                try {
-                    const cache =
-                        map.style &&
-                        map.style.sourceCaches &&
-                        map.style.sourceCaches[SOURCE_ID];
-                    if (cache && typeof cache.clearTiles === 'function') {
-                        cache.clearTiles();
-                    }
-                } catch (eCache) {}
-            }
-
             function ensureRiyadhRoadsSource(version) {
                 if (!HAS_RIYADH_ROADS_TILES) {
                     return;
                 }
-                const bustedUrl = buildCacheBustedUrl(RIYADH_ROADS_TILE_URL, version);
+                const bustedUrl = window.buildRiyadhRoadsTileUrl(RIYADH_ROADS_TILE_URL, version);
                 const existing = map.getSource(SOURCE_ID);
                 if (existing) {
                     return;
@@ -668,26 +619,15 @@ map.on('load', () => {
                 if (!HAS_RIYADH_ROADS_TILES) {
                     return false;
                 }
-                const bustedUrl = buildCacheBustedUrl(RIYADH_ROADS_TILE_URL, version);
-                const existing = map.getSource(SOURCE_ID);
-                if (!existing) {
-                    return false;
+                if (typeof window.reloadMaplibreVectorTileSource === 'function') {
+                    return window.reloadMaplibreVectorTileSource(
+                        map,
+                        SOURCE_ID,
+                        RIYADH_ROADS_TILE_URL,
+                        version
+                    );
                 }
-                clearRiyadhVectorTileCache();
-                try {
-                    if (typeof existing.setTiles === 'function') {
-                        existing.setTiles([bustedUrl]);
-                    }
-                } catch (eSet) {}
-                try {
-                    if (typeof existing.reload === 'function') {
-                        existing.reload();
-                    }
-                } catch (eRel) {}
-                try {
-                    map.triggerRepaint();
-                } catch (ePaint) {}
-                return true;
+                return false;
             }
 
             if (HAS_RIYADH_ROADS_TILES && !map.getSource(SOURCE_ID)) {
@@ -1537,7 +1477,7 @@ map.on('load', () => {
                 if (!HAS_RIYADH_ROADS_TILES) return;
 
                 try {
-                    const resolved = getRiyadhTilesVersionOrDefault(tilesVersion);
+                    const resolved = window.getRiyadhTilesVersionOrDefault(tilesVersion);
                     window.__riyadhTilesVersion = resolved;
 
                     if (refreshRiyadhRoadsSourceTiles(resolved)) {
@@ -1631,6 +1571,12 @@ map.on('load', () => {
                     });
                 } catch (e) {}
             };
+
+            if (typeof window.registerRiyadhRoadsTileReloader === 'function') {
+                window.registerRiyadhRoadsTileReloader(function (version) {
+                    window.reloadRiyadhRoadsSource(version);
+                });
+            }
     } catch (e) {}
 });
 
