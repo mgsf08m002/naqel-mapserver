@@ -1,58 +1,91 @@
 {% load static %}
 <link rel="stylesheet" href="{% static 'mapping/css/review-history.css' %}">
 
-<div class="bg-white -mx-6 -my-6 px-6 py-10 min-h-[calc(100vh-64px)]" id="review-history-root"
+<div class="rh-page" id="review-history-root"
      data-api-url="{{ review_history_api_url }}"
      data-map-url="{{ review_history_map_url }}">
-    <div class="max-w-5xl mx-auto space-y-8">
-        <header class="space-y-3">
-            <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
-                <span class="h-px w-6 bg-gray-300"></span>
-                <span>Manager</span>
+    <div class="rh-panel">
+        <header class="rh-head">
+            <div class="rh-head__text">
+                <h1 class="rh-head__title">Review history</h1>
+                <p class="rh-head__sub">Browse approved and rejected edits from editors and system admins. Approved roads open on the map.</p>
             </div>
-            <div class="flex flex-col gap-2">
-                <h1 class="text-3xl font-semibold text-gray-900">Review history</h1>
-                <p class="text-sm text-gray-600 max-w-2xl">Browse approved and rejected road edits submitted by editors and system admins. Open approved roads on the map.</p>
-            </div>
+            <p class="rh-head__count" id="review-history-count" hidden>
+                <span id="review-history-count-value">0</span> edits
+            </p>
         </header>
 
-        <div class="space-y-4">
-            <div>
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Scope</p>
-                <div class="inline-flex rounded-full border border-gray-200 bg-gray-50 p-0.5" id="review-history-scope" role="tablist" aria-label="Review scope">
-                    <button type="button" class="review-history-scope-btn is-active rounded-full px-4 py-1.5 text-xs font-semibold text-gray-800" data-scope="all">All team edits</button>
-                    <button type="button" class="review-history-scope-btn rounded-full px-4 py-1.5 text-xs font-semibold text-gray-600" data-scope="mine">My reviews</button>
+        <div class="rh-layout">
+            <div class="rh-main" aria-live="polite">
+                <div id="review-history-loading" class="rh-placeholder">Loading review history…</div>
+
+                <div id="review-history-empty" class="rh-placeholder rh-placeholder--empty" hidden>
+                    <p>No edits match these filters.</p>
+                </div>
+
+                <div id="review-history-list" class="rh-table" hidden>
+                    <div class="rh-table__head">
+                        <span>Road</span>
+                        <span>Type</span>
+                        <span>Status</span>
+                        <span>Submitted</span>
+                        <span>Submitter</span>
+                    </div>
+                    <div id="review-history-table-body" class="rh-table__body"></div>
                 </div>
             </div>
 
-            <div>
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Status</p>
-                <div class="flex flex-wrap items-center gap-2" id="review-history-status-filters" role="tablist" aria-label="Filter by status">
-                    <button type="button" class="rh-filter-chip is-active" data-status="">All</button>
-                    <button type="button" class="rh-filter-chip" data-status="approved">Approved</button>
-                    <button type="button" class="rh-filter-chip" data-status="rejected">Rejected</button>
+            <aside class="rh-filters" aria-label="Filters">
+                <div class="rh-filter-panel">
+                    <div class="rh-filter-panel__head">
+                        <h2 class="rh-filter-panel__title">Filters</h2>
+                        <button type="button" id="review-history-clear-filters" class="rh-clear" hidden>Reset</button>
+                    </div>
+
+                    <section class="rh-filter-block">
+                        <h3 class="rh-filter-block__label">Scope</h3>
+                        <div class="rh-filter-chips" id="review-history-scope" role="tablist" aria-label="Review scope">
+                            <button type="button" class="rh-chip is-active" data-scope="all">All team</button>
+                            <button type="button" class="rh-chip" data-scope="mine">My reviews</button>
+                        </div>
+                    </section>
+
+                    <section class="rh-filter-block">
+                        <h3 class="rh-filter-block__label">Submitted date</h3>
+                        <div class="rh-filter-block__dates">
+                            <label class="rh-date-field">
+                                <span class="rh-date-field__label">From</span>
+                                <input type="date" id="review-history-start-date" class="rh-date" aria-label="Start date">
+                            </label>
+                            <label class="rh-date-field">
+                                <span class="rh-date-field__label">To</span>
+                                <input type="date" id="review-history-end-date" class="rh-date" aria-label="End date">
+                            </label>
+                        </div>
+                    </section>
+
+                    <section class="rh-filter-block">
+                        <h3 class="rh-filter-block__label">Status</h3>
+                        <div class="rh-filter-chips" id="review-history-status-filters" role="tablist" aria-label="Filter by status">
+                            <button type="button" class="rh-chip is-active" data-status="">All</button>
+                            <button type="button" class="rh-chip" data-status="approved">Approved</button>
+                            <button type="button" class="rh-chip" data-status="rejected">Rejected</button>
+                        </div>
+                    </section>
+
+                    <section class="rh-filter-block">
+                        <div class="rh-filter-block__head">
+                            <h3 class="rh-filter-block__label">Road type</h3>
+                            <span class="rh-filter-block__hint">Multi-select</span>
+                        </div>
+                        <div class="rh-filter-chips rh-filter-chips--wrap" id="review-history-category-filters" aria-label="Filter by road type">
+                            {% include 'mapping/includes/edit_filter_category_chips.html' with chip_class='rh-chip' %}
+                        </div>
+                    </section>
                 </div>
-            </div>
-
-            <div>
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Road type</p>
-                <div class="flex flex-wrap items-center gap-2" id="review-history-category-filters" role="tablist" aria-label="Filter by road type">
-                    {% include 'mapping/includes/edit_filter_category_chips.html' with chip_class='rh-filter-chip' %}
-                </div>
-            </div>
+            </aside>
         </div>
-
-        <div id="review-history-loading" class="rounded-2xl border border-gray-200 bg-gray-50 px-6 py-12 text-center text-sm text-gray-500">
-            Loading review history…
-        </div>
-
-        <div id="review-history-empty" class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 px-6 py-14 text-center" hidden>
-            <p class="text-sm font-semibold text-gray-800">No edits match these filters</p>
-            <p class="mt-1 text-xs text-gray-500 max-w-sm mx-auto">Try a different scope, status, or road type.</p>
-        </div>
-
-        <div id="review-history-list" class="space-y-2" aria-live="polite" hidden></div>
     </div>
 </div>
 
-<script src="{% static 'mapping/js/manager-review-history.js' %}" defer></script>
+<script src="{% static 'mapping/js/review-history.js' %}" defer></script>

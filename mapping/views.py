@@ -27,14 +27,18 @@ from layer_uploader.services import (
 )
 
 from .approval_api import (
-    MY_EDITS_LIST_LIMIT,
+    EDIT_LIST_LIMIT,
     serialize_approval_request_detail,
     serialize_approval_request_list_item,
+    serialize_edit_request_list,
     serialize_manager_review_history_item,
     serialize_my_edit_request_item,
 )
-from .approval_categories import CATEGORY_LABELS
-from .my_edits_query import apply_my_edits_filters
+from .edit_list_query import (
+    apply_my_edits_filters,
+    apply_review_history_filters,
+    parse_review_history_scope,
+)
 from .presentation import has_my_edits_access
 from .approval_categories import (
     EDIT_TYPE_DELETE,
@@ -1516,33 +1520,15 @@ def list_my_edit_requests(request):
         )
 
         qs = apply_my_edits_filters(qs, request)
-        requests = list(qs[:MY_EDITS_LIST_LIMIT])
-
-        riyadh_ids = [
-            req.riyadh_road_id
-            for req in requests
-            if req.is_riyadh_road and req.riyadh_road_id is not None
-        ]
-        roads_by_id = {}
-        if riyadh_ids:
-            for road in RiyadhRoad.objects.using("riyadh_roads").filter(gid__in=riyadh_ids):
-                roads_by_id[int(road.gid)] = road
-
-        items = []
-        for req in requests:
-            road = (
-                roads_by_id.get(int(req.riyadh_road_id))
-                if req.riyadh_road_id is not None
-                else None
-            )
-            items.append(serialize_my_edit_request_item(req, road=road))
+        requests = list(qs[:EDIT_LIST_LIMIT])
+        items = serialize_edit_request_list(requests, serialize_my_edit_request_item)
 
         return JsonResponse(
             {
                 "success": True,
                 "requests": items,
                 "count": len(items),
-                "limit": MY_EDITS_LIST_LIMIT,
+                "limit": EDIT_LIST_LIMIT,
             }
         )
     except Exception as e:
@@ -1581,46 +1567,20 @@ def list_manager_review_history(request):
             .order_by("-reviewed_at", "-created_at")
         )
 
-        scope = (request.GET.get("scope") or "all").strip().lower()
-        if scope == "mine":
-            qs = qs.filter(reviewed_by=request.user)
-
-        status_filter = (request.GET.get("status") or "").strip().lower()
-        if status_filter in {"approved", "rejected"}:
-            qs = qs.filter(status=status_filter)
-
-        category_filter = (request.GET.get("category") or "").strip()
-        if category_filter and category_filter in CATEGORY_LABELS:
-            qs = qs.filter(request_category=category_filter)
-
-        requests = list(qs[:MY_EDITS_LIST_LIMIT])
-
-        riyadh_ids = [
-            req.riyadh_road_id
-            for req in requests
-            if req.is_riyadh_road and req.riyadh_road_id is not None
-        ]
-        roads_by_id = {}
-        if riyadh_ids:
-            for road in RiyadhRoad.objects.using("riyadh_roads").filter(gid__in=riyadh_ids):
-                roads_by_id[int(road.gid)] = road
-
-        items = []
-        for req in requests:
-            road = (
-                roads_by_id.get(int(req.riyadh_road_id))
-                if req.riyadh_road_id is not None
-                else None
-            )
-            items.append(serialize_manager_review_history_item(req, road=road))
+        scope = parse_review_history_scope(request)
+        qs = apply_review_history_filters(qs, request, request.user)
+        requests = list(qs[:EDIT_LIST_LIMIT])
+        items = serialize_edit_request_list(
+            requests, serialize_manager_review_history_item
+        )
 
         return JsonResponse(
             {
                 "success": True,
                 "requests": items,
                 "count": len(items),
-                "limit": MY_EDITS_LIST_LIMIT,
-                "scope": scope if scope in {"all", "mine"} else "all",
+                "limit": EDIT_LIST_LIMIT,
+                "scope": scope,
             }
         )
     except Exception as e:

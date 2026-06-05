@@ -30,7 +30,6 @@ CATEGORY_LABELS = {
     "road_attribute_edit": "Road Attribute Edit",
 }
 
-# Short labels for My Edits / Review history filter chips.
 EDIT_FILTER_CATEGORIES = (
     ("new_road", "New Road"),
     ("add_road_label", "Add Label"),

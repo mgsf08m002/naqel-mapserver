@@ -9,7 +9,7 @@ from .approval_categories import (
     resolve_request_category_key,
 )
 
-MY_EDITS_LIST_LIMIT = 200
+EDIT_LIST_LIMIT = 200
 
 
 def _shapefile_name_from_request(req) -> str | None:
@@ -135,3 +135,28 @@ def serialize_manager_review_history_item(req, *, road=None) -> dict:
         "role": req.get_requester_role(),
     }
     return item
+
+
+def serialize_edit_request_list(requests, serialize_item) -> list[dict]:
+    """Serialize edit rows, attaching Riyadh road context when available."""
+    from .models import RiyadhRoad
+
+    riyadh_ids = [
+        req.riyadh_road_id
+        for req in requests
+        if req.is_riyadh_road and req.riyadh_road_id is not None
+    ]
+    roads_by_id = {}
+    if riyadh_ids:
+        for road in RiyadhRoad.objects.using("riyadh_roads").filter(gid__in=riyadh_ids):
+            roads_by_id[int(road.gid)] = road
+
+    items = []
+    for req in requests:
+        road = (
+            roads_by_id.get(int(req.riyadh_road_id))
+            if req.riyadh_road_id is not None
+            else None
+        )
+        items.append(serialize_item(req, road=road))
+    return items

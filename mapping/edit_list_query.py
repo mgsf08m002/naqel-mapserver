@@ -1,14 +1,17 @@
-"""Query-string filters for the My Edits list API."""
+"""Shared query-string filters for My Edits and Review History list APIs."""
 
 from __future__ import annotations
 
 from datetime import datetime
 
+from django.contrib.auth.models import AbstractBaseUser
 from django.db.models import QuerySet
 
 from .approval_categories import CATEGORY_LABELS
 
 MY_EDITS_STATUS_FILTERS = frozenset({"pending", "approved", "rejected"})
+REVIEW_HISTORY_STATUS_FILTERS = frozenset({"approved", "rejected"})
+REVIEW_HISTORY_SCOPES = frozenset({"all", "mine"})
 
 
 def parse_category_filters(request) -> list[str]:
@@ -33,11 +36,19 @@ def parse_date_param(value: str | None):
         return None
 
 
-def apply_my_edits_filters(qs: QuerySet, request) -> QuerySet:
-    status_filter = (request.GET.get("status") or "").strip().lower()
-    if status_filter in MY_EDITS_STATUS_FILTERS:
-        qs = qs.filter(status=status_filter)
+def parse_review_history_scope(request) -> str:
+    scope = (request.GET.get("scope") or "all").strip().lower()
+    return scope if scope in REVIEW_HISTORY_SCOPES else "all"
 
+
+def _apply_status_filter(qs: QuerySet, request, allowed: frozenset[str]) -> QuerySet:
+    status_filter = (request.GET.get("status") or "").strip().lower()
+    if status_filter in allowed:
+        qs = qs.filter(status=status_filter)
+    return qs
+
+
+def _apply_category_and_date_filters(qs: QuerySet, request) -> QuerySet:
     category_filters = parse_category_filters(request)
     if category_filters:
         qs = qs.filter(request_category__in=category_filters)
@@ -48,5 +59,18 @@ def apply_my_edits_filters(qs: QuerySet, request) -> QuerySet:
         qs = qs.filter(created_at__date__gte=start_date)
     if end_date:
         qs = qs.filter(created_at__date__lte=end_date)
-
     return qs
+
+
+def apply_my_edits_filters(qs: QuerySet, request) -> QuerySet:
+    qs = _apply_status_filter(qs, request, MY_EDITS_STATUS_FILTERS)
+    return _apply_category_and_date_filters(qs, request)
+
+
+def apply_review_history_filters(
+    qs: QuerySet, request, user: AbstractBaseUser
+) -> QuerySet:
+    if parse_review_history_scope(request) == "mine":
+        qs = qs.filter(reviewed_by=user)
+    qs = _apply_status_filter(qs, request, REVIEW_HISTORY_STATUS_FILTERS)
+    return _apply_category_and_date_filters(qs, request)
