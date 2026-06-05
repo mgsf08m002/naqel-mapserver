@@ -1,67 +1,59 @@
 <div class="lr-workspace" aria-label="Layer review map and features">
-  <div class="lr-workspace-bar">
-    <div class="lr-workspace-bar-main">
-      <p id="lr-workspace-sub" class="lr-workspace-sub">All features shown. Select one in the panel to focus.</p>
-    </div>
-    <div class="lr-workspace-bar-actions">
-      <div class="lr-basemap-row">
-        <span class="lr-basemap-label">Basemap</span>
-        <div id="review-basemap-strip" class="lr-basemap-strip" role="group" aria-label="Basemap style"></div>
-      </div>
-    </div>
+  <div class="lr-workspace-map" id="lr-map-workspace">
+    <div id="review-map" class="review-map-frame" role="application" aria-label="Feature map"></div>
+    {% include 'mapping/includes/basemap_gallery.html' %}
+    {% if review_large_layer %}
+    <p class="lr-map-hint" aria-live="polite">Large layer — roads load for the current view.</p>
+    {% endif %}
   </div>
-  <div class="lr-workspace-content">
-    <div class="lr-workspace-map" id="lr-map-workspace">
-      <div id="review-map" class="review-map-frame" role="application" aria-label="Feature map"></div>
-    </div>
-    <aside id="lr-zoom-panel" class="lr-zoom-panel" aria-label="Features" data-open="true">
-      <button type="button" id="lr-zoom-panel-toggle" class="lr-zoom-panel-toggle" aria-controls="lr-zoom-panel-inner" aria-expanded="true" title="Show or hide features">
-        <svg class="lr-zoom-panel-toggle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-        <span>Features</span>
-      </button>
-      <div id="lr-zoom-panel-inner" class="lr-zoom-panel-inner">
-        <header class="lr-zoom-panel-header">
-          <div class="lr-zoom-panel-head-row">
-            <h2 class="lr-zoom-panel-title">Features</h2>
+
+  <aside id="lr-zoom-panel" class="lr-zoom-panel" aria-label="Features">
+    <div id="lr-zoom-panel-inner" class="lr-zoom-panel-inner">
+      <header class="lr-zoom-panel-header">
+        <div class="lr-zoom-panel-head-row">
+          <h2 class="lr-zoom-panel-title">Features</h2>
+          <div class="lr-zoom-panel-head-actions">
             <span id="lr-zoom-panel-count" class="lr-zoom-panel-count">—</span>
+            {% if not can_submit %}
+            <a id="btn-finish" href="{% url 'success' %}?submitted=1" class="lr-btn-finish">Done</a>
+            {% endif %}
           </div>
-          <p class="lr-zoom-panel-hint">Select a feature to focus the map</p>
-          <div class="lr-panel-toolbar">
-            <label class="lr-table-filter">
-              <span class="lr-table-filter-label">Show</span>
-              <select id="lr-status-filter" class="lr-table-filter-select" aria-label="Filter by status">
-                <option value="">All statuses</option>
-                <option value="staged">New</option>
-                <option value="nominated">Approved</option>
-                <option value="rejected_upload">Rejected</option>
-              </select>
-            </label>
-            <span class="lr-table-bulk-label">Bulk</span>
-            <div class="lr-actions-bulk">
-              <button type="button" id="btn-approve-all" class="lr-action-btn lr-action-btn--approve lr-action-btn--bulk" aria-label="Approve all" title="Approve all">
-                <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
-              </button>
-              <button type="button" id="btn-reject-all" class="lr-action-btn lr-action-btn--reject lr-action-btn--bulk" aria-label="Reject all" title="Reject all">
-                <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
-              </button>
-            </div>
+        </div>
+        <div class="lr-panel-toolbar">
+          <label class="lr-filter">
+            <span class="lr-filter-label">Show</span>
+            <select id="lr-status-filter" class="lr-filter-select" aria-label="Filter by status">
+              <option value="">All statuses</option>
+              <option value="staged">New</option>
+              <option value="nominated">Approved</option>
+              <option value="rejected_upload">Rejected</option>
+            </select>
+          </label>
+          <span class="lr-bulk-label">Bulk</span>
+          <div class="lr-actions-bulk">
+            <button type="button" id="btn-approve-all" class="lr-action-btn lr-action-btn--approve lr-action-btn--bulk" aria-label="Approve all" title="Approve all">
+              <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+            </button>
+            <button type="button" id="btn-reject-all" class="lr-action-btn lr-action-btn--reject lr-action-btn--bulk" aria-label="Reject all" title="Reject all">
+              <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
           </div>
-          <div class="lr-zoom-chips" aria-live="polite">
-            <span class="lr-zoom-chip">Total <strong id="lr-zoom-cnt-total">—</strong></span>
-            <span class="lr-zoom-chip">New <strong id="lr-zoom-cnt-staged">—</strong></span>
-            <span class="lr-zoom-chip">Approved <strong id="lr-zoom-cnt-nominated">—</strong></span>
-            <span class="lr-zoom-chip">Rejected <strong id="lr-zoom-cnt-rejected_upload">—</strong></span>
-          </div>
-        </header>
-        <div id="lr-zoom-feature-list" class="lr-zoom-feature-list" role="list"></div>
-        {% if can_submit %}
-        <footer class="lr-panel-submit">
-          <button type="button" id="btn-submit-manager" class="lr-btn-submit">
-            {% if is_manager_uploader %}Publish layer{% else %}Submit layer{% endif %}
-          </button>
-        </footer>
-        {% endif %}
-      </div>
-    </aside>
-  </div>
+        </div>
+        <div class="lr-zoom-chips" aria-live="polite">
+          <span class="lr-zoom-chip">Total <strong id="lr-zoom-cnt-total">—</strong></span>
+          <span class="lr-zoom-chip">New <strong id="lr-zoom-cnt-staged">—</strong></span>
+          <span class="lr-zoom-chip">Approved <strong id="lr-zoom-cnt-nominated">—</strong></span>
+          <span class="lr-zoom-chip">Rejected <strong id="lr-zoom-cnt-rejected_upload">—</strong></span>
+        </div>
+      </header>
+      <div id="lr-zoom-feature-list" class="lr-zoom-feature-list" role="list"></div>
+      {% if can_submit %}
+      <footer class="lr-panel-submit">
+        <button type="button" id="btn-submit-manager" class="lr-btn-submit">
+          {% if is_manager_uploader %}Publish layer{% else %}Submit layer{% endif %}
+        </button>
+      </footer>
+      {% endif %}
+    </div>
+  </aside>
 </div>

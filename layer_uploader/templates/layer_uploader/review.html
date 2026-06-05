@@ -3,6 +3,10 @@
 
 {% block title %}Review upload · {{ layer.name }}{% endblock %}
 
+{% block main_class %}overflow-hidden{% endblock %}
+
+{% block content_wrapper %}
+{% block content %}
 {% block layer_assets %}
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css" />
 <link rel="stylesheet" href="{% static 'mapping/css/road-selection.css' %}">
@@ -15,7 +19,7 @@
 {% block layer_content %}
 <div
   id="layer-review-root"
-  class="lr-shell lr-shell--workspace -mx-6 -my-6 px-4 sm:px-6 py-4 sm:py-5 min-h-[calc(100vh-64px)]"
+  class="lr-shell"
   data-geojson-url="{% url 'layer_review_geojson' layer.pk %}"
   data-table-url="{% url 'layer_review_table' layer.pk %}"
   data-action-url="{% url 'layer_review_action' layer.pk %}"
@@ -27,26 +31,10 @@
   {% if maptiler_api_key %}data-maptiler-api-key="{{ maptiler_api_key }}"{% endif %}
 >
   {% csrf_token %}
-
-  <header class="lr-head">
-    <div>
-      <h1 class="lr-title">Review layer</h1>
-      <p class="lr-layer-meta">
-        Layer <strong>{{ layer.name }}</strong>
-        · <span id="lr-layer-feature-new">{{ review_new_features|floatformat:0 }}</span> new
-        · <span id="lr-layer-feature-total">{{ review_total_features|floatformat:0 }}</span> total in upload
-      </p>
-      {% if review_large_layer %}
-      <p class="lr-layer-hint">Large layer: the map loads roads in the current view.</p>
-      {% endif %}
-    </div>
-    {% if not can_submit %}
-    <a id="btn-finish" href="{% url 'success' %}?submitted=1" class="lr-btn-finish">Done</a>
-    {% endif %}
-  </header>
-
   {% include 'layer_uploader/includes/review_workspace.html' %}
 </div>
 
 <script src="{% static 'layer_uploader/js/layer_review.js' %}" defer></script>
+{% endblock %}
+{% endblock %}
 {% endblock %}

@@ -55,8 +55,6 @@ def review_page_context(request, layer: Layer) -> dict:
         "layer": layer,
         "can_submit": layer.status == Layer.Status.DRAFT,
         "is_manager_uploader": is_layer_upload_manager(request.user),
-        "review_total_features": int(layer.total_features or staged_count),
-        "review_new_features": int(layer.new_features or staged_count),
         "review_large_layer": staged_count > LARGE_LAYER_FEATURE_THRESHOLD,
         "review_page_size": TABLE_PAGE_SIZE_DEFAULT,
     }

@@ -1,5 +1,5 @@
 /**
- * Layer review: full-width map workspace with feature panel and approve–reject actions.
+ * Layer review: map workspace with features panel, basemap gallery, and approve/reject actions.
  */
 (function () {
     const root = document.getElementById('layer-review-root');
@@ -99,15 +99,13 @@
     const ICON_REJECT_SVG =
         '<svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>';
 
-    const workspaceSub = document.getElementById('lr-workspace-sub');
-    const zoomPanel = document.getElementById('lr-zoom-panel');
-    const btnZoomPanelToggle = document.getElementById('lr-zoom-panel-toggle');
     const zoomFeatureList = document.getElementById('lr-zoom-feature-list');
 
-    let zoomPanelOpen = true;
     let featureListRequestId = 0;
 
     const ZOOM_PANEL_MAP_PADDING_PX = 400;
+    const BASEMAP_SELECTED_CLASSES = ['ring-2', 'ring-blue-500', 'shadow-lg', 'border-blue-500'];
+    const BASEMAP_UNSELECTED_CLASSES = ['border-transparent', 'opacity-80'];
     const ESRI_SATELLITE_BASEMAP_ID = 'esri-satellite';
     const DEFAULT_BASEMAP_MAX_ZOOM = 19;
     const BASEMAP_RASTER_LAYER_MAX_ZOOM = 22;
@@ -387,38 +385,77 @@
         });
         applyOverlayThemeForBasemap(basemapId);
         applyBasemapZoomLimits();
-        syncBasemapButtons();
+        syncBasemapGallery();
     }
 
-    function syncBasemapButtons() {
-        document.querySelectorAll('[data-review-basemap-id]').forEach(function (btn) {
-            const id = btn.getAttribute('data-review-basemap-id');
-            const on = id === currentBasemapId;
-            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-            btn.classList.toggle('lr-basemap-opt--active', on);
+    function syncBasemapGallerySelection(options, selectedId) {
+        options.forEach(function (opt) {
+            const id = opt.getAttribute('data-basemap-id');
+            const isSelected = id === selectedId;
+            opt.classList.remove.apply(opt.classList, BASEMAP_SELECTED_CLASSES.concat(BASEMAP_UNSELECTED_CLASSES));
+            if (isSelected) {
+                BASEMAP_SELECTED_CLASSES.forEach(function (cls) {
+                    opt.classList.add(cls);
+                });
+            } else {
+                BASEMAP_UNSELECTED_CLASSES.forEach(function (cls) {
+                    opt.classList.add(cls);
+                });
+            }
         });
+    }
+
+    function syncBasemapGallery() {
+        const galleryElement = document.getElementById('basemapGallery');
+        if (!galleryElement) {
+            return;
+        }
+        const options = galleryElement.querySelectorAll('[data-basemap-id]');
+        syncBasemapGallerySelection(options, currentBasemapId);
     }
 
     function initBasemapControls() {
-        const strip = document.getElementById('review-basemap-strip');
-        if (!strip) {
+        const galleryElement = document.getElementById('basemapGallery');
+        const toggleButton = document.getElementById('basemapGalleryToggle');
+        if (!galleryElement) {
             return;
         }
-        strip.innerHTML = '';
-        BASEMAP_DEFINITIONS.forEach(function (def) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'lr-basemap-opt';
-            btn.setAttribute('data-review-basemap-id', def.id);
-            btn.setAttribute('aria-pressed', def.id === currentBasemapId ? 'true' : 'false');
-            btn.setAttribute('title', def.label);
-            btn.textContent = def.label;
-            btn.addEventListener('click', function () {
-                setBasemap(def.id);
+
+        const options = galleryElement.querySelectorAll('[data-basemap-id]');
+        if (!options.length) {
+            return;
+        }
+
+        const availableBasemapIds = new Set(
+            BASEMAP_DEFINITIONS.map(function (def) {
+                return def.id;
+            })
+        );
+
+        options.forEach(function (option) {
+            const basemapId = option.getAttribute('data-basemap-id');
+            if (!basemapId || !availableBasemapIds.has(basemapId)) {
+                option.setAttribute('disabled', 'true');
+                option.classList.add('opacity-50', 'cursor-not-allowed');
+                return;
+            }
+            option.addEventListener('click', function () {
+                if (basemapId === currentBasemapId) {
+                    return;
+                }
+                setBasemap(basemapId);
             });
-            strip.appendChild(btn);
         });
-        syncBasemapButtons();
+
+        syncBasemapGallery();
+
+        if (toggleButton) {
+            toggleButton.addEventListener('click', function () {
+                const isHidden = galleryElement.classList.toggle('hidden');
+                toggleButton.setAttribute('aria-expanded', String(!isHidden));
+            });
+        }
+
         applyBasemapZoomLimits();
     }
 
@@ -431,8 +468,6 @@
     let mapLoadInFlight = false;
 
     const statusFilterEl = document.getElementById('lr-status-filter');
-    const layerTotalEl = document.getElementById('lr-layer-feature-total');
-    const layerNewEl = document.getElementById('lr-layer-feature-new');
 
     function ensureRiyadhRoadsSource() {
         if (!HAS_RIYADH_ROADS_TILES || map.getSource(SOURCE_ID_RIYADH)) {
@@ -544,11 +579,33 @@
 
     function resizeMapSoon(afterResize) {
         requestAnimationFrame(function () {
-            map.resize();
+            try {
+                map.resize();
+            } catch (e) {
+                /* ignore */
+            }
             if (typeof afterResize === 'function') {
                 afterResize();
             }
         });
+    }
+
+    function bindMapResize() {
+        const mapHost = document.getElementById('lr-map-workspace');
+        resizeMapSoon();
+        window.addEventListener('resize', resizeMapSoon);
+        if (typeof ResizeObserver !== 'undefined' && mapHost) {
+            const observer = new ResizeObserver(function () {
+                resizeMapSoon();
+            });
+            observer.observe(mapHost);
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindMapResize);
+    } else {
+        bindMapResize();
     }
 
     function rowRefFromElement(el) {
@@ -570,7 +627,7 @@
     }
 
     function mapZoomFitPadding() {
-        const side = zoomPanelOpen ? ZOOM_PANEL_MAP_PADDING_PX : 96;
+        const side = ZOOM_PANEL_MAP_PADDING_PX;
         return { top: 96, bottom: 96, left: 96, right: side };
     }
 
@@ -664,14 +721,7 @@
     }
 
     function updateReviewSummary(payload) {
-        const counts = payload.counts || {};
-        renderStatusCounts(counts);
-        if (payload.total_features != null && layerTotalEl) {
-            layerTotalEl.textContent = String(payload.total_features);
-        }
-        if (counts.staged != null && layerNewEl) {
-            layerNewEl.textContent = String(counts.staged);
-        }
+        renderStatusCounts(payload.counts || {});
     }
 
     function renderZoomPanelFeatureCount(count) {
@@ -869,18 +919,6 @@
         });
     }
 
-    function setZoomPanelOpen(open) {
-        zoomPanelOpen = open;
-        if (zoomPanel) {
-            zoomPanel.classList.toggle('lr-zoom-panel--closed', !open);
-            zoomPanel.dataset.open = open ? 'true' : 'false';
-        }
-        if (btnZoomPanelToggle) {
-            btnZoomPanelToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-        }
-        resizeMapSoon();
-    }
-
     function activeFeatureLayerIds() {
         const ids = largeLayer ? UPLOAD_LAYER_IDS : ALL_LAYER_IDS;
         return ids.filter(function (id) {
@@ -1066,18 +1104,6 @@
         } catch (e) {
             /* ignore */
         }
-    }
-
-    function updateWorkspaceSubtitle() {
-        if (!workspaceSub) {
-            return;
-        }
-        if (selectedFeatureId != null && featureGeomById[selectedFeatureId]) {
-            workspaceSub.textContent =
-                'Focused on feature #' + String(selectedFeatureId) + '. Select another in the panel to refocus.';
-            return;
-        }
-        workspaceSub.textContent = 'All features shown. Select one in the panel to focus.';
     }
 
     function focusFeature(fid, rowRef) {
@@ -1329,7 +1355,6 @@
                 }
             });
         setSelectionHighlight(fid);
-        updateWorkspaceSubtitle();
     }
 
     function wireFeatureInteractions(el, f, rowRef) {
@@ -1525,7 +1550,6 @@
             .then(function () {
                 applyOverlayThemeForBasemap(currentBasemapId);
                 syncMapFeatureLayers();
-                zoomToAllFeatures();
             })
             .catch(function () {
                 window.notify.tryShow('Failed to load review data.', 'error');
@@ -1533,17 +1557,12 @@
     }
 
     map.on('load', function () {
+        resizeMapSoon();
         initBasemapControls();
         ensureRiyadhRoadsSource();
         addRiyadhPublicRoadLayer();
         if (typeof window.registerRiyadhRoadsTileReloader === 'function') {
             window.registerRiyadhRoadsTileReloader(reloadRiyadhRoadsTilesOnReviewMap);
-        }
-
-        if (btnZoomPanelToggle) {
-            btnZoomPanelToggle.addEventListener('click', function () {
-                setZoomPanelOpen(!zoomPanelOpen);
-            });
         }
 
         map.on('click', focusFeatureFromMapClick);
@@ -1563,9 +1582,7 @@
         }
 
         initReviewData().then(function () {
-            setTimeout(function () {
-                map.resize();
-            }, 50);
+            resizeMapSoon(zoomToAllFeatures);
         });
     });
 
