@@ -310,10 +310,31 @@ def _submit_for_map_review(layer: Layer, nominated) -> LayerSubmitResult:
     return LayerSubmitResult(feature_count=len(features), auto_published=False)
 
 
-def _auto_publish_manager_self_upload(layer: Layer, nominated) -> LayerSubmitResult:
+def _auto_publish_manager_self_upload(
+    layer: Layer, nominated, submitter: AbstractBaseUser
+) -> LayerSubmitResult:
     """Manager submitter: publish nominated features immediately (skip approval queue)."""
+    from .map_review import (
+        create_approved_layer_upload_edit_request,
+        layer_upload_feature_snapshot,
+    )
+
     features = list(nominated)
-    published_ids, errors = publish_feature_list(features)
+    published_ids: list[float] = []
+    errors: list[str] = []
+    for feature in features:
+        snapshot = layer_upload_feature_snapshot(feature)
+        try:
+            remote_id = approve_and_publish_feature(feature)
+            published_ids.append(remote_id)
+            create_approved_layer_upload_edit_request(
+                layer=layer,
+                snapshot=snapshot,
+                remote_road_id=remote_id,
+                reviewer=submitter,
+            )
+        except Exception as exc:
+            errors.append(str(exc))
 
     if errors and not published_ids:
         raise ValueError(errors[0])
@@ -352,7 +373,7 @@ def submit_layer(layer: Layer, submitter: AbstractBaseUser) -> LayerSubmitResult
     _discard_unnominated_staged_features(layer)
 
     if user_layer_uploads_apply_immediately(submitter):
-        return _auto_publish_manager_self_upload(layer, nominated)
+        return _auto_publish_manager_self_upload(layer, nominated, submitter)
 
     return _submit_for_map_review(layer, nominated)
 

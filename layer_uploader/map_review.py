@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import json
+from typing import Any
+
+from django.contrib.auth.models import AbstractBaseUser
+from django.utils import timezone
 
 from mapping.approval_categories import (
     EDIT_TYPE_LAYER_UPLOAD,
@@ -29,31 +33,86 @@ def _geometry_json_from_feature(feature: Feature) -> dict:
     return json.loads(geom.geojson)
 
 
-def create_approval_requests_for_layer_upload(layer: Layer, features) -> None:
-    """Create one approval-queue row per nominated upload feature."""
+def _layer_upload_edit_request_kwargs(
+    layer: Layer,
+    *,
+    feature_id: int,
+    properties: dict[str, Any] | None,
+    geometry_json: dict,
+) -> dict[str, Any]:
     from mapping.riyadh_fclass import feature_label_from_riyadh_fclass
 
     from .services import prepare_road_fields_for_publish
 
+    fields = prepare_road_fields_for_publish(properties=properties)
+    display_label = feature_label_from_riyadh_fclass(fields.get("fclass") or None)
+    return {
+        "requester": layer.uploaded_by,
+        "edit_type": EDIT_TYPE_LAYER_UPLOAD,
+        "request_category": "layer_upload",
+        "geometry": geometry_json,
+        "geometry_changed": False,
+        "current_feature_label": display_label,
+        "fields_data": {
+            **fields,
+            UPLOAD_SHAPEFILE_FIELD_KEY: layer.name,
+            "layer_id": layer.pk,
+        },
+        "tags_data": [],
+        "relations_data": [],
+        "road_closure": 0,
+        "layer_upload_feature_id": feature_id,
+    }
+
+
+def layer_upload_feature_snapshot(feature: Feature) -> dict[str, Any]:
+    """Capture feature data before publish deletes the staging row."""
+    return {
+        "feature_id": feature.pk,
+        "properties": dict(feature.properties or {}),
+        "geometry_json": _geometry_json_from_feature(feature),
+    }
+
+
+def create_approval_requests_for_layer_upload(layer: Layer, features) -> None:
+    """Create one approval-queue row per nominated upload feature."""
     for feature in features:
-        fields = prepare_road_fields_for_publish(properties=feature.properties)
-        display_label = feature_label_from_riyadh_fclass(fields.get("fclass") or None)
         create_pending_road_edit_request(
-            requester=layer.uploaded_by,
-            edit_type=EDIT_TYPE_LAYER_UPLOAD,
-            geometry=_geometry_json_from_feature(feature),
-            geometry_changed=False,
-            current_feature_label=display_label,
-            fields_data={
-                **fields,
-                UPLOAD_SHAPEFILE_FIELD_KEY: layer.name,
-                "layer_id": layer.pk,
-            },
-            tags_data=[],
-            relations_data=[],
-            road_closure=0,
-            layer_upload_feature_id=feature.pk,
+            road=None,
+            **_layer_upload_edit_request_kwargs(
+                layer,
+                feature_id=feature.pk,
+                properties=feature.properties,
+                geometry_json=_geometry_json_from_feature(feature),
+            ),
         )
+
+
+def create_approved_layer_upload_edit_request(
+    *,
+    layer: Layer,
+    snapshot: dict[str, Any],
+    remote_road_id: float,
+    reviewer: AbstractBaseUser,
+) -> LineEditRequest:
+    """Record an auto-published layer upload in My Edits."""
+    edit_request = LineEditRequest(
+        **_layer_upload_edit_request_kwargs(
+            layer,
+            feature_id=int(snapshot["feature_id"]),
+            properties=snapshot.get("properties"),
+            geometry_json=snapshot["geometry_json"],
+        )
+    )
+    edit_request.status = "approved"
+    edit_request.reviewed_at = timezone.now()
+    edit_request.reviewed_by = reviewer
+    try:
+        edit_request.published_road_id = int(float(remote_road_id))
+    except (TypeError, ValueError):
+        edit_request.published_road_id = None
+    edit_request.save()
+    return edit_request
 
 
 def approve_layer_upload_edit_request(edit_request: LineEditRequest) -> tuple[float, str]:

@@ -529,6 +529,44 @@ a.lu-actions__primary {
   border-top: 0;
 }
 
+/* —— Success page (done step only) —— */
+.lu-layout--success {
+  flex: 1;
+  min-height: 0;
+  padding-top: 0;
+}
+
+.lu-layout--success .lu-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 1.25rem 4rem;
+}
+
+.lu-success-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+  width: 100%;
+  max-width: 14rem;
+  margin-top: -2.5rem;
+}
+
+.lu-success-hero__icon {
+  width: 4.5rem;
+  height: 4.5rem;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+}
+
+.lu-success-hero__btn {
+  min-width: 9.5rem;
+  margin: 0;
+}
+
 /* —— Detected layers —— */
 .lu-detected {
   margin-top: 1.25rem;

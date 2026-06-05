@@ -1,4 +1,5 @@
 {% extends 'layer_uploader/upload_flow_base.html' %}
+{% load static %}
 
 {% block layer_page_title %}Layer complete · Naqel Maps{% endblock %}
 
@@ -21,13 +22,19 @@
 {% endblock %}
 
 {% block upload_flow_body %}
-<div class="lu-layout lu-layout--single">
+<div class="lu-layout lu-layout--single lu-layout--success">
   <div class="lu-main">
-    <div class="lu-form">
-      <div class="lu-actions lu-actions--flush">
-        <a href="{{ map_url }}" class="lu-actions__primary">Open map</a>
-      </div>
-    </div>
+    <section class="lu-success-hero" aria-label="Upload complete">
+      <img
+        src="{% static 'layer_uploader/img/thankyou-layer-upload.png' %}"
+        alt=""
+        class="lu-success-hero__icon"
+        width="72"
+        height="72"
+        decoding="async"
+      >
+      <a href="{{ map_url }}" class="lu-actions__primary lu-success-hero__btn">Open map</a>
+    </section>
   </div>
 </div>
 {% endblock %}

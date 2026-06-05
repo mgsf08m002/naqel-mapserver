@@ -215,7 +215,12 @@ class UploaderWorkflowTests(TestCase):
         payload = response.json()
         self.assertTrue(payload["auto_published"])
         self.assertEqual(payload["published_count"], 1)
-        self.assertEqual(LineEditRequest.objects.count(), 0)
+        edit_request = LineEditRequest.objects.get()
+        self.assertEqual(edit_request.status, "approved")
+        self.assertEqual(edit_request.request_category, "layer_upload")
+        self.assertEqual(edit_request.requester_id, admin.pk)
+        self.assertEqual(edit_request.reviewed_by_id, admin.pk)
+        self.assertEqual(edit_request.published_road_id, 88002)
 
     def test_manager_self_upload_auto_publishes_on_submit(self):
         manager_layer = Layer.objects.create(
@@ -263,11 +268,62 @@ class UploaderWorkflowTests(TestCase):
         self.assertEqual(payload["published_count"], 1)
         self.assertIsNotNone(payload.get("tiles_version"))
         self.assertIn("auto_published=1", payload["redirect_url"])
-        self.assertEqual(LineEditRequest.objects.count(), 0)
+        edit_request = LineEditRequest.objects.get()
+        self.assertEqual(edit_request.status, "approved")
+        self.assertEqual(edit_request.request_category, "layer_upload")
+        self.assertEqual(edit_request.edit_type, EDIT_TYPE_LAYER_UPLOAD)
+        self.assertEqual(edit_request.requester_id, self.manager.pk)
+        self.assertEqual(edit_request.reviewed_by_id, self.manager.pk)
+        self.assertEqual(edit_request.published_road_id, 88001)
 
         manager_layer.refresh_from_db()
         self.assertEqual(manager_layer.status, Layer.Status.COMPLETED)
         self.assertFalse(Feature.objects.filter(pk=manager_feature.pk).exists())
+
+    def test_manager_auto_publish_appears_in_my_edits(self):
+        manager_layer = Layer.objects.create(
+            name="my_edits_layer",
+            uploaded_by=self.manager,
+            srid=4326,
+            total_features=1,
+            new_features=1,
+            status=Layer.Status.DRAFT,
+        )
+        manager_feature = Feature.objects.create(
+            layer=manager_layer,
+            geom=self.geom,
+            properties={"name": "My Edits Road", "fclass": "motorway"},
+            status=Feature.Status.STAGED,
+            uploaded_by=self.manager,
+        )
+
+        self.client.force_login(self.manager)
+        nominate_url = reverse("layer_review_action", kwargs={"layer_id": manager_layer.pk})
+        self.client.post(
+            nominate_url,
+            data=json.dumps({"action": "nominate", "feature_id": manager_feature.pk}),
+            content_type="application/json",
+        )
+        submit_url = reverse("layer_submit", kwargs={"layer_id": manager_layer.pk})
+
+        with patch(
+            "layer_uploader.services.approve_and_publish_feature",
+            return_value=88055.0,
+        ):
+            response = self.client.post(submit_url, data="{}", content_type="application/json")
+
+        self.assertEqual(response.status_code, 200)
+
+        my_edits_url = reverse("mapping:list_my_edit_requests")
+        payload = self.client.get(my_edits_url).json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(len(payload["requests"]), 1)
+        item = payload["requests"][0]
+        self.assertEqual(item["status"], "approved")
+        self.assertEqual(item["request_category"], "layer_upload")
+        self.assertEqual(item["request_category_label"], "Layer Upload")
+        self.assertTrue(item["can_open_on_map"])
+        self.assertEqual(item["map_road_id"], 88055)
 
     def test_manager_approves_layer_upload_via_map_api(self):
         self.feature.status = Feature.Status.AWAITING_MANAGER
