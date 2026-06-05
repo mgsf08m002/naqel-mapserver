@@ -70,7 +70,7 @@
 
     /** Upload feature colors by review status (geojson `properties.status`). */
     const UPLOAD_COLOR_NEW = '#0000F7';
-    const UPLOAD_COLOR_APPROVED = '#77dd77';
+    const UPLOAD_COLOR_APPROVED = '#02AD41';
     const UPLOAD_COLOR_REJECTED = '#F77E7E';
     const UPLOAD_LINE_WIDTH_NEW = 4;
     const UPLOAD_LINE_WIDTH_DECIDED = 7;

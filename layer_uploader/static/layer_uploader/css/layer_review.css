@@ -18,7 +18,7 @@ body:has(#layer-review-root.lr-shell) main {
   --lr-selection-accent: var(--naqel-selection-soft, #06b6d4);
   --lr-selection-accent-bright: var(--naqel-selection-core, #00e5ff);
   --lr-color-new: #0000f7;
-  --lr-color-approved: #77dd77;
+  --lr-color-approved: #02AD41;
   --lr-color-rejected: #f77e7e;
   --lr-features-panel-width: 24rem;
   display: flex;
@@ -419,7 +419,7 @@ body:has(#layer-review-root.lr-shell) main {
 
 #layer-review-root .lr-badge-nominated {
   background: #ecfdf5;
-  color: #77dd77;
+  color: #02AD41;
   border-color: #86efac;
 }
 
