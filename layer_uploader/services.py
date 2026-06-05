@@ -380,9 +380,13 @@ def map_preview_statuses_uploader() -> list[str]:
 
 
 def apply_uploader_review_action(
-    layer: Layer, action: str, *, feature_id: int | None = None
+    layer: Layer,
+    action: str,
+    *,
+    feature_id: int | None = None,
+    feature_ids: list[int] | None = None,
 ) -> dict:
-    """API actions: nominate/reject/reset (single) or nominate_all/reject_all (bulk)."""
+    """API actions: nominate/reject/reset (single), bulk all, or bulk selected."""
     if action == "nominate_all":
         updated = layer.features.filter(status=Feature.Status.STAGED).update(
             status=Feature.Status.NOMINATED
@@ -393,6 +397,24 @@ def apply_uploader_review_action(
         updated = layer.features.filter(status=Feature.Status.STAGED).update(
             status=Feature.Status.REJECTED_UPLOAD
         )
+        return {"ok": True, "updated": updated}
+
+    if action == "nominate_selected":
+        if not feature_ids:
+            raise ValueError("feature_ids required")
+        updated = layer.features.filter(
+            pk__in=feature_ids,
+            status=Feature.Status.STAGED,
+        ).update(status=Feature.Status.NOMINATED)
+        return {"ok": True, "updated": updated}
+
+    if action == "reject_selected":
+        if not feature_ids:
+            raise ValueError("feature_ids required")
+        updated = layer.features.filter(
+            pk__in=feature_ids,
+            status=Feature.Status.STAGED,
+        ).update(status=Feature.Status.REJECTED_UPLOAD)
         return {"ok": True, "updated": updated}
 
     if action not in ("nominate", "reject", "reset"):

@@ -42,6 +42,11 @@
     const SOURCE_SELECTION = 'lr-selection-overlay';
     const UPLOAD_LAYER_IDS = ['lr-lines', 'lr-fill', 'lr-points'];
     const ALL_LAYER_IDS = ['lr-all-lines', 'lr-all-fill', 'lr-all-points'];
+    const UPLOAD_LINE_HIT_LAYER_ID = 'lr-lines-hit';
+    const ALL_LINE_HIT_LAYER_ID = 'lr-all-lines-hit';
+    const UPLOAD_LAYER_GROUP = UPLOAD_LAYER_IDS.concat([UPLOAD_LINE_HIT_LAYER_ID]);
+    const ALL_LAYER_GROUP = ALL_LAYER_IDS.concat([ALL_LINE_HIT_LAYER_ID]);
+    const MAP_FEATURE_CLICK_PAD_PX = 12;
 
     const GEOM_FILTER_LINE = [
         'any',
@@ -89,7 +94,10 @@
     ];
 
     const UPLOAD_FEATURE_LAYER_GROUPS = [
-        { layerIds: ['lr-lines', 'lr-all-lines'], geomFilter: GEOM_FILTER_LINE },
+        {
+            layerIds: ['lr-lines', 'lr-all-lines', UPLOAD_LINE_HIT_LAYER_ID, ALL_LINE_HIT_LAYER_ID],
+            geomFilter: GEOM_FILTER_LINE,
+        },
         { layerIds: ['lr-fill', 'lr-all-fill'], geomFilter: GEOM_FILTER_POLY },
         { layerIds: ['lr-points', 'lr-all-points'], geomFilter: GEOM_FILTER_POINT },
     ];
@@ -99,11 +107,11 @@
     const ICON_REJECT_SVG =
         '<svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>';
 
-    const zoomFeatureList = document.getElementById('lr-zoom-feature-list');
+    const featureListEl = document.getElementById('lr-feature-list');
 
     let featureListRequestId = 0;
 
-    const ZOOM_PANEL_MAP_PADDING_PX = 400;
+    const FEATURES_PANEL_MAP_PADDING_PX = 400;
     const BASEMAP_SELECTED_CLASSES = ['ring-2', 'ring-blue-500', 'shadow-lg', 'border-blue-500'];
     const BASEMAP_UNSELECTED_CLASSES = ['border-transparent', 'opacity-80'];
     const ESRI_SATELLITE_BASEMAP_ID = 'esri-satellite';
@@ -317,10 +325,10 @@
     }
 
     function uploadFeatureExcludeFilter(geomFilter) {
-        if (selectedFeatureId == null) {
+        if (focusedFeatureId == null) {
             return geomFilter;
         }
-        return ['all', geomFilter, ['!=', ['id'], selectedFeatureId]];
+        return ['all', geomFilter, ['!=', ['id'], focusedFeatureId]];
     }
 
     function syncSelectionExclusionFilters() {
@@ -459,7 +467,8 @@
         applyBasemapZoomLimits();
     }
 
-    let selectedFeatureId = null;
+    const selectedFeatureIds = new Set();
+    let focusedFeatureId = null;
     const featureGeomById = {};
     const featureStatusById = {};
     let layerExtent = null;
@@ -627,7 +636,7 @@
     }
 
     function mapZoomFitPadding() {
-        const side = ZOOM_PANEL_MAP_PADDING_PX;
+        const side = FEATURES_PANEL_MAP_PADDING_PX;
         return { top: 96, bottom: 96, left: 96, right: side };
     }
 
@@ -654,11 +663,11 @@
     }
 
     function applyFeatureStatusClasses(el, status) {
-        el.classList.remove('lr-row-nominated', 'lr-row-rejected_upload');
+        el.classList.remove('lr-feature-card--nominated', 'lr-feature-card--rejected');
         if (status === 'nominated') {
-            el.classList.add('lr-row-nominated');
+            el.classList.add('lr-feature-card--nominated');
         } else if (status === 'rejected_upload') {
-            el.classList.add('lr-row-rejected_upload');
+            el.classList.add('lr-feature-card--rejected');
         }
     }
 
@@ -668,14 +677,14 @@
         if (isActionableStatus(status)) {
             const approve = document.createElement('button');
             approve.type = 'button';
-            approve.className = 'lr-action-btn lr-action-btn--approve';
+            approve.className = 'lr-action-btn lr-action-btn--approve lr-action-btn--card';
             approve.setAttribute('aria-label', 'Approve feature');
             approve.setAttribute('title', 'Approve');
             approve.innerHTML = ICON_APPROVE_SVG;
 
             const reject = document.createElement('button');
             reject.type = 'button';
-            reject.className = 'lr-action-btn lr-action-btn--reject';
+            reject.className = 'lr-action-btn lr-action-btn--reject lr-action-btn--card';
             reject.setAttribute('aria-label', 'Reject feature');
             reject.setAttribute('title', 'Reject');
             reject.innerHTML = ICON_REJECT_SVG;
@@ -688,7 +697,7 @@
         if (isResetableStatus(status)) {
             const reset = document.createElement('button');
             reset.type = 'button';
-            reset.className = 'lr-btn-reset';
+            reset.className = 'lr-btn-reset lr-btn-reset--compact';
             reset.textContent = 'Reset';
             reset.setAttribute('aria-label', 'Reset to new');
             reset.setAttribute('title', 'Move back to new so you can approve or reject again');
@@ -697,14 +706,14 @@
     }
 
     const STATUS_COUNT_IDS = {
-        total: ['lr-zoom-cnt-total'],
-        staged: ['lr-zoom-cnt-staged'],
-        nominated: ['lr-zoom-cnt-nominated'],
-        rejected_upload: ['lr-zoom-cnt-rejected_upload'],
+        total: ['lr-cnt-total'],
+        staged: ['lr-cnt-staged'],
+        nominated: ['lr-cnt-nominated'],
+        rejected_upload: ['lr-cnt-rejected_upload'],
     };
 
     function featureListSelector(fid) {
-        return '.lr-zoom-feature-card[data-feature-id="' + String(fid) + '"]';
+        return '.lr-feature-card[data-feature-id="' + String(fid) + '"]';
     }
 
     function renderStatusCounts(counts) {
@@ -720,12 +729,8 @@
         });
     }
 
-    function updateReviewSummary(payload) {
-        renderStatusCounts(payload.counts || {});
-    }
-
-    function renderZoomPanelFeatureCount(count) {
-        const countEl = document.getElementById('lr-zoom-panel-count');
+    function renderFeatureCount(count) {
+        const countEl = document.getElementById('lr-feature-count');
         if (!countEl) {
             return;
         }
@@ -733,14 +738,14 @@
         countEl.textContent = n === 1 ? '1 feature' : String(n) + ' features';
     }
 
-    function setZoomFeatureListLoading(loading) {
-        if (!zoomFeatureList) {
+    function setFeatureListLoading(loading) {
+        if (!featureListEl) {
             return;
         }
-        zoomFeatureList.classList.toggle('lr-zoom-feature-list--loading', !!loading);
+        featureListEl.classList.toggle('lr-feature-list--loading', !!loading);
         if (loading) {
-            zoomFeatureList.innerHTML =
-                '<p class="lr-zoom-empty lr-zoom-loading">Loading features…</p>';
+            featureListEl.innerHTML =
+                '<p class="lr-feature-empty lr-feature-empty--loading">Loading features…</p>';
         }
     }
 
@@ -755,11 +760,11 @@
     }
 
     function loadFeatureList() {
-        if (!zoomFeatureList) {
+        if (!featureListEl) {
             return Promise.resolve();
         }
         const requestId = ++featureListRequestId;
-        setZoomFeatureListLoading(true);
+        setFeatureListLoading(true);
         return fetchReviewJson(featureListQueryUrl())
             .then(function (payload) {
                 if (requestId !== featureListRequestId) {
@@ -774,8 +779,8 @@
                         featureStatusById[f.id] = f.status;
                     }
                 });
-                updateReviewSummary(payload);
-                renderZoomFeaturePanel(feats);
+                renderStatusCounts(payload.counts || {});
+                renderFeatureList(feats);
                 restoreFeatureSelection();
                 return payload;
             })
@@ -783,8 +788,8 @@
                 if (requestId !== featureListRequestId) {
                     return;
                 }
-                zoomFeatureList.innerHTML =
-                    '<p class="lr-zoom-empty">Could not load features. ' +
+                featureListEl.innerHTML =
+                    '<p class="lr-feature-empty">Could not load features. ' +
                     escapeHtml(err.message || 'Try again.') +
                     '</p>';
                 window.notify.tryShow('Failed to load features for the panel.', 'error');
@@ -892,60 +897,276 @@
         return Promise.all([refreshMapData(), loadFeatureList()]);
     }
 
-    function clearFeatureSelection() {
-        selectedFeatureId = null;
-        document.querySelectorAll('.lr-row-selected').forEach(function (el) {
-            el.classList.remove('lr-row-selected');
+    function syncFeatureCardSelectionUI() {
+        document.querySelectorAll('.lr-feature-card[data-feature-id]').forEach(function (el) {
+            const id = parseInt(el.getAttribute('data-feature-id'), 10);
+            const on = selectedFeatureIds.has(id);
+            el.classList.toggle('lr-feature-card--selected', on);
+            const check = el.querySelector('.lr-feature-card__check');
+            if (check) {
+                check.checked = on;
+            }
         });
+    }
+
+    function updateBulkActionLabels() {
+        const btnApprove = document.getElementById('btn-bulk-approve');
+        const btnReject = document.getElementById('btn-bulk-reject');
+        if (!btnApprove || !btnReject) {
+            return;
+        }
+        const selectedCount = selectedFeatureIds.size;
+        const stagedCount = getStagedSelectedIds().length;
+        if (selectedCount > 0) {
+            const noun = stagedCount === 1 ? 'feature' : 'features';
+            btnApprove.textContent = 'Approve ' + String(stagedCount) + ' ' + noun;
+            btnReject.textContent = 'Reject ' + String(stagedCount) + ' ' + noun;
+            btnApprove.disabled = stagedCount === 0;
+            btnReject.disabled = stagedCount === 0;
+            return;
+        }
+        btnApprove.textContent = 'Approve all';
+        btnReject.textContent = 'Reject all';
+        btnApprove.disabled = false;
+        btnReject.disabled = false;
+    }
+
+    function getStagedSelectedIds() {
+        const ids = [];
+        selectedFeatureIds.forEach(function (fid) {
+            if (featureStatusById[fid] === 'staged') {
+                ids.push(fid);
+            }
+        });
+        return ids;
+    }
+
+    function setFeatureSelection(ids, focusId) {
+        selectedFeatureIds.clear();
+        ids.forEach(function (fid) {
+            if (fid != null && !Number.isNaN(fid)) {
+                selectedFeatureIds.add(fid);
+            }
+        });
+        focusedFeatureId = focusId != null ? focusId : ids.length ? ids[ids.length - 1] : null;
+        syncFeatureCardSelectionUI();
+        setSelectionHighlight(focusedFeatureId);
+        syncSelectionExclusionFilters();
+        updateBulkActionLabels();
+    }
+
+    function toggleFeatureSelection(fid, forceOn) {
+        const on = forceOn != null ? !!forceOn : !selectedFeatureIds.has(fid);
+        if (on) {
+            selectedFeatureIds.add(fid);
+        } else {
+            selectedFeatureIds.delete(fid);
+        }
+        focusedFeatureId = on ? fid : selectedFeatureIds.size ? Array.from(selectedFeatureIds).slice(-1)[0] : null;
+        syncFeatureCardSelectionUI();
+        setSelectionHighlight(focusedFeatureId);
+        syncSelectionExclusionFilters();
+        updateBulkActionLabels();
+        if (on) {
+            const el = document.querySelector(featureListSelector(fid));
+            if (el) {
+                el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+        }
+    }
+
+    function clearFeatureSelection() {
+        selectedFeatureIds.clear();
+        focusedFeatureId = null;
+        syncFeatureCardSelectionUI();
         setSelectionHighlight(null);
+        syncSelectionExclusionFilters();
+        updateBulkActionLabels();
     }
 
     function restoreFeatureSelection() {
-        const restore = selectedFeatureId;
-        if (restore == null) {
+        Array.from(selectedFeatureIds).forEach(function (fid) {
+            if (!document.querySelector(featureListSelector(fid))) {
+                selectedFeatureIds.delete(fid);
+            }
+        });
+        if (focusedFeatureId != null && !selectedFeatureIds.has(focusedFeatureId)) {
+            focusedFeatureId = selectedFeatureIds.size
+                ? Array.from(selectedFeatureIds).slice(-1)[0]
+                : null;
+        }
+        if (!selectedFeatureIds.size || focusedFeatureId == null) {
             clearFeatureSelection();
             return;
         }
-        const el = document.querySelector(featureListSelector(restore));
+        syncFeatureCardSelectionUI();
+        setSelectionHighlight(focusedFeatureId);
+        syncSelectionExclusionFilters();
+        updateBulkActionLabels();
+        const el = document.querySelector(featureListSelector(focusedFeatureId));
         const ref = rowRefFromElement(el);
-        if (!ref) {
-            clearFeatureSelection();
+        if (ref) {
+            zoomToFeature(ref);
             return;
         }
-        setRowSelected(restore);
-        zoomToFeature(ref);
-        ensureFeatureGeometry(restore).then(function () {
-            setSelectionHighlight(restore);
+        ensureFeatureGeometry(focusedFeatureId).then(function (geom) {
+            if (geom && focusedFeatureId != null) {
+                zoomToGeometry(geom);
+            }
         });
     }
 
-    function activeFeatureLayerIds() {
-        const ids = largeLayer ? UPLOAD_LAYER_IDS : ALL_LAYER_IDS;
+    function interactiveFeatureLayerIds() {
+        const ids = largeLayer ? UPLOAD_LAYER_GROUP : ALL_LAYER_GROUP;
         return ids.filter(function (id) {
             return map.getLayer(id);
         });
     }
 
-    function focusFeatureFromMapClick(e) {
-        const layers = activeFeatureLayerIds();
+    function featureIdFromHit(hit) {
+        if (!hit) {
+            return NaN;
+        }
+        if (hit.id != null && hit.id !== '') {
+            const fromId = parseInt(String(hit.id), 10);
+            if (!Number.isNaN(fromId)) {
+                return fromId;
+            }
+        }
+        const props = hit.properties || {};
+        if (props.upload_feature_id != null) {
+            const fromProp = parseInt(String(props.upload_feature_id), 10);
+            if (!Number.isNaN(fromProp)) {
+                return fromProp;
+            }
+        }
+        return NaN;
+    }
+
+    function queryUploadFeaturesAtPoint(point, layers) {
+        if (!point || !layers.length) {
+            return [];
+        }
+        const pad = MAP_FEATURE_CLICK_PAD_PX;
+        const box = [
+            [point.x - pad, point.y - pad],
+            [point.x + pad, point.y + pad],
+        ];
+        return map.queryRenderedFeatures(box, { layers: layers });
+    }
+
+    function addLineHitLayer(hitLayerId, sourceId, filter) {
+        if (map.getLayer(hitLayerId)) {
+            return;
+        }
+        map.addLayer({
+            id: hitLayerId,
+            type: 'line',
+            source: sourceId,
+            filter: filter,
+            layout: {
+                'line-cap': 'round',
+                'line-join': 'round',
+            },
+            paint: {
+                'line-width': 16,
+                'line-opacity': 0,
+            },
+        });
+    }
+
+    function zoomToGeometry(geom) {
+        const bb = boundsFromGeometry(geom);
+        if (!bb) {
+            return;
+        }
+        const padded = boundsArea(bb) < 1e-12 ? padBounds(bb, 0.01) : bb;
+        try {
+            map.fitBounds(new maplibregl.LngLatBounds(padded[0], padded[1]), {
+                padding: mapZoomFitPadding(),
+                maxZoom: activeBasemapMaxZoom(),
+                duration: 750,
+            });
+        } catch (err) {
+            /* ignore */
+        }
+    }
+
+    function selectFeatureFromUserAction(fid, multiSelect, rowRef, hitGeometry) {
+        if (Number.isNaN(fid) || fid == null) {
+            return;
+        }
+        if (hitGeometry) {
+            featureGeomById[fid] = hitGeometry;
+        }
+        if (multiSelect) {
+            toggleFeatureSelection(fid);
+        } else {
+            setFeatureSelection([fid], fid);
+            const el = document.querySelector(featureListSelector(fid));
+            if (el) {
+                el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+        }
+        prepareBasemapForFeatureFocus();
+        if (rowRef) {
+            zoomToFeature(rowRef);
+            ensureFeatureGeometry(fid).then(function () {
+                if (focusedFeatureId === fid) {
+                    setSelectionHighlight(fid);
+                }
+            });
+            return;
+        }
+        if (hitGeometry) {
+            zoomToGeometry(hitGeometry);
+            setSelectionHighlight(fid);
+            return;
+        }
+        ensureFeatureGeometry(fid).then(function (geom) {
+            if (!geom || focusedFeatureId !== fid) {
+                return;
+            }
+            zoomToGeometry(geom);
+            setSelectionHighlight(fid);
+        });
+    }
+
+    function handleUploadFeatureMapPick(e) {
+        const layers = interactiveFeatureLayerIds();
         if (!layers.length) {
             return;
         }
-        const hits = map.queryRenderedFeatures(e.point, { layers: layers });
+        let hits = e.features && e.features.length ? e.features : [];
+        if (!hits.length && e.point) {
+            hits = queryUploadFeaturesAtPoint(e.point, layers);
+        }
         if (!hits.length) {
             return;
         }
-        const props = hits[0].properties || {};
-        const fid =
-            props.upload_feature_id != null ? parseInt(String(props.upload_feature_id), 10) : NaN;
+        const hit = hits[0];
+        const fid = featureIdFromHit(hit);
         if (Number.isNaN(fid)) {
             return;
         }
+        const props = hit.properties || {};
+        if (props.status) {
+            featureStatusById[fid] = props.status;
+        }
+        const multiSelect = !!(e.originalEvent && (e.originalEvent.metaKey || e.originalEvent.ctrlKey));
         const el = document.querySelector(featureListSelector(fid));
         const ref = rowRefFromElement(el);
-        if (ref) {
-            focusFeature(fid, ref);
+        selectFeatureFromUserAction(fid, multiSelect, ref, hit.geometry || null);
+    }
+
+    function handleUploadFeatureLayerClick(e) {
+        if (!e.features || !e.features.length) {
+            return;
         }
+        if (e.originalEvent && typeof e.originalEvent.stopPropagation === 'function') {
+            e.originalEvent.stopPropagation();
+        }
+        handleUploadFeatureMapPick(e);
     }
 
     function mergeBounds(bbList) {
@@ -1034,6 +1255,7 @@
                 },
                 beforeId
             );
+            addLineHitLayer(ALL_LINE_HIT_LAYER_ID, SOURCE_ALL, GEOM_FILTER_LINE);
             map.addLayer(
                 {
                     id: 'lr-all-points',
@@ -1048,6 +1270,8 @@
             bindFeatureLayerHandlers();
         } else {
             map.getSource(SOURCE_ALL).setData(data);
+            addLineHitLayer(ALL_LINE_HIT_LAYER_ID, SOURCE_ALL, GEOM_FILTER_LINE);
+            bindFeatureLayerHandlers();
         }
         moveSelectionLayersToTop();
         syncSelectionExclusionFilters();
@@ -1058,13 +1282,13 @@
             return;
         }
         if (largeLayer) {
-            setLayerGroupVisibility(UPLOAD_LAYER_IDS, true);
-            setLayerGroupVisibility(ALL_LAYER_IDS, false);
+            setLayerGroupVisibility(UPLOAD_LAYER_GROUP, true);
+            setLayerGroupVisibility(ALL_LAYER_GROUP, false);
             return;
         }
         ensureAllFeaturesSourceAndLayers();
-        setLayerGroupVisibility(UPLOAD_LAYER_IDS, false);
-        setLayerGroupVisibility(ALL_LAYER_IDS, true);
+        setLayerGroupVisibility(UPLOAD_LAYER_GROUP, false);
+        setLayerGroupVisibility(ALL_LAYER_GROUP, true);
     }
 
     function zoomToAllFeatures() {
@@ -1104,14 +1328,6 @@
         } catch (e) {
             /* ignore */
         }
-    }
-
-    function focusFeature(fid, rowRef) {
-        setRowSelected(fid);
-        zoomToFeature(rowRef);
-        ensureFeatureGeometry(fid).then(function () {
-            setSelectionHighlight(fid);
-        });
     }
 
     function zoomToFeature(row) {
@@ -1253,7 +1469,7 @@
             return;
         }
         ensureFeatureGeometry(fid).then(function (geom) {
-            if (!geom || selectedFeatureId !== fid) {
+            if (!geom || focusedFeatureId !== fid) {
                 return;
             }
             src.setData({
@@ -1278,6 +1494,7 @@
                 paint: uploadFeatureLinePaint(),
             });
         }
+        addLineHitLayer(UPLOAD_LINE_HIT_LAYER_ID, SOURCE_STAGING, GEOM_FILTER_LINE);
         if (!map.getLayer('lr-fill')) {
             map.addLayer({
                 id: 'lr-fill',
@@ -1314,20 +1531,21 @@
         }
     }
 
-    const boundFeatureLayerHandlers = {};
+    const boundMapLayerHandlers = {};
 
     function bindFeatureLayerHandlers() {
-        UPLOAD_LAYER_IDS.concat(ALL_LAYER_IDS).forEach(function (layerId) {
-            if (!map.getLayer(layerId) || boundFeatureLayerHandlers[layerId]) {
+        UPLOAD_LAYER_GROUP.concat(ALL_LAYER_GROUP).forEach(function (layerId) {
+            if (!map.getLayer(layerId) || boundMapLayerHandlers[layerId]) {
                 return;
             }
-            boundFeatureLayerHandlers[layerId] = true;
+            boundMapLayerHandlers[layerId] = true;
             map.on('mouseenter', layerId, function () {
                 map.getCanvas().style.cursor = 'pointer';
             });
             map.on('mouseleave', layerId, function () {
                 map.getCanvas().style.cursor = '';
             });
+            map.on('click', layerId, handleUploadFeatureLayerClick);
         });
     }
 
@@ -1344,25 +1562,29 @@
         }
     }
 
-    function setRowSelected(fid) {
-        selectedFeatureId = fid;
-        document.querySelectorAll('.lr-zoom-feature-card[data-feature-id]').forEach(function (el) {
-                const id = parseInt(el.getAttribute('data-feature-id'), 10);
-                const on = id === fid;
-                el.classList.toggle('lr-row-selected', on);
-                if (on) {
-                    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    function wireFeatureInteractions(el, f, rowRef) {
+        const check = el.querySelector('.lr-feature-card__check');
+        if (check) {
+            check.addEventListener('click', function (e) {
+                e.stopPropagation();
+            });
+            check.addEventListener('change', function () {
+                toggleFeatureSelection(f.id, check.checked);
+                if (check.checked) {
+                    ensureFeatureGeometry(f.id).then(function () {
+                        if (focusedFeatureId === f.id) {
+                            setSelectionHighlight(f.id);
+                        }
+                    });
                 }
             });
-        setSelectionHighlight(fid);
-    }
+        }
 
-    function wireFeatureInteractions(el, f, rowRef) {
         el.addEventListener('click', function (e) {
-            if (e.target.closest('.lr-action-btn, .lr-btn-reset')) {
+            if (e.target.closest('.lr-action-btn, .lr-btn-reset, .lr-feature-card__check')) {
                 return;
             }
-            focusFeature(f.id, rowRef);
+            selectFeatureFromUserAction(f.id, e.metaKey || e.ctrlKey, rowRef, null);
         });
 
         const approve = el.querySelector('.lr-action-btn--approve');
@@ -1388,60 +1610,65 @@
         }
     }
 
-    function buildZoomFeatureCard(f, idx) {
+    function buildFeatureCard(f) {
         const card = document.createElement('article');
-        card.className = 'lr-zoom-feature-card';
+        card.className = 'lr-feature-card';
         card.setAttribute('role', 'listitem');
         stampFeatureDataset(card, f);
 
-        const row = document.createElement('div');
-        row.className = 'lr-zoom-card-row';
+        const body = document.createElement('div');
+        body.className = 'lr-feature-card__body';
 
-        const num = document.createElement('span');
-        num.className = 'lr-zoom-card-num';
-        num.textContent = String(idx + 1);
+        const check = document.createElement('input');
+        check.type = 'checkbox';
+        check.className = 'lr-feature-card__check';
+        check.setAttribute('aria-label', 'Select feature');
+        check.checked = selectedFeatureIds.has(f.id);
+
+        const info = document.createElement('div');
+        info.className = 'lr-feature-card__info';
+        info.innerHTML = renderFeatureSummary(f);
+
+        const aside = document.createElement('div');
+        aside.className = 'lr-feature-card__aside';
 
         const statusWrap = document.createElement('div');
-        statusWrap.className = 'lr-zoom-card-status';
+        statusWrap.className = 'lr-feature-card__status';
         statusWrap.innerHTML = statusBadge(f.status);
 
         const actions = document.createElement('div');
-        actions.className = 'lr-zoom-card-actions';
+        actions.className = 'lr-feature-card__actions';
         fillActionCell(actions, f.status);
 
-        row.appendChild(num);
-        row.appendChild(statusWrap);
-        row.appendChild(actions);
-
-        const props = document.createElement('div');
-        props.className = 'lr-zoom-card-props';
-        props.innerHTML = renderRoadNameCell(f) + renderPropertiesCell(f);
-
-        card.appendChild(row);
-        card.appendChild(props);
+        aside.appendChild(statusWrap);
+        aside.appendChild(actions);
+        body.appendChild(check);
+        body.appendChild(info);
+        body.appendChild(aside);
+        card.appendChild(body);
         applyFeatureStatusClasses(card, f.status);
         wireFeatureInteractions(card, f, featureRowRef(f));
         return card;
     }
 
-    function renderZoomFeaturePanel(feats) {
-        if (!zoomFeatureList) {
+    function renderFeatureList(feats) {
+        if (!featureListEl) {
             return;
         }
         const list = feats || [];
-        renderZoomPanelFeatureCount(list.length);
-        zoomFeatureList.classList.remove('lr-zoom-feature-list--loading');
-        zoomFeatureList.innerHTML = '';
+        renderFeatureCount(list.length);
+        featureListEl.classList.remove('lr-feature-list--loading');
+        featureListEl.innerHTML = '';
         if (!list.length) {
-            zoomFeatureList.innerHTML =
-                '<p class="lr-zoom-empty">No features match the current filter.</p>';
+            featureListEl.innerHTML =
+                '<p class="lr-feature-empty">No features match the current filter.</p>';
             return;
         }
         const fragment = document.createDocumentFragment();
-        list.forEach(function (f, idx) {
-            fragment.appendChild(buildZoomFeatureCard(f, idx));
+        list.forEach(function (f) {
+            fragment.appendChild(buildFeatureCard(f));
         });
-        zoomFeatureList.appendChild(fragment);
+        featureListEl.appendChild(fragment);
     }
 
     function getCsrfToken() {
@@ -1503,31 +1730,24 @@
         return '<span class="lr-badge ' + cls + '">' + escapeHtml(String(label)) + '</span>';
     }
 
-    function renderRoadNameCell(f) {
+    function renderFeatureSummary(f) {
         const name = f.road_name != null ? String(f.road_name).trim() : '';
-        if (!name) {
-            return '<span class="lr-road-name lr-road-name--empty">Unnamed road</span>';
-        }
-        return '<span class="lr-road-name">' + escapeHtml(name) + '</span>';
-    }
-
-    function renderPropertiesCell(f) {
-        const entries = f.property_entries;
-        if (!entries || !entries.length) {
-            return '<span class="lr-prop-fallback">—</span>';
-        }
-        const rows = entries
-            .map(function (e) {
-                return (
-                    '<div class="lr-prop-row"><span class="lr-prop-key">' +
-                    escapeHtml(String(e.key)) +
-                    '</span><span class="lr-prop-val">' +
-                    escapeHtml(String(e.value)) +
-                    '</span></div>'
-                );
-            })
-            .join('');
-        return '<div class="lr-prop-list">' + rows + '</div>';
+        const nameClass = name ? 'lr-feature-card__name' : 'lr-feature-card__name lr-feature-card__name--empty';
+        const nameText = name || 'Unnamed road';
+        const osmId = f.osm_id != null ? String(f.osm_id).trim() : '';
+        const osmText = osmId || '—';
+        return (
+            '<span class="lr-feature-card__label">Road Name</span>' +
+            '<span class="' +
+            nameClass +
+            '">' +
+            escapeHtml(nameText) +
+            '</span>' +
+            '<span class="lr-feature-card__label">Osm Id</span>' +
+            '<span class="lr-feature-card__osm">' +
+            escapeHtml(osmText) +
+            '</span>'
+        );
     }
 
     function escapeHtml(s) {
@@ -1565,7 +1785,7 @@
             window.registerRiyadhRoadsTileReloader(reloadRiyadhRoadsTilesOnReviewMap);
         }
 
-        map.on('click', focusFeatureFromMapClick);
+        map.on('click', handleUploadFeatureMapPick);
         map.on('moveend', function () {
             if (largeLayer) {
                 scheduleMapReload();
@@ -1586,9 +1806,11 @@
         });
     });
 
-    function runBulkAction(action, errorMessage) {
-        postAction({ action: action })
+    function runBulkAction(action, errorMessage, extraPayload) {
+        const payload = Object.assign({ action: action }, extraPayload || {});
+        return postAction(payload)
             .then(function () {
+                clearFeatureSelection();
                 return refreshAfterMutation();
             })
             .catch(function (err) {
@@ -1596,16 +1818,36 @@
             });
     }
 
-    const btnApproveAll = document.getElementById('btn-approve-all');
-    const btnRejectAll = document.getElementById('btn-reject-all');
-    if (btnApproveAll) {
-        btnApproveAll.addEventListener('click', function () {
-            runBulkAction('nominate_all', 'Could not approve all rows');
+    const btnBulkApprove = document.getElementById('btn-bulk-approve');
+    const btnBulkReject = document.getElementById('btn-bulk-reject');
+    if (btnBulkApprove) {
+        btnBulkApprove.addEventListener('click', function () {
+            const stagedIds = getStagedSelectedIds();
+            if (selectedFeatureIds.size > 0) {
+                if (!stagedIds.length) {
+                    return;
+                }
+                runBulkAction('nominate_selected', 'Could not approve selected features', {
+                    feature_ids: stagedIds,
+                });
+                return;
+            }
+            runBulkAction('nominate_all', 'Could not approve all features');
         });
     }
-    if (btnRejectAll) {
-        btnRejectAll.addEventListener('click', function () {
-            runBulkAction('reject_all', 'Could not reject all rows');
+    if (btnBulkReject) {
+        btnBulkReject.addEventListener('click', function () {
+            const stagedIds = getStagedSelectedIds();
+            if (selectedFeatureIds.size > 0) {
+                if (!stagedIds.length) {
+                    return;
+                }
+                runBulkAction('reject_selected', 'Could not reject selected features', {
+                    feature_ids: stagedIds,
+                });
+                return;
+            }
+            runBulkAction('reject_all', 'Could not reject all features');
         });
     }
 
@@ -1647,7 +1889,7 @@
     const btnSubmit = document.getElementById('btn-submit-manager');
     if (btnSubmit && submitUrl) {
         btnSubmit.addEventListener('click', function () {
-            const nominatedEl = document.getElementById('lr-zoom-cnt-nominated');
+            const nominatedEl = document.getElementById('lr-cnt-nominated');
             const nominatedCount = nominatedEl ? parseInt(nominatedEl.textContent, 10) : 0;
             if (!nominatedCount || Number.isNaN(nominatedCount)) {
                 window.notify.tryShow(

@@ -6,7 +6,6 @@ import json
 import re
 from typing import Any
 
-from .constants import FEATURE_PROPERTY_ROWS_TABLE, TABLE_PROPERTY_SKIP_KEYS
 
 _PROPERTY_ALIASES: dict[str, tuple[str, ...]] = {
     "name": ("name", "NAME", "Name", "road_name", "ROAD_NAME"),
@@ -24,7 +23,6 @@ _PROPERTY_ALIASES: dict[str, tuple[str, ...]] = {
 _OSM_TAG_PAIR_RE = re.compile(r'"([^"]+)"=>"([^"]*)"')
 _ARABIC_SCRIPT_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
 _LATIN_SCRIPT_RE = re.compile(r"[A-Za-z]")
-_SKIP_KEY_LOWER = frozenset(k.lower() for k in TABLE_PROPERTY_SKIP_KEYS)
 
 
 def _norm_str(value) -> str:
@@ -119,30 +117,3 @@ def extract_road_display_name(properties: Any) -> str:
 def pick_shapefile_property(props: dict[str, Any], field: str):
     """Public accessor for shapefile field aliases used when publishing roads."""
     return _pick_property(props, field)
-
-
-def table_property_entries(properties: Any, max_rows: int = FEATURE_PROPERTY_ROWS_TABLE) -> list[dict[str, str]]:
-    props = coerce_feature_properties(properties)
-    if not props:
-        return []
-
-    rows: list[dict[str, str]] = []
-    for key in sorted(props.keys(), key=lambda k: str(k).lower()):
-        if str(key).lower() in _SKIP_KEY_LOWER:
-            continue
-        if len(rows) >= max_rows:
-            break
-        val = props[key]
-        if val in (None, ""):
-            continue
-        if isinstance(val, (dict, list)):
-            try:
-                val_str = json.dumps(val, ensure_ascii=False)
-            except TypeError:
-                val_str = str(val)
-        else:
-            val_str = str(val).strip()
-        if not val_str:
-            continue
-        rows.append({"key": str(key), "value": val_str})
-    return rows

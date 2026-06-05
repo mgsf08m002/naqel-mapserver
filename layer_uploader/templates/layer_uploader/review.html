@@ -23,7 +23,6 @@
   data-geojson-url="{% url 'layer_review_geojson' layer.pk %}"
   data-table-url="{% url 'layer_review_table' layer.pk %}"
   data-action-url="{% url 'layer_review_action' layer.pk %}"
-  data-page-size="{{ review_page_size }}"
   {% if review_large_layer %}data-large-layer="true"{% endif %}
   {% if can_submit %}data-submit-url="{% url 'layer_submit' layer.pk %}"{% endif %}
   {% if is_manager_uploader %}data-is-manager-uploader="true"{% endif %}

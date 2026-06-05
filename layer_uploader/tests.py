@@ -400,7 +400,7 @@ class LayerReviewApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         row = next(r for r in response.json()["features"] if r["id"] == encoded.pk)
         self.assertEqual(row["road_name"], "Encoded Road")
-        self.assertTrue(any(e["key"] == "highway" for e in row["property_entries"]))
+        self.assertNotIn("property_entries", row)
 
     def test_review_table_pagination_and_status_filter(self):
         response = self.client.get(
@@ -482,6 +482,25 @@ class LayerReviewApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.nominated.refresh_from_db()
         self.assertEqual(self.nominated.status, Feature.Status.STAGED)
+
+    def test_review_nominate_selected_updates_only_staged_ids(self):
+        action_url = reverse("layer_review_action", kwargs={"layer_id": self.layer.pk})
+        response = self.client.post(
+            action_url,
+            data=json.dumps(
+                {
+                    "action": "nominate_selected",
+                    "feature_ids": [self.staged.pk, self.nominated.pk],
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["updated"], 1)
+        self.staged.refresh_from_db()
+        self.nominated.refresh_from_db()
+        self.assertEqual(self.staged.status, Feature.Status.NOMINATED)
+        self.assertEqual(self.nominated.status, Feature.Status.NOMINATED)
 
     def test_review_reset_rejects_new_rows(self):
         action_url = reverse("layer_review_action", kwargs={"layer_id": self.layer.pk})

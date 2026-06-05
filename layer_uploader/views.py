@@ -55,6 +55,23 @@ def _parse_feature_id(body) -> int | None:
         return None
 
 
+def _parse_feature_ids(body) -> list[int] | None:
+    raw = body.get("feature_ids")
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        raise ValueError("Invalid feature_ids")
+    if not raw:
+        raise ValueError("feature_ids required")
+    ids: list[int] = []
+    for item in raw:
+        try:
+            ids.append(int(item))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Invalid feature_ids") from exc
+    return ids
+
+
 def _action_error_response(exc: Exception) -> JsonResponse:
     if isinstance(exc, LookupError):
         return JsonResponse({"detail": str(exc)}, status=404)
@@ -329,8 +346,11 @@ def review_action_view(request, layer_id):
             layer,
             body.get("action"),
             feature_id=_parse_feature_id(body),
+            feature_ids=_parse_feature_ids(body),
         )
-    except (ValueError, LookupError) as exc:
+    except ValueError as exc:
+        return _action_error_response(exc)
+    except LookupError as exc:
         return _action_error_response(exc)
 
     return JsonResponse(payload)

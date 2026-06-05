@@ -3,7 +3,7 @@
 from django.urls import reverse
 
 from .access import is_layer_upload_manager
-from .constants import LARGE_LAYER_FEATURE_THRESHOLD, TABLE_PAGE_SIZE_DEFAULT
+from .constants import LARGE_LAYER_FEATURE_THRESHOLD
 from .models import Layer
 
 
@@ -56,5 +56,4 @@ def review_page_context(request, layer: Layer) -> dict:
         "can_submit": layer.status == Layer.Status.DRAFT,
         "is_manager_uploader": is_layer_upload_manager(request.user),
         "review_large_layer": staged_count > LARGE_LAYER_FEATURE_THRESHOLD,
-        "review_page_size": TABLE_PAGE_SIZE_DEFAULT,
     }

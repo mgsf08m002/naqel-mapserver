@@ -7,46 +7,38 @@
     {% endif %}
   </div>
 
-  <aside id="lr-zoom-panel" class="lr-zoom-panel" aria-label="Features">
-    <div id="lr-zoom-panel-inner" class="lr-zoom-panel-inner">
-      <header class="lr-zoom-panel-header">
-        <div class="lr-zoom-panel-head-row">
-          <h2 class="lr-zoom-panel-title">Features</h2>
-          <div class="lr-zoom-panel-head-actions">
-            <span id="lr-zoom-panel-count" class="lr-zoom-panel-count">—</span>
+  <aside id="lr-features-panel" class="lr-features-panel" aria-label="Features">
+    <div class="lr-features-panel__body">
+      <header class="lr-panel-header">
+        <div class="lr-panel-head">
+          <h2 class="lr-panel-title">Features</h2>
+          <div class="lr-panel-head-actions">
+            <span id="lr-feature-count" class="lr-panel-count">—</span>
             {% if not can_submit %}
             <a id="btn-finish" href="{% url 'success' %}?submitted=1" class="lr-btn-finish">Done</a>
             {% endif %}
           </div>
         </div>
-        <div class="lr-panel-toolbar">
-          <label class="lr-filter">
-            <span class="lr-filter-label">Show</span>
-            <select id="lr-status-filter" class="lr-filter-select" aria-label="Filter by status">
-              <option value="">All statuses</option>
-              <option value="staged">New</option>
-              <option value="nominated">Approved</option>
-              <option value="rejected_upload">Rejected</option>
-            </select>
-          </label>
-          <span class="lr-bulk-label">Bulk</span>
-          <div class="lr-actions-bulk">
-            <button type="button" id="btn-approve-all" class="lr-action-btn lr-action-btn--approve lr-action-btn--bulk" aria-label="Approve all" title="Approve all">
-              <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
-            </button>
-            <button type="button" id="btn-reject-all" class="lr-action-btn lr-action-btn--reject lr-action-btn--bulk" aria-label="Reject all" title="Reject all">
-              <svg class="lr-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
-            </button>
+        <div class="lr-panel-controls">
+          <select id="lr-status-filter" class="lr-filter-select" aria-label="Filter by status">
+            <option value="">All statuses</option>
+            <option value="staged">New</option>
+            <option value="nominated">Approved</option>
+            <option value="rejected_upload">Rejected</option>
+          </select>
+          <div class="lr-bulk-actions">
+            <button type="button" id="btn-bulk-approve" class="lr-bulk-btn lr-bulk-btn--approve">Approve all</button>
+            <button type="button" id="btn-bulk-reject" class="lr-bulk-btn lr-bulk-btn--reject">Reject all</button>
           </div>
         </div>
-        <div class="lr-zoom-chips" aria-live="polite">
-          <span class="lr-zoom-chip">Total <strong id="lr-zoom-cnt-total">—</strong></span>
-          <span class="lr-zoom-chip">New <strong id="lr-zoom-cnt-staged">—</strong></span>
-          <span class="lr-zoom-chip">Approved <strong id="lr-zoom-cnt-nominated">—</strong></span>
-          <span class="lr-zoom-chip">Rejected <strong id="lr-zoom-cnt-rejected_upload">—</strong></span>
+        <div class="lr-panel-stats" aria-live="polite">
+          <span class="lr-stat">Total <strong id="lr-cnt-total">—</strong></span>
+          <span class="lr-stat lr-stat--staged">New <strong id="lr-cnt-staged">—</strong></span>
+          <span class="lr-stat lr-stat--nominated">Approved <strong id="lr-cnt-nominated">—</strong></span>
+          <span class="lr-stat lr-stat--rejected">Rejected <strong id="lr-cnt-rejected_upload">—</strong></span>
         </div>
       </header>
-      <div id="lr-zoom-feature-list" class="lr-zoom-feature-list" role="list"></div>
+      <div id="lr-feature-list" class="lr-feature-list" role="list"></div>
       {% if can_submit %}
       <footer class="lr-panel-submit">
         <button type="button" id="btn-submit-manager" class="lr-btn-submit">

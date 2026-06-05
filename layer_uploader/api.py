@@ -10,7 +10,6 @@ from django.contrib.gis.geos import Polygon
 from django.db.models import QuerySet
 
 from .constants import (
-    FEATURE_PROPERTY_ROWS_TABLE,
     GEOJSON_SMALL_LAYER_LIMIT,
     GEOJSON_VIEWPORT_LIMIT,
     LARGE_LAYER_FEATURE_THRESHOLD,
@@ -20,7 +19,17 @@ from .constants import (
 )
 from .models import Feature, Layer
 from .services import feature_counts_for_layer
-from .shapefile_properties import extract_road_display_name, table_property_entries
+from .shapefile_properties import (
+    coerce_feature_properties,
+    extract_road_display_name,
+    pick_shapefile_property,
+)
+
+
+def _format_osm_id(value) -> str:
+    if value in (None, ""):
+        return ""
+    return str(value).strip()
 
 
 def feature_geometry_json(feature: Feature, *, simplify_tolerance: float = 0) -> dict:
@@ -34,13 +43,12 @@ def feature_row_dict(feature: Feature) -> dict:
     env = feature.geom.extent
     cx = (env[0] + env[2]) / 2
     cy = (env[1] + env[3]) / 2
+    props = coerce_feature_properties(feature.properties)
     return {
         "id": feature.pk,
         "status": feature.status,
-        "road_name": extract_road_display_name(feature.properties),
-        "property_entries": table_property_entries(
-            feature.properties, max_rows=FEATURE_PROPERTY_ROWS_TABLE
-        ),
+        "road_name": extract_road_display_name(props),
+        "osm_id": _format_osm_id(pick_shapefile_property(props, "osm_id")),
         "center": [cx, cy],
         "bbox": [[env[0], env[1]], [env[2], env[3]]],
     }
