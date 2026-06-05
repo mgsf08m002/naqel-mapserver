@@ -957,7 +957,7 @@ map.on('load', () => {
                                 }
 
                                 if (typeof window.openRiyadhRoadById === 'function') {
-                                    await window.openRiyadhRoadById(roadId, props);
+                                    await window.openRiyadhRoadById(roadId, props, { enterEditMode: false });
                                 }
                             } catch (err) {
                             }

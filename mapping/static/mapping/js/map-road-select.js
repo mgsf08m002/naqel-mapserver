@@ -116,12 +116,12 @@
     /**
      * @param {number} roadId - Network id from vector tiles (`id` column).
      * @param {object} [tileProps] - Optional feature properties from a tile click.
-     * @param {{ enterEditMode?: boolean }} [options] - When false, opens sidebar only (e.g. road search).
+     * @param {{ enterEditMode?: boolean }} [options] - Pass true to enable map edit mode when opening.
      * @returns {Promise<{success: boolean, road?: object, message?: string}>}
      */
     async function openRiyadhRoadById(roadId, tileProps, options) {
         var opts = options || {};
-        var enterEditMode = opts.enterEditMode !== false;
+        var enterEditMode = opts.enterEditMode === true;
         var idNum = roadId != null ? parseInt(String(roadId), 10) : NaN;
         if (!idNum || Number.isNaN(idNum)) {
             return { success: false, message: 'Invalid road id.' };

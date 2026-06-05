@@ -254,7 +254,10 @@
             hideRiyadhGeometryEditToolbar();
             return;
         }
-        const readonly = editScreen && editScreen.getAttribute('data-geometry-readonly') === 'true';
+        const readonly = editScreen && (
+            editScreen.getAttribute('data-geometry-readonly') === 'true' ||
+            (typeof window.isMapEditModeActive === 'function' && !window.isMapEditModeActive())
+        );
         if (readonly || !lineData || !lineData.is_riyadh_road) {
             hideRiyadhGeometryEditToolbar();
             return;
@@ -2065,11 +2068,130 @@
         });
     }
 
+    function isRoadPanelViewOnly() {
+        const editScreen = document.getElementById('editFeatureScreen');
+        if (!editScreen) {
+            return false;
+        }
+        if (editScreen.getAttribute('data-geometry-readonly') === 'true') {
+            return true;
+        }
+        return typeof window.isMapEditModeActive === 'function' && !window.isMapEditModeActive();
+    }
+
+    function requireMapEditModeForChange() {
+        if (!isRoadPanelViewOnly()) {
+            return true;
+        }
+        if (typeof window.promptEnableEditMode === 'function') {
+            window.promptEnableEditMode();
+        }
+        return false;
+    }
+
+    function bindRoadPanelEditGuards(editScreen) {
+        if (!editScreen || editScreen.getAttribute('data-edit-guards-bound') === '1') {
+            return;
+        }
+
+        editScreen.addEventListener('click', function(e) {
+            if (!isRoadPanelViewOnly()) {
+                return;
+            }
+            if (e.target.closest('button[data-menu-item]')) {
+                return;
+            }
+            const interactive = e.target.closest('button, input, select, textarea');
+            if (!interactive) {
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            requireMapEditModeForChange();
+        }, true);
+
+        editScreen.addEventListener('focusin', function(e) {
+            if (!isRoadPanelViewOnly()) {
+                return;
+            }
+            const target = e.target;
+            if (!target || !target.matches('input, textarea, select')) {
+                return;
+            }
+            if (target.closest('button[data-menu-item]')) {
+                return;
+            }
+            e.preventDefault();
+            target.blur();
+            requireMapEditModeForChange();
+        }, true);
+
+        editScreen.setAttribute('data-edit-guards-bound', '1');
+    }
+
+    function syncRoadPanelEditModeUI() {
+        const editScreen = document.getElementById('editFeatureScreen');
+        if (!editScreen) {
+            return;
+        }
+
+        const viewOnly = isRoadPanelViewOnly();
+        editScreen.setAttribute('data-view-only', viewOnly ? 'true' : 'false');
+
+        const header = editScreen.querySelector('[data-edit-feature-header]');
+        if (header) {
+            header.hidden = viewOnly;
+        }
+
+        const changeBtn = editScreen.querySelector('[data-feature-type-change]');
+        if (changeBtn) {
+            changeBtn.hidden = viewOnly;
+        }
+
+        const nameInput = document.getElementById('sidebar-feature-name-input');
+        if (nameInput) {
+            nameInput.readOnly = viewOnly;
+            nameInput.classList.toggle('cursor-not-allowed', viewOnly);
+            nameInput.classList.toggle('bg-zinc-50', viewOnly);
+        }
+
+        const addFieldSection = document.getElementById('add-field-section');
+        if (addFieldSection) {
+            addFieldSection.hidden = viewOnly;
+        }
+
+        const multilingualAdds = editScreen.querySelectorAll('[data-multilingual-add]');
+        multilingualAdds.forEach(function(btn) {
+            btn.hidden = viewOnly;
+        });
+
+        const closureBtn = editScreen.querySelector('[data-road-closure-toggle]');
+        if (closureBtn) {
+            closureBtn.disabled = viewOnly;
+            closureBtn.classList.toggle('opacity-60', viewOnly);
+            closureBtn.classList.toggle('cursor-not-allowed', viewOnly);
+        }
+
+        syncRemoveRoadLabelButtonVisibility();
+        const removeLabelBtn = document.getElementById('sidebar-remove-road-label-btn');
+        if (removeLabelBtn && viewOnly) {
+            removeLabelBtn.hidden = true;
+        }
+
+        const lineData = window.approvedLineBeingEdited || window.selectedRiyadhRoad;
+        syncRiyadhGeometryEditToolbar(editScreen, lineData);
+    }
+
+    window.syncRoadPanelEditModeUI = syncRoadPanelEditModeUI;
+
     function showEditFeatureScreen(options) {
         options = options || {};
         const hideBackButton = options.hideBackButton || false;
         const requestGeometry = options.requestGeometry || null;
         const lineData = options.lineData || null;
+        const viewOnlyOnOpen = hideBackButton || (
+            typeof window.isMapEditModeActive !== 'function' || !window.isMapEditModeActive()
+        );
 
         if (lineData != null && lineData.road_closure != null) {
             applyRoadClosureDraftAndInitialFromRaw(lineData.road_closure);
@@ -2119,40 +2241,32 @@
         
         const header = document.createElement('div');
         header.className = 'px-4 py-3 border-b border-zinc-200 bg-white flex items-center justify-between shrink-0';
+        header.setAttribute('data-edit-feature-header', '');
+        if (viewOnlyOnOpen) {
+            header.hidden = true;
+        }
 
         const backButton = document.createElement('button');
+        backButton.type = 'button';
         backButton.className = 'p-2 hover:bg-zinc-100 rounded-lg transition-colors flex-shrink-0';
+        backButton.setAttribute('aria-label', 'Back to feature search');
         backButton.innerHTML = '<svg class="w-5 h-5 text-zinc-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>';
-        
-        // Hide back button if viewing a request.
-        if (hideBackButton) {
-            backButton.style.display = 'none';
-        } else {
+        if (!hideBackButton) {
             backButton.addEventListener('click', function() {
                 showLineSidePanel();
             });
+        } else {
+            backButton.hidden = true;
         }
 
         const title = document.createElement('h2');
         title.className = 'text-base font-semibold text-zinc-900 flex-1 text-center';
         title.textContent = 'Edit feature';
 
-        const closeButton = document.createElement('button');
-        closeButton.className = 'p-2 hover:bg-zinc-100 rounded-lg transition-colors flex-shrink-0';
-        closeButton.innerHTML = '<svg class="w-5 h-5 text-zinc-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
-        
-        // Disable close button if viewing a request
-        if (hideBackButton) {
-            closeButton.style.display = 'none';
-        } else {
-            closeButton.addEventListener('click', function() {
-                showLineSidePanel();
-            });
-        }
-
         header.appendChild(backButton);
         header.appendChild(title);
-        header.appendChild(closeButton);
+        header.appendChild(document.createElement('span'));
+        header.lastElementChild.className = 'w-9 shrink-0';
         editScreen.appendChild(header);
 
         const content = document.createElement('div');
@@ -2187,7 +2301,8 @@
         flexContainer.appendChild(editScreen);
 
         setupRiyadhGeometryEditToolbarOnce();
-        syncRiyadhGeometryEditToolbar(editScreen, lineData);
+        bindRoadPanelEditGuards(editScreen);
+        syncRoadPanelEditModeUI();
 
         updateFeatureTypeLabelDisplay();
 
@@ -2198,6 +2313,7 @@
             } else {
                 updateFeatureTypeVisualization();
             }
+            syncRoadPanelEditModeUI();
         }, 0);
     }
 
@@ -2328,9 +2444,8 @@
         visualizationContainer.style.width = '80px';
         visualizationContainer.style.height = '40px';
         
-        // Check if we're in view-only mode (manager viewing request)
         const editScreen = document.getElementById('editFeatureScreen');
-        const isViewOnly = editScreen && editScreen.getAttribute('data-request-geometry');
+        const isViewOnly = isRoadPanelViewOnly();
         
         if (!isViewOnly) {
             visualizationContainer.setAttribute('title', 'Feature type preview');
@@ -2353,17 +2468,20 @@
         leftGroup.appendChild(selectedFeatureName);
         selectorContainer.appendChild(leftGroup);
 
-        if (!isViewOnly) {
-            const changeBtn = document.createElement('button');
-            changeBtn.type = 'button';
-            changeBtn.className = 'flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 bg-white text-zinc-800 shadow-sm hover:bg-zinc-50 transition-colors';
-            changeBtn.textContent = 'Change';
-            changeBtn.addEventListener('click', function() {
-                updateSearchFeatureScreenSelection();
-                showLineSidePanel();
-            });
-            selectorContainer.appendChild(changeBtn);
-        }
+        const changeBtn = document.createElement('button');
+        changeBtn.type = 'button';
+        changeBtn.setAttribute('data-feature-type-change', '');
+        changeBtn.className = 'flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 bg-white text-zinc-800 shadow-sm hover:bg-zinc-50 transition-colors';
+        changeBtn.textContent = 'Change';
+        changeBtn.hidden = isViewOnly;
+        changeBtn.addEventListener('click', function() {
+            if (!requireMapEditModeForChange()) {
+                return;
+            }
+            updateSearchFeatureScreenSelection();
+            showLineSidePanel();
+        });
+        selectorContainer.appendChild(changeBtn);
 
         container.appendChild(selectorContainer);
 
@@ -2692,6 +2810,7 @@
         roadClosureToggleButton.className = 'relative inline-flex h-6 w-11 items-center rounded-full bg-zinc-300 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2 focus:ring-offset-white';
         roadClosureToggleButton.setAttribute('aria-pressed', 'false');
         roadClosureToggleButton.setAttribute('aria-label', 'Toggle road closure');
+        roadClosureToggleButton.setAttribute('data-road-closure-toggle', '');
 
         const roadClosureToggleKnob = document.createElement('span');
         roadClosureToggleKnob.className = 'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform translate-x-0';
@@ -2727,6 +2846,9 @@
 
         roadClosureToggleButton.addEventListener('click', function (e) {
             e.preventDefault();
+            if (!requireMapEditModeForChange()) {
+                return;
+            }
             const next = !window.getCurrentRoadClosure();
             window.currentRoadClosureState = next;
             paintRoadClosureToggle();
@@ -2808,10 +2930,13 @@
             plusButtonWrapper.appendChild(tooltip);
             rightSection.appendChild(plusButtonWrapper);
 
+            plusButton.setAttribute('data-multilingual-add', '');
             plusButton.addEventListener('click', function(e) {
                 e.stopPropagation();
                 e.preventDefault();
-                
+                if (!requireMapEditModeForChange()) {
+                    return;
+                }
                 const fieldsContainer = document.getElementById('fields-container');
                 if (fieldsContainer) {
                     addMultilingualNameField(fieldsContainer);
@@ -2972,6 +3097,9 @@
     }
 
     function toggleFieldSelection(fieldName, fieldsContainer) {
+        if (!requireMapEditModeForChange()) {
+            return;
+        }
         const fieldId = fieldName.toLowerCase().replace(/\s+/g, '-');
         if (!window.selectedFields) {
             window.selectedFields = [];
@@ -4640,7 +4768,7 @@
         if (!lineFeatureData) return;
 
         const opts = options || {};
-        const enterEditMode = opts.enterEditMode !== false;
+        const enterEditMode = opts.enterEditMode === true;
 
         if (window.roadGeometryEdit && typeof window.roadGeometryEdit.stop === 'function') {
             window.roadGeometryEdit.stop();
@@ -4667,6 +4795,10 @@
         if (enterEditMode && window.autoEnterEditModeOnRoadSelection) {
             setTimeout(function() {
                 window.autoEnterEditModeOnRoadSelection();
+            }, 0);
+        } else {
+            setTimeout(function() {
+                syncRoadPanelEditModeUI();
             }, 0);
         }
     }

@@ -639,6 +639,9 @@
         if (editScreen && editScreen.getAttribute('data-geometry-readonly') === 'true') {
             return;
         }
+        if (typeof window.isMapEditModeActive === 'function' && !window.isMapEditModeActive()) {
+            return;
+        }
 
         var ctx = window.approvedLineBeingEdited || window.selectedRiyadhRoad;
         if (!ctx || !ctx.is_riyadh_road || !ctx.geometry) {

@@ -3,6 +3,7 @@
 
     const REQUIRED_ZOOM_LEVEL = 16;
     const EDIT_BUTTON_ID = 'editButton';
+    const EDIT_MODE_TOAST = 'Turn on Edit Mode first, then you can make changes.';
     const MAX_RETRY_ATTEMPTS = 50;
     const SIDE_PANEL_WIDTH = 320;
 
@@ -115,6 +116,9 @@
             }
             checkZoomLevel();
             ensureSidePanelInitialContent();
+            if (typeof window.syncRoadPanelEditModeUI === 'function') {
+                window.syncRoadPanelEditModeUI();
+            }
         }, 350);
     }
 
@@ -163,6 +167,9 @@
         }
         currentTool = null;
         updateToolButtons();
+        if (typeof window.syncRoadPanelEditModeUI === 'function') {
+            window.syncRoadPanelEditModeUI();
+        }
     }
 
     function updateButtonState() {
@@ -323,6 +330,16 @@
         }
         isEditModeActive = false;
         exitEditMode();
+    };
+
+    window.isMapEditModeActive = function() {
+        return isEditModeActive;
+    };
+
+    window.promptEnableEditMode = function() {
+        if (window.notify && typeof window.notify.tryShow === 'function') {
+            window.notify.tryShow(EDIT_MODE_TOAST, 'info');
+        }
     };
 
     window.autoEnterEditModeOnRoadSelection = autoEnterEditModeOnRoadSelection;
