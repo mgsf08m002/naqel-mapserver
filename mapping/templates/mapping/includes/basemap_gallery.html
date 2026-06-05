@@ -23,7 +23,7 @@
                 type="button"
                 data-basemap-id="esri-satellite"
                 title="Satellite imagery"
-                class="group relative border {% if maptiler_api_key %}border-transparent{% else %}border-blue-500{% endif %} rounded-lg overflow-hidden cursor-pointer opacity-80"
+                class="group relative border {% if not maptiler_api_key %}border-blue-500{% else %}border-transparent{% endif %} rounded-lg overflow-hidden cursor-pointer opacity-80"
             >
                 <img
                     src="{% static 'images/maps/satellite.png' %}"
@@ -38,7 +38,7 @@
                 type="button"
                 data-basemap-id="maptiler-streets"
                 title="Streets"
-                class="group relative border border-blue-500 rounded-lg overflow-hidden cursor-pointer opacity-80 hover:opacity-100 hover:border-blue-300"
+                class="group relative border border-transparent rounded-lg overflow-hidden cursor-pointer opacity-80 hover:opacity-100 hover:border-blue-300"
             >
                 <img
                     src="{% static 'images/maps/street.png' %}"

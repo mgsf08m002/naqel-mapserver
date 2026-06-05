@@ -46,7 +46,7 @@
     const ALL_LINE_HIT_LAYER_ID = 'lr-all-lines-hit';
     const UPLOAD_LAYER_GROUP = UPLOAD_LAYER_IDS.concat([UPLOAD_LINE_HIT_LAYER_ID]);
     const ALL_LAYER_GROUP = ALL_LAYER_IDS.concat([ALL_LINE_HIT_LAYER_ID]);
-    const MAP_FEATURE_CLICK_PAD_PX = 12;
+    const MAP_FEATURE_CLICK_PAD_PX = 24;
 
     const GEOM_FILTER_LINE = [
         'any',
@@ -115,9 +115,11 @@
     const BASEMAP_SELECTED_CLASSES = ['ring-2', 'ring-blue-500', 'shadow-lg', 'border-blue-500'];
     const BASEMAP_UNSELECTED_CLASSES = ['border-transparent', 'opacity-80'];
     const ESRI_SATELLITE_BASEMAP_ID = 'esri-satellite';
+    const MAPTILER_SATELLITE_BASEMAP_ID = 'maptiler-satellite';
     const DEFAULT_BASEMAP_MAX_ZOOM = 19;
     const BASEMAP_RASTER_LAYER_MAX_ZOOM = 22;
     const ZOOM_OVERVIEW_MAX = 15;
+    const FEATURE_FOCUS_MAX_ZOOM = 17;
 
     function buildBasemapDefinitions() {
         const defs = [
@@ -131,13 +133,23 @@
                     'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                 ],
                 attribution: 'Esri, Maxar, Earthstar Geographics',
-                maxZoom: DEFAULT_BASEMAP_MAX_ZOOM,
+                maxZoom: 18,
             },
         ];
         if (HAS_MAPTILER) {
             const mb = 'https://api.maptiler.com/maps';
             const k = MAPTILER_API_KEY;
             defs.push(
+                {
+                    id: MAPTILER_SATELLITE_BASEMAP_ID,
+                    label: 'Satellite',
+                    theme: 'imagery',
+                    sourceId: 'review-bm-mt-satellite',
+                    layerId: 'review-bm-mt-satellite-layer',
+                    tiles: ['https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=' + k],
+                    attribution: '© MapTiler © OpenStreetMap contributors',
+                    maxZoom: 20,
+                },
                 {
                     id: 'maptiler-streets',
                     label: 'Streets',
@@ -147,7 +159,6 @@
                     tiles: [mb + '/streets-v2/256/{z}/{x}/{y}.png?key=' + k],
                     attribution: '© MapTiler © OpenStreetMap contributors',
                     maxZoom: 17,
-                    preferSatelliteInZoom: true,
                 },
                 {
                     id: 'maptiler-outdoor',
@@ -158,7 +169,16 @@
                     tiles: [mb + '/outdoor-v2/256/{z}/{x}/{y}.png?key=' + k],
                     attribution: '© MapTiler © OpenStreetMap contributors',
                     maxZoom: 17,
-                    preferSatelliteInZoom: true,
+                },
+                {
+                    id: 'maptiler-dark',
+                    label: 'Dark',
+                    theme: 'dark',
+                    sourceId: 'review-bm-mt-dark',
+                    layerId: 'review-bm-mt-dark-layer',
+                    tiles: [mb + '/darkmatter/256/{z}/{x}/{y}.png?key=' + k],
+                    attribution: '© MapTiler © OpenStreetMap contributors',
+                    maxZoom: 17,
                 }
             );
         }
@@ -166,7 +186,7 @@
     }
 
     const BASEMAP_DEFINITIONS = buildBasemapDefinitions();
-    let currentBasemapId = ESRI_SATELLITE_BASEMAP_ID;
+    let currentBasemapId = HAS_MAPTILER ? MAPTILER_SATELLITE_BASEMAP_ID : ESRI_SATELLITE_BASEMAP_ID;
 
     function basemapDefById(basemapId) {
         return BASEMAP_DEFINITIONS.find(function (d) {
@@ -183,6 +203,10 @@
         return Math.min(ZOOM_OVERVIEW_MAX, activeBasemapMaxZoom());
     }
 
+    function featureFocusMaxZoom() {
+        return Math.min(FEATURE_FOCUS_MAX_ZOOM, activeBasemapMaxZoom());
+    }
+
     function applyBasemapZoomLimits() {
         const maxZ = activeBasemapMaxZoom();
         try {
@@ -196,8 +220,8 @@
     }
 
     function prepareBasemapForFeatureFocus() {
-        const def = basemapDefById(currentBasemapId);
-        if (!def || !def.preferSatelliteInZoom) {
+        if (HAS_MAPTILER) {
+            setBasemap(MAPTILER_SATELLITE_BASEMAP_ID);
             return;
         }
         setBasemap(ESRI_SATELLITE_BASEMAP_ID);
@@ -328,7 +352,11 @@
         if (focusedFeatureId == null) {
             return geomFilter;
         }
-        return ['all', geomFilter, ['!=', ['id'], focusedFeatureId]];
+        return [
+            'all',
+            geomFilter,
+            ['!=', ['to-number', ['get', 'upload_feature_id']], focusedFeatureId],
+        ];
     }
 
     function syncSelectionExclusionFilters() {
@@ -358,6 +386,41 @@
         });
     }
 
+    function moveNetworkBelowUploadLayers() {
+        if (!HAS_RIYADH_ROADS_TILES || !map.getLayer(PUBLIC_LAYER_ID_RIYADH)) {
+            return;
+        }
+        const anchorId =
+            (map.getLayer(ALL_LINE_HIT_LAYER_ID) && ALL_LINE_HIT_LAYER_ID) ||
+            (map.getLayer(UPLOAD_LINE_HIT_LAYER_ID) && UPLOAD_LINE_HIT_LAYER_ID) ||
+            (map.getLayer('lr-all-lines') && 'lr-all-lines') ||
+            (map.getLayer('lr-lines') && 'lr-lines');
+        if (!anchorId) {
+            return;
+        }
+        try {
+            map.moveLayer(PUBLIC_LAYER_ID_RIYADH, anchorId);
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    function moveUploadHitLayersToTop() {
+        [ALL_LINE_HIT_LAYER_ID, UPLOAD_LINE_HIT_LAYER_ID, 'lr-all-lines', 'lr-lines'].forEach(
+            function (layerId) {
+                if (!map.getLayer(layerId)) {
+                    return;
+                }
+                try {
+                    map.moveLayer(layerId);
+                } catch (e) {
+                    /* ignore */
+                }
+            }
+        );
+        moveSelectionLayersToTop();
+    }
+
     function themeForBasemapId(basemapId) {
         const def = basemapDefById(basemapId);
         return def && def.theme ? def.theme : 'light';
@@ -380,7 +443,22 @@
         }
     }
 
+    function resolveBasemapId(basemapId) {
+        if (basemapId === ESRI_SATELLITE_BASEMAP_ID && HAS_MAPTILER) {
+            return MAPTILER_SATELLITE_BASEMAP_ID;
+        }
+        return basemapId;
+    }
+
+    function galleryBasemapSelectionId(basemapId) {
+        if (basemapId === MAPTILER_SATELLITE_BASEMAP_ID) {
+            return ESRI_SATELLITE_BASEMAP_ID;
+        }
+        return basemapId;
+    }
+
     function setBasemap(basemapId) {
+        basemapId = resolveBasemapId(basemapId);
         if (!basemapDefById(basemapId)) {
             return;
         }
@@ -397,9 +475,10 @@
     }
 
     function syncBasemapGallerySelection(options, selectedId) {
+        const gallerySelectedId = galleryBasemapSelectionId(selectedId);
         options.forEach(function (opt) {
             const id = opt.getAttribute('data-basemap-id');
-            const isSelected = id === selectedId;
+            const isSelected = id === gallerySelectedId;
             opt.classList.remove.apply(opt.classList, BASEMAP_SELECTED_CLASSES.concat(BASEMAP_UNSELECTED_CLASSES));
             if (isSelected) {
                 BASEMAP_SELECTED_CLASSES.forEach(function (cls) {
@@ -434,21 +513,16 @@
             return;
         }
 
-        const availableBasemapIds = new Set(
-            BASEMAP_DEFINITIONS.map(function (def) {
-                return def.id;
-            })
-        );
-
         options.forEach(function (option) {
             const basemapId = option.getAttribute('data-basemap-id');
-            if (!basemapId || !availableBasemapIds.has(basemapId)) {
+            const resolvedBasemapId = resolveBasemapId(basemapId);
+            if (!basemapId || !basemapDefById(resolvedBasemapId)) {
                 option.setAttribute('disabled', 'true');
                 option.classList.add('opacity-50', 'cursor-not-allowed');
                 return;
             }
             option.addEventListener('click', function () {
-                if (basemapId === currentBasemapId) {
+                if (resolvedBasemapId === currentBasemapId) {
                     return;
                 }
                 setBasemap(basemapId);
@@ -714,6 +788,24 @@
 
     function featureListSelector(fid) {
         return '.lr-feature-card[data-feature-id="' + String(fid) + '"]';
+    }
+
+    function focusFeatureInPanel(fid) {
+        if (!featureListEl || fid == null || Number.isNaN(fid)) {
+            return;
+        }
+        const el = document.querySelector(featureListSelector(fid));
+        if (!el) {
+            return;
+        }
+        requestAnimationFrame(function () {
+            const listRect = featureListEl.getBoundingClientRect();
+            const cardRect = el.getBoundingClientRect();
+            const cardTop = cardRect.top - listRect.top + featureListEl.scrollTop;
+            const target =
+                cardTop - featureListEl.clientHeight / 2 + cardRect.height / 2;
+            featureListEl.scrollTop = Math.max(0, target);
+        });
     }
 
     function renderStatusCounts(counts) {
@@ -990,9 +1082,6 @@
             .then(function (geo) {
                 setStagingSourceData(geo);
                 indexGeojsonFeatures(geo);
-                if (largeLayer && map.getSource(SOURCE_ALL)) {
-                    map.getSource(SOURCE_ALL).setData(geo);
-                }
             })
             .finally(function () {
                 mapLoadInFlight = false;
@@ -1011,10 +1100,11 @@
             return loadMapViewport();
         }
         return fetchReviewJson(geojsonUrl).then(function (geo) {
-            setStagingSourceData(geo);
             indexGeojsonFeatures(geo);
             if (map.getSource(SOURCE_ALL)) {
                 map.getSource(SOURCE_ALL).setData(geo);
+            } else {
+                syncMapFeatureLayers();
             }
         });
     }
@@ -1074,7 +1164,8 @@
         return ids;
     }
 
-    function setFeatureSelection(ids, focusId) {
+    function setFeatureSelection(ids, focusId, options) {
+        options = options || {};
         selectedFeatureIds.clear();
         ids.forEach(function (fid) {
             if (fid != null && !Number.isNaN(fid)) {
@@ -1086,6 +1177,9 @@
         setSelectionHighlight(focusedFeatureId);
         syncSelectionExclusionFilters();
         updateBulkActionLabels();
+        if (options.scrollPanel && focusedFeatureId != null) {
+            focusFeatureInPanel(focusedFeatureId);
+        }
         notifyMapSelectionChanged();
     }
 
@@ -1107,10 +1201,7 @@
             notifyMapSelectionCleared();
         }
         if (on) {
-            const el = document.querySelector(featureListSelector(fid));
-            if (el) {
-                el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-            }
+            focusFeatureInPanel(fid);
         }
     }
 
@@ -1168,11 +1259,50 @@
         });
     }
 
-    function interactiveFeatureLayerIds() {
-        const ids = largeLayer ? UPLOAD_LAYER_GROUP : ALL_LAYER_GROUP;
-        return ids.filter(function (id) {
-            return map.getLayer(id);
-        });
+    function layerIsPickable(layerId) {
+        if (!map.getLayer(layerId)) {
+            return false;
+        }
+        return map.getLayoutProperty(layerId, 'visibility') !== 'none';
+    }
+
+    function findUploadFeatureHitAtPoint(point) {
+        if (!point) {
+            return null;
+        }
+        const lineHitId = largeLayer ? UPLOAD_LINE_HIT_LAYER_ID : ALL_LINE_HIT_LAYER_ID;
+        const lineId = largeLayer ? 'lr-lines' : 'lr-all-lines';
+        const pointId = largeLayer ? 'lr-points' : 'lr-all-points';
+        const fillId = largeLayer ? 'lr-fill' : 'lr-all-fill';
+        const queryPasses = [
+            [lineHitId],
+            [lineId],
+            SELECTION_LAYER_IDS.slice(),
+            [pointId],
+            [fillId],
+        ];
+        const pad = MAP_FEATURE_CLICK_PAD_PX;
+        const box = [
+            [point.x - pad, point.y - pad],
+            [point.x + pad, point.y + pad],
+        ];
+
+        for (let i = 0; i < queryPasses.length; i += 1) {
+            const layers = queryPasses[i].filter(layerIsPickable);
+            if (!layers.length) {
+                continue;
+            }
+            let hits = map.queryRenderedFeatures(box, { layers: layers });
+            if (!hits.length) {
+                hits = map.queryRenderedFeatures(point, { layers: layers });
+            }
+            const hit = pickUploadFeatureHit(hits);
+            if (hit) {
+                return hit;
+            }
+        }
+
+        return null;
     }
 
     function featureIdFromHit(hit) {
@@ -1195,36 +1325,62 @@
         return NaN;
     }
 
-    function queryUploadFeaturesAtPoint(point, layers) {
-        if (!point || !layers.length) {
-            return [];
+    const UPLOAD_HIT_LAYER_PRIORITY = [
+        'lr-all-lines',
+        'lr-lines',
+        ALL_LINE_HIT_LAYER_ID,
+        UPLOAD_LINE_HIT_LAYER_ID,
+        'lr-sel-line-core',
+        'lr-sel-line-casing',
+        'lr-all-points',
+        'lr-points',
+        'lr-sel-point',
+        'lr-all-fill',
+        'lr-fill',
+        'lr-sel-fill',
+    ];
+
+    function pickUploadFeatureHit(hits) {
+        if (!hits || !hits.length) {
+            return null;
         }
-        const pad = MAP_FEATURE_CLICK_PAD_PX;
-        const box = [
-            [point.x - pad, point.y - pad],
-            [point.x + pad, point.y + pad],
-        ];
-        return map.queryRenderedFeatures(box, { layers: layers });
+        const priority = {};
+        UPLOAD_HIT_LAYER_PRIORITY.forEach(function (layerId, index) {
+            priority[layerId] = index;
+        });
+        return hits.slice().sort(function (a, b) {
+            const layerA = a.layer && a.layer.id ? a.layer.id : '';
+            const layerB = b.layer && b.layer.id ? b.layer.id : '';
+            const rankA = priority[layerA] != null ? priority[layerA] : 999;
+            const rankB = priority[layerB] != null ? priority[layerB] : 999;
+            return rankA - rankB;
+        })[0];
     }
 
     function addLineHitLayer(hitLayerId, sourceId, filter) {
         if (map.getLayer(hitLayerId)) {
             return;
         }
-        map.addLayer({
-            id: hitLayerId,
-            type: 'line',
-            source: sourceId,
-            filter: filter,
-            layout: {
-                'line-cap': 'round',
-                'line-join': 'round',
-            },
-            paint: {
-                'line-width': 16,
-                'line-opacity': 0,
-            },
+        const beforeId = SELECTION_LAYER_IDS.find(function (id) {
+            return map.getLayer(id);
         });
+        map.addLayer(
+            {
+                id: hitLayerId,
+                type: 'line',
+                source: sourceId,
+                filter: filter,
+                layout: {
+                    'line-cap': 'round',
+                    'line-join': 'round',
+                },
+                paint: {
+                    'line-width': 24,
+                    'line-opacity': 0.01,
+                },
+            },
+            beforeId
+        );
     }
 
     function zoomToGeometry(geom) {
@@ -1236,7 +1392,7 @@
         try {
             map.fitBounds(new maplibregl.LngLatBounds(padded[0], padded[1]), {
                 padding: mapZoomFitPadding(),
-                maxZoom: activeBasemapMaxZoom(),
+                maxZoom: featureFocusMaxZoom(),
                 duration: 750,
             });
         } catch (err) {
@@ -1244,7 +1400,8 @@
         }
     }
 
-    function selectFeatureFromUserAction(fid, multiSelect, rowRef, hitGeometry) {
+    function selectFeatureFromUserAction(fid, multiSelect, rowRef, hitGeometry, options) {
+        options = options || {};
         if (Number.isNaN(fid) || fid == null) {
             return;
         }
@@ -1253,12 +1410,14 @@
         }
         if (multiSelect) {
             toggleFeatureSelection(fid);
-        } else {
-            setFeatureSelection([fid], fid);
-            const el = document.querySelector(featureListSelector(fid));
-            if (el) {
-                el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            if (!options.skipMapZoom) {
+                setSelectionHighlight(fid);
             }
+            return;
+        }
+        setFeatureSelection([fid], fid, { scrollPanel: true });
+        if (options.skipMapZoom) {
+            return;
         }
         prepareBasemapForFeatureFocus();
         if (rowRef) {
@@ -1284,19 +1443,14 @@
         });
     }
 
-    function handleUploadFeatureMapPick(e) {
-        const layers = interactiveFeatureLayerIds();
-        if (!layers.length) {
+    function handleMapFeatureClick(e) {
+        if (!e.originalEvent || !e.point) {
             return;
         }
-        let hits = e.features && e.features.length ? e.features : [];
-        if (!hits.length && e.point) {
-            hits = queryUploadFeaturesAtPoint(e.point, layers);
-        }
-        if (!hits.length) {
+        const hit = findUploadFeatureHitAtPoint(e.point);
+        if (!hit) {
             return;
         }
-        const hit = hits[0];
         const fid = featureIdFromHit(hit);
         if (Number.isNaN(fid)) {
             return;
@@ -1305,20 +1459,31 @@
         if (props.status) {
             featureStatusById[fid] = props.status;
         }
-        const multiSelect = !!(e.originalEvent && (e.originalEvent.metaKey || e.originalEvent.ctrlKey));
-        const el = document.querySelector(featureListSelector(fid));
-        const ref = rowRefFromElement(el);
-        selectFeatureFromUserAction(fid, multiSelect, ref, hit.geometry || null);
-    }
-
-    function handleUploadFeatureLayerClick(e) {
-        if (!e.features || !e.features.length) {
+        if (hit.geometry) {
+            featureGeomById[fid] = hit.geometry;
+        }
+        const domEvent = e.originalEvent;
+        const multiSelect = !!(domEvent.metaKey || domEvent.ctrlKey);
+        if (!multiSelect && focusedFeatureId === fid && selectedFeatureIds.has(fid)) {
+            focusFeatureInPanel(fid);
             return;
         }
-        if (e.originalEvent && typeof e.originalEvent.stopPropagation === 'function') {
-            e.originalEvent.stopPropagation();
+        const el = document.querySelector(featureListSelector(fid));
+        selectFeatureFromUserAction(
+            fid,
+            multiSelect,
+            rowRefFromElement(el),
+            hit.geometry || null,
+            { skipMapZoom: true }
+        );
+    }
+
+    function bindMapFeaturePickHandlers() {
+        if (map._lrFeaturePickBound) {
+            return;
         }
-        handleUploadFeatureMapPick(e);
+        map._lrFeaturePickBound = true;
+        map.on('click', handleMapFeatureClick);
     }
 
     function mergeBounds(bbList) {
@@ -1425,22 +1590,51 @@
             addLineHitLayer(ALL_LINE_HIT_LAYER_ID, SOURCE_ALL, GEOM_FILTER_LINE);
             bindFeatureLayerHandlers();
         }
-        moveSelectionLayersToTop();
+        moveNetworkBelowUploadLayers();
+        moveUploadHitLayersToTop();
         syncSelectionExclusionFilters();
     }
 
-    function syncMapFeatureLayers() {
-        if (!map.isStyleLoaded()) {
+    function mapStyleReady() {
+        try {
+            return !!(map.getStyle && map.getStyle());
+        } catch (err) {
+            return false;
+        }
+    }
+
+    function whenMapStyleReady(fn) {
+        if (mapStyleReady()) {
+            fn();
             return;
         }
+        function onReady() {
+            if (!mapStyleReady()) {
+                return;
+            }
+            map.off('idle', onReady);
+            map.off('styledata', onReady);
+            fn();
+        }
+        map.on('idle', onReady);
+        map.on('styledata', onReady);
+    }
+
+    function applyMapFeatureLayersSync() {
         if (largeLayer) {
             setLayerGroupVisibility(UPLOAD_LAYER_GROUP, true);
             setLayerGroupVisibility(ALL_LAYER_GROUP, false);
-            return;
+        } else {
+            ensureAllFeaturesSourceAndLayers();
+            setLayerGroupVisibility(UPLOAD_LAYER_GROUP, false);
+            setLayerGroupVisibility(ALL_LAYER_GROUP, true);
         }
-        ensureAllFeaturesSourceAndLayers();
-        setLayerGroupVisibility(UPLOAD_LAYER_GROUP, false);
-        setLayerGroupVisibility(ALL_LAYER_GROUP, true);
+        moveNetworkBelowUploadLayers();
+        moveUploadHitLayersToTop();
+    }
+
+    function syncMapFeatureLayers() {
+        whenMapStyleReady(applyMapFeatureLayersSync);
     }
 
     function zoomToAllFeatures() {
@@ -1484,7 +1678,7 @@
 
     function zoomToFeature(row) {
         prepareBasemapForFeatureFocus();
-        const focusMaxZoom = activeBasemapMaxZoom();
+        const focusMaxZoom = featureFocusMaxZoom();
         let bb = row.bbox;
         const center = row.center;
         const geom = row.geometry;
@@ -1554,6 +1748,23 @@
         syncSelectionExclusionFilters();
     }
 
+    const boundSelectionLayerHandlers = {};
+
+    function bindSelectionLayerHandlers() {
+        SELECTION_LAYER_IDS.forEach(function (layerId) {
+            if (!map.getLayer(layerId) || boundSelectionLayerHandlers[layerId]) {
+                return;
+            }
+            boundSelectionLayerHandlers[layerId] = true;
+            map.on('mouseenter', layerId, function () {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on('mouseleave', layerId, function () {
+                map.getCanvas().style.cursor = '';
+            });
+        });
+    }
+
     function addSelectionMapLayers() {
         map.addSource(SOURCE_SELECTION, {
             type: 'geojson',
@@ -1590,12 +1801,15 @@
             filter: GEOM_FILTER_POINT,
             paint: SELECTION_POINT_PAINT,
         });
+        bindSelectionLayerHandlers();
     }
 
     function ensureSelectionSourceAndLayers() {
         if (!map.getSource(SOURCE_SELECTION)) {
             addSelectionMapLayers();
             applyOverlayThemeForBasemap(currentBasemapId);
+        } else {
+            bindSelectionLayerHandlers();
         }
         finishSelectionHighlightUpdate();
     }
@@ -1667,20 +1881,8 @@
         }
         bindFeatureLayerHandlers();
         syncSelectionExclusionFilters();
-        moveSelectionLayersToTop();
-
-        if (HAS_RIYADH_ROADS_TILES && map.getLayer(PUBLIC_LAYER_ID_RIYADH)) {
-            const anchorId = UPLOAD_LAYER_IDS.find(function (id) {
-                return map.getLayer(id);
-            });
-            if (anchorId) {
-                try {
-                    map.moveLayer(PUBLIC_LAYER_ID_RIYADH, anchorId);
-                } catch (eMove) {
-                    /* ignore */
-                }
-            }
-        }
+        moveNetworkBelowUploadLayers();
+        moveUploadHitLayersToTop();
     }
 
     const boundMapLayerHandlers = {};
@@ -1697,7 +1899,6 @@
             map.on('mouseleave', layerId, function () {
                 map.getCanvas().style.cursor = '';
             });
-            map.on('click', layerId, handleUploadFeatureLayerClick);
         });
     }
 
@@ -1895,7 +2096,6 @@
                     return loadMapViewport();
                 }
                 return fetchReviewJson(geojsonUrl).then(function (geo) {
-                    setStagingSourceData(geo);
                     indexGeojsonFeatures(geo);
                 });
             })
@@ -1917,7 +2117,7 @@
             window.registerRiyadhRoadsTileReloader(reloadRiyadhRoadsTilesOnReviewMap);
         }
 
-        map.on('click', handleUploadFeatureMapPick);
+        bindMapFeaturePickHandlers();
         map.on('moveend', function () {
             if (largeLayer) {
                 scheduleMapReload();
