@@ -18,6 +18,7 @@ from mapping.approval_categories import (
 from mapping.models import LineEditRequest
 from mapping.edit_list_query import filter_editor_submissions
 from mapping.presentation import (
+    my_edits_page_context,
     user_edits_apply_immediately,
     user_is_manager,
     user_submissions_require_manager_review,
@@ -150,6 +151,14 @@ class EditApprovalAccessTests(TestCase):
         self.assertFalse(user_submissions_require_manager_review(self.manager))
         self.assertFalse(user_submissions_require_manager_review(self.admin))
         self.assertTrue(user_submissions_require_manager_review(self.editor))
+
+    def test_my_edits_status_filters_only_for_editors(self):
+        editor_ctx = my_edits_page_context(self.editor)
+        manager_ctx = my_edits_page_context(self.manager)
+        admin_ctx = my_edits_page_context(self.admin)
+        self.assertTrue(editor_ctx["my_edits_show_pending_rejected_filters"])
+        self.assertFalse(manager_ctx["my_edits_show_pending_rejected_filters"])
+        self.assertFalse(admin_ctx["my_edits_show_pending_rejected_filters"])
 
 
 class SaveLineEditApprovalTests(TestCase):

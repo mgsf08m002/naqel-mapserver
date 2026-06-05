@@ -60,9 +60,13 @@
                         <h3 class="me-filter-block__label">Status</h3>
                         <div class="me-filter-chips" id="my-edits-status-filters" role="tablist" aria-label="Filter by status">
                             <button type="button" class="me-chip is-active" data-status="">All</button>
+                            {% if my_edits_show_pending_rejected_filters %}
                             <button type="button" class="me-chip" data-status="pending">Pending</button>
+                            {% endif %}
                             <button type="button" class="me-chip" data-status="approved">Approved</button>
+                            {% if my_edits_show_pending_rejected_filters %}
                             <button type="button" class="me-chip" data-status="rejected">Rejected</button>
+                            {% endif %}
                         </div>
                     </section>
 

@@ -54,6 +54,9 @@ def my_edits_page_context(user) -> dict:
     return {
         "my_edits_api_url": reverse("mapping:list_my_edit_requests"),
         "my_edits_map_url": my_edits_map_url(user),
+        "my_edits_show_pending_rejected_filters": user_submissions_require_manager_review(
+            user
+        ),
     }
 
 
