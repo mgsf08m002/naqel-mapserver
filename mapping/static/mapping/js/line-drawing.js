@@ -2013,6 +2013,57 @@
         }
     }
 
+    function refreshAfterUndoRedo() {
+        if (typeof map === 'undefined' || !map || !drawInstance) {
+            return;
+        }
+
+        try {
+            const snapshot = drawInstance.getSnapshot();
+            const lineFeatures = snapshot.filter(function(feature) {
+                if (!feature || !feature.geometry || feature.geometry.type !== 'LineString') {
+                    return false;
+                }
+                const props = feature.properties;
+                return !(props && (props.midPoint || props.selectionPoint));
+            });
+
+            const activeIds = new Set(lineFeatures.map(function(feature) {
+                return feature.id;
+            }));
+
+            if (map._drawnLineLayers) {
+                Object.keys(map._drawnLineLayers).forEach(function(id) {
+                    if (!activeIds.has(id)) {
+                        removeMapLibreLineLayer(id);
+                        if (currentLineId === id) {
+                            currentLineId = null;
+                        }
+                    }
+                });
+            }
+
+            lineFeatures.forEach(function(feature) {
+                renderLineAsMapLibreLayer(feature.id);
+            });
+
+            if (currentLineId && !activeIds.has(currentLineId)) {
+                currentLineId = lineFeatures.length ? lineFeatures[lineFeatures.length - 1].id : null;
+            }
+
+            if (currentLineId) {
+                updateLineVisualization();
+            } else {
+                const svgContainer = document.getElementById('lineVisualizationSVG');
+                if (svgContainer) {
+                    svgContainer.innerHTML = '';
+                }
+            }
+
+            hideDefaultRendering();
+        } catch (e) {}
+    }
+
     function removeMapLibreLineLayer(id) {
         if (typeof map === 'undefined' || !map || !map._drawnLineLayers || !map._drawnLineLayers[id]) {
             return;
@@ -4618,7 +4669,8 @@
         addMultilingualNameField: addMultilingualNameField,
         updateRiyadhRoadVisualization: updateRiyadhRoadVisualization,
         normalizeToLineStringGeometry: normalizeToLineStringGeometry,
-        showRiyadhRoadAsLineFeature: showRiyadhRoadAsLineFeature
+        showRiyadhRoadAsLineFeature: showRiyadhRoadAsLineFeature,
+        refreshAfterUndoRedo: refreshAfterUndoRedo
     };
     
     window.addFieldToContainer = addFieldToContainer;

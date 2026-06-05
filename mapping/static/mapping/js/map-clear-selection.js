@@ -30,6 +30,49 @@
         }
     }
 
+    var editToolbarResizeObserver = null;
+
+    function isEditToolbarVisible() {
+        const editToolbar = document.getElementById('editToolbar');
+        return !!(editToolbar && !editToolbar.classList.contains('hidden'));
+    }
+
+    function syncClearSelectionPosition() {
+        const mapContainer = document.getElementById('mapContainer');
+        const editToolbar = document.getElementById('editToolbar');
+        const toolbar = document.getElementById('clearSelectionToolbar');
+        if (!toolbar || !mapContainer) {
+            return;
+        }
+
+        if (isEditToolbarVisible() && editToolbar) {
+            const editRect = editToolbar.getBoundingClientRect();
+            const containerRect = mapContainer.getBoundingClientRect();
+            const gapPx = 10;
+            const topOffset = Math.max(0, editRect.bottom - containerRect.top + gapPx);
+            toolbar.style.top = topOffset + 'px';
+            mapContainer.classList.add('map-edit-toolbar-active');
+            return;
+        }
+
+        toolbar.style.top = '';
+        mapContainer.classList.remove('map-edit-toolbar-active');
+    }
+
+    function bindEditToolbarResizeObserver() {
+        const editToolbar = document.getElementById('editToolbar');
+        if (!editToolbar || editToolbarResizeObserver || typeof ResizeObserver === 'undefined') {
+            return;
+        }
+
+        editToolbarResizeObserver = new ResizeObserver(function () {
+            if (isEditToolbarVisible()) {
+                syncClearSelectionPosition();
+            }
+        });
+        editToolbarResizeObserver.observe(editToolbar);
+    }
+
     function syncClearSelectionToolbar() {
         const toolbar = document.getElementById('clearSelectionToolbar');
         if (!toolbar) {
@@ -37,6 +80,7 @@
         }
         const show = hasActiveSelection();
         toolbar.hidden = !show;
+        syncClearSelectionPosition();
     }
 
     function initClearSelectionToolbar() {
@@ -51,10 +95,13 @@
         });
         window.addEventListener('map:selectionChanged', syncClearSelectionToolbar);
         window.addEventListener('map:selectionCleared', syncClearSelectionToolbar);
+        window.addEventListener('resize', syncClearSelectionPosition);
+        bindEditToolbarResizeObserver();
         syncClearSelectionToolbar();
     }
 
     window.syncClearSelectionToolbar = syncClearSelectionToolbar;
+    window.syncClearSelectionPosition = syncClearSelectionPosition;
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initClearSelectionToolbar);

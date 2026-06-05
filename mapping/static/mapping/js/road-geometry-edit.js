@@ -188,6 +188,43 @@
         });
     }
 
+    function getStateSnapshot() {
+        if (!workingCoords || workingCoords.length < 2 || roadId == null) {
+            return null;
+        }
+        return {
+            roadId: roadId,
+            coords: workingCoords.map(function(c) {
+                return [Number(c[0]), Number(c[1])];
+            })
+        };
+    }
+
+    function applyStateSnapshot(state) {
+        if (!state || !Array.isArray(state.coords) || state.coords.length < 2) {
+            return;
+        }
+        if (roadId == null) {
+            return;
+        }
+        if (state.roadId != null && String(state.roadId) !== String(roadId)) {
+            return;
+        }
+
+        workingCoords = state.coords.map(function(c) {
+            return [Number(c[0]), Number(c[1])];
+        });
+        cancelScheduledVisualSync();
+        pushStateToGlobals();
+        rebuildMarkers();
+    }
+
+    function recordGeometryEditCheckpoint() {
+        if (window.mapEditUndo && typeof window.mapEditUndo.recordBeforeEdit === 'function') {
+            window.mapEditUndo.recordBeforeEdit();
+        }
+    }
+
     function pushStateToGlobals() {
         var lineGeom = buildLineStringGeoJson();
         if (!lineGeom) {
@@ -459,6 +496,7 @@
                 }
                 return;
             }
+            recordGeometryEditCheckpoint();
             workingCoords.splice(markerIndex, 1);
             cancelScheduledVisualSync();
             pushStateToGlobals();
@@ -489,6 +527,7 @@
             var a = workingCoords[segIndex];
             var b = workingCoords[segIndex + 1];
             var mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+            recordGeometryEditCheckpoint();
             workingCoords.splice(segIndex + 1, 0, mid);
             cancelScheduledVisualSync();
             pushStateToGlobals();
@@ -541,6 +580,7 @@
                 .addTo(mapInstance);
 
             marker.on('dragstart', function() {
+                recordGeometryEditCheckpoint();
                 el.classList.add('road-vertex-handle--dragging');
                 if (mapInstance && mapInstance.getCanvas) {
                     try {
@@ -706,6 +746,7 @@
             var ins = findInsertionOnLine(workingCoords, p);
             if (ins.point) {
                 cancelScheduledVisualSync();
+                recordGeometryEditCheckpoint();
                 workingCoords.splice(ins.index, 0, ins.point);
                 pushStateToGlobals();
                 rebuildMarkers();
@@ -720,7 +761,9 @@
 
     window.roadGeometryEdit = {
         startFromRiyadhContext: startFromRiyadhContext,
-        stop: stop
+        stop: stop,
+        getStateSnapshot: getStateSnapshot,
+        applyStateSnapshot: applyStateSnapshot
     };
 
     window.refreshRoadShapeLegendSwatch = paintNewLegendSwatch;

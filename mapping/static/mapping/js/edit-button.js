@@ -52,14 +52,9 @@
         const pointBtn = document.getElementById('pointToolBtn');
         const lineBtn = document.getElementById('lineToolBtn');
         const areaBtn = document.getElementById('areaToolBtn');
-        const undoBtn = document.getElementById('undoBtn');
-        const redoBtn = document.getElementById('redoBtn');
-
         if (pointBtn) pointBtn.addEventListener('click', function() { selectTool('point'); });
         if (lineBtn) lineBtn.addEventListener('click', function() { selectTool('line'); });
         if (areaBtn) areaBtn.addEventListener('click', function() { selectTool('area'); });
-        if (undoBtn) undoBtn.addEventListener('click', function() {});
-        if (redoBtn) redoBtn.addEventListener('click', function() {});
         if (zoomInBtn) zoomInBtn.addEventListener('click', handleZoomIn);
     }
 
@@ -99,6 +94,12 @@
         if (editToolbar) {
             editToolbar.classList.remove('hidden');
         }
+        if (mapContainer) {
+            mapContainer.classList.add('map-edit-toolbar-active');
+        }
+        if (typeof window.syncClearSelectionPosition === 'function') {
+            window.syncClearSelectionPosition();
+        }
         if (typeof window.refreshRiyadhGeometryEditToolbar === 'function') {
             window.refreshRiyadhGeometryEditToolbar();
         }
@@ -118,6 +119,12 @@
             ensureSidePanelInitialContent();
             if (typeof window.syncRoadPanelEditModeUI === 'function') {
                 window.syncRoadPanelEditModeUI();
+            }
+            if (window.mapEditUndo && typeof window.mapEditUndo.onEditModeEntered === 'function') {
+                window.mapEditUndo.onEditModeEntered();
+            }
+            if (typeof window.syncClearSelectionPosition === 'function') {
+                window.syncClearSelectionPosition();
             }
         }, 350);
     }
@@ -154,6 +161,12 @@
         if (editToolbar) {
             editToolbar.classList.add('hidden');
         }
+        if (mapContainer) {
+            mapContainer.classList.remove('map-edit-toolbar-active');
+        }
+        if (typeof window.syncClearSelectionPosition === 'function') {
+            window.syncClearSelectionPosition();
+        }
         if (typeof window.hideRiyadhGeometryEditToolbar === 'function') {
             window.hideRiyadhGeometryEditToolbar();
         }
@@ -169,6 +182,9 @@
         updateToolButtons();
         if (typeof window.syncRoadPanelEditModeUI === 'function') {
             window.syncRoadPanelEditModeUI();
+        }
+        if (window.mapEditUndo && typeof window.mapEditUndo.onEditModeExited === 'function') {
+            window.mapEditUndo.onEditModeExited();
         }
     }
 

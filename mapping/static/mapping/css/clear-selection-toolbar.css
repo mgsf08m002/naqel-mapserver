@@ -4,7 +4,7 @@
     top: 0.75rem;
     left: 50%;
     right: auto;
-    z-index: 45;
+    z-index: 38;
     transform: translateX(-50%);
     pointer-events: auto;
 }
@@ -13,8 +13,9 @@
     display: none !important;
 }
 
-#mapContainer:has(#editToolbar:not(.hidden)) .map-clear-selection-toolbar {
-    top: 5.5rem;
+/* Fallback offset when edit toolbar is open (JS sets exact top from measured height). */
+#mapContainer.map-edit-toolbar-active .map-clear-selection-toolbar {
+    top: 6.25rem;
 }
 
 #layer-review-root .map-clear-selection-toolbar {
