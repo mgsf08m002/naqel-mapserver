@@ -1,0 +1,63 @@
+/* Floating clear-selection control (main map + layer review) */
+.map-clear-selection-toolbar {
+    position: absolute;
+    top: 0.75rem;
+    left: 50%;
+    right: auto;
+    z-index: 45;
+    transform: translateX(-50%);
+    pointer-events: auto;
+}
+
+.map-clear-selection-toolbar[hidden] {
+    display: none !important;
+}
+
+#mapContainer:has(#editToolbar:not(.hidden)) .map-clear-selection-toolbar {
+    top: 5.5rem;
+}
+
+#layer-review-root .map-clear-selection-toolbar {
+    top: 0.75rem;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+}
+
+.map-clear-selection-toolbar__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.875rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.625rem;
+    background: rgba(255, 255, 255, 0.96);
+    color: #374151;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.2;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+    backdrop-filter: blur(6px);
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.map-clear-selection-toolbar__btn:hover {
+    background: #fff;
+    border-color: #d1d5db;
+    color: #111827;
+}
+
+.map-clear-selection-toolbar__btn:focus-visible {
+    outline: 2px solid #18181b;
+    outline-offset: 2px;
+}
+
+.map-clear-selection-toolbar__icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+}
+
+.map-clear-selection-toolbar__label {
+    white-space: nowrap;
+}

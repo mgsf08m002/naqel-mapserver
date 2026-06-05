@@ -1515,6 +1515,9 @@
         buttonContainer.appendChild(card);
         document.body.appendChild(buttonContainer);
         window.currentReviewingRequestId = request.id;
+        try {
+            window.dispatchEvent(new CustomEvent('map:selectionChanged'));
+        } catch (eSel) {}
     }
 
     function removeApproveRejectButtons() {
@@ -1623,6 +1626,11 @@
     } else {
         initApprovalRequests();
     }
+
+    window.clearApprovalRequestMapOverlay = function () {
+        cleanupRequestLines();
+        removeApproveRejectButtons();
+    };
 
     window.refreshApprovalQueue = refreshApprovalQueue;
     window.populateFieldsData = populateFieldsData;

@@ -2,6 +2,7 @@
   <div class="lr-workspace-map" id="lr-map-workspace">
     <div id="review-map" class="review-map-frame" role="application" aria-label="Feature map"></div>
     {% include 'mapping/includes/basemap_gallery.html' %}
+    {% include 'mapping/includes/clear_selection_toolbar.html' %}
     {% if review_large_layer %}
     <p class="lr-map-hint" aria-live="polite">Large layer — roads load for the current view.</p>
     {% endif %}

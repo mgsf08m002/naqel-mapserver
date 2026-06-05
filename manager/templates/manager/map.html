@@ -11,6 +11,7 @@
 <script src='https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js'></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.css"/>
 <link rel="stylesheet" href="{% static 'mapping/css/line-styles.css' %}"/>
+<link rel="stylesheet" href="{% static 'mapping/css/clear-selection-toolbar.css' %}"/>
 <script src="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.umd.js"></script>
 <svg style="display: none;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
     <symbol id="iD-icon-point" viewBox="0 0 24 24">
@@ -54,6 +55,7 @@
 
         {% include 'mapping/includes/map_road_search.html' %}
         {% include 'mapping/includes/basemap_gallery.html' %}
+        {% include 'mapping/includes/clear_selection_toolbar.html' %}
         <div id="editToolbar" class="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 hidden max-w-[calc(100vw-1rem)]">
             <div class="flex flex-wrap items-center gap-2 bg-white rounded-lg shadow-lg border border-gray-200 px-3 py-2 justify-center">
                 <!-- Point Button -->
@@ -195,5 +197,6 @@
 <script src="{% static 'mapping/js/road-geometry-edit.js' %}"></script>
 <script src="{% static 'mapping/js/save-line-edit.js' %}"></script>
 <script src="{% static 'mapping/js/approval-requests.js' %}"></script>
+<script src="{% static 'mapping/js/map-clear-selection.js' %}"></script>
 {% endblock %}
 

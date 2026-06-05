@@ -159,6 +159,13 @@
                 maybeResumeGeometryEdit();
             }
 
+            try {
+                global.dispatchEvent(new CustomEvent('map:selectionChanged'));
+            } catch (eNotify) {}
+            if (typeof global.syncClearSelectionToolbar === 'function') {
+                global.syncClearSelectionToolbar();
+            }
+
             return { success: true, road: road };
         } catch (err) {
             return { success: false, message: 'Could not load road details.' };

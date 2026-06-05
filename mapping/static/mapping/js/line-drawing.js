@@ -47,6 +47,18 @@
         }
     }
 
+    function notifyMapSelectionChanged() {
+        try {
+            window.dispatchEvent(new CustomEvent('map:selectionChanged'));
+        } catch (e) {}
+    }
+
+    function notifyMapSelectionCleared() {
+        try {
+            window.dispatchEvent(new CustomEvent('map:selectionCleared'));
+        } catch (e) {}
+    }
+
     function getDeleteTargetFromContext() {
         const riyadh = window.selectedRiyadhRoad || null;
         if (riyadh && riyadh.is_riyadh_road) {
@@ -1305,6 +1317,7 @@
         setTimeout(function() {
             hideDefaultRendering();
         }, 50);
+        notifyMapSelectionChanged();
     }
 
     function handleFeatureSelected(id) {
@@ -1362,6 +1375,97 @@
                 setSelectedOverlayGeometry(null);
             }
         } catch (e) {}
+        notifyMapSelectionCleared();
+    }
+
+    function clearMapRoadSelection() {
+        if (typeof window.roadGeometryEdit !== 'undefined' && window.roadGeometryEdit.stop) {
+            window.roadGeometryEdit.stop();
+        }
+        if (typeof window.clearApprovalRequestMapOverlay === 'function') {
+            window.clearApprovalRequestMapOverlay();
+        }
+
+        const roadCtx = window.selectedRiyadhRoad || window.approvedLineBeingEdited || null;
+        const roadId = roadCtx && roadCtx.is_riyadh_road
+            ? (roadCtx.riyadh_road_id != null ? roadCtx.riyadh_road_id : roadCtx.id)
+            : null;
+        const hadRiyadhContext = !!roadCtx;
+
+        if (typeof window.setRiyadhRoadSelectedId === 'function') {
+            window.setRiyadhRoadSelectedId(null);
+        }
+        if (roadId != null && typeof window.clearRiyadhRoadDbFclassFromDatabase === 'function') {
+            try {
+                window.clearRiyadhRoadDbFclassFromDatabase(roadId);
+            } catch (eFclass) {}
+        }
+
+        window.selectedRiyadhRoad = null;
+        window.approvedLineBeingEdited = null;
+
+        try {
+            setSelectedOverlayGeometry(null);
+            syncRiyadhTileSelectionSuppressionForDraftClosure();
+        } catch (eOverlay) {}
+
+        if (hadRiyadhContext && typeof window.setCurrentRoadClosure === 'function') {
+            window.setCurrentRoadClosure(false);
+        }
+
+        if (selectedLineId) {
+            removeMapLibreLineLayer(selectedLineId);
+        }
+        selectedLineId = null;
+        currentLineId = null;
+        clearVertexMarkers();
+
+        if (window.currentlySelectedItemType === 'terradraw-line') {
+            window.currentlySelectedItem = null;
+            window.currentlySelectedItemType = null;
+        }
+
+        const mapEl = document.getElementById('map');
+        if (mapEl) {
+            mapEl.removeAttribute('data-selected-line');
+        }
+
+        if (drawInstance) {
+            try {
+                const mode = drawInstance.getMode();
+                if (mode === 'select') {
+                    drawInstance.setMode('static');
+                    drawInstance.setMode('select');
+                }
+            } catch (eDraw) {}
+        }
+
+        const editScreen = document.getElementById('editFeatureScreen');
+        if (editScreen) {
+            editScreen.remove();
+            showSidePanelDefaultElements();
+        }
+
+        if (typeof window.applyMapSidePanelOpen === 'function') {
+            if (typeof window.isMapEditModeActive === 'function' && window.isMapEditModeActive()) {
+                showLineSidePanel();
+            } else {
+                window.applyMapSidePanelOpen(false);
+            }
+        }
+
+        notifyMapSelectionCleared();
+    }
+
+    function hasMapRoadSelection() {
+        return !!(
+            window.selectedRiyadhRoad ||
+            (window.approvedLineBeingEdited && window.approvedLineBeingEdited.is_riyadh_road) ||
+            selectedLineId ||
+            currentLineId ||
+            document.getElementById('editFeatureScreen') ||
+            (window.viewingRequestIds && window.viewingRequestIds.length)
+        );
     }
 
     function showLineSidePanel() {
@@ -4801,9 +4905,15 @@
                 syncRoadPanelEditModeUI();
             }, 0);
         }
+        notifyMapSelectionChanged();
+        if (typeof window.syncClearSelectionToolbar === 'function') {
+            window.syncClearSelectionToolbar();
+        }
     }
 
     window.showRiyadhRoadAsLineFeature = showRiyadhRoadAsLineFeature;
+    window.clearMapRoadSelection = clearMapRoadSelection;
+    window.hasMapRoadSelection = hasMapRoadSelection;
 
     window.setSelectedOverlayGeometry = setSelectedOverlayGeometry;
     window.syncRiyadhTileSelectionSuppressionForDraftClosure = syncRiyadhTileSelectionSuppressionForDraftClosure;

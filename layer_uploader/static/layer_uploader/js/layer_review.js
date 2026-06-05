@@ -953,6 +953,7 @@
         setSelectionHighlight(focusedFeatureId);
         syncSelectionExclusionFilters();
         updateBulkActionLabels();
+        notifyMapSelectionChanged();
     }
 
     function toggleFeatureSelection(fid, forceOn) {
@@ -967,12 +968,29 @@
         setSelectionHighlight(focusedFeatureId);
         syncSelectionExclusionFilters();
         updateBulkActionLabels();
+        if (selectedFeatureIds.size) {
+            notifyMapSelectionChanged();
+        } else {
+            notifyMapSelectionCleared();
+        }
         if (on) {
             const el = document.querySelector(featureListSelector(fid));
             if (el) {
                 el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
             }
         }
+    }
+
+    function notifyMapSelectionChanged() {
+        try {
+            window.dispatchEvent(new CustomEvent('map:selectionChanged'));
+        } catch (e) {}
+    }
+
+    function notifyMapSelectionCleared() {
+        try {
+            window.dispatchEvent(new CustomEvent('map:selectionCleared'));
+        } catch (e) {}
     }
 
     function clearFeatureSelection() {
@@ -982,6 +1000,7 @@
         setSelectionHighlight(null);
         syncSelectionExclusionFilters();
         updateBulkActionLabels();
+        notifyMapSelectionCleared();
     }
 
     function restoreFeatureSelection() {
@@ -1924,4 +1943,9 @@
                 });
         });
     }
+
+    window.clearLayerReviewFeatureSelection = clearFeatureSelection;
+    window.hasLayerReviewFeatureSelection = function () {
+        return selectedFeatureIds.size > 0;
+    };
 })();

@@ -10,6 +10,7 @@
 {% block layer_assets %}
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css" />
 <link rel="stylesheet" href="{% static 'mapping/css/road-selection.css' %}">
+<link rel="stylesheet" href="{% static 'mapping/css/clear-selection-toolbar.css' %}">
 <link rel="stylesheet" href="{% static 'layer_uploader/css/layer_review.css' %}">
 <script src="{% static 'mapping/js/map-line-selection.js' %}"></script>
 <script src="{% static 'mapping/js/riyadh-tiles-reload.js' %}"></script>
@@ -34,6 +35,7 @@
 </div>
 
 <script src="{% static 'layer_uploader/js/layer_review.js' %}" defer></script>
+<script src="{% static 'mapping/js/map-clear-selection.js' %}" defer></script>
 {% endblock %}
 {% endblock %}
 {% endblock %}
