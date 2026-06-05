@@ -1,0 +1,20 @@
+<nav class="lu-progress" aria-label="Upload progress">
+  <ol class="lu-progress__list">
+    <li class="lu-progress__step{% if step == 1 %} is-current{% elif step > 1 %} is-complete{% endif %}">
+      <span class="lu-progress__dot" aria-hidden="true"></span>
+      <span class="lu-progress__label">Upload</span>
+    </li>
+    <li class="lu-progress__step{% if step == 2 %} is-current{% elif step > 2 %} is-complete{% endif %}">
+      <span class="lu-progress__dot" aria-hidden="true"></span>
+      <span class="lu-progress__label">Details</span>
+    </li>
+    <li class="lu-progress__step{% if step == 3 %} is-current{% elif step > 3 %} is-complete{% endif %}">
+      <span class="lu-progress__dot" aria-hidden="true"></span>
+      <span class="lu-progress__label">Review</span>
+    </li>
+    <li class="lu-progress__step{% if step == 4 %} is-current{% elif step > 4 %} is-complete{% endif %}">
+      <span class="lu-progress__dot" aria-hidden="true"></span>
+      <span class="lu-progress__label">Done</span>
+    </li>
+  </ol>
+</nav>

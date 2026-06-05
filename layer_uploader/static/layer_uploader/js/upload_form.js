@@ -1,13 +1,16 @@
 (function () {
   var input = document.getElementById('lu-file-input');
   var pickBtn = document.getElementById('lu-pick-files');
+  var addMoreBtn = document.getElementById('lu-add-more-files');
   var emptyState = document.getElementById('lu-picker-empty');
   var filledState = document.getElementById('lu-picker-filled');
   var clearAllBtn = document.getElementById('lu-clear-all');
   var fileCount = document.getElementById('lu-file-count');
   var selectionTitle = document.getElementById('lu-selection-title');
   var list = document.getElementById('lu-file-list');
-  if (!input || !pickBtn || !emptyState || !filledState || !list) return;
+  if (!input || !emptyState || !filledState || !list) return;
+
+  var preservedFiles = [];
 
   var ICONS = {
     remove:
@@ -40,6 +43,21 @@
     });
     input.files = dt.files;
     render();
+  }
+
+  function mergeFiles(existing, incoming) {
+    var merged = existing.slice();
+    var names = {};
+    merged.forEach(function (file) {
+      names[file.name] = true;
+    });
+    incoming.forEach(function (file) {
+      if (!names[file.name]) {
+        merged.push(file);
+        names[file.name] = true;
+      }
+    });
+    return merged;
   }
 
   function togglePicker(hasFiles) {
@@ -115,19 +133,104 @@
     });
   }
 
-  pickBtn.addEventListener('click', function () {
-    if (!fileListArray().length) {
-      input.click();
-    }
-  });
+  function openFileDialog(merge) {
+    preservedFiles = merge ? fileListArray() : [];
+    input.click();
+  }
+
+  if (pickBtn) {
+    pickBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      openFileDialog(false);
+    });
+  }
+
+  if (addMoreBtn) {
+    addMoreBtn.addEventListener('click', function (event) {
+      event.stopPropagation();
+      openFileDialog(true);
+    });
+  }
+
+  if (emptyState) {
+    emptyState.addEventListener('click', function (event) {
+      if (event.target.closest('#lu-pick-files, .lu-dropzone__link')) {
+        return;
+      }
+      openFileDialog(false);
+    });
+    emptyState.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openFileDialog(false);
+      }
+    });
+  }
 
   if (clearAllBtn) {
     clearAllBtn.addEventListener('click', function () {
       input.value = '';
-      render();
+      setFiles([]);
     });
   }
 
-  input.addEventListener('change', render);
+  function preventDefaults(event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function setDragState(active) {
+    if (!emptyState || emptyState.classList.contains('hidden')) {
+      return;
+    }
+    emptyState.classList.toggle('is-dragover', active);
+  }
+
+  ['dragenter', 'dragover'].forEach(function (eventName) {
+    document.addEventListener(eventName, function (event) {
+      if (!emptyState || emptyState.classList.contains('hidden')) {
+        return;
+      }
+      preventDefaults(event);
+      setDragState(true);
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(function (eventName) {
+    document.addEventListener(eventName, function (event) {
+      if (!emptyState || emptyState.classList.contains('hidden')) {
+        return;
+      }
+      preventDefaults(event);
+      setDragState(false);
+    });
+  });
+
+  document.addEventListener('drop', function (event) {
+    if (!emptyState || emptyState.classList.contains('hidden')) {
+      return;
+    }
+    var dropped = event.dataTransfer && event.dataTransfer.files;
+    if (!dropped || !dropped.length) {
+      return;
+    }
+    setFiles(Array.prototype.slice.call(dropped));
+  });
+
+  input.addEventListener('change', function () {
+    var incoming = Array.prototype.slice.call(input.files || []);
+    if (!incoming.length) {
+      render();
+      return;
+    }
+    if (preservedFiles.length) {
+      setFiles(mergeFiles(preservedFiles, incoming));
+      preservedFiles = [];
+      return;
+    }
+    setFiles(incoming);
+  });
+
   render();
 })();

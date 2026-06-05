@@ -1,24 +1,33 @@
-{% extends 'layer_uploader/base.html' %}
+{% extends 'layer_uploader/upload_flow_base.html' %}
 
 {% block layer_page_title %}Layer complete · Naqel Maps{% endblock %}
 
-{% block layer_content %}
-{% include 'layer_uploader/includes/flow_shell.html' %}
+{% block upload_flow_header %}
+<header class="lu-flow-head">
+  <div class="lu-flow-head__intro">
     {% if auto_published %}
-    {% include 'layer_uploader/includes/flow_header.html' with title='Layer published' subtitle='Your selected roads have been added to the map network.' %}
+    <h1 class="lu-flow-head__title">Layer published</h1>
+    <p class="lu-flow-head__sub">Your selected roads have been added to the live map network.</p>
     {% elif submitted_to_manager %}
-    {% include 'layer_uploader/includes/flow_header.html' with title='Layer submitted' subtitle='Your approved roads were sent to the manager map for approval.' %}
+    <h1 class="lu-flow-head__title">Layer submitted</h1>
+    <p class="lu-flow-head__sub">Your approved roads were sent to the manager map for review.</p>
     {% else %}
-    {% include 'layer_uploader/includes/flow_header.html' with title='Layer saved' subtitle='Your layer is ready. Open the map to continue working.' %}
+    <h1 class="lu-flow-head__title">Layer saved</h1>
+    <p class="lu-flow-head__sub">Your layer is ready. Open the map to continue working.</p>
     {% endif %}
+  </div>
+  {% include 'layer_uploader/includes/upload_flow_steps.html' with step=4 %}
+</header>
+{% endblock %}
 
-    <div class="mt-10 border-t border-gray-100 pt-8">
-      <a
-        href="{{ map_url }}"
-        class="inline-flex items-center justify-center bg-gray-900 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
-      >
-        Open map
-      </a>
+{% block upload_flow_body %}
+<div class="lu-layout lu-layout--single">
+  <div class="lu-main">
+    <div class="lu-form">
+      <div class="lu-actions lu-actions--flush">
+        <a href="{{ map_url }}" class="lu-actions__primary">Open map</a>
+      </div>
     </div>
-{% include 'layer_uploader/includes/flow_shell_end.html' %}
+  </div>
+</div>
 {% endblock %}

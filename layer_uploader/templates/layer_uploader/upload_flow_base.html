@@ -1,0 +1,17 @@
+{% extends 'layer_uploader/base.html' %}
+{% load static %}
+
+{% block layer_assets %}
+<link rel="stylesheet" href="{% static 'layer_uploader/css/upload_flow.css' %}">
+{% block upload_flow_assets %}{% endblock %}
+{% endblock %}
+
+{% block layer_content %}
+<div class="lu-flow-shell">
+  <div class="lu-flow-shell__inner">
+    {% block upload_flow_header %}{% endblock %}
+    {% block upload_flow_body %}{% endblock %}
+  </div>
+</div>
+{% block upload_flow_extras %}{% endblock %}
+{% endblock %}

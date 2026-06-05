@@ -1,56 +1,43 @@
-{% extends 'layer_uploader/base.html' %}
+{% extends 'layer_uploader/upload_flow_base.html' %}
 {% load static %}
 
 {% block layer_page_title %}Layer details · Naqel Maps{% endblock %}
 
-{% block layer_assets %}
-<link rel="stylesheet" href="{% static 'layer_uploader/css/upload_flow.css' %}">
+{% block upload_flow_assets %}
+<script src="{% static 'layer_uploader/js/validate_form.js' %}" defer></script>
 {% endblock %}
 
-{% block layer_content %}
-{% include 'layer_uploader/includes/flow_shell.html' %}
-    {% include 'layer_uploader/includes/flow_header.html' with title='Layer details' subtitle='Confirm the information below, then continue to review.' %}
+{% block upload_flow_header %}
+<header class="lu-flow-head">
+  <div class="lu-flow-head__intro">
+    <h1 class="lu-flow-head__title">Layer details</h1>
+    <p class="lu-flow-head__sub">Confirm the detected layer information, then continue to map review.</p>
+  </div>
+  {% include 'layer_uploader/includes/upload_flow_steps.html' with step=2 %}
+</header>
+{% endblock %}
 
-    <form method="post" class="mt-10" id="lu-validate-form">
+{% block upload_flow_body %}
+<div class="lu-layout">
+  <div class="lu-main">
+    <form method="post" class="lu-form" id="lu-validate-form">
       {% csrf_token %}
-      {% include 'layer_uploader/includes/layer_details_card.html' %}
+      {% include 'layer_uploader/includes/layer_details.html' %}
       {% include 'layer_uploader/includes/flow_actions.html' with submit_label='Review layer' secondary_url=upload_reset_url secondary_label='Start over' %}
     </form>
+  </div>
 
-    <div id="lu-validate-overlay" class="lu-validate-overlay hidden" aria-hidden="true">
-      <div class="lu-validate-overlay__panel" role="status" aria-live="polite" aria-busy="true">
-        <p class="lu-validate-overlay__message">Comparing roads to the network and preparing review…</p>
-        <p class="lu-validate-overlay__hint">This may take a few minutes for large shapefiles. Please wait.</p>
-      </div>
-    </div>
+  <aside class="lu-aside" aria-label="Next step">
+    {% include 'layer_uploader/includes/validate_next_steps.html' %}
+  </aside>
+</div>
+{% endblock %}
 
-    <script>
-      (function () {
-        var form = document.getElementById('lu-validate-form');
-        var overlay = document.getElementById('lu-validate-overlay');
-        if (!form || !overlay) return;
-
-        function freezePage() {
-          overlay.classList.remove('hidden');
-          overlay.setAttribute('aria-hidden', 'false');
-          document.body.classList.add('lu-validate-overlay-open');
-          form.setAttribute('aria-busy', 'true');
-          form.querySelectorAll('button, a, input, select, textarea').forEach(function (el) {
-            el.setAttribute('aria-disabled', 'true');
-            if (el.tagName === 'BUTTON') {
-              el.disabled = true;
-            }
-            if (el.tagName === 'A') {
-              el.style.pointerEvents = 'none';
-              el.tabIndex = -1;
-            }
-          });
-        }
-
-        form.addEventListener('submit', function () {
-          freezePage();
-        });
-      })();
-    </script>
-{% include 'layer_uploader/includes/flow_shell_end.html' %}
+{% block upload_flow_extras %}
+<div id="lu-validate-overlay" class="lu-validate-overlay hidden" aria-hidden="true">
+  <div class="lu-validate-overlay__panel" role="status" aria-live="polite" aria-busy="true">
+    <p class="lu-validate-overlay__message">Comparing roads to the network and preparing review…</p>
+    <p class="lu-validate-overlay__hint">This may take a few minutes for large shapefiles. Please wait.</p>
+  </div>
+</div>
 {% endblock %}

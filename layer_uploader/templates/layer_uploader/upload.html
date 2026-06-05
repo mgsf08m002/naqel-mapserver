@@ -1,32 +1,40 @@
-{% extends 'layer_uploader/base.html' %}
+{% extends 'layer_uploader/upload_flow_base.html' %}
 {% load static %}
 
 {% block layer_page_title %}Upload Layer · Naqel Maps{% endblock %}
 
-{% block layer_assets %}
-<link rel="stylesheet" href="{% static 'layer_uploader/css/upload_flow.css' %}">
+{% block upload_flow_assets %}
 <script src="{% static 'layer_uploader/js/upload_form.js' %}" defer></script>
 {% endblock %}
 
-{% block layer_content %}
-{% include 'layer_uploader/includes/flow_shell.html' %}
-    <header>
-      <h1 class="text-2xl sm:text-[1.75rem] font-medium tracking-tight text-gray-900">Upload shapefile</h1>
-      <p class="mt-2 text-sm leading-relaxed text-gray-500">
-        Add your <span class="text-gray-700">.shp</span>, <span class="text-gray-700">.shx</span>, and <span class="text-gray-700">.dbf</span> files, or one zip archive. We’ll detect layers and show details before you continue.
-      </p>
-    </header>
+{% block upload_flow_header %}
+<header class="lu-flow-head">
+  <div class="lu-flow-head__intro">
+    <h1 class="lu-flow-head__title">Upload shapefile</h1>
+    <p class="lu-flow-head__sub">
+      Add <strong>.shp</strong>, <strong>.shx</strong>, and <strong>.dbf</strong> files, or one zip archive. Layers are detected automatically before review.
+    </p>
+  </div>
+  {% include 'layer_uploader/includes/upload_flow_steps.html' with step=1 %}
+</header>
+{% endblock %}
 
-    <form method="post" enctype="multipart/form-data" class="mt-10">
+{% block upload_flow_body %}
+<div class="lu-layout">
+  <div class="lu-main">
+    <form method="post" enctype="multipart/form-data" class="lu-form">
       {% csrf_token %}
       {% include 'layer_uploader/includes/file_picker.html' %}
       {% include 'layer_uploader/includes/flow_actions.html' with submit_label='Upload & detect' secondary_url=upload_reset_url secondary_label='Reset' %}
     </form>
 
-    {% include 'layer_uploader/includes/upload_requirements.html' %}
-
     {% if shapefiles %}
     {% include 'layer_uploader/includes/detected_layers.html' %}
     {% endif %}
-{% include 'layer_uploader/includes/flow_shell_end.html' %}
+  </div>
+
+  <aside class="lu-aside" aria-label="Upload guidance">
+    {% include 'layer_uploader/includes/upload_requirements.html' %}
+  </aside>
+</div>
 {% endblock %}

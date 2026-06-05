@@ -759,12 +759,130 @@
         return tableUrl + join + params.toString();
     }
 
-    function loadFeatureList() {
+    function statusAfterAction(action) {
+        if (action === 'nominate') {
+            return 'nominated';
+        }
+        if (action === 'reject') {
+            return 'rejected_upload';
+        }
+        if (action === 'reset') {
+            return 'staged';
+        }
+        return null;
+    }
+
+    function readStatusCount(status) {
+        const ids = STATUS_COUNT_IDS[status];
+        if (!ids || !ids.length) {
+            return 0;
+        }
+        const el = document.getElementById(ids[0]);
+        if (!el) {
+            return 0;
+        }
+        const value = parseInt(el.textContent, 10);
+        return Number.isNaN(value) ? 0 : value;
+    }
+
+    function adjustStatusCounts(fromStatus, toStatus) {
+        if (!fromStatus || !toStatus || fromStatus === toStatus) {
+            return;
+        }
+        if (STATUS_COUNT_IDS[fromStatus]) {
+            renderStatusCounts(
+                Object.assign({}, {
+                    total: readStatusCount('total'),
+                    staged: readStatusCount('staged'),
+                    nominated: readStatusCount('nominated'),
+                    rejected_upload: readStatusCount('rejected_upload'),
+                }, {
+                    [fromStatus]: Math.max(0, readStatusCount(fromStatus) - 1),
+                    [toStatus]: readStatusCount(toStatus) + 1,
+                })
+            );
+        }
+    }
+
+    function wireFeatureActionButtons(el, f) {
+        const approve = el.querySelector('.lr-action-btn--approve');
+        const reject = el.querySelector('.lr-action-btn--reject');
+        const reset = el.querySelector('.lr-btn-reset');
+        if (approve) {
+            approve.addEventListener('click', function (e) {
+                e.stopPropagation();
+                postFeatureAction('nominate', f.id, 'Approve');
+            });
+        }
+        if (reject) {
+            reject.addEventListener('click', function (e) {
+                e.stopPropagation();
+                postFeatureAction('reject', f.id, 'Reject');
+            });
+        }
+        if (reset) {
+            reset.addEventListener('click', function (e) {
+                e.stopPropagation();
+                postFeatureAction('reset', f.id, 'Reset');
+            });
+        }
+    }
+
+    function updateFeatureCardInPlace(featureId, status) {
+        const el = document.querySelector(featureListSelector(featureId));
+        if (!el) {
+            return;
+        }
+
+        const previousStatus = featureStatusById[featureId] || 'staged';
+        featureStatusById[featureId] = status;
+        adjustStatusCounts(previousStatus, status);
+
+        if (statusFilter && statusFilter !== status) {
+            el.remove();
+            if (selectedFeatureIds.has(featureId)) {
+                selectedFeatureIds.delete(featureId);
+                if (focusedFeatureId === featureId) {
+                    focusedFeatureId = selectedFeatureIds.size
+                        ? Array.from(selectedFeatureIds).slice(-1)[0]
+                        : null;
+                }
+                syncFeatureCardSelectionUI();
+                setSelectionHighlight(focusedFeatureId);
+                syncSelectionExclusionFilters();
+                updateBulkActionLabels();
+                if (!selectedFeatureIds.size) {
+                    notifyMapSelectionCleared();
+                }
+            }
+            renderFeatureCount(featureListEl.querySelectorAll('.lr-feature-card').length);
+            return;
+        }
+
+        applyFeatureStatusClasses(el, status);
+
+        const statusWrap = el.querySelector('.lr-feature-card__status');
+        if (statusWrap) {
+            statusWrap.innerHTML = statusBadge(status);
+        }
+
+        const actions = el.querySelector('.lr-feature-card__actions');
+        if (actions) {
+            fillActionCell(actions, status);
+            wireFeatureActionButtons(el, { id: featureId, status: status });
+        }
+    }
+
+    function loadFeatureList(options) {
+        options = options || {};
         if (!featureListEl) {
             return Promise.resolve();
         }
         const requestId = ++featureListRequestId;
-        setFeatureListLoading(true);
+        const savedScrollTop = options.preserveScroll ? featureListEl.scrollTop : 0;
+        if (!options.silent) {
+            setFeatureListLoading(true);
+        }
         return fetchReviewJson(featureListQueryUrl())
             .then(function (payload) {
                 if (requestId !== featureListRequestId) {
@@ -781,6 +899,9 @@
                 });
                 renderStatusCounts(payload.counts || {});
                 renderFeatureList(feats);
+                if (options.preserveScroll) {
+                    featureListEl.scrollTop = savedScrollTop;
+                }
                 restoreFeatureSelection();
                 return payload;
             })
@@ -799,7 +920,12 @@
     function postFeatureAction(action, featureId, failureLabel) {
         return postAction({ action: action, feature_id: featureId })
             .then(function () {
-                return refreshAfterMutation();
+                const nextStatus = statusAfterAction(action);
+                if (nextStatus != null) {
+                    updateFeatureCardInPlace(featureId, nextStatus);
+                    return refreshMapData();
+                }
+                return refreshAfterMutation({ preserveScroll: true, silent: true });
             })
             .catch(function (err) {
                 window.notify.tryShow(err.message || failureLabel, 'error');
@@ -893,8 +1019,15 @@
         });
     }
 
-    function refreshAfterMutation() {
-        return Promise.all([refreshMapData(), loadFeatureList()]);
+    function refreshAfterMutation(options) {
+        options = options || {};
+        return Promise.all([
+            refreshMapData(),
+            loadFeatureList({
+                preserveScroll: !!options.preserveScroll,
+                silent: !!options.silent,
+            }),
+        ]);
     }
 
     function syncFeatureCardSelectionUI() {
@@ -1606,27 +1739,7 @@
             selectFeatureFromUserAction(f.id, e.metaKey || e.ctrlKey, rowRef, null);
         });
 
-        const approve = el.querySelector('.lr-action-btn--approve');
-        const reject = el.querySelector('.lr-action-btn--reject');
-        const reset = el.querySelector('.lr-btn-reset');
-        if (approve) {
-            approve.addEventListener('click', function (e) {
-                e.stopPropagation();
-                postFeatureAction('nominate', f.id, 'Approve');
-            });
-        }
-        if (reject) {
-            reject.addEventListener('click', function (e) {
-                e.stopPropagation();
-                postFeatureAction('reject', f.id, 'Reject');
-            });
-        }
-        if (reset) {
-            reset.addEventListener('click', function (e) {
-                e.stopPropagation();
-                postFeatureAction('reset', f.id, 'Reset');
-            });
-        }
+        wireFeatureActionButtons(el, f);
     }
 
     function buildFeatureCard(f) {
@@ -1830,7 +1943,7 @@
         return postAction(payload)
             .then(function () {
                 clearFeatureSelection();
-                return refreshAfterMutation();
+                return refreshAfterMutation({ preserveScroll: true, silent: true });
             })
             .catch(function (err) {
                 window.notify.tryShow(err.message || errorMessage, 'error');

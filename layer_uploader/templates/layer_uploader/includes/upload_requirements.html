@@ -1,17 +1,21 @@
-<section class="mt-14 border-t border-gray-100 pt-10" aria-labelledby="upload-requirements">
-  <h2 id="upload-requirements" class="text-sm font-medium text-gray-900">Before you upload</h2>
-  <ul class="mt-4 space-y-3 text-sm text-gray-500">
-    <li class="flex gap-3">
-      <span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-gray-300" aria-hidden="true"></span>
-      <span>Include <span class="text-gray-700">.shp</span>, <span class="text-gray-700">.shx</span>, and <span class="text-gray-700">.dbf</span> with the same base name.</span>
+<section class="lu-tips" aria-labelledby="upload-requirements">
+  <h2 id="upload-requirements" class="lu-tips__title">Before you upload</h2>
+  <ul class="lu-tips__list">
+    <li class="lu-tips__item">
+      <span class="lu-tips__num" aria-hidden="true">1</span>
+      <p class="lu-tips__text">Use matching base names for <strong>.shp</strong>, <strong>.shx</strong>, and <strong>.dbf</strong>.</p>
     </li>
-    <li class="flex gap-3">
-      <span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-gray-300" aria-hidden="true"></span>
-      <span>Add <span class="text-gray-700">.prj</span> when available so CRS is detected correctly.</span>
+    <li class="lu-tips__item">
+      <span class="lu-tips__num" aria-hidden="true">2</span>
+      <p class="lu-tips__text">Include <strong>.prj</strong> when available for accurate CRS detection.</p>
     </li>
-    <li class="flex gap-3">
-      <span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-gray-300" aria-hidden="true"></span>
-      <span>Confirm CRS and SRID on the next step after detection.</span>
+    <li class="lu-tips__item">
+      <span class="lu-tips__num" aria-hidden="true">3</span>
+      <p class="lu-tips__text">Confirm CRS and SRID on the next step after detection.</p>
+    </li>
+    <li class="lu-tips__item">
+      <span class="lu-tips__num" aria-hidden="true">4</span>
+      <p class="lu-tips__text">Zip archives are supported. Optional <strong>.prj</strong> improves coordinate detection.</p>
     </li>
   </ul>
 </section>

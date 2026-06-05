@@ -2,10 +2,14 @@
 
 {% block title %}{% block layer_page_title %}Layer Uploader · Naqel Maps{% endblock %}{% endblock %}
 
-{% block content %}
-  {% if error %}
-  <p class="mb-6 text-sm text-red-600" role="alert">{{ error }}</p>
-  {% endif %}
-  {% block layer_assets %}{% endblock %}
-  {% block layer_content %}{% endblock %}
+{% block main_class %}{% block layer_main_class %}{% endblock %}{% endblock %}
+
+{% block content_wrapper %}
+  {% block content %}
+    {% if error %}
+    <p class="lu-error" role="alert">{{ error }}</p>
+    {% endif %}
+    {% block layer_assets %}{% endblock %}
+    {% block layer_content %}{% endblock %}
+  {% endblock %}
 {% endblock %}

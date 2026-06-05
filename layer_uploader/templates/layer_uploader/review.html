@@ -2,11 +2,8 @@
 {% load static %}
 
 {% block title %}Review upload · {{ layer.name }}{% endblock %}
+{% block layer_main_class %}overflow-hidden{% endblock %}
 
-{% block main_class %}overflow-hidden{% endblock %}
-
-{% block content_wrapper %}
-{% block content %}
 {% block layer_assets %}
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css" />
 <link rel="stylesheet" href="{% static 'mapping/css/road-selection.css' %}">
@@ -36,6 +33,4 @@
 
 <script src="{% static 'layer_uploader/js/layer_review.js' %}" defer></script>
 <script src="{% static 'mapping/js/map-clear-selection.js' %}" defer></script>
-{% endblock %}
-{% endblock %}
 {% endblock %}
