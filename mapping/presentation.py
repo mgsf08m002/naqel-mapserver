@@ -4,6 +4,23 @@ from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import reverse
 
+def user_is_manager(user) -> bool:
+    profile = getattr(user, "profile", None)
+    return bool(profile and profile.role == "manager")
+
+
+def user_edits_apply_immediately(user) -> bool:
+    """Managers and system admins apply edits live; editors require manager review."""
+    if user.is_superuser:
+        return True
+    return user_is_manager(user)
+
+
+def user_submissions_require_manager_review(user) -> bool:
+    """True when map edits and layer uploads must enter the manager approval queue."""
+    return not user_edits_apply_immediately(user)
+
+
 def has_my_edits_access(user) -> bool:
     if user.is_superuser:
         return True

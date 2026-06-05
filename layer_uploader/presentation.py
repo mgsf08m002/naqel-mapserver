@@ -2,7 +2,7 @@
 
 from django.urls import reverse
 
-from .access import is_layer_upload_manager
+from .access import user_layer_uploads_apply_immediately
 from .constants import LARGE_LAYER_FEATURE_THRESHOLD
 from .models import Layer
 
@@ -54,6 +54,6 @@ def review_page_context(request, layer: Layer) -> dict:
         "base_template": resolve_base_template(request.user),
         "layer": layer,
         "can_submit": layer.status == Layer.Status.DRAFT,
-        "is_manager_uploader": is_layer_upload_manager(request.user),
+        "upload_applies_immediately": user_layer_uploads_apply_immediately(request.user),
         "review_large_layer": staged_count > LARGE_LAYER_FEATURE_THRESHOLD,
     }

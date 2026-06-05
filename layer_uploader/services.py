@@ -20,7 +20,7 @@ from mapping.riyadh_fclass import (
 )
 from mapping.riyadh_network import tiles_version_ms
 
-from .access import is_layer_upload_manager
+from .access import user_layer_uploads_apply_immediately
 from .models import Feature, Layer
 from .shapefile_properties import (
     _split_bilingual_label,
@@ -296,7 +296,7 @@ def _discard_unnominated_staged_features(layer: Layer) -> None:
 
 
 def _submit_for_map_review(layer: Layer, nominated) -> LayerSubmitResult:
-    """Editor/system admin submit: one approval request per road on the manager map."""
+    """Editor submit: one approval request per nominated feature on the manager map."""
     from .map_review import create_approval_requests_for_layer_upload
 
     features = list(nominated)
@@ -338,8 +338,8 @@ def submit_layer(layer: Layer, submitter: AbstractBaseUser) -> LayerSubmitResult
     """
     Finalize an upload after uploader review.
 
-    - Editor/system admin: nominated features enter the manager approval queue on the map.
-    - Manager submitter: nominated features publish straight to riyadh_roads.
+    - Editors: nominated features enter the manager approval queue on the map.
+    - Managers and system admins: nominated features publish straight to riyadh_roads.
     """
     if layer.status != Layer.Status.DRAFT:
         raise ValueError("This layer has already been submitted.")
@@ -351,7 +351,7 @@ def submit_layer(layer: Layer, submitter: AbstractBaseUser) -> LayerSubmitResult
 
     _discard_unnominated_staged_features(layer)
 
-    if is_layer_upload_manager(submitter):
+    if user_layer_uploads_apply_immediately(submitter):
         return _auto_publish_manager_self_upload(layer, nominated)
 
     return _submit_for_map_review(layer, nominated)

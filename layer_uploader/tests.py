@@ -163,6 +163,60 @@ class UploaderWorkflowTests(TestCase):
             edit_request.fields_data.get(UPLOAD_SHAPEFILE_FIELD_KEY), "test_layer"
         )
 
+    def test_superuser_self_upload_auto_publishes_on_submit(self):
+        admin_layer = Layer.objects.create(
+            name="admin_self_layer",
+            uploaded_by=self.editor,
+            srid=4326,
+            total_features=1,
+            new_features=1,
+            status=Layer.Status.DRAFT,
+        )
+        admin_feature = Feature.objects.create(
+            layer=admin_layer,
+            geom=self.geom,
+            properties={"name": "Admin Road", "fclass": "residential"},
+            status=Feature.Status.STAGED,
+            uploaded_by=self.editor,
+        )
+        user_model = get_user_model()
+        admin = user_model.objects.create_superuser(
+            username="upload_admin",
+            email="upload_admin@example.com",
+            password="testpass123",
+        )
+        admin_layer.uploaded_by = admin
+        admin_layer.save(update_fields=["uploaded_by"])
+
+        self.client.force_login(admin)
+        nominate_url = reverse("layer_review_action", kwargs={"layer_id": admin_layer.pk})
+        self.client.post(
+            nominate_url,
+            data=json.dumps({"action": "nominate", "feature_id": admin_feature.pk}),
+            content_type="application/json",
+        )
+
+        submit_url = reverse("layer_submit", kwargs={"layer_id": admin_layer.pk})
+
+        def _fake_publish(feature):
+            feature.delete()
+            from layer_uploader.services import refresh_layer_completion
+
+            refresh_layer_completion(feature.layer)
+            return 88002.0
+
+        with patch(
+            "layer_uploader.services.approve_and_publish_feature",
+            side_effect=_fake_publish,
+        ):
+            response = self.client.post(submit_url, data="{}", content_type="application/json")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["auto_published"])
+        self.assertEqual(payload["published_count"], 1)
+        self.assertEqual(LineEditRequest.objects.count(), 0)
+
     def test_manager_self_upload_auto_publishes_on_submit(self):
         manager_layer = Layer.objects.create(
             name="manager_self_layer",

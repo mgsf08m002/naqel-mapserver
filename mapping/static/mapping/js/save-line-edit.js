@@ -420,7 +420,7 @@
     }
 
     /**
-     * Minimal dialog after a non-manager save that entered the manager review queue.
+     * Minimal dialog after an editor save that entered the manager review queue.
      * @param {string} bodyText - Message shown in the dialog body.
      * @param {{ reviewKind?: string }} [meta] - reviewKind 'delete' selects the dialog title.
      */

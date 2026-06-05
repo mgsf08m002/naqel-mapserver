@@ -16,7 +16,7 @@
     const tableUrl = root.dataset.tableUrl;
     const actionUrl = root.dataset.actionUrl;
     const submitUrl = root.dataset.submitUrl || '';
-    const isManagerUploader = root.dataset.isManagerUploader === 'true';
+    const uploadAppliesImmediately = root.dataset.uploadAppliesImmediately === 'true';
     const largeLayer = root.dataset.largeLayer === 'true';
     function featureDetailUrl(featureId) {
         return tableUrl.replace(/table\.json.*/, 'features/' + String(featureId) + '.json');
@@ -1870,7 +1870,7 @@
         });
     }
 
-    function submitLayerToManager() {
+    function submitReviewedLayer() {
         return fetch(submitUrl, {
             method: 'POST',
             credentials: 'same-origin',
@@ -1905,28 +1905,28 @@
             });
     }
 
-    const btnSubmit = document.getElementById('btn-submit-manager');
+    const btnSubmit = document.getElementById('btn-submit-layer');
     if (btnSubmit && submitUrl) {
         btnSubmit.addEventListener('click', function () {
             const nominatedEl = document.getElementById('lr-cnt-nominated');
             const nominatedCount = nominatedEl ? parseInt(nominatedEl.textContent, 10) : 0;
             if (!nominatedCount || Number.isNaN(nominatedCount)) {
                 window.notify.tryShow(
-                    isManagerUploader
+                    uploadAppliesImmediately
                         ? 'Approve at least one road before publishing.'
                         : 'Approve at least one road before submitting.',
                     'warning'
                 );
                 return;
             }
-            const confirmMsg = isManagerUploader
+            const confirmMsg = uploadAppliesImmediately
                 ? 'Publish ' + nominatedCount + ' approved road(s) to the map now? This cannot be undone.'
-                : 'Submit ' + nominatedCount + ' approved road(s) for review? You will not be able to edit this layer afterward.';
-            const confirmTitle = isManagerUploader ? 'Publish layer' : 'Submit for review';
-            const confirmLabel = isManagerUploader ? 'Publish' : 'Submit';
+                : 'Submit ' + nominatedCount + ' approved road(s) for manager review? You will not be able to edit this layer afterward.';
+            const confirmTitle = uploadAppliesImmediately ? 'Publish layer' : 'Submit for review';
+            const confirmLabel = uploadAppliesImmediately ? 'Publish' : 'Submit';
 
             const runSubmit = function () {
-                submitLayerToManager();
+                submitReviewedLayer();
             };
 
             window.notify

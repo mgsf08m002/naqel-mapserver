@@ -208,6 +208,7 @@
         const displayFeature =
             escapeHtml(String(request.current_feature_label || 'Unnamed Road'));
         const requesterName = escapeHtml(String(request.requester_name || 'Unknown'));
+        const requesterRole = escapeHtml(String(request.requester_role || 'Editor'));
         const timeLabel = escapeHtml(formatRequestTime(request.created_at));
         const shapefileName = request.shapefile_name;
         const shapefileLine =
@@ -256,6 +257,8 @@
             '<p class="min-w-0 truncate text-xs text-zinc-600">' +
             '<span class="font-medium text-zinc-500">Request by:</span> ' +
             requesterName +
+            ' <span class="text-zinc-400">·</span> ' +
+            requesterRole +
             '</p>' +
             '</div>' +
             '<div class="flex justify-end">' +
@@ -306,13 +309,13 @@
 
         if (summary) {
             if (count === 0) {
-                summary.textContent = 'No submissions waiting for review';
+                summary.textContent = 'No editor submissions waiting for review';
             } else if (approvalFilterKey !== 'all' && shown !== count) {
                 summary.textContent = shown + ' of ' + count + ' shown · Newest first';
             } else if (count === 1) {
-                summary.textContent = '1 submission needs review';
+                summary.textContent = '1 editor submission needs review';
             } else {
-                summary.textContent = count + ' submissions need review';
+                summary.textContent = count + ' editor submissions need review';
             }
         }
         if (filterBar) {

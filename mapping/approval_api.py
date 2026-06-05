@@ -1,4 +1,4 @@
-"""Serialize pending road edit requests for the manager approval queue API."""
+"""Serialize editor road edit requests for the manager approval queue API."""
 
 from __future__ import annotations
 

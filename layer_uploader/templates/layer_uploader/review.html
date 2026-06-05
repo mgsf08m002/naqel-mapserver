@@ -26,7 +26,7 @@
   data-action-url="{% url 'layer_review_action' layer.pk %}"
   {% if review_large_layer %}data-large-layer="true"{% endif %}
   {% if can_submit %}data-submit-url="{% url 'layer_submit' layer.pk %}"{% endif %}
-  {% if is_manager_uploader %}data-is-manager-uploader="true"{% endif %}
+  {% if upload_applies_immediately %}data-upload-applies-immediately="true"{% endif %}
   {% if riyadh_roads_tile_url %}data-riyadh-roads-tile-url="{{ riyadh_roads_tile_url }}"{% endif %}
   {% if maptiler_api_key %}data-maptiler-api-key="{{ maptiler_api_key }}"{% endif %}
 >

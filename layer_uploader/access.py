@@ -7,8 +7,10 @@ from django.urls import reverse
 from .models import Layer
 
 
-def is_layer_upload_manager(user) -> bool:
-    """True when the user can publish uploads without map review (manager role only)."""
+def user_layer_uploads_apply_immediately(user) -> bool:
+    """Managers and system admins publish layer uploads live; editors require review."""
+    if user.is_superuser:
+        return True
     profile = getattr(user, "profile", None)
     return bool(profile and profile.role == "manager")
 

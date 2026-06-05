@@ -67,6 +67,13 @@ def apply_my_edits_filters(qs: QuerySet, request) -> QuerySet:
     return _apply_category_and_date_filters(qs, request)
 
 
+def filter_editor_submissions(qs: QuerySet) -> QuerySet:
+    """Limit queryset rows to editor work that requires manager review."""
+    return qs.filter(requester__profile__role="editor").exclude(
+        requester__is_superuser=True
+    )
+
+
 def apply_review_history_filters(
     qs: QuerySet, request, user: AbstractBaseUser
 ) -> QuerySet:

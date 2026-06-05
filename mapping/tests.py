@@ -16,6 +16,12 @@ from mapping.approval_categories import (
     create_pending_road_edit_request,
 )
 from mapping.models import LineEditRequest
+from mapping.edit_list_query import filter_editor_submissions
+from mapping.presentation import (
+    user_edits_apply_immediately,
+    user_is_manager,
+    user_submissions_require_manager_review,
+)
 from mapping.riyadh_network import (
     network_mutation_payload,
     normalize_published_fclass,
@@ -112,6 +118,111 @@ class RiyadhRoadsTileProxyTests(TestCase):
         self.assertIn("no-store", response["Cache-Control"])
 
 
+class EditApprovalAccessTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.manager = user_model.objects.create_user(
+            username="access_mgr",
+            email="access_mgr@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(user=self.manager, role="manager")
+        self.editor = user_model.objects.create_user(
+            username="access_editor",
+            email="access_editor@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(user=self.editor, role="editor")
+        self.admin = user_model.objects.create_user(
+            username="access_admin",
+            email="access_admin@example.com",
+            password="testpass123",
+            is_superuser=True,
+        )
+
+    def test_user_edits_apply_immediately_for_manager_and_superuser(self):
+        self.assertTrue(user_is_manager(self.manager))
+        self.assertFalse(user_is_manager(self.editor))
+        self.assertFalse(user_is_manager(self.admin))
+        self.assertTrue(user_edits_apply_immediately(self.manager))
+        self.assertTrue(user_edits_apply_immediately(self.admin))
+        self.assertFalse(user_edits_apply_immediately(self.editor))
+        self.assertFalse(user_submissions_require_manager_review(self.manager))
+        self.assertFalse(user_submissions_require_manager_review(self.admin))
+        self.assertTrue(user_submissions_require_manager_review(self.editor))
+
+
+class SaveLineEditApprovalTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.editor = user_model.objects.create_user(
+            username="save_editor",
+            email="save_editor@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=self.editor,
+            role="editor",
+            password_setup_completed=True,
+        )
+        self.admin = user_model.objects.create_user(
+            username="save_admin",
+            email="save_admin@example.com",
+            password="testpass123",
+            is_superuser=True,
+        )
+        self.geom = {
+            "type": "LineString",
+            "coordinates": [[46.68, 24.71], [46.69, 24.72]],
+        }
+        self.payload = {
+            "geometry": self.geom,
+            "current_feature_label": "Primary Road",
+            "is_riyadh_road": False,
+            "fields_data": {},
+            "tags_data": [],
+            "relations_data": [],
+            "road_closure": 0,
+        }
+        self.client = Client()
+
+    def test_editor_new_road_submits_pending(self):
+        self.client.force_login(self.editor)
+        response = self.client.post(
+            reverse("mapping:save_line_edit"),
+            data=json.dumps(self.payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertFalse(payload["auto_approved"])
+        self.assertTrue(payload["pending_submitted"])
+        req = LineEditRequest.objects.get()
+        self.assertEqual(req.status, "pending")
+        self.assertEqual(req.requester_id, self.editor.pk)
+
+    @patch("mapping.views._publish_manual_new_road_from_edit_request")
+    def test_superuser_new_road_auto_approved(self, publish_mock):
+        publish_mock.return_value = (88042, "primary")
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("mapping:save_line_edit"),
+            data=json.dumps(self.payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertTrue(payload["auto_approved"])
+        self.assertFalse(payload["pending_submitted"])
+        req = LineEditRequest.objects.get()
+        self.assertEqual(req.status, "approved")
+        self.assertEqual(req.requester_id, self.admin.pk)
+        self.assertEqual(req.reviewed_by_id, self.admin.pk)
+        publish_mock.assert_called_once()
+
+
 class DeleteRequestApiTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
@@ -190,6 +301,85 @@ class DeleteRequestApiTests(TestCase):
         self.assertEqual(edit_request.status, "approved")
         self.assertIsNone(edit_request.published_road_id)
         self.assertTrue(LineEditRequest.objects.filter(pk=edit_request.pk).exists())
+
+    @patch("mapping.views._apply_delete_to_base_network")
+    @patch("mapping.views._resolve_riyadh_road")
+    @patch("mapping.views._get_riyadh_road_geometry_wgs84")
+    def test_superuser_delete_auto_approved(
+        self, geom_mock, resolve_mock, apply_mock
+    ):
+        user_model = get_user_model()
+        admin = user_model.objects.create_user(
+            username="del_admin",
+            email="del_admin@example.com",
+            password="testpass123",
+            is_superuser=True,
+        )
+        resolve_mock.return_value = object()
+        geom_mock.return_value = json.loads(self.geom.geojson)
+
+        self.client.force_login(admin)
+        response = self.client.post(
+            reverse("mapping:create_delete_request"),
+            data=json.dumps(
+                {
+                    "target_type": "riyadh_road",
+                    "target_id": 108802,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertTrue(payload["auto_approved"])
+        self.assertFalse(payload["pending_submitted"])
+        req = LineEditRequest.objects.get()
+        self.assertEqual(req.status, "approved")
+        self.assertEqual(req.requester_id, admin.pk)
+        apply_mock.assert_called_once()
+
+    @patch("mapping.views._apply_delete_to_base_network")
+    @patch("mapping.views._resolve_riyadh_road")
+    @patch("mapping.views._get_riyadh_road_geometry_wgs84")
+    def test_editor_delete_submits_pending(
+        self, geom_mock, resolve_mock, apply_mock
+    ):
+        user_model = get_user_model()
+        editor = user_model.objects.create_user(
+            username="del_editor",
+            email="del_editor@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=editor,
+            role="editor",
+            password_setup_completed=True,
+        )
+        resolve_mock.return_value = object()
+        geom_mock.return_value = json.loads(self.geom.geojson)
+
+        self.client.force_login(editor)
+        response = self.client.post(
+            reverse("mapping:create_delete_request"),
+            data=json.dumps(
+                {
+                    "target_type": "riyadh_road",
+                    "target_id": 108803,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertFalse(payload["auto_approved"])
+        self.assertTrue(payload["pending_submitted"])
+        req = LineEditRequest.objects.get()
+        self.assertEqual(req.status, "pending")
+        apply_mock.assert_not_called()
 
     @patch("mapping.views._apply_delete_to_base_network")
     @patch("mapping.views._resolve_riyadh_road")
@@ -711,6 +901,95 @@ class MyEditsApiTests(TestCase):
         self.assertEqual(edit_request.reviewed_by_id, self.manager.pk)
 
 
+class PendingRequestsApiTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.editor = user_model.objects.create_user(
+            username="pending_editor",
+            email="pending_editor@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=self.editor,
+            role="editor",
+            password_setup_completed=True,
+        )
+        self.manager = user_model.objects.create_user(
+            username="pending_mgr",
+            email="pending_mgr@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=self.manager,
+            role="manager",
+            password_setup_completed=True,
+        )
+        self.admin = user_model.objects.create_user(
+            username="pending_admin",
+            email="pending_admin@example.com",
+            password="testpass123",
+            is_superuser=True,
+        )
+        self.client = Client()
+        self.geom = {"type": "LineString", "coordinates": [[46.68, 24.71], [46.69, 24.72]]}
+
+    def test_non_manager_forbidden(self):
+        self.client.force_login(self.editor)
+        response = self.client.get(reverse("mapping:list_pending_requests"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_returns_only_editor_pending_submissions(self):
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="pending",
+            request_category="new_road",
+        )
+        LineEditRequest.objects.create(
+            requester=self.manager,
+            geometry=self.geom,
+            status="pending",
+            request_category="new_road",
+        )
+        LineEditRequest.objects.create(
+            requester=self.admin,
+            geometry=self.geom,
+            status="pending",
+            request_category="new_road",
+        )
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse("mapping:list_pending_requests"))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(len(payload["requests"]), 1)
+
+    def test_filter_editor_submissions_excludes_superuser_with_editor_profile(self):
+        user_model = get_user_model()
+        hybrid = user_model.objects.create_user(
+            username="pending_hybrid",
+            email="pending_hybrid@example.com",
+            password="testpass123",
+            is_superuser=True,
+        )
+        UserProfile.objects.create(user=hybrid, role="editor")
+        LineEditRequest.objects.create(
+            requester=hybrid,
+            geometry=self.geom,
+            status="pending",
+            request_category="new_road",
+        )
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="pending",
+            request_category="layer_upload",
+        )
+        qs = filter_editor_submissions(LineEditRequest.objects.all())
+        self.assertEqual(qs.count(), 1)
+        self.assertEqual(qs.first().requester_id, self.editor.pk)
+
+
 class ManagerReviewHistoryApiTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
@@ -775,7 +1054,7 @@ class ManagerReviewHistoryApiTests(TestCase):
         self.assertEqual(len(payload["requests"]), 1)
         self.assertEqual(payload["requests"][0]["requester"]["username"], "rh_editor")
 
-    def test_includes_superuser_requester_rows(self):
+    def test_excludes_superuser_self_approval_rows(self):
         user_model = get_user_model()
         admin = user_model.objects.create_user(
             username="rh_admin",
@@ -784,21 +1063,44 @@ class ManagerReviewHistoryApiTests(TestCase):
             is_superuser=True,
         )
         UserProfile.objects.create(user=admin, role=None)
+        hybrid = user_model.objects.create_user(
+            username="rh_hybrid",
+            email="rh_hybrid@example.com",
+            password="testpass123",
+            is_superuser=True,
+        )
+        UserProfile.objects.create(user=hybrid, role="editor")
         LineEditRequest.objects.create(
             requester=admin,
             geometry=self.geom,
             status="approved",
             request_category="new_road_geometry",
             geometry_changed=True,
-            reviewed_by=self.manager,
+            reviewed_by=admin,
             published_road_id=108799,
+        )
+        LineEditRequest.objects.create(
+            requester=hybrid,
+            geometry=self.geom,
+            status="rejected",
+            request_category="new_road",
+            reviewed_by=self.manager,
+        )
+        LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="approved",
+            request_category="new_road",
+            reviewed_by=self.manager,
         )
         self.client.force_login(self.manager)
         response = self.client.get(reverse("mapping:list_manager_review_history"))
         payload = response.json()
         self.assertTrue(payload["success"])
         usernames = [r["requester"]["username"] for r in payload["requests"]]
-        self.assertIn("rh_admin", usernames)
+        self.assertNotIn("rh_admin", usernames)
+        self.assertNotIn("rh_hybrid", usernames)
+        self.assertIn("rh_editor", usernames)
 
     def test_scope_mine_filters_by_reviewer(self):
         LineEditRequest.objects.create(

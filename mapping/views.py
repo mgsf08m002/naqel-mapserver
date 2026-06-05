@@ -37,9 +37,10 @@ from .approval_api import (
 from .edit_list_query import (
     apply_my_edits_filters,
     apply_review_history_filters,
+    filter_editor_submissions,
     parse_review_history_scope,
 )
-from .presentation import has_my_edits_access
+from .presentation import has_my_edits_access, user_edits_apply_immediately, user_is_manager
 from .approval_categories import (
     EDIT_TYPE_DELETE,
     create_pending_road_edit_request,
@@ -721,11 +722,13 @@ def _validate_line_geojson_for_edit(geometry) -> None:
 @csrf_exempt
 def save_line_edit_request(request):
     """
-    Save a road edit (submit to approval queue or apply for managers).
+    Save a road edit (submit to approval queue or apply immediately).
 
     Rejects the generic placeholder feature type ``Line``; a real ``current_feature_label`` is required.
 
-    Managers: apply immediately to the remote network (no pending row left).
+    Managers and system admins: apply immediately to the remote network.
+
+    Editors: submit to the manager approval queue when review is required.
 
     All roles: Riyadh ``road_closure`` changes apply immediately on the remote DB
     (no manager approval). Approval-queue rows are created only when geometry,
@@ -743,8 +746,7 @@ def save_line_edit_request(request):
                 status=400,
             )
 
-        profile = getattr(request.user, "profile", None)
-        is_manager = profile and profile.role == "manager"
+        applies_immediately = user_edits_apply_immediately(request.user)
 
         # Normalize road closure and Riyadh road metadata from payload
         raw_road_closure = data.get("road_closure", 0)
@@ -870,7 +872,7 @@ def save_line_edit_request(request):
             "riyadh_road_id": riyadh_road_id_int,
         }
 
-        if is_manager:
+        if applies_immediately:
             edit_request = create_pending_road_edit_request(
                 road=road, **edit_request_create_kwargs
             )
@@ -1108,11 +1110,6 @@ def _publish_manual_new_road_from_edit_request(edit_request):
         road_closure=int(edit_request.road_closure or 0),
     )
     return remote_id, normalize_published_fclass(fields.get("fclass"))
-
-
-def _get_user_is_manager(user):
-    profile = getattr(user, "profile", None)
-    return bool(profile and profile.role == "manager")
 
 
 def _set_published_road_id_after_approval(edit_request, *, remote_road_id=None):
@@ -1400,7 +1397,7 @@ def create_delete_request(request):
             status=400,
         )
 
-    is_manager = _get_user_is_manager(request.user)
+    applies_immediately = user_edits_apply_immediately(request.user)
 
     # Resolve target and capture a geometry snapshot for review.
     is_riyadh_road = False
@@ -1468,7 +1465,7 @@ def create_delete_request(request):
 
     auto_approved = False
     deleted_road_id = None
-    if is_manager:
+    if applies_immediately:
         try:
             _apply_delete_to_base_network(delete_request)
             deleted_road_id = riyadh_road_id_int
@@ -1544,7 +1541,7 @@ def list_my_edit_requests(request):
 @login_required
 def list_manager_review_history(request):
     """Return approved/rejected editor submissions for manager review history."""
-    if not _get_user_is_manager(request.user):
+    if not user_is_manager(request.user):
         return JsonResponse(
             {
                 "success": False,
@@ -1554,15 +1551,12 @@ def list_manager_review_history(request):
         )
 
     try:
-        # Editors and system admins submit via the map; exclude manager self-approvals only.
         qs = (
-            LineEditRequest.objects.filter(
-                status__in=["approved", "rejected"],
+            filter_editor_submissions(
+                LineEditRequest.objects.filter(
+                    status__in=["approved", "rejected"],
+                )
             )
-            .filter(
-                Q(requester__profile__role="editor") | Q(requester__is_superuser=True)
-            )
-            .exclude(requester__profile__role="manager")
             .select_related("requester", "requester__profile", "reviewed_by")
             .order_by("-reviewed_at", "-created_at")
         )
@@ -1595,17 +1589,21 @@ def list_manager_review_history(request):
 
 @login_required
 def list_pending_requests(request):
-    """Return all pending road edit requests for the manager approval queue."""
-    if not _get_user_is_manager(request.user):
+    """Return pending editor submissions for the manager approval queue."""
+    if not user_is_manager(request.user):
         return JsonResponse({
             'success': False,
             'message': 'Only managers can access the approval queue.',
         }, status=403)
     
     try:
-        requests = LineEditRequest.objects.filter(status="pending").select_related(
-            "requester", "requester__profile"
-        ).order_by("-created_at")
+        requests = (
+            filter_editor_submissions(
+                LineEditRequest.objects.filter(status="pending")
+            )
+            .select_related("requester", "requester__profile")
+            .order_by("-created_at")
+        )
 
         riyadh_ids = [
             req.riyadh_road_id
@@ -1663,7 +1661,7 @@ def list_pending_requests(request):
 @login_required
 def get_edit_request_details(request, request_id):
     """Return full details of a single item in the manager approval queue."""
-    if not _get_user_is_manager(request.user):
+    if not user_is_manager(request.user):
         return JsonResponse({
             'success': False,
             'message': 'Only managers can access the approval queue.',
@@ -1728,7 +1726,7 @@ def get_edit_request_details(request, request_id):
 @csrf_exempt
 def approve_edit_request(request, request_id):
     """Approve a pending road edit in the manager approval queue."""
-    if not _get_user_is_manager(request.user):
+    if not user_is_manager(request.user):
         return JsonResponse({
             'success': False,
             'message': 'Only managers can approve items in the approval queue.',
@@ -1812,7 +1810,7 @@ def approve_edit_request(request, request_id):
 @csrf_exempt
 def reject_edit_request(request, request_id):
     """Reject a pending road edit in the manager approval queue."""
-    if not _get_user_is_manager(request.user):
+    if not user_is_manager(request.user):
         return JsonResponse({
             'success': False,
             'message': 'Only managers can reject items in the approval queue.',
