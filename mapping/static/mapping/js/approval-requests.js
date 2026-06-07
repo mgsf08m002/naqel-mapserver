@@ -728,7 +728,6 @@
     // Open the side panel for read-only review (no draw/edit toolbar).
     function ensureSidePanelForReview(callback) {
         const sidePanel = document.getElementById('editSidePanel');
-        const mapContainer = document.getElementById('mapContainer');
 
         hideEditToolbarsForReview();
 
@@ -753,10 +752,6 @@
             window.applyMapSidePanelOpen(true);
         } else {
             sidePanel.classList.remove('-translate-x-full');
-            if (mapContainer) {
-                mapContainer.style.marginLeft = '320px';
-                mapContainer.style.width = 'calc(100% - 320px)';
-            }
         }
         if (typeof map !== 'undefined' && map && map.resize) {
             setTimeout(function() {
@@ -1204,17 +1199,6 @@
                 window.applyMapSidePanelOpen(true);
             } else {
                 sidePanel.classList.remove('-translate-x-full');
-                const mapContainer = document.getElementById('mapContainer');
-                if (mapContainer) {
-                    const SIDE_PANEL_WIDTH = 320;
-                    mapContainer.style.marginLeft = SIDE_PANEL_WIDTH + 'px';
-                    mapContainer.style.width = `calc(100% - ${SIDE_PANEL_WIDTH}px)`;
-                    setTimeout(function() {
-                        if (map && map.resize) {
-                            map.resize();
-                        }
-                    }, 300);
-                }
             }
         }
         hideEditToolbarsForReview();

@@ -5,7 +5,6 @@
     const EDIT_BUTTON_ID = 'editButton';
     const EDIT_MODE_TOAST = 'Turn on Edit Mode first, then you can make changes.';
     const MAX_RETRY_ATTEMPTS = 50;
-    const SIDE_PANEL_WIDTH = 320;
 
     let retryCount = 0;
     let isEditModeActive = false;
@@ -84,12 +83,6 @@
         }
         if (typeof window.applyMapSidePanelOpen === 'function') {
             window.applyMapSidePanelOpen(true);
-        } else if (sidePanel) {
-            sidePanel.classList.remove('-translate-x-full');
-            sidePanel.style.display = '';
-            sidePanel.style.visibility = 'visible';
-            sidePanel.style.opacity = '1';
-            sidePanel.style.setProperty('transform', 'translateX(0)', 'important');
         }
         if (editToolbar) {
             editToolbar.classList.remove('hidden');
@@ -102,10 +95,6 @@
         }
         if (typeof window.refreshRiyadhGeometryEditToolbar === 'function') {
             window.refreshRiyadhGeometryEditToolbar();
-        }
-        if (mapContainer && typeof window.applyMapSidePanelOpen !== 'function') {
-            mapContainer.style.marginLeft = SIDE_PANEL_WIDTH + 'px';
-            mapContainer.style.width = 'calc(100% - ' + SIDE_PANEL_WIDTH + 'px)';
         }
         if (map && map.getContainer()) {
             map.getContainer().style.opacity = '1';
@@ -146,15 +135,10 @@
             const sidePanelContent = document.getElementById('sidePanelContent');
             const hasContent = editScreen || (sidePanelContent && sidePanelContent.children.length > 0);
             if (!hasContent) {
-                sidePanel.classList.add('-translate-x-full');
-                if (mapContainer) {
-                    mapContainer.style.marginLeft = '0';
-                    mapContainer.style.width = '100%';
-                    setTimeout(function() {
-                        if (map && map.resize) {
-                            map.resize();
-                        }
-                    }, 300);
+                if (typeof window.applyMapSidePanelOpen === 'function') {
+                    window.applyMapSidePanelOpen(false);
+                } else {
+                    sidePanel.classList.add('-translate-x-full');
                 }
             }
         }

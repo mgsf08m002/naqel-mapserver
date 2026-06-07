@@ -1,5 +1,10 @@
 {# Opens #mapPageShell, sidebar, expand tab, and #mapContainer — close with map_shell_end.html #}
 <div id="mapPageShell" class="w-full h-full relative min-h-0">
+    <div
+        id="mapSidePanelBackdrop"
+        class="hidden fixed inset-0 z-[49] bg-black/40 backdrop-blur-[1px]"
+        aria-hidden="true"
+    ></div>
     <aside
         id="editSidePanel"
         class="map-sidebar map-sidebar-root absolute left-0 top-0 bottom-0 w-80 max-w-[min(100%,20rem)] z-50 flex flex-col min-h-0 min-w-0 -translate-x-full transition-transform duration-300 ease-out bg-white text-zinc-900 antialiased shadow-[2px_0_20px_rgba(0,0,0,0.06)]"

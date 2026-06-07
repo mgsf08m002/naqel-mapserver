@@ -135,6 +135,7 @@
     window.buildRiyadhRoadDeleteRequestPayload = buildRiyadhRoadDeleteRequestPayload;
 
     const SIDE_PANEL_WIDTH_PX = 320;
+    const MAP_MOBILE_BREAKPOINT = '(max-width: 767px)';
     let mapSidePanelChromeReady = false;
     let mapSidePanelOpenedOnce = false;
 
@@ -155,6 +156,49 @@
         } catch (e) {}
     }
 
+    function isMapMobileLayout() {
+        return window.matchMedia(MAP_MOBILE_BREAKPOINT).matches;
+    }
+
+    function syncMapSidePanelBackdrop(visible) {
+        const backdrop = document.getElementById('mapSidePanelBackdrop');
+        if (!backdrop) {
+            return;
+        }
+        if (visible && isMapMobileLayout()) {
+            backdrop.classList.remove('hidden');
+            backdrop.classList.add('is-visible');
+            backdrop.setAttribute('aria-hidden', 'false');
+        } else {
+            backdrop.classList.remove('is-visible');
+            backdrop.classList.add('hidden');
+            backdrop.setAttribute('aria-hidden', 'true');
+        }
+    }
+
+    function syncMapContainerForSidePanel(open) {
+        const mc = document.getElementById('mapContainer');
+        if (!mc) {
+            return;
+        }
+        if (open && isMapMobileLayout()) {
+            mc.style.marginLeft = '0';
+            mc.style.width = '100%';
+            mc.classList.add('map-sidebar-open-mobile');
+            syncMapSidePanelBackdrop(true);
+            return;
+        }
+        mc.classList.remove('map-sidebar-open-mobile');
+        syncMapSidePanelBackdrop(false);
+        if (open) {
+            mc.style.marginLeft = SIDE_PANEL_WIDTH_PX + 'px';
+            mc.style.width = 'calc(100% - ' + SIDE_PANEL_WIDTH_PX + 'px)';
+            return;
+        }
+        mc.style.marginLeft = '0';
+        mc.style.width = '100%';
+    }
+
     function applyMapSidePanelOpen(open) {
         const sp = document.getElementById('editSidePanel');
         const mc = document.getElementById('mapContainer');
@@ -172,8 +216,7 @@
         if (open) {
             sp.classList.remove('-translate-x-full');
             sp.style.setProperty('transform', 'translateX(0)', 'important');
-            mc.style.marginLeft = SIDE_PANEL_WIDTH_PX + 'px';
-            mc.style.width = 'calc(100% - ' + SIDE_PANEL_WIDTH_PX + 'px)';
+            syncMapContainerForSidePanel(true);
             if (collapseBtn) {
                 collapseBtn.classList.remove('hidden');
             }
@@ -183,8 +226,7 @@
         } else {
             sp.classList.add('-translate-x-full');
             sp.style.removeProperty('transform');
-            mc.style.marginLeft = '0';
-            mc.style.width = '100%';
+            syncMapContainerForSidePanel(false);
             if (collapseBtn) {
                 collapseBtn.classList.add('hidden');
             }
@@ -206,6 +248,7 @@
         }
         const collapseBtn = document.getElementById('sidePanelCollapseBtn');
         const expandTab = document.getElementById('sidePanelExpandTab');
+        const backdrop = document.getElementById('mapSidePanelBackdrop');
         if (!collapseBtn || !expandTab) {
             return;
         }
@@ -222,6 +265,25 @@
             applyMapSidePanelOpen(true);
             collapseBtn.setAttribute('aria-expanded', 'true');
             expandTab.setAttribute('aria-expanded', 'false');
+        });
+        if (backdrop) {
+            backdrop.addEventListener('click', function() {
+                if (isMapMobileLayout() && window.__mapSidePanelOpen) {
+                    applyMapSidePanelOpen(false);
+                    collapseBtn.setAttribute('aria-expanded', 'false');
+                    expandTab.setAttribute('aria-expanded', 'true');
+                }
+            });
+        }
+        window.addEventListener('resize', function() {
+            if (window.__mapSidePanelOpen) {
+                syncMapContainerForSidePanel(true);
+                setTimeout(function() {
+                    if (typeof map !== 'undefined' && map && map.resize) {
+                        map.resize();
+                    }
+                }, 200);
+            }
         });
         collapseBtn.setAttribute('data-sidebar-bound', '1');
         expandTab.setAttribute('data-sidebar-bound', '1');
@@ -403,6 +465,7 @@
     window.syncRiyadhRoadMapOverlayFromContext = syncRiyadhRoadMapOverlayFromContext;
     window.applyMapSidePanelOpen = applyMapSidePanelOpen;
     window.initMapSidePanelChrome = initMapSidePanelChrome;
+    window.isMapMobileLayout = isMapMobileLayout;
 
     // Selected-feature overlay (GeoJSON): same selection chrome as tile roads / drawn lines.
     const _MLS = mapLineSelection();

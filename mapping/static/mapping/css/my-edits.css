@@ -340,14 +340,3 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-@media (max-width: 900px) {
-  .me-table {
-    overflow-x: auto;
-  }
-
-  .me-table__head,
-  .me-row {
-    min-width: 44rem;
-  }
-}

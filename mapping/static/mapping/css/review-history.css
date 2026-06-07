@@ -337,14 +337,3 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-@media (max-width: 900px) {
-  .rh-table {
-    overflow-x: auto;
-  }
-
-  .rh-table__head,
-  .rh-row {
-    min-width: 44rem;
-  }
-}
