@@ -779,6 +779,10 @@
     }
 
     function refreshSymbologyAfterRoadClosureChange() {
+        if (window.__riyadhRoadSuppressMapPaint) {
+            syncDraftClosureMapLayers();
+            return;
+        }
         const lbl = getCurrentFeatureLabel();
         let updated = false;
 
@@ -1462,6 +1466,11 @@
             try {
                 window.clearRiyadhRoadDbFclassFromDatabase(roadId);
             } catch (eFclass) {}
+        }
+        if (roadId != null && typeof window.clearRiyadhRoadDbClosureFromDatabase === 'function') {
+            try {
+                window.clearRiyadhRoadDbClosureFromDatabase(roadId);
+            } catch (eClosure) {}
         }
         if (typeof window.syncRiyadhTileSelectionCoreForFeatureLabel === 'function') {
             try {
@@ -4724,8 +4733,9 @@
             typeof window.__roadGeometryEditActiveId !== 'undefined' &&
             window.__roadGeometryEditActiveId != null;
         const isDraftChange = isDraftRoadClosureChangeActive();
+        const postSaveOverlay = !!window.__riyadhPostSaveOverlayActive;
 
-        if (!geomEditActive && !isDraftChange) {
+        if (!geomEditActive && !isDraftChange && !postSaveOverlay) {
             hideSelectedOverlayPaint();
             syncDraftClosureMapLayers();
             return;

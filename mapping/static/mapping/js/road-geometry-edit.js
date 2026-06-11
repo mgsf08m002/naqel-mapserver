@@ -635,15 +635,21 @@
     }
 
     function stop() {
+        var preserveMvtHide = !!window.__riyadhPostSaveOverlayActive;
         cancelScheduledVisualSync();
         removeEditHint();
         var rid = roadId;
         var mapRef = mapInstance;
         removeOriginalGhostLayer(mapRef);
-        try {
-            window.__roadGeometryEditActiveId = null;
-        } catch (e0) {}
-        if (typeof window.reapplyRiyadhRoadLayerPaintStates === 'function') {
+        if (!preserveMvtHide) {
+            try {
+                window.__roadGeometryEditActiveId = null;
+            } catch (e0) {}
+        }
+        if (
+            !window.__riyadhRoadSuppressMapPaint &&
+            typeof window.reapplyRiyadhRoadLayerPaintStates === 'function'
+        ) {
             window.reapplyRiyadhRoadLayerPaintStates();
         }
         removeAllMarkers();
@@ -667,7 +673,7 @@
         doubleClickZoomWasEnabled = false;
         mapInstance = null;
 
-        if (typeof window.syncRiyadhRoadMapOverlayFromContext === 'function') {
+        if (!preserveMvtHide && typeof window.syncRiyadhRoadMapOverlayFromContext === 'function') {
             window.syncRiyadhRoadMapOverlayFromContext();
         }
         if (typeof window.syncRiyadhGeometryEditToolbarButton === 'function') {

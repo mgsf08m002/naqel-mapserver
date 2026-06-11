@@ -95,11 +95,24 @@ def published_fclass_from_edit_request(edit_request) -> str:
     return normalize_published_fclass(derived)
 
 
+def live_mutation_flags(
+    *,
+    geometry_changed: bool = False,
+    closure_applied: bool = False,
+) -> dict[str, bool]:
+    """Client map hints: geometry needs MVT reload; closure uses feature-state only."""
+    return {
+        "geometry_changed": bool(geometry_changed),
+        "closure_applied": bool(closure_applied),
+    }
+
+
 def network_mutation_payload(**fields: Any) -> dict[str, Any]:
     """
     Standard JSON fields every live riyadh_roads mutation should return.
 
     Always includes tiles_version; optional remote_road_id, fclass, deleted_road_id.
+    Pair with live_mutation_flags() for geometry_changed / closure_applied.
     """
     payload: dict[str, Any] = {"tiles_version": publish_riyadh_tiles_version()}
     for key, value in fields.items():

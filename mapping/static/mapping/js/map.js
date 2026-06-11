@@ -512,8 +512,9 @@ map.on('load', () => {
                     });
             }
 
-            // Symbology: coalesce(feature-state db_fclass, tile fclass).
+            // Symbology: coalesce(feature-state db_*, tile properties) for instant live edits.
             window.__riyadhRoadDbFclassById = window.__riyadhRoadDbFclassById || {};
+            window.__riyadhRoadDbClosureById = window.__riyadhRoadDbClosureById || {};
 
             function normalizeRiyadhDbFclassForTiles(raw) {
                 const s = String(raw || '').trim().toLowerCase();
@@ -558,60 +559,90 @@ map.on('load', () => {
                 } catch (eClr) {}
             };
 
-            /** Drop all transient db_fclass overrides so MVT tile properties are authoritative. */
-            window.clearAllRiyadhRoadDbFclassOverrides = function() {
-                const o = window.__riyadhRoadDbFclassById || {};
-                const ids = Object.keys(o);
-                window.__riyadhRoadDbFclassById = {};
-                if (!ids.length || !map.getSource(SOURCE_ID)) {
-                    return;
+            function normalizeRiyadhDbClosureForTiles(raw) {
+                if (raw === 1 || raw === '1' || raw === true) {
+                    return 1;
                 }
-                ids.forEach(function(k) {
-                    const idNum = parseInt(k, 10);
-                    if (Number.isNaN(idNum)) {
-                        return;
-                    }
-                    try {
-                        map.removeFeatureState(
-                            { source: SOURCE_ID, sourceLayer: SOURCE_LAYER, id: idNum },
-                            'db_fclass'
-                        );
-                    } catch (eClrAll) {}
-                });
-            };
-
-            function reapplyRiyadhRoadInFlightPreviewFclass() {
-                const shared = window.RiyadhRoadShared;
-                if (!shared || typeof shared.getRiyadhEditContext !== 'function') {
-                    return;
-                }
-                const ctx = shared.getRiyadhEditContext();
-                if (!ctx || !ctx.is_riyadh_road) {
-                    return;
-                }
-                const roadId = shared.getRiyadhRoadNetworkId(ctx);
-                const label = ctx.current_feature_label || ctx.feature_type || '';
-                const resolve =
-                    shared.resolveRiyadhFclassForFeatureState ||
-                    window.resolveRiyadhFclassForFeatureState;
-                if (typeof resolve !== 'function' || roadId == null) {
-                    return;
-                }
-                const fc = resolve(label);
-                if (fc) {
-                    window.applyRiyadhRoadDbFclassFromDatabase(roadId, fc);
-                }
+                return 0;
             }
 
-            function finishRiyadhRoadTilesReload() {
+            window.applyRiyadhRoadDbClosureFromDatabase = function(roadId, closureRaw) {
+                const idNum = roadId != null ? parseInt(String(roadId), 10) : NaN;
+                if (Number.isNaN(idNum)) {
+                    return;
+                }
+                const v = normalizeRiyadhDbClosureForTiles(closureRaw);
+                window.__riyadhRoadDbClosureById[String(idNum)] = v;
                 try {
-                    if (typeof window.clearAllRiyadhRoadDbFclassOverrides === 'function') {
-                        window.clearAllRiyadhRoadDbFclassOverrides();
+                    if (!map.getSource(SOURCE_ID)) {
+                        return;
                     }
-                    reapplyRiyadhRoadInFlightPreviewFclass();
+                    map.setFeatureState(
+                        { source: SOURCE_ID, sourceLayer: SOURCE_LAYER, id: idNum },
+                        { db_road_closure: v }
+                    );
+                } catch (eCls) {}
+            };
+
+            window.clearRiyadhRoadDbClosureFromDatabase = function(roadId) {
+                const idNum = roadId != null ? parseInt(String(roadId), 10) : NaN;
+                if (Number.isNaN(idNum)) {
+                    return;
+                }
+                const k = String(idNum);
+                if (window.__riyadhRoadDbClosureById) {
+                    delete window.__riyadhRoadDbClosureById[k];
+                }
+                try {
+                    if (!map.getSource(SOURCE_ID)) {
+                        return;
+                    }
+                    map.removeFeatureState(
+                        { source: SOURCE_ID, sourceLayer: SOURCE_LAYER, id: idNum },
+                        'db_road_closure'
+                    );
+                } catch (eClrCls) {}
+            };
+
+            function finishRiyadhRoadTilesReload() {
+                window.__riyadhRoadTilesReloading = false;
+                try {
+                    if (typeof window.endRiyadhPostSaveOverlayBridge === 'function') {
+                        window.endRiyadhPostSaveOverlayBridge();
+                    }
+                    reapplyRiyadhRoadLiveFeatureStates();
                     syncPublicRoadBasemapVisibility();
-                    reapplyRiyadhRoadLayerPaintStates();
                 } catch (eFinish) {}
+            }
+
+            function waitForRiyadhSourceSettled(callback) {
+                let settleTimer = null;
+                let finished = false;
+                const done = function() {
+                    if (finished) {
+                        return;
+                    }
+                    finished = true;
+                    try {
+                        map.off('sourcedata', onData);
+                    } catch (eOff) {}
+                    if (settleTimer) {
+                        clearTimeout(settleTimer);
+                        settleTimer = null;
+                    }
+                    callback();
+                };
+                const onData = function(e) {
+                    if (e.sourceId !== SOURCE_ID) {
+                        return;
+                    }
+                    if (settleTimer) {
+                        clearTimeout(settleTimer);
+                    }
+                    settleTimer = setTimeout(done, 120);
+                };
+                map.on('sourcedata', onData);
+                setTimeout(done, 900);
             }
 
             /** Authenticated maps use styled symbology only; hide duplicate gray public underlay. */
@@ -629,21 +660,39 @@ map.on('load', () => {
                 } catch (eVis) {}
             }
 
-            function reapplyRiyadhRoadDbFclassFeatureStates() {
-                const o = window.__riyadhRoadDbFclassById || {};
-                const ids = Object.keys(o);
-                if (ids.length) {
+            function reapplyRiyadhRoadLiveFeatureStates() {
+                const fclassMap = window.__riyadhRoadDbFclassById || {};
+                const closureMap = window.__riyadhRoadDbClosureById || {};
+                const ids = {};
+                Object.keys(fclassMap).forEach(function(k) {
+                    ids[k] = true;
+                });
+                Object.keys(closureMap).forEach(function(k) {
+                    ids[k] = true;
+                });
+                const idKeys = Object.keys(ids);
+                if (idKeys.length) {
                     try {
                         if (map.getSource(SOURCE_ID)) {
-                            ids.forEach(function(k) {
+                            idKeys.forEach(function(k) {
                                 const idNum = parseInt(k, 10);
                                 if (Number.isNaN(idNum)) {
+                                    return;
+                                }
+                                const state = {};
+                                if (fclassMap[k] != null) {
+                                    state.db_fclass = fclassMap[k];
+                                }
+                                if (closureMap[k] != null) {
+                                    state.db_road_closure = closureMap[k];
+                                }
+                                if (!Object.keys(state).length) {
                                     return;
                                 }
                                 try {
                                     map.setFeatureState(
                                         { source: SOURCE_ID, sourceLayer: SOURCE_LAYER, id: idNum },
-                                        { db_fclass: o[k] }
+                                        state
                                     );
                                 } catch (e2) {}
                             });
@@ -654,6 +703,8 @@ map.on('load', () => {
                     reapplyRiyadhRoadLayerPaintStates();
                 } catch (eR) {}
             }
+
+            window.reapplyRiyadhRoadLiveFeatureStates = reapplyRiyadhRoadLiveFeatureStates;
 
             window.__riyadhTileSelectionSuppressed = false;
             window.__riyadhTileSelectionFeatureLabel = '';
@@ -742,6 +793,9 @@ map.on('load', () => {
 
             /** Single source of truth for MVT road-network layer opacity after edits, selection, or tile reload. */
             function reapplyRiyadhRoadLayerPaintStates() {
+                if (window.__riyadhRoadSuppressMapPaint) {
+                    return;
+                }
                 try {
                     const editHiddenId = parseRiyadhRoadIdNum(window.__roadGeometryEditActiveId);
                     const closureDraftId = window.__riyadhClosureOverlayHiddenRoadId;
@@ -849,7 +903,8 @@ map.on('load', () => {
                         e.sourceId !== SOURCE_ID ||
                         e.dataType === 'tile' ||
                         !e.isSourceLoaded ||
-                        !map.isSourceLoaded(SOURCE_ID)
+                        !map.isSourceLoaded(SOURCE_ID) ||
+                        window.__riyadhRoadTilesReloading
                     ) {
                         return;
                     }
@@ -859,7 +914,7 @@ map.on('load', () => {
                     sourceSyncTimer = setTimeout(function() {
                         sourceSyncTimer = null;
                         try {
-                            reapplyRiyadhRoadDbFclassFeatureStates();
+                            reapplyRiyadhRoadLiveFeatureStates();
                         } catch (eSync) {}
                     }, 50);
                 });
@@ -970,7 +1025,15 @@ map.on('load', () => {
             }
 
             function buildEffectiveRoadClosureExpression() {
-                return ['to-number', ['coalesce', ['get', 'road_closure'], 0]];
+                return [
+                    'to-number',
+                    [
+                        'coalesce',
+                        ['feature-state', 'db_road_closure'],
+                        ['get', 'road_closure'],
+                        0
+                    ]
+                ];
             }
 
             function applySymbologyPaintToLayer(layerId, colorExpression, widthExpression, dashExpression) {
@@ -1558,7 +1621,7 @@ map.on('load', () => {
                     ensureRiyadhRoadLayerFromCatalog(window.symbologyCatalog);
                     ensureRiyadhRoadLabelsFromCatalog(window.symbologyCatalog);
                     syncPublicRoadBasemapVisibility();
-                    reapplyRiyadhRoadDbFclassFeatureStates();
+                    reapplyRiyadhRoadLiveFeatureStates();
                     return;
                 }
 
@@ -1567,7 +1630,7 @@ map.on('load', () => {
                         ensureRiyadhRoadLayerFromCatalog(catalog);
                         ensureRiyadhRoadLabelsFromCatalog(catalog);
                         syncPublicRoadBasemapVisibility();
-                        reapplyRiyadhRoadDbFclassFeatureStates();
+                        reapplyRiyadhRoadLiveFeatureStates();
                     })
                     .catch(function () {});
             }
@@ -1609,7 +1672,8 @@ map.on('load', () => {
                     window.__riyadhTilesVersion = resolved;
 
                     if (refreshRiyadhRoadsSourceTiles(resolved)) {
-                        map.once('idle', finishRiyadhRoadTilesReload);
+                        window.__riyadhRoadTilesReloading = true;
+                        waitForRiyadhSourceSettled(finishRiyadhRoadTilesReload);
                         return;
                     }
 
@@ -1682,7 +1746,8 @@ map.on('load', () => {
                         reapplyRiyadhRoadLayerPaintStates();
                     } catch (e4) {}
 
-                    map.once('idle', finishRiyadhRoadTilesReload);
+                    window.__riyadhRoadTilesReloading = true;
+                    waitForRiyadhSourceSettled(finishRiyadhRoadTilesReload);
                 } catch (e) {}
             };
 

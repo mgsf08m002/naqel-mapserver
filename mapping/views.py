@@ -61,6 +61,7 @@ from .riyadh_fields import (
     riyadh_decimal_eq,
 )
 from .riyadh_network import (
+    live_mutation_flags,
     network_mutation_payload,
     normalize_published_fclass,
     publish_riyadh_tiles_version,
@@ -929,6 +930,7 @@ def save_line_edit_request(request):
                     status=500,
                 )
 
+            response_geometry_changed = bool(geometry_changed) or not is_riyadh_road
             return JsonResponse(
                 {
                     "success": True,
@@ -936,8 +938,11 @@ def save_line_edit_request(request):
                     "request_id": created_request_id,
                     "auto_approved": True,
                     "pending_submitted": False,
-                    "closure_applied": bool(closure_changed),
                     "road_closure": road_closure,
+                    **live_mutation_flags(
+                        geometry_changed=response_geometry_changed,
+                        closure_applied=bool(closure_changed),
+                    ),
                     **network_mutation_payload(
                         remote_road_id=remote_road_id,
                         fclass=published_fclass,
@@ -1747,6 +1752,7 @@ def approve_edit_request(request, request_id):
                 {
                     "success": True,
                     "message": "Layer upload approved and published to the road network",
+                    **live_mutation_flags(geometry_changed=True),
                     **network_mutation_payload(
                         remote_road_id=remote_road_id,
                         fclass=published_fclass,
@@ -1756,6 +1762,8 @@ def approve_edit_request(request, request_id):
 
         deleted_road_id = None
         published_fclass = None
+        geometry_changed = bool(edit_request.geometry_changed)
+        closure_applied = False
         if is_delete_road_request(edit_request):
             deleted_road_id = (
                 int(edit_request.riyadh_road_id)
@@ -1765,6 +1773,21 @@ def approve_edit_request(request, request_id):
             _apply_delete_to_base_network(edit_request)
         else:
             if edit_request.is_riyadh_road:
+                road_before = _resolve_riyadh_road(edit_request.riyadh_road_id)
+                if road_before is not None:
+                    try:
+                        db_closure = int(getattr(road_before, "road_closure", 0) or 0)
+                    except (TypeError, ValueError):
+                        db_closure = 0
+                    try:
+                        req_closure = int(
+                            edit_request.road_closure
+                            if edit_request.road_closure is not None
+                            else db_closure
+                        )
+                    except (TypeError, ValueError):
+                        req_closure = db_closure
+                    closure_applied = db_closure != req_closure
                 _apply_riyadh_edit_to_base_network(edit_request)
                 remote_road_id = edit_request.riyadh_road_id
                 published_fclass = published_fclass_from_edit_request(edit_request)
@@ -1782,10 +1805,19 @@ def approve_edit_request(request, request_id):
         if deleted_road_id is not None:
             message = "Delete request approved; road removed from the network"
 
+        approve_geometry_changed = geometry_changed or (
+            remote_road_id is not None
+            and deleted_road_id is None
+            and not edit_request.is_riyadh_road
+        )
         return JsonResponse(
             {
                 "success": True,
                 "message": message,
+                **live_mutation_flags(
+                    geometry_changed=approve_geometry_changed,
+                    closure_applied=closure_applied,
+                ),
                 **network_mutation_payload(
                     remote_road_id=remote_road_id,
                     fclass=published_fclass,

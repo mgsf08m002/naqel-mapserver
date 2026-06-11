@@ -25,6 +25,7 @@ from mapping.presentation import (
 )
 from mapping.riyadh_network import (
     current_riyadh_tiles_version,
+    live_mutation_flags,
     network_mutation_payload,
     normalize_published_fclass,
     publish_riyadh_tiles_version,
@@ -65,6 +66,12 @@ class RiyadhNetworkUtilTests(SimpleTestCase):
         self.assertEqual(payload["remote_road_id"], 42)
         self.assertEqual(payload["fclass"], "primary")
         self.assertEqual(payload["tiles_version"], current_riyadh_tiles_version())
+
+    def test_live_mutation_flags(self):
+        self.assertEqual(
+            live_mutation_flags(geometry_changed=True, closure_applied=False),
+            {"geometry_changed": True, "closure_applied": False},
+        )
 
     def test_publish_riyadh_tiles_version_updates_current(self):
         first = publish_riyadh_tiles_version()

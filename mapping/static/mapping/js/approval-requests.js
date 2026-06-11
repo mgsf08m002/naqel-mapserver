@@ -1564,9 +1564,11 @@
                         }
                     } catch (eSel) {}
                 }
-                if (typeof window.applyLiveNetworkEditToMap === 'function') {
-                    window.applyLiveNetworkEditToMap(data, { reloadDelayMs: 0 });
-                }
+                window.runRiyadhRoadSaveMapTransition(function () {
+                    if (typeof window.applyRiyadhNetworkMutationResponse === 'function') {
+                        window.applyRiyadhNetworkMutationResponse(data, null);
+                    }
+                });
             } else {
                 showToast('Error: ' + (data.message || 'Approval failed'), 'error');
             }
