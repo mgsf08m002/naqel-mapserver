@@ -396,8 +396,8 @@ map.on('load', () => {
             const HOVER_NONE_ID = -999999;
             const ROAD_CLOSURE_ICON_LAYER_ID = 'riyadh-roads-closure-icons';
             const CLOSURE_ICON_IMAGE_ID = 'road-closure-no-entry';
-            /** Set when symbology paint runs; used for road-closure symbol opacity helpers. */
-            let riyadhIsClosedExprForIcons = null;
+            /** MVT `road_closure === 1` match; drives styled symbology, icons, and public-layer hide. */
+            let riyadhRoadClosureExpr = null;
 
             function loadSvgAsHtmlImage(url) {
                 return new Promise(function(resolve, reject) {
@@ -698,15 +698,7 @@ map.on('load', () => {
             }
 
             function buildEffectiveRoadClosureExpression() {
-                return [
-                    'to-number',
-                    [
-                        'coalesce',
-                        ['feature-state', 'db_road_closure'],
-                        ['get', 'road_closure'],
-                        0
-                    ]
-                ];
+                return ['to-number', ['coalesce', ['get', 'road_closure'], 0]];
             }
 
             function applySymbologyPaintToLayer(layerId, colorExpression, widthExpression, dashExpression) {
@@ -903,10 +895,7 @@ map.on('load', () => {
                             }
                         };
 
-                        /**
-                         * While the GeoJSON selection overlay shows draft road-closure symbology, hide the
-                         * MVT outline/ring/core so motorway colors are not painted on top of the overlay.
-                         */
+                        /** Hide MVT selection casing while the draft closure GeoJSON overlay is active. */
                         window.setRiyadhTileSelectionSuppressedForOverlay = function (suppressed) {
                             try {
                                 const opacity = suppressed ? 0 : 1;
@@ -1037,8 +1026,9 @@ map.on('load', () => {
                     } catch (e) {}
                 }
 
-                riyadhIsClosedExprForIcons = isClosedExpr;
+                riyadhRoadClosureExpr = isClosedExpr;
                 ensureRoadClosureIconLayer(isClosedExpr);
+                applyPublicLayerOpacity();
             }
 
             function sanitizeLabelingConfig(raw) {
@@ -1411,11 +1401,11 @@ map.on('load', () => {
                         } catch (e2) {}
                     });
                     try {
-                        if (map.getLayer(ROAD_CLOSURE_ICON_LAYER_ID) && riyadhIsClosedExprForIcons) {
+                        if (map.getLayer(ROAD_CLOSURE_ICON_LAYER_ID) && riyadhRoadClosureExpr) {
                             map.setPaintProperty(
                                 ROAD_CLOSURE_ICON_LAYER_ID,
                                 'icon-opacity',
-                                riyadhClosureIconOpacityWhenBasemapRoadHidden(roadIdToHide, hidden, riyadhIsClosedExprForIcons)
+                                riyadhClosureIconOpacityWhenBasemapRoadHidden(roadIdToHide, hidden, riyadhRoadClosureExpr)
                             );
                         }
                     } catch (eIcon) {}
@@ -1443,6 +1433,45 @@ map.on('load', () => {
                 ];
             }
 
+            /** Hide neutral public underlay for closed roads (styled layer draws closure dashes). */
+            function buildPublicLayerOpacityExpression(draftHiddenRoadId) {
+                const closedExpr = riyadhRoadClosureExpr;
+                const whenOpen =
+                    closedExpr != null ? ['case', closedExpr, 0, 1] : 1;
+                if (draftHiddenRoadId == null || draftHiddenRoadId === '') {
+                    return whenOpen;
+                }
+                const n = parseInt(String(draftHiddenRoadId), 10);
+                if (Number.isNaN(n)) {
+                    return whenOpen;
+                }
+                return [
+                    'case',
+                    [
+                        'any',
+                        ['==', ['get', 'id'], n],
+                        ['==', ['to-string', ['get', 'id']], String(n)],
+                        ['==', ['to-number', ['get', 'id']], n],
+                    ],
+                    0,
+                    whenOpen,
+                ];
+            }
+
+            function applyPublicLayerOpacity() {
+                try {
+                    if (!map.getLayer(PUBLIC_LAYER_ID)) {
+                        return;
+                    }
+                    const draftId = window.__riyadhClosureOverlayHiddenRoadId;
+                    map.setPaintProperty(
+                        PUBLIC_LAYER_ID,
+                        'line-opacity',
+                        buildPublicLayerOpacityExpression(draftId)
+                    );
+                } catch (ePub) {}
+            }
+
             window.setRiyadhRoadBasemapHiddenForClosureOverlay = function (roadId, hidden) {
                 try {
                     if (!map.getLayer(STYLED_LAYER_ID) || !map.getLayer(PUBLIC_LAYER_ID)) {
@@ -1453,13 +1482,13 @@ map.on('load', () => {
                             ? opacityZeroForRoadIdExpression(roadId)
                             : 1;
                     map.setPaintProperty(STYLED_LAYER_ID, 'line-opacity', op);
-                    map.setPaintProperty(PUBLIC_LAYER_ID, 'line-opacity', op);
+                    applyPublicLayerOpacity();
                     try {
-                        if (map.getLayer(ROAD_CLOSURE_ICON_LAYER_ID) && riyadhIsClosedExprForIcons) {
+                        if (map.getLayer(ROAD_CLOSURE_ICON_LAYER_ID) && riyadhRoadClosureExpr) {
                             const iconOp =
                                 hidden && roadId != null && roadId !== ''
-                                    ? riyadhClosureIconOpacityWhenBasemapRoadHidden(roadId, hidden, riyadhIsClosedExprForIcons)
-                                    : ['case', riyadhIsClosedExprForIcons, 1, 0];
+                                    ? riyadhClosureIconOpacityWhenBasemapRoadHidden(roadId, hidden, riyadhRoadClosureExpr)
+                                    : ['case', riyadhRoadClosureExpr, 1, 0];
                             map.setPaintProperty(ROAD_CLOSURE_ICON_LAYER_ID, 'icon-opacity', iconOp);
                         }
                     } catch (eIco) {}

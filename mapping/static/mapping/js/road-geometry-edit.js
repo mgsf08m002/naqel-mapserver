@@ -90,7 +90,9 @@
         var style = null;
         if (typeof window.getVisualizationStyle === 'function') {
             if (closed) {
-                style = window.getVisualizationStyle('Road Closure');
+                style = window.getVisualizationStyle(
+                    (window.RoadClosure && window.RoadClosure.FEATURE_LABEL) || 'Road Closure'
+                );
             }
             if (!style) {
                 style = window.getVisualizationStyle(label);
@@ -98,7 +100,8 @@
         }
         if (!style && window.symbologyCatalog && window.symbologyCatalog.styles_by_label) {
             var sbl = window.symbologyCatalog.styles_by_label;
-            style = (closed && sbl['Road Closure']) ? sbl['Road Closure'] : (sbl[label] || sbl['Line']);
+            var closureKey = (window.RoadClosure && window.RoadClosure.FEATURE_LABEL) || 'Road Closure';
+            style = (closed && sbl[closureKey]) ? sbl[closureKey] : (sbl[label] || sbl['Line']);
         }
 
         while (host.firstChild) {

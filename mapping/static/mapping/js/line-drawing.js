@@ -560,7 +560,7 @@
             }
             if (!geometry) {
                 src.setData({ type: 'FeatureCollection', features: [] });
-                syncRiyadhTileSelectionSuppressionForDraftClosure();
+                syncDraftClosureMapLayers();
                 return;
             }
             src.setData({
@@ -666,12 +666,16 @@
             }
         } catch (e) {}
         const data = window.approvedLineBeingEdited || window.selectedRiyadhRoad;
-        return !!data && parseRoadClosurePayloadValue(data.road_closure);
+        return !!data && window.parseRoadClosurePayloadValue(data.road_closure);
+    }
+
+    function closureFeatureLabel() {
+        return (window.RoadClosure && window.RoadClosure.FEATURE_LABEL) || 'Road Closure';
     }
 
     function getEffectiveVisualizationStyle(featureLabel) {
         if (isRoadClosedForCurrentContext()) {
-            return getVisualizationStyle('Road Closure');
+            return getVisualizationStyle(closureFeatureLabel());
         }
         return getVisualizationStyle(featureLabel);
     }
@@ -696,15 +700,17 @@
     }
 
     function isDraftRoadClosureChangeActive() {
-        const initial =
-            typeof window.initialRoadClosureState === 'boolean'
-                ? window.initialRoadClosureState
-                : null;
-        const current =
-            typeof window.currentRoadClosureState === 'boolean'
-                ? window.currentRoadClosureState
-                : null;
-        return initial !== null && current !== null ? initial !== current : !!current;
+        if (window.RoadClosure && typeof window.RoadClosure.isDraftChange === 'function') {
+            return window.RoadClosure.isDraftChange(
+                window.initialRoadClosureState,
+                window.currentRoadClosureState
+            );
+        }
+        return (
+            typeof window.initialRoadClosureState === 'boolean' &&
+            typeof window.currentRoadClosureState === 'boolean' &&
+            window.initialRoadClosureState !== window.currentRoadClosureState
+        );
     }
 
     function hideSelectedOverlayPaint() {
@@ -727,24 +733,23 @@
         } catch (eHide) {}
     }
 
-    function syncRiyadhTileSelectionSuppressionForDraftClosure() {
-        if (typeof window.setRiyadhTileSelectionSuppressedForOverlay !== 'function') {
-            return;
-        }
+    function syncDraftClosureMapLayers() {
         const ext = window.approvedLineBeingEdited || window.selectedRiyadhRoad || null;
-        const closureStyleReady = !!getVisualizationStyle('Road Closure');
-        const isDraftChange = isDraftRoadClosureChangeActive();
-        const suppress =
-            isDraftChange &&
+        const draftActive =
+            isDraftRoadClosureChangeActive() &&
             !!(ext && ext.is_riyadh_road && ext.geometry) &&
-            closureStyleReady;
+            !!getVisualizationStyle(closureFeatureLabel());
+        const rid = ext && (ext.riyadh_road_id != null ? ext.riyadh_road_id : ext.id);
+
         try {
-            window.setRiyadhTileSelectionSuppressedForOverlay(suppress);
-        } catch (e) {}
+            if (typeof window.setRiyadhTileSelectionSuppressedForOverlay === 'function') {
+                window.setRiyadhTileSelectionSuppressedForOverlay(draftActive);
+            }
+        } catch (eSel) {}
+
         try {
             if (typeof window.setRiyadhRoadBasemapHiddenForClosureOverlay === 'function') {
-                const rid = ext && (ext.riyadh_road_id != null ? ext.riyadh_road_id : ext.id);
-                if (suppress && rid != null) {
+                if (draftActive && rid != null) {
                     window.setRiyadhRoadBasemapHiddenForClosureOverlay(rid, true);
                 } else {
                     window.setRiyadhRoadBasemapHiddenForClosureOverlay(null, false);
@@ -753,15 +758,11 @@
         } catch (eBase) {}
     }
 
-    function parseRoadClosurePayloadValue(raw) {
-        return raw === 1 || raw === true || raw === '1' || (typeof raw === 'string' && String(raw).trim() === '1');
-    }
-
     function applyRoadClosureDraftAndInitialFromRaw(raw) {
         if (raw === undefined || raw === null) {
             return;
         }
-        const closed = parseRoadClosurePayloadValue(raw);
+        const closed = window.parseRoadClosurePayloadValue(raw);
         window.currentRoadClosureState = closed;
         window.initialRoadClosureState = closed;
     }
@@ -781,7 +782,7 @@
     }
 
     function syncRoadClosureStateAfterPersist(roadClosureRaw) {
-        const closed = parseRoadClosurePayloadValue(roadClosureRaw);
+        const closed = window.parseRoadClosurePayloadValue(roadClosureRaw);
         window.currentRoadClosureState = closed;
         window.initialRoadClosureState = closed;
         patchRoadClosureOnSelectionContext(closed);
@@ -811,8 +812,15 @@
                 const geom = getGeometryForRiyadhVisualization(ext);
                 const rid = ext.riyadh_road_id != null ? ext.riyadh_road_id : ext.id;
                 if (rid != null && geom) {
-                    setSelectedOverlayGeometry(geom);
-                    updateRiyadhRoadVisualization(rid, lbl, geom);
+                    const draftClosureOverlay = isDraftRoadClosureChangeActive();
+                    if (draftClosureOverlay) {
+                        setSelectedOverlayGeometry(geom);
+                        updateRiyadhRoadVisualization(rid, lbl, geom);
+                    } else {
+                        setSelectedOverlayGeometry(null);
+                        hideSelectedOverlayPaint();
+                        updateRiyadhRoadVisualization(rid, lbl, null);
+                    }
                     updateLineVisualizationFromGeometry(geom, lbl);
                     updated = true;
                 }
@@ -824,7 +832,7 @@
                 updateFeatureTypeVisualization();
             } catch (e3) {}
         }
-        syncRiyadhTileSelectionSuppressionForDraftClosure();
+        syncDraftClosureMapLayers();
         tryRefreshRoadShapeLegendSwatch();
     }
 
@@ -1344,7 +1352,7 @@
                 window.setRiyadhRoadSelectedId(null);
             }
             setSelectedOverlayGeometry(null);
-            syncRiyadhTileSelectionSuppressionForDraftClosure();
+            syncDraftClosureMapLayers();
         } catch (eClear) {}
 
         if (hadRiyadhContext && typeof window.setCurrentRoadClosure === 'function') {
@@ -1475,7 +1483,7 @@
 
         try {
             setSelectedOverlayGeometry(null);
-            syncRiyadhTileSelectionSuppressionForDraftClosure();
+            syncDraftClosureMapLayers();
         } catch (eOverlay) {}
 
         if (hadRiyadhContext && typeof window.setCurrentRoadClosure === 'function') {
@@ -2302,7 +2310,7 @@
             if (typeof window.syncRiyadhTileSelectionCoreForFeatureLabel === 'function') {
                 window.syncRiyadhTileSelectionCoreForFeatureLabel(null);
             }
-            syncRiyadhTileSelectionSuppressionForDraftClosure();
+            syncDraftClosureMapLayers();
         } catch (eClear) {}
     }
 
@@ -3220,8 +3228,12 @@
                 return;
             }
             const next = !window.getCurrentRoadClosure();
-            window.currentRoadClosureState = next;
-            paintRoadClosureToggle();
+            if (typeof window.setCurrentRoadClosure === 'function') {
+                window.setCurrentRoadClosure(next, { syncInitial: false });
+            } else {
+                window.currentRoadClosureState = next;
+                paintRoadClosureToggle();
+            }
             patchRoadClosureOnSelectionContext(next);
             refreshSymbologyAfterRoadClosureChange();
         });
@@ -4489,7 +4501,7 @@
         if (styles) {
             const extra = [];
             Object.keys(styles).forEach(function (k) {
-                if (!k || k === 'Line' || k === 'Road Closure' || covered[k]) {
+                if (!k || k === 'Line' || k === closureFeatureLabel() || covered[k]) {
                     return;
                 }
                 extra.push(k);
@@ -4696,32 +4708,23 @@
         ensureSelectedOverlayLayers();
         bringSelectedOverlayLayersToFront();
         const label = featureLabel || getCurrentFeatureLabel();
+        const isClosed = isRoadClosedForCurrentContext();
         const style = getEffectiveVisualizationStyle(label);
         if (!style) {
-            syncRiyadhTileSelectionSuppressionForDraftClosure();
+            syncDraftClosureMapLayers();
             return;
         }
-        const isClosed = isRoadClosedForCurrentContext();
-        const closureCatalog = getVisualizationStyle('Road Closure');
-        const baseCatalog = getVisualizationStyle(label);
-        const baseDasharray = getEffectiveDashArray(style);
-        const lineDasharray =
-            isClosed && closureCatalog && closureCatalog.lineDasharray && Array.isArray(closureCatalog.lineDasharray)
-                ? closureCatalog.lineDasharray
-                : baseDasharray;
+        const lineDasharray = getEffectiveDashArray(style);
         const casingOpts = getCasingOptionsForDash(lineDasharray);
         const mls = mapLineSelection();
-        const w = Number(style.lineWidth) || 4;
-        const corePaint = mls.buildEditingCorePaint(style, lineDasharray, label);
+        const paintLabel = isClosed ? closureFeatureLabel() : label;
+        const corePaint =
+            (window.RoadClosure && window.RoadClosure.corePaintFromStyle && isClosed
+                ? window.RoadClosure.corePaintFromStyle(mls, style, lineDasharray)
+                : null) || mls.buildEditingCorePaint(style, lineDasharray, paintLabel);
         const c = corePaint['line-color'];
-        const coreW = mls.isPlaceholderFeatureLabel(label) ? mls.GEOJSON_CORE_WIDTH : w;
-        const coreLineW =
-            isClosed && closureCatalog
-                ? Math.max(
-                      Number(closureCatalog.lineWidth) || 3,
-                      baseCatalog ? Number(baseCatalog.lineWidth) || 0 : 0
-                  )
-                : w;
+        const coreW = mls.isPlaceholderFeatureLabel(label) ? mls.GEOJSON_CORE_WIDTH : Number(style.lineWidth) || 4;
+        const coreLineW = Number(style.lineWidth) || mls.GEOJSON_CORE_WIDTH;
         const geomEditActive =
             typeof window.__roadGeometryEditActiveId !== 'undefined' &&
             window.__roadGeometryEditActiveId != null;
@@ -4729,7 +4732,7 @@
 
         if (!geomEditActive && !isDraftChange) {
             hideSelectedOverlayPaint();
-            syncRiyadhTileSelectionSuppressionForDraftClosure();
+            syncDraftClosureMapLayers();
             return;
         }
         try {
@@ -4780,7 +4783,7 @@
             }
         } catch (e) {
         }
-        syncRiyadhTileSelectionSuppressionForDraftClosure();
+        syncDraftClosureMapLayers();
     }
 
     function isRiyadhSymbologyFclassMapsReady() {
@@ -4855,7 +4858,7 @@
         if (geometry && typeof map !== 'undefined' && map) {
             applySelectedOverlaySymbologyPaint(newFeatureLabel);
         } else {
-            syncRiyadhTileSelectionSuppressionForDraftClosure();
+            syncDraftClosureMapLayers();
         }
     }
 
@@ -4901,7 +4904,6 @@
     window.addMultilingualNameField = addMultilingualNameField;
     
     window.getVisualizationStyle = getVisualizationStyle;
-    window.parseRoadClosurePayloadValue = parseRoadClosurePayloadValue;
     window.syncRoadClosureStateAfterPersist = syncRoadClosureStateAfterPersist;
     window.removeMapLibreLineLayer = removeMapLibreLineLayer;
     window.clearDraftLineDrawingFromMap = clearDraftLineDrawingFromMap;
@@ -5178,7 +5180,7 @@
     window.hasMapRoadSelection = hasMapRoadSelection;
 
     window.setSelectedOverlayGeometry = setSelectedOverlayGeometry;
-    window.syncRiyadhTileSelectionSuppressionForDraftClosure = syncRiyadhTileSelectionSuppressionForDraftClosure;
+    window.syncDraftClosureMapLayers = syncDraftClosureMapLayers;
 
     try {
         if (window.symbologyCatalog && window.symbologyCatalog.styles_by_label) {

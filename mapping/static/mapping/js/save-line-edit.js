@@ -666,8 +666,8 @@
                             if (typeof window.setSelectedOverlayGeometry === 'function') {
                                 window.setSelectedOverlayGeometry(null);
                             }
-                            if (typeof window.syncRiyadhTileSelectionSuppressionForDraftClosure === 'function') {
-                                window.syncRiyadhTileSelectionSuppressionForDraftClosure();
+                            if (typeof window.syncDraftClosureMapLayers === 'function') {
+                                window.syncDraftClosureMapLayers();
                             }
                         } catch (eClear) {}
                     } else {

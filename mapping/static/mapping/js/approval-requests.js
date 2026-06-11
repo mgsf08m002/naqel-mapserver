@@ -908,8 +908,10 @@
         const isRoadClosed =
             typeof window.parseRoadClosurePayloadValue === "function" &&
             window.parseRoadClosurePayloadValue(request.road_closure);
+        const closureLabel =
+            (window.RoadClosure && window.RoadClosure.FEATURE_LABEL) || "Road Closure";
         const getStyle = window.getVisualizationStyle;
-        const closureStyle = typeof getStyle === "function" ? getStyle("Road Closure") : null;
+        const closureStyle = typeof getStyle === "function" ? getStyle(closureLabel) : null;
         const featureStyle = typeof getStyle === "function" ? getStyle(request.current_feature_label || "Unnamed Road") : null;
         const style = (isRoadClosed && closureStyle) ? closureStyle : featureStyle;
         if (!style) {
@@ -922,11 +924,17 @@
         if (!mls) {
             return;
         }
-        var pair = mls.maplibreSelectionCasingPaintPair(
-            style.lineWidth,
-            lineDasharray,
-            isRoadClosed ? { dashOnlyOnCore: true } : undefined
-        );
+        var corePaint =
+            isRoadClosed && window.RoadClosure && window.RoadClosure.corePaintFromStyle
+                ? window.RoadClosure.corePaintFromStyle(mls, style, lineDasharray)
+                : mls.buildEditingCorePaint(
+                      style,
+                      lineDasharray,
+                      request.current_feature_label || "Unnamed Road"
+                  );
+        var pair = isRoadClosed
+            ? null
+            : mls.maplibreSelectionCasingPaintPair(style.lineWidth, lineDasharray);
 
         try {
             if (map.getLayer(layerId)) {
@@ -948,23 +956,29 @@
                     geometry: request.geometry
                 }
             });
-            map.addLayer({
-                id: outlineLayerId,
-                type: 'line',
-                source: sourceId,
-                paint: pair.outline
-            });
-            map.addLayer({
-                id: ringLayerId,
-                type: 'line',
-                source: sourceId,
-                paint: pair.ring
-            });
+            if (pair) {
+                map.addLayer({
+                    id: outlineLayerId,
+                    type: 'line',
+                    source: sourceId,
+                    paint: pair.outline
+                });
+                map.addLayer({
+                    id: ringLayerId,
+                    type: 'line',
+                    source: sourceId,
+                    paint: pair.ring
+                });
+            }
             map.addLayer({
                 id: layerId,
                 type: 'line',
                 source: sourceId,
-                paint: mls.geoJsonSelectionCorePaint(lineDasharray)
+                layout: {
+                    'line-cap': isRoadClosed ? 'butt' : 'round',
+                    'line-join': 'round'
+                },
+                paint: corePaint
             });
         } catch (error) {}
     }
