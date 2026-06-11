@@ -54,7 +54,7 @@ def symbology_sync_version_ms() -> int:
 
 
 def riyadh_map_sync_payload() -> dict[str, int]:
-    """Public sync payload for naqel-map / GEOTRAK polling."""
+    """Public sync payload for naqel-map / GEOTRAK polling (soft MVT reload on change)."""
     return {
         "tiles_version": current_riyadh_tiles_version(),
         "symbology_version": symbology_sync_version_ms(),
