@@ -558,6 +558,77 @@ map.on('load', () => {
                 } catch (eClr) {}
             };
 
+            /** Drop all transient db_fclass overrides so MVT tile properties are authoritative. */
+            window.clearAllRiyadhRoadDbFclassOverrides = function() {
+                const o = window.__riyadhRoadDbFclassById || {};
+                const ids = Object.keys(o);
+                window.__riyadhRoadDbFclassById = {};
+                if (!ids.length || !map.getSource(SOURCE_ID)) {
+                    return;
+                }
+                ids.forEach(function(k) {
+                    const idNum = parseInt(k, 10);
+                    if (Number.isNaN(idNum)) {
+                        return;
+                    }
+                    try {
+                        map.removeFeatureState(
+                            { source: SOURCE_ID, sourceLayer: SOURCE_LAYER, id: idNum },
+                            'db_fclass'
+                        );
+                    } catch (eClrAll) {}
+                });
+            };
+
+            function reapplyRiyadhRoadInFlightPreviewFclass() {
+                const shared = window.RiyadhRoadShared;
+                if (!shared || typeof shared.getRiyadhEditContext !== 'function') {
+                    return;
+                }
+                const ctx = shared.getRiyadhEditContext();
+                if (!ctx || !ctx.is_riyadh_road) {
+                    return;
+                }
+                const roadId = shared.getRiyadhRoadNetworkId(ctx);
+                const label = ctx.current_feature_label || ctx.feature_type || '';
+                const resolve =
+                    shared.resolveRiyadhFclassForFeatureState ||
+                    window.resolveRiyadhFclassForFeatureState;
+                if (typeof resolve !== 'function' || roadId == null) {
+                    return;
+                }
+                const fc = resolve(label);
+                if (fc) {
+                    window.applyRiyadhRoadDbFclassFromDatabase(roadId, fc);
+                }
+            }
+
+            function finishRiyadhRoadTilesReload() {
+                try {
+                    if (typeof window.clearAllRiyadhRoadDbFclassOverrides === 'function') {
+                        window.clearAllRiyadhRoadDbFclassOverrides();
+                    }
+                    reapplyRiyadhRoadInFlightPreviewFclass();
+                    syncPublicRoadBasemapVisibility();
+                    reapplyRiyadhRoadLayerPaintStates();
+                } catch (eFinish) {}
+            }
+
+            /** Authenticated maps use styled symbology only; hide duplicate gray public underlay. */
+            function syncPublicRoadBasemapVisibility() {
+                if (!map.getLayer(PUBLIC_LAYER_ID)) {
+                    return;
+                }
+                const hidePublic = !!map.getLayer(STYLED_LAYER_ID);
+                try {
+                    map.setLayoutProperty(
+                        PUBLIC_LAYER_ID,
+                        'visibility',
+                        hidePublic ? 'none' : 'visible'
+                    );
+                } catch (eVis) {}
+            }
+
             function reapplyRiyadhRoadDbFclassFeatureStates() {
                 const o = window.__riyadhRoadDbFclassById || {};
                 const ids = Object.keys(o);
@@ -1167,6 +1238,7 @@ map.on('load', () => {
 
                 riyadhRoadClosureExpr = isClosedExpr;
                 ensureRoadClosureIconLayer(isClosedExpr);
+                syncPublicRoadBasemapVisibility();
                 reapplyRiyadhRoadLayerPaintStates();
             }
 
@@ -1485,6 +1557,7 @@ map.on('load', () => {
                 if (window.symbologyCatalog && window.symbologyCatalog.styles_by_label) {
                     ensureRiyadhRoadLayerFromCatalog(window.symbologyCatalog);
                     ensureRiyadhRoadLabelsFromCatalog(window.symbologyCatalog);
+                    syncPublicRoadBasemapVisibility();
                     reapplyRiyadhRoadDbFclassFeatureStates();
                     return;
                 }
@@ -1493,9 +1566,19 @@ map.on('load', () => {
                     .then(function (catalog) {
                         ensureRiyadhRoadLayerFromCatalog(catalog);
                         ensureRiyadhRoadLabelsFromCatalog(catalog);
+                        syncPublicRoadBasemapVisibility();
                         reapplyRiyadhRoadDbFclassFeatureStates();
                     })
                     .catch(function () {});
+            }
+
+            if (HAS_RIYADH_ROADS_TILES) {
+                map.once('idle', function() {
+                    try {
+                        syncPublicRoadBasemapVisibility();
+                        reapplyRiyadhRoadLayerPaintStates();
+                    } catch (eInitIdle) {}
+                });
             }
 
             // MVT paint is applied from requestCatalog (initial + prefetch) and after tile reload.
@@ -1526,9 +1609,7 @@ map.on('load', () => {
                     window.__riyadhTilesVersion = resolved;
 
                     if (refreshRiyadhRoadsSourceTiles(resolved)) {
-                        map.once('idle', function() {
-                            reapplyRiyadhRoadDbFclassFeatureStates();
-                        });
+                        map.once('idle', finishRiyadhRoadTilesReload);
                         return;
                     }
 
@@ -1597,12 +1678,11 @@ map.on('load', () => {
                     }
 
                     try {
+                        syncPublicRoadBasemapVisibility();
                         reapplyRiyadhRoadLayerPaintStates();
                     } catch (e4) {}
 
-                    map.once('idle', function() {
-                        reapplyRiyadhRoadDbFclassFeatureStates();
-                    });
+                    map.once('idle', finishRiyadhRoadTilesReload);
                 } catch (e) {}
             };
 

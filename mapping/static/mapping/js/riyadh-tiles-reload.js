@@ -93,6 +93,7 @@
 
     /**
      * Apply symbology hints and reload tiles after a live network mutation response.
+     * db_fclass is a short-lived preview until tiles reload; map.js clears overrides on idle.
      *
      * @param {object} data - API JSON (tiles_version, remote_road_id, fclass, deleted_road_id)
      * @param {object} [options] - { editData, reloadDelayMs }

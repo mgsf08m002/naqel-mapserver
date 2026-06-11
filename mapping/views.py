@@ -48,7 +48,11 @@ from .approval_categories import (
     is_layer_upload_request,
 )
 from .models import LineEditRequest, RiyadhRoad
-from .riyadh_fclass import ensure_riyadh_fclass_in_fields, feature_label_from_riyadh_fclass
+from .riyadh_fclass import (
+    apply_riyadh_fclass_from_feature_label,
+    ensure_riyadh_fclass_in_fields,
+    feature_label_from_riyadh_fclass,
+)
 from .riyadh_fields import (
     RIYADH_FIELDS_NON_REVIEWABLE,
     RIYADH_FIELDS_OMIT_FROM_TAGS,
@@ -801,6 +805,11 @@ def save_line_edit_request(request):
         feature_label = str(
             data.get("current_feature_label") or data.get("feature_type") or ""
         ).strip()
+        fields_data = apply_riyadh_fclass_from_feature_label(
+            fields_data,
+            current_feature_label=feature_label,
+            feature_type=feature_label,
+        )
         if not feature_label or feature_label.lower() == "line":
             return JsonResponse(
                 {
@@ -1025,6 +1034,23 @@ def save_line_edit_request(request):
 
 
 def _apply_riyadh_edit_to_base_network(edit_request):
+    fields = apply_riyadh_fclass_from_feature_label(
+        edit_request.fields_data or {},
+        current_feature_label=edit_request.current_feature_label,
+        feature_type=edit_request.feature_type,
+    )
+    road_kwargs = {
+        "name": fields.get("name") or "",
+        "ref": fields.get("ref") or "",
+        "fclass": fields.get("fclass") or "",
+        "oneway": fields.get("oneway") or "",
+        "maxspeed": fields.get("maxspeed"),
+        "code": fields.get("code"),
+        "bridge": fields.get("bridge") or "",
+        "tunnel": fields.get("tunnel") or "",
+        "layer": fields.get("layer"),
+    }
+
     geometry_json = edit_request.geometry
     geom = None
     if geometry_json:
@@ -1048,25 +1074,6 @@ def _apply_riyadh_edit_to_base_network(edit_request):
         elif geom is not None and geom.geom_type != "MultiLineString":
             # Fallback: do not assign unsupported geometry types.
             geom = None
-
-        fields = edit_request.fields_data or {}
-        ensure_riyadh_fclass_in_fields(
-            fields,
-            current_feature_label=edit_request.current_feature_label,
-            feature_type=edit_request.feature_type,
-        )
-
-        road_kwargs = {
-            "name": fields.get("name") or "",
-            "ref": fields.get("ref") or "",
-            "fclass": fields.get("fclass") or "",
-            "oneway": fields.get("oneway") or "",
-            "maxspeed": fields.get("maxspeed"),
-            "code": fields.get("code"),
-            "bridge": fields.get("bridge") or "",
-            "tunnel": fields.get("tunnel") or "",
-            "layer": fields.get("layer"),
-        }
 
     road = None
     if edit_request.riyadh_road_id is not None:
@@ -1835,7 +1842,7 @@ def reject_edit_request(request, request_id):
 
 @login_required
 @require_http_methods(["GET"])
-def get_riyadh_road_details(request, road_gid):
+def get_riyadh_road_details(request, road_gid):  # URL segment; value is tile network `id`
     """
     Return geometry and metadata for a single Riyadh road.
 

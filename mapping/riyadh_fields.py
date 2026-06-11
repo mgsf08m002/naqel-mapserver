@@ -8,7 +8,7 @@ from decimal import Decimal
 # Sidebar controls: name + closure; mirrored UI-only keys excluded from tag rows.
 RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS = frozenset({"name", "road_closure"})
 RIYADH_FIELDS_UI_ONLY = frozenset({"common_name", "multilingual_names"})
-RIYADH_FIELDS_OMIT_FROM_TAGS = RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS | RIYADH_FIELDS_UI_ONLY
+RIYADH_FIELDS_OMIT_FROM_TAGS = RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS | RIYADH_FIELDS_UI_ONLY | frozenset({"fclass"})
 
 # DB identifiers present in payloads but not reviewable attribute edits.
 RIYADH_FIELDS_NON_REVIEWABLE = frozenset({"gid", "id", "objectid"})

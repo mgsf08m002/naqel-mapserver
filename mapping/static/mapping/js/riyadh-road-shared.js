@@ -10,6 +10,8 @@
         road_closure: true,
         common_name: true,
         multilingual_names: true,
+        // Feature Type is canonical; tag copies caused stale fclass on save.
+        fclass: true,
     };
 
     function buildRiyadhRoadTagsFromFields(fieldsData) {
@@ -47,11 +49,36 @@
         return ctx.riyadh_road_id != null ? ctx.riyadh_road_id : ctx.id;
     }
 
+    function isRiyadhSymbologyFclassMapsReady() {
+        var inv =
+            global.symbologyCatalog &&
+            global.symbologyCatalog.riyadh_label_to_fclass;
+        return !!(inv && typeof inv === 'object');
+    }
+
+    function resolveRiyadhFclassForFeatureState(featureLabel) {
+        var labIn = (featureLabel != null ? String(featureLabel) : '').trim();
+        var inv =
+            global.symbologyCatalog &&
+            global.symbologyCatalog.riyadh_label_to_fclass;
+        if (labIn && inv) {
+            var mapped = inv[labIn.toLowerCase()];
+            if (mapped) {
+                return mapped;
+            }
+        }
+        return null;
+    }
+
     global.RiyadhRoadShared = {
         RIYADH_FIELD_KEYS_OMIT_FROM_TAGS: RIYADH_FIELD_KEYS_OMIT_FROM_TAGS,
         buildRiyadhRoadTagsFromFields: buildRiyadhRoadTagsFromFields,
         normalizeRiyadhRoadTags: normalizeRiyadhRoadTags,
         getRiyadhEditContext: getRiyadhEditContext,
         getRiyadhRoadNetworkId: getRiyadhRoadNetworkId,
+        isRiyadhSymbologyFclassMapsReady: isRiyadhSymbologyFclassMapsReady,
+        resolveRiyadhFclassForFeatureState: resolveRiyadhFclassForFeatureState,
     };
+
+    global.resolveRiyadhFclassForFeatureState = resolveRiyadhFclassForFeatureState;
 })(typeof window !== 'undefined' ? window : this);

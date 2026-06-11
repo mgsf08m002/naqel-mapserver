@@ -84,6 +84,17 @@ class RiyadhNetworkUtilTests(SimpleTestCase):
         request.feature_type = "Primary Road"
         self.assertEqual(published_fclass_from_edit_request(request), "primary")
 
+    def test_apply_riyadh_fclass_from_feature_label_overrides_stale_fields(self):
+        from mapping.riyadh_fclass import apply_riyadh_fclass_from_feature_label
+
+        fields = apply_riyadh_fclass_from_feature_label(
+            {"fclass": "residential", "ref": "R1"},
+            current_feature_label="Motorway",
+            feature_type="Motorway",
+        )
+        self.assertEqual(fields["fclass"], "motorway")
+        self.assertEqual(fields["ref"], "R1")
+
 
 class RiyadhRoadsTileProxyTests(TestCase):
     def setUp(self):

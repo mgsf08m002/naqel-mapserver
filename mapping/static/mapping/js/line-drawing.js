@@ -1448,9 +1448,11 @@
         }
 
         const roadCtx = window.selectedRiyadhRoad || window.approvedLineBeingEdited || null;
-        const roadId = roadCtx && roadCtx.is_riyadh_road
-            ? (roadCtx.riyadh_road_id != null ? roadCtx.riyadh_road_id : roadCtx.id)
-            : null;
+        const shared = riyadhShared();
+        const roadId =
+            roadCtx && roadCtx.is_riyadh_road && shared
+                ? shared.getRiyadhRoadNetworkId(roadCtx)
+                : null;
         const hadRiyadhContext = !!roadCtx;
 
         if (typeof window.setRiyadhRoadSelectedId === 'function') {
@@ -4780,18 +4782,18 @@
     }
 
     function isRiyadhSymbologyFclassMapsReady() {
-        const inv = window.symbologyCatalog && window.symbologyCatalog.riyadh_label_to_fclass;
-        return !!(inv && typeof inv === 'object');
+        const shared = riyadhShared();
+        return !!(
+            shared &&
+            typeof shared.isRiyadhSymbologyFclassMapsReady === 'function' &&
+            shared.isRiyadhSymbologyFclassMapsReady()
+        );
     }
 
     function resolveRiyadhFclassForFeatureState(featureLabel) {
-        const labIn = (featureLabel != null ? String(featureLabel) : '').trim();
-        const inv = window.symbologyCatalog && window.symbologyCatalog.riyadh_label_to_fclass;
-        if (labIn && inv) {
-            const mapped = inv[labIn.toLowerCase()];
-            if (mapped) {
-                return mapped;
-            }
+        const shared = riyadhShared();
+        if (shared && typeof shared.resolveRiyadhFclassForFeatureState === 'function') {
+            return shared.resolveRiyadhFclassForFeatureState(featureLabel);
         }
         return null;
     }
@@ -4807,6 +4809,7 @@
                     delete fd.fclass;
                 }
                 r.fields_data = fd;
+                normalizeRiyadhRoadTagsFromFields(r);
             }
         });
     }
@@ -4901,7 +4904,6 @@
     window.removeMapLibreLineLayer = removeMapLibreLineLayer;
     window.clearDraftLineDrawingFromMap = clearDraftLineDrawingFromMap;
     window.clearVertexMarkers = clearVertexMarkers;
-    window.resolveRiyadhFclassForFeatureState = resolveRiyadhFclassForFeatureState;
 
     // Local helpers to populate the edit sidepanel with external
     // line/road data (used when the manager approval script is not present).

@@ -15,6 +15,7 @@ from django.db.models import Count, Max
 from django.utils import timezone
 
 from mapping.riyadh_fclass import (
+    apply_riyadh_fclass_from_feature_label,
     ensure_riyadh_fclass_in_fields,
     feature_label_from_riyadh_fclass,
 )
@@ -135,7 +136,7 @@ def prepare_road_fields_for_publish(
     else:
         fields = properties_to_road_fields(properties)
 
-    ensure_riyadh_fclass_in_fields(
+    fields = apply_riyadh_fclass_from_feature_label(
         fields,
         current_feature_label=current_feature_label,
         feature_type=current_feature_label,

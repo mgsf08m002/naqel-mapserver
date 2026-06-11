@@ -101,6 +101,32 @@ def ensure_riyadh_fclass_in_fields(
         fields["fclass"] = derived
 
 
+def apply_riyadh_fclass_from_feature_label(
+    fields: dict[str, Any] | None,
+    *,
+    current_feature_label: str | None,
+    feature_type: str | None,
+) -> dict[str, Any]:
+    """
+    Canonical ``fclass`` for DB / MVT writes.
+
+    The sidebar Feature Type is authoritative; stale copies in tags or fields_data
+    must not override the chosen label when persisting to riyadh_roads.
+    """
+    out = dict(fields or {})
+    effective_label = (current_feature_label or feature_type or "").strip()
+    derived = riyadh_fclass_for_persistence(effective_label)
+    if derived:
+        out["fclass"] = derived
+        return out
+    ensure_riyadh_fclass_in_fields(
+        out,
+        current_feature_label=current_feature_label,
+        feature_type=feature_type,
+    )
+    return out
+
+
 def riyadh_fclass_for_persistence(feature_label: str | None) -> str | None:
     """
     Map a sidebar feature label to the value stored in ``riyadh_roads.fclass``:

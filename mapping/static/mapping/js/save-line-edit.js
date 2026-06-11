@@ -5,7 +5,11 @@
         name: true,
         road_closure: true,
         common_name: true,
-        multilingual_names: true
+        multilingual_names: true,
+        fclass: true,
+        gid: true,
+        id: true,
+        objectid: true,
     };
 
     /** Riyadh road: snapshot missing, unchanged diff, or non-classified pending edit. */
@@ -36,6 +40,63 @@
             return window.approvedLineBeingEdited._original_feature_label;
         }
         return null;
+    }
+
+    function syncRiyadhRoadContextAfterPersist(editData, serverData) {
+        if (!editData || !editData.is_riyadh_road) {
+            return;
+        }
+        const label = String(
+            editData.current_feature_label || editData.feature_type || ''
+        ).trim();
+        let fc =
+            (serverData && serverData.fclass) ||
+            (editData.fields_data && editData.fields_data.fclass) ||
+            '';
+        if (!fc && typeof window.resolveRiyadhFclassForFeatureState === 'function') {
+            fc = window.resolveRiyadhFclassForFeatureState(label) || '';
+        }
+        [window.approvedLineBeingEdited, window.selectedRiyadhRoad].forEach(function (r) {
+            if (!r || !r.is_riyadh_road) {
+                return;
+            }
+            if (label) {
+                r.current_feature_label = label;
+                r.feature_type = label;
+            }
+            const fd = Object.assign({}, r.fields_data || {});
+            if (fc) {
+                fd.fclass = fc;
+            }
+            r.fields_data = fd;
+            if (
+                window.RiyadhRoadShared &&
+                typeof window.RiyadhRoadShared.normalizeRiyadhRoadTags === 'function'
+            ) {
+                window.RiyadhRoadShared.normalizeRiyadhRoadTags(r);
+            }
+        });
+        try {
+            const nameEl = document.getElementById('selectedFeatureName');
+            const vizName = document.getElementById('lineVisualizationFeatureName');
+            const curVal = document.getElementById('currentFeatureValue');
+            if (label && nameEl) {
+                nameEl.textContent = label;
+            }
+            if (label && vizName) {
+                vizName.textContent = label;
+            }
+            if (label && curVal) {
+                curVal.textContent = label;
+            }
+            if (
+                label &&
+                window.lineDrawingHandler &&
+                typeof window.lineDrawingHandler.updateCurrentFeatureLabel === 'function'
+            ) {
+                window.lineDrawingHandler.updateCurrentFeatureLabel(label);
+            }
+        } catch (eUi) {}
     }
 
     function revertPendingApprovalVisualization(editData) {
@@ -767,6 +828,10 @@
                         editData: editData,
                         reloadDelayMs: autoApproved ? 400 : 0,
                     });
+                }
+
+                if (!pendingSubmitted && editData.is_riyadh_road) {
+                    syncRiyadhRoadContextAfterPersist(editData, data);
                 }
 
                 const outcomeOpts = {
