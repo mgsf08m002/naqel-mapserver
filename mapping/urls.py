@@ -5,6 +5,11 @@ app_name = 'mapping'
 
 urlpatterns = [
     path(
+        'api/riyadh-roads-map-sync/',
+        views.riyadh_roads_map_sync,
+        name='riyadh_roads_map_sync',
+    ),
+    path(
         'tiles/riyadh_roads/<int:z>/<int:x>/<int:y>/',
         views.riyadh_roads_tile_proxy,
         name='riyadh_roads_tile_proxy',

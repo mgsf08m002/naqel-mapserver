@@ -18,7 +18,7 @@ from mapping.riyadh_fclass import (
     ensure_riyadh_fclass_in_fields,
     feature_label_from_riyadh_fclass,
 )
-from mapping.riyadh_network import tiles_version_ms
+from mapping.riyadh_network import publish_riyadh_tiles_version
 
 from .access import user_layer_uploads_apply_immediately
 from .models import Feature, Layer
@@ -346,7 +346,7 @@ def _auto_publish_manager_self_upload(
         feature_count=len(features),
         auto_published=True,
         published_count=len(published_ids),
-        tiles_version=tiles_version_ms() if published_ids else None,
+        tiles_version=publish_riyadh_tiles_version() if published_ids else None,
         errors=errors,
     )
 

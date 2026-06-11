@@ -19,5 +19,8 @@ def symbology_catalog(request):
         **riyadh_fclass,
         "road_labeling": road_labeling,
     }
-    return JsonResponse(payload)
+    response = JsonResponse(payload)
+    response["Access-Control-Allow-Origin"] = "*"
+    response["Cache-Control"] = "no-store, max-age=0"
+    return response
 

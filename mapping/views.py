@@ -52,8 +52,9 @@ from .riyadh_fclass import ensure_riyadh_fclass_in_fields, feature_label_from_ri
 from .riyadh_network import (
     network_mutation_payload,
     normalize_published_fclass,
+    publish_riyadh_tiles_version,
     published_fclass_from_edit_request,
-    tiles_version_ms,
+    riyadh_map_sync_payload,
 )
 
 logger = logging.getLogger(__name__)
@@ -222,6 +223,20 @@ def _persist_riyadh_road_label_columns(road, label_text):
             """,
             [raw_label, next_en or None, next_ar or None, int(gid_value)],
         )
+
+
+@require_http_methods(["GET"])
+def riyadh_roads_map_sync(request):
+    """
+    Public sync endpoint for companion map apps (naqel-map / GEOTRAK).
+
+    Returns global tiles_version (bumps on every riyadh_roads edit) and
+    symbology_version (symbology.json / labeling.json changes).
+    """
+    response = JsonResponse(riyadh_map_sync_payload())
+    response["Cache-Control"] = "no-store, max-age=0"
+    response["Access-Control-Allow-Origin"] = "*"
+    return response
 
 
 @require_http_methods(["GET"])
@@ -839,7 +854,7 @@ def save_line_edit_request(request):
                 _apply_riyadh_road_closure_remote(riyadh_road_id_int, road_closure)
                 if road:
                     road.refresh_from_db(using="riyadh_roads")
-                closure_tiles_version = tiles_version_ms()
+                closure_tiles_version = publish_riyadh_tiles_version()
             except Exception as e:
                 logger.warning("Immediate road closure update failed: %s", e)
                 return JsonResponse(

@@ -3,16 +3,62 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Any
 
 from django.conf import settings
+from django.core.cache import cache
 
 from .riyadh_fclass import riyadh_fclass_for_persistence
+
+RIYADH_TILES_VERSION_CACHE_KEY = "riyadh_roads_tiles_version"
 
 
 def tiles_version_ms() -> int:
     """Millisecond timestamp for MVT cache-busting after network mutations."""
     return int(time.time_ns() // 1_000_000)
+
+
+def publish_riyadh_tiles_version() -> int:
+    """Record a new global tiles version after any riyadh_roads mutation."""
+    version = tiles_version_ms()
+    cache.set(RIYADH_TILES_VERSION_CACHE_KEY, version, timeout=None)
+    return version
+
+
+def current_riyadh_tiles_version() -> int:
+    """Latest published tiles version (for cross-app polling)."""
+    cached = cache.get(RIYADH_TILES_VERSION_CACHE_KEY)
+    if cached is not None:
+        return int(cached)
+    return publish_riyadh_tiles_version()
+
+
+def symbology_sync_version_ms() -> int:
+    """Version stamp for symbology.json / labeling.json used by companion map apps."""
+    stamps: list[int] = []
+    base = Path(settings.BASE_DIR)
+    for rel in ("symbology/symbology.json", "symbology/labeling.json"):
+        path = base / rel
+        if path.is_file():
+            stamps.append(int(path.stat().st_mtime * 1000))
+    try:
+        from symbology.catalog_service import get_catalog
+
+        catalog_version = get_catalog().get("version")
+        if catalog_version is not None:
+            stamps.append(int(catalog_version))
+    except Exception:
+        pass
+    return max(stamps) if stamps else 0
+
+
+def riyadh_map_sync_payload() -> dict[str, int]:
+    """Public sync payload for naqel-map / GEOTRAK polling."""
+    return {
+        "tiles_version": current_riyadh_tiles_version(),
+        "symbology_version": symbology_sync_version_ms(),
+    }
 
 
 def riyadh_tile_proxy_absolute_url(request) -> str:
@@ -55,7 +101,7 @@ def network_mutation_payload(**fields: Any) -> dict[str, Any]:
 
     Always includes tiles_version; optional remote_road_id, fclass, deleted_road_id.
     """
-    payload: dict[str, Any] = {"tiles_version": tiles_version_ms()}
+    payload: dict[str, Any] = {"tiles_version": publish_riyadh_tiles_version()}
     for key, value in fields.items():
         if value is not None:
             payload[key] = value

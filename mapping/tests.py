@@ -24,9 +24,12 @@ from mapping.presentation import (
     user_submissions_require_manager_review,
 )
 from mapping.riyadh_network import (
+    current_riyadh_tiles_version,
     network_mutation_payload,
     normalize_published_fclass,
+    publish_riyadh_tiles_version,
     published_fclass_from_edit_request,
+    riyadh_map_sync_payload,
     riyadh_tile_proxy_absolute_url,
     tiles_version_ms,
 )
@@ -61,6 +64,18 @@ class RiyadhNetworkUtilTests(SimpleTestCase):
         self.assertIn("tiles_version", payload)
         self.assertEqual(payload["remote_road_id"], 42)
         self.assertEqual(payload["fclass"], "primary")
+        self.assertEqual(payload["tiles_version"], current_riyadh_tiles_version())
+
+    def test_publish_riyadh_tiles_version_updates_current(self):
+        first = publish_riyadh_tiles_version()
+        second = publish_riyadh_tiles_version()
+        self.assertGreaterEqual(second, first)
+        self.assertEqual(current_riyadh_tiles_version(), second)
+
+    def test_riyadh_map_sync_payload_keys(self):
+        payload = riyadh_map_sync_payload()
+        self.assertIn("tiles_version", payload)
+        self.assertIn("symbology_version", payload)
 
     def test_published_fclass_from_edit_request_uses_label(self):
         request = MagicMock()
@@ -116,6 +131,18 @@ class RiyadhRoadsTileProxyTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content, body)
+        self.assertIn("no-store", response["Cache-Control"])
+
+
+class RiyadhRoadsMapSyncTests(TestCase):
+    def test_map_sync_endpoint_is_public_with_cors(self):
+        publish_riyadh_tiles_version()
+        response = Client().get("/mapping/api/riyadh-roads-map-sync/")
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertIn("tiles_version", payload)
+        self.assertIn("symbology_version", payload)
+        self.assertEqual(response["Access-Control-Allow-Origin"], "*")
         self.assertIn("no-store", response["Cache-Control"])
 
 
