@@ -108,7 +108,7 @@
         }
         syncRiyadhRoadDeleteToolbarButton();
         if (next && !wasArmed && window.notify && typeof window.notify.tryShow === 'function') {
-            window.notify.tryShow('Delete road is armed — press Save to submit the request.', 'info');
+            window.notify.tryShow('Road selected for deletion. Press save to delete the road.', 'info');
         }
     }
 
