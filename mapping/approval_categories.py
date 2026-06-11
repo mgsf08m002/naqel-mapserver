@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .riyadh_fclass import feature_label_from_riyadh_fclass
+from .riyadh_fields import RIYADH_FIELDS_OMIT_FROM_TAGS, riyadh_decimal_eq
 
 EDIT_TYPE_DELETE = "DELETE"
 EDIT_TYPE_LAYER_UPLOAD = "Layer Upload"
@@ -85,7 +86,6 @@ _RIYADH_REMOTE_FIELD_KEYS = frozenset(
         "layer",
     }
 )
-_RIYADH_FIELDS_UI_ONLY = frozenset({"common_name", "multilingual_names"})
 _RIYADH_FIELDS_NON_REVIEWABLE = frozenset(
     {
         "gid",
@@ -101,33 +101,9 @@ _RIYADH_FIELDS_NON_REVIEWABLE = frozenset(
 )
 
 
-def _num_eq(a, b) -> bool:
-    import math
-    from decimal import Decimal
-
-    try:
-        if a is None or a == "":
-            fa = None
-        else:
-            fa = float(a)
-        if b is None:
-            fb = None
-        elif isinstance(b, Decimal):
-            fb = float(b)
-        else:
-            fb = float(b)
-    except (TypeError, ValueError):
-        return _norm(a) == _norm(b)
-    if fa is None and fb is None:
-        return True
-    if fa is None or fb is None:
-        return False
-    return math.isclose(fa, fb, rel_tol=0, abs_tol=1e-5)
-
-
 def _extra_fields_require_review(fields_data: dict) -> bool:
     for key, value in (fields_data or {}).items():
-        if key.startswith("_") or key in _RIYADH_FIELDS_NON_REVIEWABLE or key in _RIYADH_FIELDS_UI_ONLY:
+        if key.startswith("_") or key in _RIYADH_FIELDS_NON_REVIEWABLE or key in RIYADH_FIELDS_OMIT_FROM_TAGS:
             continue
         if value not in (None, "", [], {}):
             return True
@@ -136,7 +112,7 @@ def _extra_fields_require_review(fields_data: dict) -> bool:
 
 def _tags_match_client(tags_data, fields_data: dict) -> bool:
     """Match sidebar tag list to mirrored field keys (same rules as manager review)."""
-    skip = frozenset({"name", "road_closure", "common_name", "multilingual_names"})
+    skip = RIYADH_FIELDS_OMIT_FROM_TAGS
     canon_pairs = []
     for key, value in (fields_data or {}).items():
         if key in skip or key.startswith("_"):
@@ -159,17 +135,17 @@ def _remote_attributes_differ(fields_data: dict, road) -> bool:
         return True
     if _norm(fd.get("oneway")) != _norm(getattr(road, "oneway", "")):
         return True
-    if not _num_eq(fd.get("maxspeed"), getattr(road, "maxspeed", None)):
+    if not riyadh_decimal_eq(fd.get("maxspeed"), getattr(road, "maxspeed", None)):
         return True
     if _norm(fd.get("osm_id")) != _norm(getattr(road, "osm_id", "")):
         return True
-    if not _num_eq(fd.get("code"), getattr(road, "code", None)):
+    if not riyadh_decimal_eq(fd.get("code"), getattr(road, "code", None)):
         return True
     if _norm(fd.get("bridge")) != _norm(getattr(road, "bridge", "")):
         return True
     if _norm(fd.get("tunnel")) != _norm(getattr(road, "tunnel", "")):
         return True
-    if not _num_eq(fd.get("layer"), getattr(road, "layer", None)):
+    if not riyadh_decimal_eq(fd.get("layer"), getattr(road, "layer", None)):
         return True
     return False
 

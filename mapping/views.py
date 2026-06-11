@@ -49,6 +49,13 @@ from .approval_categories import (
 )
 from .models import LineEditRequest, RiyadhRoad
 from .riyadh_fclass import ensure_riyadh_fclass_in_fields, feature_label_from_riyadh_fclass
+from .riyadh_fields import (
+    RIYADH_FIELDS_NON_REVIEWABLE,
+    RIYADH_FIELDS_OMIT_FROM_TAGS,
+    RIYADH_FIELDS_UI_ONLY,
+    RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS,
+    riyadh_decimal_eq,
+)
 from .riyadh_network import (
     network_mutation_payload,
     normalize_published_fclass,
@@ -59,12 +66,6 @@ from .riyadh_network import (
 
 logger = logging.getLogger(__name__)
 
-# Riyadh sidebar: name + closure use dedicated controls; the rest are shown as tags.
-RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS = frozenset({"name", "road_closure"})
-# Client payload duplicates / UI-only keys (not riyadh_roads columns) — must not force manager review.
-RIYADH_FIELDS_UI_ONLY = frozenset({"common_name", "multilingual_names"})
-
-RIYADH_FIELDS_NON_REVIEWABLE = frozenset({"gid", "id", "objectid"})
 RIYADH_REMOTE_FIELD_KEYS = frozenset(
     {
         "name",
@@ -81,9 +82,6 @@ RIYADH_REMOTE_FIELD_KEYS = frozenset(
         "road_closure",
     }
 )
-# Never emit these as tag rows (sidebar or UI mirrors); keeps fields_data ↔ tags_data aligned with the client.
-RIYADH_FIELDS_OMIT_FROM_TAGS = RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS | RIYADH_FIELDS_UI_ONLY
-
 # save_line_edit_request: sidebar must not use the generic default "Line" placeholder.
 FEATURE_TYPE_REQUIRED_FOR_SAVE_MSG = "Select a feature type for your road"
 ARABIC_CHAR_PATTERN = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
@@ -1159,27 +1157,6 @@ def _norm_str_edit(v):
     return str(v).strip()
 
 
-def _riyadh_num_eq(a, b) -> bool:
-    try:
-        if a is None or a == "":
-            fa = None
-        else:
-            fa = float(a)
-        if b is None:
-            fb = None
-        elif isinstance(b, Decimal):
-            fb = float(b)
-        else:
-            fb = float(b)
-    except (TypeError, ValueError):
-        return _norm_str_edit(a) == _norm_str_edit(b)
-    if fa is None and fb is None:
-        return True
-    if fa is None or fb is None:
-        return False
-    return math.isclose(fa, fb, rel_tol=0, abs_tol=1e-5)
-
-
 def _riyadh_effective_fields_when_closure_changed(fields_data, road):
     """
     Merge client fields with DB for review checks after an immediate closure write.
@@ -1227,17 +1204,17 @@ def _riyadh_fields_match_remote(fields_data, road) -> bool:
         return False
     if _norm_str_edit(fd.get("oneway")) != _norm_str_edit(road.oneway):
         return False
-    if not _riyadh_num_eq(fd.get("maxspeed"), road.maxspeed):
+    if not riyadh_decimal_eq(fd.get("maxspeed"), road.maxspeed):
         return False
     if _norm_str_edit(fd.get("osm_id")) != _norm_str_edit(road.osm_id):
         return False
-    if not _riyadh_num_eq(fd.get("code"), road.code):
+    if not riyadh_decimal_eq(fd.get("code"), road.code):
         return False
     if _norm_str_edit(fd.get("bridge")) != _norm_str_edit(road.bridge):
         return False
     if _norm_str_edit(fd.get("tunnel")) != _norm_str_edit(road.tunnel):
         return False
-    if not _riyadh_num_eq(fd.get("layer"), road.layer):
+    if not riyadh_decimal_eq(fd.get("layer"), road.layer):
         return False
     try:
         rc_payload = int(fd.get("road_closure") or 0)

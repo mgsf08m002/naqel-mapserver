@@ -33,7 +33,7 @@
 
     var OVERLAY_OUTLINE_LAYER_ID = 'selected-road-overlay-outline';
     var OVERLAY_RING_LAYER_ID = 'selected-road-overlay-ring';
-    /** Visible selection core on GeoJSON overlay (legacy layer id). */
+    /** GeoJSON overlay symbology core (closure draft / typed feature paint). */
     var OVERLAY_GRADIENT_LAYER_ID = 'selected-road-overlay-gradient';
     var OVERLAY_LINE_LAYER_ID = 'selected-road-overlay-line';
 

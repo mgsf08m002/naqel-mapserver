@@ -16,12 +16,9 @@
 
     let symbologyStylesByLabel = null;
 
-    const RIYADH_FIELD_KEYS_OMIT_FROM_TAGS = {
-        name: true,
-        road_closure: true,
-        common_name: true,
-        multilingual_names: true
-    };
+    function riyadhShared() {
+        return window.RiyadhRoadShared || null;
+    }
 
     function mapLineSelection() {
         return window.MapLineSelection;
@@ -396,23 +393,10 @@
     window.hideRiyadhGeometryEditToolbar = hideRiyadhGeometryEditToolbar;
 
     function normalizeRiyadhRoadTagsFromFields(road) {
-        if (!road || !road.is_riyadh_road) {
-            return;
+        const shared = riyadhShared();
+        if (shared && typeof shared.normalizeRiyadhRoadTags === 'function') {
+            shared.normalizeRiyadhRoadTags(road);
         }
-        const fd = road.fields_data && typeof road.fields_data === 'object' ? road.fields_data : {};
-        road.fields_data = fd;
-        const tags = [];
-        Object.keys(fd).forEach(function (k) {
-            if (RIYADH_FIELD_KEYS_OMIT_FROM_TAGS[k]) {
-                return;
-            }
-            const v = fd[k];
-            if (v === undefined || v === null || v === '') {
-                return;
-            }
-            tags.push({ key: k, value: String(v) });
-        });
-        road.tags_data = tags;
     }
 
     function updateRiyadhRoadFeatureContextLine(lineData) {
@@ -1477,13 +1461,22 @@
                 window.clearRiyadhRoadDbFclassFromDatabase(roadId);
             } catch (eFclass) {}
         }
+        if (typeof window.syncRiyadhTileSelectionCoreForFeatureLabel === 'function') {
+            try {
+                window.syncRiyadhTileSelectionCoreForFeatureLabel(null);
+            } catch (eCoreLbl) {}
+        }
 
         window.selectedRiyadhRoad = null;
         window.approvedLineBeingEdited = null;
 
         try {
             setSelectedOverlayGeometry(null);
+            hideSelectedOverlayPaint();
             syncDraftClosureMapLayers();
+            if (typeof window.restoreRiyadhRoadNetworkVisibility === 'function') {
+                window.restoreRiyadhRoadNetworkVisibility();
+            }
         } catch (eOverlay) {}
 
         if (hadRiyadhContext && typeof window.setCurrentRoadClosure === 'function') {

@@ -640,12 +640,12 @@
         var rid = roadId;
         var mapRef = mapInstance;
         removeOriginalGhostLayer(mapRef);
-        if (rid != null && typeof window.setRiyadhRoadBasemapHiddenForEdit === 'function') {
-            window.setRiyadhRoadBasemapHiddenForEdit(rid, false);
-        }
         try {
             window.__roadGeometryEditActiveId = null;
         } catch (e0) {}
+        if (typeof window.reapplyRiyadhRoadLayerPaintStates === 'function') {
+            window.reapplyRiyadhRoadLayerPaintStates();
+        }
         removeAllMarkers();
         workingCoords = null;
         roadId = null;
@@ -718,8 +718,8 @@
             window.__roadGeometryEditActiveId = roadId;
         } catch (eR) {}
         pushStateToGlobals();
-        if (typeof window.setRiyadhRoadBasemapHiddenForEdit === 'function') {
-            window.setRiyadhRoadBasemapHiddenForEdit(roadId, true);
+        if (typeof window.reapplyRiyadhRoadLayerPaintStates === 'function') {
+            window.reapplyRiyadhRoadLayerPaintStates();
         }
         ensureOriginalGhostLayer(mapInstance, roadId);
         rebuildMarkers();

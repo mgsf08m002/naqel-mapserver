@@ -2,6 +2,8 @@
 (function (global) {
     'use strict';
 
+    var shared = global.RiyadhRoadShared || {};
+
     function firstNonEmptyString() {
         for (var i = 0; i < arguments.length; i++) {
             var s = arguments[i];
@@ -34,24 +36,10 @@
     }
 
     function buildTagsFromFields(fieldsData) {
-        var skipTags = {
-            name: true,
-            road_closure: true,
-            common_name: true,
-            multilingual_names: true,
-        };
-        var tags = [];
-        Object.keys(fieldsData || {}).forEach(function (k) {
-            if (skipTags[k]) {
-                return;
-            }
-            var v = fieldsData[k];
-            if (v === undefined || v === null || v === '') {
-                return;
-            }
-            tags.push({ key: k, value: String(v) });
-        });
-        return tags;
+        if (typeof shared.buildRiyadhRoadTagsFromFields === 'function') {
+            return shared.buildRiyadhRoadTagsFromFields(fieldsData);
+        }
+        return [];
     }
 
     function snapshotOriginalState(roadId, road) {
@@ -71,27 +59,9 @@
         } catch (e) {}
     }
 
-    function applyFclassFromLabel(roadId, road) {
-        var clientLabel = road.current_feature_label || road.feature_type || '';
-        var fd = road.fields_data || {};
-        var dbFclass = '';
-        if (typeof global.resolveRiyadhFclassForFeatureState === 'function' && clientLabel) {
-            dbFclass = global.resolveRiyadhFclassForFeatureState(clientLabel) || '';
-        }
-        if (!dbFclass && fd.fclass != null) {
-            dbFclass = String(fd.fclass).trim();
-        }
-        if (dbFclass && typeof global.applyRiyadhRoadDbFclassFromDatabase === 'function') {
-            global.applyRiyadhRoadDbFclassFromDatabase(roadId, dbFclass);
-        }
-    }
-
     function showRoadInEditor(road, options) {
-        var opts = options || {};
         if (global.lineDrawingHandler && typeof global.lineDrawingHandler.showRiyadhRoadAsLineFeature === 'function') {
-            global.lineDrawingHandler.showRiyadhRoadAsLineFeature(road, opts);
-        } else if (typeof global.showRiyadhRoadAsLineFeature === 'function') {
-            global.showRiyadhRoadAsLineFeature(road, opts);
+            global.lineDrawingHandler.showRiyadhRoadAsLineFeature(road, options || {});
         }
     }
 
@@ -148,9 +118,12 @@
             }
 
             var road = mergeTilePropsIntoRoad(data.road, tileProps || null);
-            road.tags_data = buildTagsFromFields(road.fields_data);
+            if (typeof shared.normalizeRiyadhRoadTags === 'function') {
+                shared.normalizeRiyadhRoadTags(road);
+            } else {
+                road.tags_data = buildTagsFromFields(road.fields_data);
+            }
             snapshotOriginalState(idNum, road);
-            applyFclassFromLabel(idNum, road);
 
             global.selectedRiyadhRoad = road;
             global.approvedLineBeingEdited = road;
