@@ -106,6 +106,17 @@
         }
     }
 
+    function clearDraftMapDrawing() {
+        if (
+            window.lineDrawingHandler &&
+            typeof window.lineDrawingHandler.clearDraftLineDrawingFromMap === 'function'
+        ) {
+            window.lineDrawingHandler.clearDraftLineDrawingFromMap();
+        } else if (typeof window.clearDraftLineDrawingFromMap === 'function') {
+            window.clearDraftLineDrawingFromMap();
+        }
+    }
+
     function getCurrentLineData() {
         if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getCurrentLineId === 'function') {
             currentLineId = window.lineDrawingHandler.getCurrentLineId();
@@ -320,9 +331,17 @@
         const tagsCollected = collectTagsData();
         const relationsCollected = collectRelationsData();
 
-        let fieldsPayload = fieldsBase;
+        let fieldsPayload = Object.assign({}, fieldsBase);
+        const labelForFclass = featureLabelToUse || 'Line';
+        if (typeof window.resolveRiyadhFclassForFeatureState === 'function') {
+            const symFc = window.resolveRiyadhFclassForFeatureState(labelForFclass);
+            if (symFc) {
+                fieldsPayload.fclass = symFc;
+            } else {
+                delete fieldsPayload.fclass;
+            }
+        }
         if (isRiyadhRoadFlag) {
-            fieldsPayload = Object.assign({}, fieldsBase);
             tagsCollected.forEach(function (t) {
                 if (!t) {
                     return;
@@ -334,15 +353,6 @@
                 fieldsPayload[k] = t.value != null ? t.value : '';
             });
             fieldsPayload.road_closure = isRoadClosed ? 1 : 0;
-            const labelForFclass = featureLabelToUse || 'Line';
-            if (typeof window.resolveRiyadhFclassForFeatureState === 'function') {
-                const symFc = window.resolveRiyadhFclassForFeatureState(labelForFclass);
-                if (symFc) {
-                    fieldsPayload.fclass = symFc;
-                } else {
-                    delete fieldsPayload.fclass;
-                }
-            }
         }
 
         return {
@@ -551,21 +561,15 @@
             window.syncRiyadhRoadDeleteToolbarButton();
         }
 
-        const clearDraftOverlay =
-            (pendingSubmitted && editData) ||
-            (saveMeta.autoApproved && editData && !editData.is_riyadh_road);
+        const shouldClearDraftMap =
+            editData && (pendingSubmitted || saveMeta.autoApproved);
 
-        if (clearDraftOverlay) {
-            if (pendingSubmitted) {
+        if (shouldClearDraftMap) {
+            if (pendingSubmitted && editData.is_riyadh_road) {
                 revertPendingApprovalVisualization(editData);
             }
             try {
-                if (currentLineId && typeof window.removeMapLibreLineLayer === 'function') {
-                    window.removeMapLibreLineLayer(currentLineId);
-                }
-                if (typeof window.clearVertexMarkers === 'function') {
-                    window.clearVertexMarkers();
-                }
+                clearDraftMapDrawing();
             } catch (e) {}
         }
 

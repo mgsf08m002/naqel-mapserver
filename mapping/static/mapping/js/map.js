@@ -854,7 +854,7 @@ map.on('load', () => {
                         });
                     }
 
-                    // Selected road core: unified cyan highlight (not catalog symbology).
+                    // Selected road core: cyan until a feature type is chosen (see syncRiyadhTileSelectionCoreForFeatureLabel).
                     if (!map.getLayer(SELECTED_LAYER_ID)) {
                         map.addLayer({
                             id: SELECTED_LAYER_ID,
@@ -920,6 +920,23 @@ map.on('load', () => {
                                     map.setPaintProperty(SELECTED_LAYER_ID, 'line-opacity', opacity);
                                 }
                             } catch (eSup) {}
+                        };
+
+                        // Hide the cyan MVT selection core once a real feature type is chosen so
+                        // catalog symbology (via db_fclass) remains visible while editing.
+                        window.syncRiyadhTileSelectionCoreForFeatureLabel = function (featureLabel) {
+                            try {
+                                if (!map.getLayer(SELECTED_LAYER_ID)) {
+                                    return;
+                                }
+                                const normalized = (featureLabel || '').trim().toLowerCase();
+                                const showCyanCore = !normalized || normalized === 'line';
+                                map.setPaintProperty(
+                                    SELECTED_LAYER_ID,
+                                    'line-opacity',
+                                    showCyanCore ? MLS.GEOJSON_CORE_OPACITY : 0
+                                );
+                            } catch (eCore) {}
                         };
                     }
 

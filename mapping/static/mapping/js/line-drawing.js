@@ -8,6 +8,7 @@
     let drawingLineId = null;
     let drawingMonitorInterval = null;
     let svgObserver = null;
+    let draftLineMapLayerGeneration = 0;
 
     let sidePanel = null;
     let sidePanelContent = null;
@@ -867,11 +868,12 @@
     }
 
     /** SVG previews: stack outline → ring → core to match map selection (no blur glow). */
-    function appendSvgLinePathsWithMapSelectionCasing(svg, pathData, style, svgDasharray, strokeScale) {
+    function appendSvgLinePathsWithMapSelectionCasing(svg, pathData, style, svgDasharray, strokeScale, featureLabel) {
         const mls = mapLineSelection();
         const oColor = mls.OUTLINE_COLOR;
         const rColor = mls.RING_COLOR;
-        const coreColor = mls.CORE_COLOR;
+        const label = featureLabel != null ? featureLabel : getCurrentFeatureLabel();
+        const coreColor = mls.buildEditingCorePaint(style, getEffectiveDashArray(style), label)['line-color'];
         const oAdd = (mls && mls.OUTLINE_WIDTH_ADD != null) ? mls.OUTLINE_WIDTH_ADD : 7;
         const rAdd = (mls && mls.RING_WIDTH_ADD != null) ? mls.RING_WIDTH_ADD : 4;
         const oOp = (mls && mls.OUTLINE_OPACITY != null) ? mls.OUTLINE_OPACITY : 0.93;
@@ -1291,9 +1293,13 @@
             hideDefaultRendering();
             setMapContainerDrawnLineSelectionAttr(id);
 
+            const renderGeneration = draftLineMapLayerGeneration;
             setTimeout(function() {
+                if (renderGeneration !== draftLineMapLayerGeneration) {
+                    return;
+                }
                 hideDefaultRendering();
-                renderLineAsMapLibreLayer(id);
+                renderLineAsMapLibreLayer(id, { renderGeneration: renderGeneration });
                 clearVertexMarkers();
             }, 100);
         } catch (error) {
@@ -1933,8 +1939,17 @@
         vertexMarkers = [];
     }
 
-    function renderLineAsMapLibreLayer(id) {
+    function renderLineAsMapLibreLayer(id, renderOptions) {
         if (typeof map === 'undefined' || !map || !drawInstance) return;
+
+        const opts = renderOptions || {};
+        const renderGeneration =
+            opts.renderGeneration != null ? opts.renderGeneration : draftLineMapLayerGeneration;
+        if (renderGeneration !== draftLineMapLayerGeneration) {
+            return;
+        }
+
+        const deferredOpts = { renderGeneration: renderGeneration };
         
         try {
             const snapshot = drawInstance.getSnapshot();
@@ -1956,10 +1971,10 @@
             
             if (!map.loaded() || !map.isStyleLoaded()) {
                 map.once('load', function() {
-                    renderLineAsMapLibreLayer(id);
+                    renderLineAsMapLibreLayer(id, deferredOpts);
                 });
                 map.once('style.load', function() {
-                    renderLineAsMapLibreLayer(id);
+                    renderLineAsMapLibreLayer(id, deferredOpts);
                 });
                 return;
             }
@@ -1967,7 +1982,7 @@
             const style = getEffectiveVisualizationStyle(currentFeatureLabel);
             if (!style) {
                 rerenderOnCatalogLoaded(function () {
-                    renderLineAsMapLibreLayer(id);
+                    renderLineAsMapLibreLayer(id, deferredOpts);
                 });
                 return;
             }
@@ -1992,7 +2007,7 @@
                     });
 
                     mls.applyGeoJsonCasingFromCoreWidth(map, outlineLayerId, ringLayerId, style.lineWidth, lineDasharray, casingOpts);
-                    mls.applyLinePaint(map, layerId, mls.geoJsonSelectionCorePaint(lineDasharray));
+                    mls.applyLinePaint(map, layerId, mls.buildEditingCorePaint(style, lineDasharray, currentFeatureLabel));
                     [outlineLayerId, ringLayerId, layerId].forEach(function (lid) {
                         if (map.getLayer(lid)) {
                             try {
@@ -2001,7 +2016,8 @@
                             } catch (eLay) {}
                         }
                     });
-                    
+
+                    registerDrawnLineLayer(id, sourceId, layerId, outlineLayerId, ringLayerId);
                     hideDefaultRendering();
                     return;
                 } catch (e) {
@@ -2054,24 +2070,16 @@
                 type: 'line',
                 source: sourceId,
                 layout: drawnLineLayout,
-                paint: mls.geoJsonSelectionCorePaint(lineDasharray),
+                paint: mls.buildEditingCorePaint(style, lineDasharray, currentFeatureLabel),
             });
             
-            if (!map._drawnLineLayers) {
-                map._drawnLineLayers = {};
-            }
-            map._drawnLineLayers[id] = {
-                sourceId: sourceId,
-                layerId: layerId,
-                outlineLayerId: outlineLayerId,
-                ringLayerId: ringLayerId
-            };
+            registerDrawnLineLayer(id, sourceId, layerId, outlineLayerId, ringLayerId);
             
             hideDefaultRendering();
             
         } catch (e) {
             setTimeout(function() {
-                renderLineAsMapLibreLayer(id);
+                renderLineAsMapLibreLayer(id, deferredOpts);
             }, 100);
         }
     }
@@ -2127,31 +2135,175 @@
         } catch (e) {}
     }
 
-    function removeMapLibreLineLayer(id) {
-        if (typeof map === 'undefined' || !map || !map._drawnLineLayers || !map._drawnLineLayers[id]) {
+    function registerDrawnLineLayer(id, sourceId, layerId, outlineLayerId, ringLayerId) {
+        if (!map || id == null || id === '') {
             return;
         }
-        
-        try {
-            const layers = map._drawnLineLayers[id];
-            
-            if (map.getLayer(layers.layerId)) {
-                map.removeLayer(layers.layerId);
-            }
-            if (layers.ringLayerId && map.getLayer(layers.ringLayerId)) {
-                map.removeLayer(layers.ringLayerId);
-            }
-            if (layers.outlineLayerId && map.getLayer(layers.outlineLayerId)) {
-                map.removeLayer(layers.outlineLayerId);
-            }
-            if (map.getSource(layers.sourceId)) {
-                map.removeSource(layers.sourceId);
-            }
-            
-            delete map._drawnLineLayers[id];
-        } catch (e) {
-            // Error removing MapLibre line layer
+        if (!map._drawnLineLayers) {
+            map._drawnLineLayers = {};
         }
+        map._drawnLineLayers[String(id)] = {
+            sourceId: sourceId,
+            layerId: layerId,
+            outlineLayerId: outlineLayerId,
+            ringLayerId: ringLayerId,
+        };
+    }
+
+    function removeDrawnLineLayerEntry(entry) {
+        if (!entry || typeof map === 'undefined' || !map) {
+            return;
+        }
+        try {
+            if (entry.layerId && map.getLayer(entry.layerId)) {
+                map.removeLayer(entry.layerId);
+            }
+            if (entry.ringLayerId && map.getLayer(entry.ringLayerId)) {
+                map.removeLayer(entry.ringLayerId);
+            }
+            if (entry.outlineLayerId && map.getLayer(entry.outlineLayerId)) {
+                map.removeLayer(entry.outlineLayerId);
+            }
+            if (entry.sourceId && map.getSource(entry.sourceId)) {
+                map.removeSource(entry.sourceId);
+            }
+        } catch (e) {}
+    }
+
+    function removeMapLibreLineLayer(id) {
+        if (typeof map === 'undefined' || !map || id == null || id === '') {
+            return;
+        }
+
+        const idStr = String(id);
+        const registry = map._drawnLineLayers || {};
+        const entry = registry[idStr];
+
+        if (entry) {
+            removeDrawnLineLayerEntry(entry);
+            delete registry[idStr];
+            return;
+        }
+
+        removeDrawnLineLayerEntry({
+            sourceId: 'drawn-line-' + idStr,
+            layerId: 'drawn-line-layer-' + idStr,
+            outlineLayerId: 'drawn-line-outline-' + idStr,
+            ringLayerId: 'drawn-line-ring-' + idStr,
+        });
+    }
+
+    function clearAllDrawnLineMapLibreLayers() {
+        if (typeof map === 'undefined' || !map) {
+            return;
+        }
+
+        const registry = map._drawnLineLayers || {};
+        const seen = new Set();
+        Object.keys(registry).forEach(function (key) {
+            const entry = registry[key];
+            if (!entry || seen.has(entry.sourceId)) {
+                return;
+            }
+            seen.add(entry.sourceId);
+            removeDrawnLineLayerEntry(entry);
+        });
+
+        try {
+            const style = typeof map.getStyle === 'function' ? map.getStyle() : null;
+            if (style && style.layers) {
+                style.layers.slice().forEach(function (layer) {
+                    if (!layer || !layer.id) {
+                        return;
+                    }
+                    if (
+                        layer.id.indexOf('drawn-line-layer-') === 0 ||
+                        layer.id.indexOf('drawn-line-outline-') === 0 ||
+                        layer.id.indexOf('drawn-line-ring-') === 0
+                    ) {
+                        try {
+                            if (map.getLayer(layer.id)) {
+                                map.removeLayer(layer.id);
+                            }
+                        } catch (eLayer) {}
+                    }
+                });
+            }
+            if (style && style.sources) {
+                Object.keys(style.sources).forEach(function (sourceId) {
+                    if (sourceId.indexOf('drawn-line-') !== 0) {
+                        return;
+                    }
+                    if (
+                        sourceId.indexOf('drawn-line-layer-') === 0 ||
+                        sourceId.indexOf('drawn-line-outline-') === 0 ||
+                        sourceId.indexOf('drawn-line-ring-') === 0
+                    ) {
+                        return;
+                    }
+                    try {
+                        if (map.getSource(sourceId)) {
+                            map.removeSource(sourceId);
+                        }
+                    } catch (eSource) {}
+                });
+            }
+        } catch (eSweep) {}
+
+        map._drawnLineLayers = {};
+    }
+
+    function clearTerraDrawFeatures() {
+        if (!drawInstance) {
+            return;
+        }
+        try {
+            if (typeof drawInstance.clear === 'function') {
+                drawInstance.clear();
+                return;
+            }
+            if (typeof drawInstance.getSnapshot !== 'function' || typeof drawInstance.removeFeatures !== 'function') {
+                return;
+            }
+            (drawInstance.getSnapshot() || []).forEach(function (feature) {
+                if (feature && feature.id != null) {
+                    drawInstance.removeFeatures([feature.id]);
+                }
+            });
+        } catch (eDraw) {}
+    }
+
+    function clearDraftLineDrawingFromMap() {
+        draftLineMapLayerGeneration++;
+        clearAllDrawnLineMapLibreLayers();
+        clearVertexMarkers();
+        clearTerraDrawFeatures();
+
+        selectedLineId = null;
+        currentLineId = null;
+        drawingLineId = null;
+
+        const mapEl = document.getElementById('map');
+        if (mapEl) {
+            mapEl.removeAttribute('data-selected-line');
+        }
+
+        if (window.currentlySelectedItemType === 'terradraw-line') {
+            window.currentlySelectedItem = null;
+            window.currentlySelectedItemType = null;
+        }
+
+        try {
+            setSelectedOverlayGeometry(null);
+            hideSelectedOverlayPaint();
+            if (typeof window.setRiyadhRoadSelectedId === 'function') {
+                window.setRiyadhRoadSelectedId(null);
+            }
+            if (typeof window.syncRiyadhTileSelectionCoreForFeatureLabel === 'function') {
+                window.syncRiyadhTileSelectionCoreForFeatureLabel(null);
+            }
+            syncRiyadhTileSelectionSuppressionForDraftClosure();
+        } catch (eClear) {}
     }
 
     function createDropdownBox(label, isLast) {
@@ -4560,8 +4712,9 @@
         const casingOpts = getCasingOptionsForDash(lineDasharray);
         const mls = mapLineSelection();
         const w = Number(style.lineWidth) || 4;
-        const c = mls.CORE_COLOR;
-        const coreW = mls.GEOJSON_CORE_WIDTH;
+        const corePaint = mls.buildEditingCorePaint(style, lineDasharray, label);
+        const c = corePaint['line-color'];
+        const coreW = mls.isPlaceholderFeatureLabel(label) ? mls.GEOJSON_CORE_WIDTH : w;
         const coreLineW =
             isClosed && closureCatalog
                 ? Math.max(
@@ -4693,6 +4846,12 @@
             }
         } catch (eFs) {}
 
+        if (typeof window.syncRiyadhTileSelectionCoreForFeatureLabel === 'function') {
+            try {
+                window.syncRiyadhTileSelectionCoreForFeatureLabel(newFeatureLabel);
+            } catch (eCore) {}
+        }
+
         if (geometry && typeof map !== 'undefined' && map) {
             applySelectedOverlaySymbologyPaint(newFeatureLabel);
         } else {
@@ -4733,7 +4892,8 @@
         updateRiyadhRoadVisualization: updateRiyadhRoadVisualization,
         normalizeToLineStringGeometry: normalizeToLineStringGeometry,
         showRiyadhRoadAsLineFeature: showRiyadhRoadAsLineFeature,
-        refreshAfterUndoRedo: refreshAfterUndoRedo
+        refreshAfterUndoRedo: refreshAfterUndoRedo,
+        clearDraftLineDrawingFromMap: clearDraftLineDrawingFromMap,
     };
     
     window.addFieldToContainer = addFieldToContainer;
@@ -4744,22 +4904,9 @@
     window.parseRoadClosurePayloadValue = parseRoadClosurePayloadValue;
     window.syncRoadClosureStateAfterPersist = syncRoadClosureStateAfterPersist;
     window.removeMapLibreLineLayer = removeMapLibreLineLayer;
+    window.clearDraftLineDrawingFromMap = clearDraftLineDrawingFromMap;
     window.clearVertexMarkers = clearVertexMarkers;
     window.resolveRiyadhFclassForFeatureState = resolveRiyadhFclassForFeatureState;
-    window.clearCurrentLine = function() {
-        if (currentLineId) {
-            // Remove MapLibre layers
-            removeMapLibreLineLayer(currentLineId);
-            
-            // Clear vertex markers
-            clearVertexMarkers();
-            
-            // Reset current line ID
-            // Note: We don't remove from TerraDraw as it may not be necessary
-            // The line can stay in TerraDraw's snapshot, we just clear our visual representation
-            currentLineId = null;
-        }
-    };
 
     // Local helpers to populate the edit sidepanel with external
     // line/road data (used when the manager approval script is not present).

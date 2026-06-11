@@ -1533,6 +1533,9 @@
             if (result.ok && data.success) {
                 showToast(data.message || 'Road edit approved successfully.', 'success');
                 cleanupRequestLines();
+                if (typeof window.clearDraftLineDrawingFromMap === 'function') {
+                    window.clearDraftLineDrawingFromMap();
+                }
                 removeApproveRejectButtons();
                 approvalQueue = approvalQueue.filter(function(req) {
                     return req.id !== requestId;

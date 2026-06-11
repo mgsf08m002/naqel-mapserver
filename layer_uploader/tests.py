@@ -670,6 +670,15 @@ class PublishGeometryTests(SimpleTestCase):
         fields = prepare_road_fields_for_publish(properties={})
         self.assertEqual(fields["fclass"], "unclassified")
 
+    def test_prepare_road_fields_uses_feature_label_before_default(self):
+        from layer_uploader.services import prepare_road_fields_for_publish
+
+        fields = prepare_road_fields_for_publish(
+            fields_data={},
+            current_feature_label="Motorway",
+        )
+        self.assertEqual(fields["fclass"], "motorway")
+
 
 class GeometryLoadingTests(SimpleTestCase):
     def test_geometry_from_db_wkb_wraps_bytes_in_memoryview(self):

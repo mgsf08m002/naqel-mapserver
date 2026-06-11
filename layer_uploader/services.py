@@ -135,17 +135,13 @@ def prepare_road_fields_for_publish(
     else:
         fields = properties_to_road_fields(properties)
 
-    if not _norm_str(fields.get("fclass")):
-        fields["fclass"] = "unclassified"
-
-    label = current_feature_label or feature_label_from_riyadh_fclass(
-        fields.get("fclass") or None
-    )
     ensure_riyadh_fclass_in_fields(
         fields,
-        current_feature_label=label,
-        feature_type=label,
+        current_feature_label=current_feature_label,
+        feature_type=current_feature_label,
     )
+    if not _norm_str(fields.get("fclass")):
+        fields["fclass"] = "unclassified"
     return fields
 
 

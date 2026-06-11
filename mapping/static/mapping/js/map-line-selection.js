@@ -75,11 +75,30 @@
         };
     }
 
+    function isPlaceholderFeatureLabel(label) {
+        var normalized = (label || '').trim().toLowerCase();
+        return !normalized || normalized === 'line';
+    }
+
     function geoJsonSelectionCorePaint(lineDasharray) {
         var dash = normalizeDash(lineDasharray);
         return {
             'line-color': CORE_COLOR,
             'line-width': GEOJSON_CORE_WIDTH,
+            'line-opacity': GEOJSON_CORE_OPACITY,
+            'line-dasharray': dash,
+        };
+    }
+
+    /** Cyan selection core for untyped lines; catalog symbology once a feature type is chosen. */
+    function buildEditingCorePaint(style, lineDasharray, featureLabel) {
+        var dash = normalizeDash(lineDasharray);
+        if (!style || isPlaceholderFeatureLabel(featureLabel)) {
+            return geoJsonSelectionCorePaint(dash);
+        }
+        return {
+            'line-color': style.lineColor || '#64748b',
+            'line-width': Number(style.lineWidth) || GEOJSON_CORE_WIDTH,
             'line-opacity': GEOJSON_CORE_OPACITY,
             'line-dasharray': dash,
         };
@@ -197,6 +216,8 @@
         geoJsonSelectionCasingPaint: geoJsonSelectionCasingPaint,
         geoJsonSelectionRingPaint: geoJsonSelectionRingPaint,
         geoJsonSelectionCorePaint: geoJsonSelectionCorePaint,
+        buildEditingCorePaint: buildEditingCorePaint,
+        isPlaceholderFeatureLabel: isPlaceholderFeatureLabel,
         geoJsonSelectionFillPaint: geoJsonSelectionFillPaint,
         geoJsonSelectionPointPaint: geoJsonSelectionPointPaint,
     };

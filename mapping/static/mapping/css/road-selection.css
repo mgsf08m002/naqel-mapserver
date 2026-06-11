@@ -1,6 +1,7 @@
 /**
- * Road/feature selection tokens (map + layer review UI).
- * Keep in sync with mapping/static/mapping/js/map-line-selection.js
+ * Road selection casing tokens (map + layer review UI).
+ * Editing core color uses catalog symbology once a feature type is chosen;
+ * see MapLineSelection.buildEditingCorePaint in map-line-selection.js.
  */
 :root {
     --naqel-selection-core: #00e5ff;
