@@ -1,18 +1,20 @@
-<div
-    id="approvalRequestsPanel"
-    class="absolute right-0 top-full z-50 mt-2 hidden w-80 sm:w-[22rem] flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-xl shadow-zinc-900/[0.07] max-h-[min(36rem,calc(100vh-6rem))]"
->
-    <div class="shrink-0 border-b border-zinc-100 bg-zinc-50/60 px-4 py-3">
-        <h2 class="text-sm font-semibold tracking-tight text-zinc-900">Approval Requests</h2>
-        <p id="approvalRequestsPanelSummary" class="mt-0.5 text-xs text-zinc-500">Review pending editor submissions</p>
-    </div>
+<div id="approvalRequestsPanel">
+    <header class="approval-panel__header">
+        <div class="approval-panel__title-row">
+            <h2 class="approval-panel__title">Approvals</h2>
+            <span id="approvalRequestsPanelCount" class="approval-panel__count" data-count="0" aria-hidden="true"></span>
+        </div>
+        <p id="approvalRequestsPanelSummary" class="approval-panel__summary">Nothing pending review</p>
+    </header>
     <div
         id="approvalRequestsFilterBar"
-        class="hidden shrink-0 gap-1.5 overflow-x-auto border-b border-zinc-100 bg-white px-3 py-2"
+        class="approval-panel__filters approval-filter-scroll"
         role="toolbar"
         aria-label="Filter approval requests by type"
     >
-        {% include 'mapping/includes/approval_filter_chips.html' %}
+        <div class="approval-filter-track">
+            {% include 'mapping/includes/approval_filter_chips.html' %}
+        </div>
     </div>
-    <div id="approvalRequestsList" class="flex-1 divide-y divide-zinc-100 overflow-y-auto overscroll-contain"></div>
+    <div id="approvalRequestsList" class="approval-panel__list"></div>
 </div>

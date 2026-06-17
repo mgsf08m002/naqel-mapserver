@@ -160,22 +160,6 @@
   }
 }
 
-/* —— Manager approval panel —— */
-@media (max-width: 639px) {
-  #approvalRequestsPanel {
-    position: fixed;
-    left: 0.75rem;
-    right: 0.75rem;
-    top: auto;
-    bottom: 0.75rem;
-    width: auto;
-    max-width: none;
-    max-height: min(70vh, calc(100vh - 5rem));
-    margin-top: 0;
-    border-radius: 1rem;
-  }
-}
-
 /* —— Data tables: card layout below 900px —— */
 @media (max-width: 900px) {
   .me-table__head,

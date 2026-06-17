@@ -5,16 +5,21 @@
     let approvalQueue = [];
     let approvalFilterKey = 'all';
 
-    const REQUEST_CATEGORY_STYLES = {
-        new_road: 'bg-emerald-50 text-emerald-800 ring-emerald-200/80',
-        add_road_label: 'bg-teal-50 text-teal-800 ring-teal-200/80',
-        change_road_label: 'bg-orange-50 text-orange-900 ring-orange-200/80',
-        new_road_geometry: 'bg-indigo-50 text-indigo-800 ring-indigo-200/80',
-        new_feature_type: 'bg-violet-50 text-violet-800 ring-violet-200/80',
-        delete_road: 'bg-rose-50 text-rose-800 ring-rose-200/80',
-        layer_upload: 'bg-sky-50 text-sky-800 ring-sky-200/80',
-        road_attribute_edit: 'bg-amber-50 text-amber-900 ring-amber-200/80'
+    const APPROVAL_ACTION_LABELS = {
+        layer_upload: 'Review on map',
+        delete_road: 'Review deletion',
+        new_road: 'Review new road',
+        new_road_geometry: 'Review geometry',
+        new_feature_type: 'Review feature type',
+        add_road_label: 'Review label',
+        change_road_label: 'Review label',
+        road_attribute_edit: 'Review attributes'
     };
+
+    const ROW_CHEVRON_SVG =
+        '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">' +
+        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>' +
+        '</svg>';
 
     function showToast(message, type) {
         if (message && window.notify && typeof window.notify.tryShow === 'function') {
@@ -24,14 +29,14 @@
 
     function approvalEmptyHtml() {
         return `
-            <div class="flex flex-col items-center justify-center px-6 py-12 text-center">
-                <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-50 ring-1 ring-zinc-200/80">
-                    <svg class="h-7 w-7 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+            <div class="approval-empty">
+                <div class="approval-empty__icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
                 </div>
-                <p class="text-sm font-semibold text-zinc-800">All clear</p>
-                <p class="mt-1 max-w-[14rem] text-xs leading-relaxed text-zinc-500">No submissions are waiting for your approval.</p>
+                <p class="approval-empty__title">You're all caught up</p>
+                <p class="approval-empty__text">No editor submissions need your review right now.</p>
             </div>
         `;
     }
@@ -59,26 +64,18 @@
             date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
     }
 
+    function approvalCategoryClass(categoryKey) {
+        const key = categoryKey || 'road_attribute_edit';
+        return 'approval-cat--' + key;
+    }
+
     function getRequestTypeMeta(request) {
         const categoryKey = request.request_category || 'road_attribute_edit';
-        const label = request.request_category_label || 'Road Attribute Edit';
-        const chipClass =
-            REQUEST_CATEGORY_STYLES[categoryKey] || REQUEST_CATEGORY_STYLES.road_attribute_edit;
-        const actionLabels = {
-            layer_upload: 'Review on map',
-            delete_road: 'Review deletion',
-            new_road: 'Review new road',
-            new_road_geometry: 'Review geometry',
-            new_feature_type: 'Review feature type',
-            add_road_label: 'Review label',
-            change_road_label: 'Review label',
-            road_attribute_edit: 'Review attributes'
-        };
         return {
             key: categoryKey,
-            label: label,
-            chipClass: chipClass,
-            actionLabel: actionLabels[categoryKey] || 'Review'
+            label: request.request_category_label || 'Road Attribute Edit',
+            categoryClass: approvalCategoryClass(categoryKey),
+            actionLabel: APPROVAL_ACTION_LABELS[categoryKey] || 'Review'
         };
     }
 
@@ -99,12 +96,6 @@
         bar.querySelectorAll('[data-approval-filter]').forEach(function(btn) {
             const key = btn.getAttribute('data-approval-filter');
             const active = key === approvalFilterKey;
-            btn.classList.toggle('bg-zinc-900', active);
-            btn.classList.toggle('text-white', active);
-            btn.classList.toggle('ring-zinc-900', active);
-            btn.classList.toggle('bg-white', !active);
-            btn.classList.toggle('text-zinc-600', !active);
-            btn.classList.toggle('ring-zinc-200/90', !active);
             btn.setAttribute('aria-pressed', active ? 'true' : 'false');
         });
     }
@@ -116,15 +107,13 @@
             return;
         }
         if (open) {
-            panel.classList.remove('hidden');
-            panel.classList.add('flex');
+            panel.classList.add('approval-panel--open');
             if (bell) {
                 bell.setAttribute('aria-expanded', 'true');
             }
             syncApprovalUI();
         } else {
-            panel.classList.add('hidden');
-            panel.classList.remove('flex');
+            panel.classList.remove('approval-panel--open');
             if (bell) {
                 bell.setAttribute('aria-expanded', 'false');
             }
@@ -135,7 +124,7 @@
 
     function isApprovalPanelOpen() {
         const panel = document.getElementById('approvalRequestsPanel');
-        return panel && !panel.classList.contains('hidden');
+        return panel && panel.classList.contains('approval-panel--open');
     }
 
     function setManagerReviewMode(active) {
@@ -205,72 +194,51 @@
 
     function buildApprovalRow(request) {
         const typeMeta = getRequestTypeMeta(request);
-        const displayFeature =
-            escapeHtml(String(request.current_feature_label || 'Unnamed Road'));
-        const requesterName = escapeHtml(String(request.requester_name || 'Unknown'));
-        const requesterRole = escapeHtml(String(request.requester_role || 'Editor'));
-        const timeLabel = escapeHtml(formatRequestTime(request.created_at));
-        const shapefileName = request.shapefile_name;
+        const featureLabel = String(request.current_feature_label || 'Unnamed Road');
+        const requesterName = String(request.requester_name || 'Unknown');
+        const requesterRole = String(request.requester_role || 'Editor');
+        const timeLabel = formatRequestTime(request.created_at);
         const shapefileLine =
-            typeMeta.key === 'layer_upload' && shapefileName
-                ? '<p class="mb-2 truncate text-xs text-zinc-600">' +
-                  '<span class="font-medium text-zinc-500">Uploaded shapefile:</span> ' +
-                  escapeHtml(String(shapefileName)) +
-                  '</p>'
+            typeMeta.key === 'layer_upload' && request.shapefile_name
+                ? '<div class="approval-row__meta-line">' +
+                  '<span class="approval-row__meta-label">Shapefile:</span>' +
+                  '<span class="approval-row__meta-value">' + escapeHtml(String(request.shapefile_name)) + '</span>' +
+                  '</div>'
                 : '';
 
         const card = document.createElement('article');
-        card.className =
-            'group relative px-4 py-3.5 transition-colors hover:bg-zinc-50/90 focus-within:bg-zinc-50/90';
+        card.className = 'approval-row ' + typeMeta.categoryClass;
         card.setAttribute('data-request-id', request.id);
         card.setAttribute('data-request-category', typeMeta.key);
-
-        const avatarHtml = request.profile_image_url
-            ? '<img src="' +
-              escapeHtml(request.profile_image_url) +
-              '" alt="" class="h-full w-full rounded-full object-cover">'
-            : '<span class="text-[11px] font-semibold text-zinc-600">' +
-              escapeHtml((request.requester_name || '?').charAt(0).toUpperCase()) +
-              '</span>';
-
-        card.innerHTML =
-            '<div class="mb-2 flex items-center justify-between gap-2">' +
-            '<span class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ' +
-            typeMeta.chipClass +
-            '">' +
-            escapeHtml(typeMeta.label) +
-            '</span>' +
-            '<time class="shrink-0 text-[11px] tabular-nums text-zinc-400" datetime="' +
-            escapeHtml(String(request.created_at || '')) +
-            '">' +
-            timeLabel +
-            '</time>' +
-            '</div>' +
-            '<h3 class="mb-2 text-sm font-semibold leading-snug text-zinc-900">' +
-            displayFeature +
-            '</h3>' +
-            shapefileLine +
-            '<div class="mb-3 flex items-center gap-2 min-w-0">' +
-            '<div class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200/80">' +
-            avatarHtml +
-            '</div>' +
-            '<p class="min-w-0 truncate text-xs text-zinc-600">' +
-            '<span class="font-medium text-zinc-500">Request by:</span> ' +
-            requesterName +
-            ' <span class="text-zinc-400">·</span> ' +
-            requesterRole +
-            '</p>' +
-            '</div>' +
-            '<div class="flex justify-end">' +
-            '<span class="approval-review-btn inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-zinc-900 ring-1 ring-zinc-200/90 transition-all group-hover:bg-zinc-900 group-hover:text-white group-hover:ring-zinc-900">' +
-            escapeHtml(typeMeta.actionLabel) +
-            '<svg class="h-3.5 w-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' +
-            '</span>' +
-            '</div>';
-
         card.setAttribute('role', 'button');
         card.setAttribute('tabindex', '0');
-        card.className += ' cursor-pointer';
+        card.setAttribute('aria-label', typeMeta.actionLabel + ': ' + featureLabel);
+        card.innerHTML =
+            '<div class="approval-row__body">' +
+            '<div class="approval-row__headline">' +
+            '<span class="approval-row__title">' + escapeHtml(featureLabel) + '</span>' +
+            '<time class="approval-row__time" datetime="' + escapeHtml(String(request.created_at || '')) + '">' +
+            escapeHtml(timeLabel) +
+            '</time></div>' +
+            '<div class="approval-row__meta">' +
+            '<div class="approval-row__meta-line">' +
+            '<span class="approval-row__meta-label">User:</span>' +
+            '<span class="approval-row__meta-value">' + escapeHtml(requesterName) + '</span>' +
+            '</div>' +
+            '<div class="approval-row__meta-line">' +
+            '<span class="approval-row__meta-label">Role:</span>' +
+            '<span class="approval-row__meta-value">' + escapeHtml(requesterRole) + '</span>' +
+            '</div>' +
+            '<div class="approval-row__meta-line">' +
+            '<span class="approval-row__meta-label">Edit Type:</span>' +
+            '<span class="approval-row__meta-value approval-row__meta-value--type">' +
+            '<span class="approval-row__type-dot" aria-hidden="true"></span>' +
+            escapeHtml(typeMeta.label) +
+            '</span></div>' +
+            shapefileLine +
+            '</div></div>' +
+            '<span class="approval-row__chevron" aria-hidden="true">' + ROW_CHEVRON_SVG + '</span>';
+
         card.addEventListener('click', function() {
             openApprovalRequest(request.id);
         });
@@ -287,16 +255,21 @@
     function syncApprovalUI() {
         const count = approvalQueue.length;
         const summary = document.getElementById('approvalRequestsPanelSummary');
+        const countPill = document.getElementById('approvalRequestsPanelCount');
         const badge = document.getElementById('approvalRequestsBellBadge');
         const bell = document.getElementById('approvalRequestsBell');
         const filterBar = document.getElementById('approvalRequestsFilterBar');
         const filtered = getFilteredApprovalQueue();
         const shown = filtered.length;
 
+        if (countPill) {
+            countPill.textContent = count > 0 ? String(count) : '';
+            countPill.setAttribute('data-count', String(count));
+        }
         if (badge) {
             badge.textContent = String(count);
-            badge.classList.remove('text-red-600', 'text-green-600');
-            badge.classList.add(count === 0 ? 'text-green-600' : 'text-red-600');
+            badge.classList.toggle('approval-bell__badge--clear', count === 0);
+            badge.classList.toggle('approval-bell__badge--pending', count > 0);
         }
         if (bell) {
             const label = count === 0
@@ -309,23 +282,19 @@
 
         if (summary) {
             if (count === 0) {
-                summary.textContent = 'No editor submissions waiting for review';
+                summary.textContent = 'Nothing pending review';
             } else if (approvalFilterKey !== 'all' && shown !== count) {
-                summary.textContent = shown + ' of ' + count + ' shown · Newest first';
+                summary.textContent = 'Showing ' + shown + ' of ' + count;
             } else if (count === 1) {
-                summary.textContent = '1 editor submission needs review';
+                summary.textContent = '1 submission awaiting review';
             } else {
-                summary.textContent = count + ' editor submissions need review';
+                summary.textContent = count + ' submissions awaiting review';
             }
         }
         if (filterBar) {
+            filterBar.classList.toggle('approval-panel__filters--visible', count > 0 && isApprovalPanelOpen());
             if (count > 0 && isApprovalPanelOpen()) {
-                filterBar.classList.remove('hidden');
-                filterBar.classList.add('flex');
                 syncApprovalFilterBar();
-            } else {
-                filterBar.classList.add('hidden');
-                filterBar.classList.remove('flex');
             }
         }
     }
@@ -528,18 +497,13 @@
         const filtered = getFilteredApprovalQueue();
 
         if (approvalQueue.length === 0) {
-            const emptyState = document.createElement('div');
-            emptyState.innerHTML = approvalEmptyHtml();
-            requestsList.appendChild(emptyState);
+            requestsList.innerHTML = approvalEmptyHtml();
             syncApprovalUI();
             return;
         }
 
         if (filtered.length === 0) {
-            const emptyFilter = document.createElement('div');
-            emptyFilter.className = 'px-4 py-10 text-center text-xs text-zinc-500';
-            emptyFilter.textContent = 'No requests match this filter.';
-            requestsList.appendChild(emptyFilter);
+            requestsList.innerHTML = '<p class="approval-empty-filter">No requests match this filter.</p>';
             syncApprovalUI();
             return;
         }
