@@ -1,15 +1,14 @@
-services:
-  db:
-    ports:
-      - "127.0.0.1:5432:5432"
+# Production overrides for VPS (139.162.60.105).
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
+services:
   pgadmin:
-    ports:
+    ports: !reset
       - "127.0.0.1:5050:80"
 
   geotrak_maps:
-    ports:
+    ports: !reset
       - "8000:8000"
-    volumes:
+    volumes: !reset
       - ./database:/database
     restart: unless-stopped
