@@ -14,5 +14,7 @@ docker compose up --build
 docker compose exec geotrak_maps python manage.py makemigrations
 docker compose exec geotrak_maps python manage.py migrate
 
-# Tests
-docker compose exec geotrak_maps python manage.py test notifications mapping layer_uploader system_admin --keepdb --noinput
+#Rebuild for Update changes on production
+cd "/srv/GEOTRAK MAPS/geotrak-maps"
+git pull
+docker compose up -d --build
