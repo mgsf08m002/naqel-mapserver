@@ -1,52 +1,52 @@
 {% load static %}
 <link rel="stylesheet" href="{% static 'notifications/css/notifications.css' %}">
 <div
-    id="notificationContainer"
-    class="naqel-toast-stack"
+    id="geotrakToastStack"
+    class="geotrak-toast-stack"
     style="--toast-stack-top: {{ toast_top|default:'5rem' }};"
     role="region"
     aria-label="Notifications"
 ></div>
-<template id="notificationTemplate">
-    <div class="naqel-toast" data-type="info" role="status" aria-live="polite" aria-atomic="true">
-        <div class="naqel-toast__main">
-            <div class="naqel-toast__icon-wrap notification-icon" aria-hidden="true"></div>
-            <div class="naqel-toast__text">
-                <p class="naqel-toast__label notification-label naqel-sr-only"></p>
-                <p class="naqel-toast__message notification-message"></p>
+<template id="geotrakToastTemplate">
+    <div class="geotrak-toast" data-type="info" role="status" aria-live="polite" aria-atomic="true">
+        <div class="geotrak-toast__main">
+            <div class="geotrak-toast__icon-wrap" aria-hidden="true"></div>
+            <div class="geotrak-toast__text">
+                <p class="geotrak-toast__label geotrak-sr-only"></p>
+                <p class="geotrak-toast__message"></p>
             </div>
-            <button type="button" class="naqel-toast__close notification-close" aria-label="Dismiss notification">
+            <button type="button" class="geotrak-toast__close" aria-label="Dismiss notification">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
             </button>
         </div>
-        <div class="naqel-toast__progress-track notification-progress-track" hidden>
-            <div class="naqel-toast__progress-bar notification-progress-bar"></div>
+        <div class="geotrak-toast__progress-track" hidden>
+            <div class="geotrak-toast__progress-bar"></div>
         </div>
     </div>
 </template>
 <div
-    id="naqelConfirmDialog"
-    class="naqel-confirm"
+    id="geotrakConfirmDialog"
+    class="geotrak-confirm"
     hidden
     aria-hidden="true"
 >
-    <div class="naqel-confirm__backdrop" data-naqel-confirm-dismiss tabindex="-1"></div>
+    <div class="geotrak-confirm__backdrop" data-geotrak-confirm-dismiss tabindex="-1"></div>
     <div
-        class="naqel-confirm__panel"
+        class="geotrak-confirm__panel"
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="naqelConfirmTitle"
-        aria-describedby="naqelConfirmMessage"
+        aria-labelledby="geotrakConfirmTitle"
+        aria-describedby="geotrakConfirmMessage"
     >
-        <h2 id="naqelConfirmTitle" class="naqel-confirm__title">Confirm</h2>
-        <p id="naqelConfirmMessage" class="naqel-confirm__message"></p>
-        <div class="naqel-confirm__actions">
-            <button type="button" class="naqel-confirm__btn naqel-confirm__btn--cancel" data-naqel-confirm-cancel>
+        <h2 id="geotrakConfirmTitle" class="geotrak-confirm__title">Confirm</h2>
+        <p id="geotrakConfirmMessage" class="geotrak-confirm__message"></p>
+        <div class="geotrak-confirm__actions">
+            <button type="button" class="geotrak-confirm__btn geotrak-confirm__btn--cancel" data-geotrak-confirm-cancel>
                 Cancel
             </button>
-            <button type="button" class="naqel-confirm__btn naqel-confirm__btn--confirm" data-naqel-confirm-ok>
+            <button type="button" class="geotrak-confirm__btn geotrak-confirm__btn--confirm" data-geotrak-confirm-ok>
                 Confirm
             </button>
         </div>

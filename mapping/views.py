@@ -231,7 +231,7 @@ def _persist_riyadh_road_label_columns(road, label_text):
 @require_http_methods(["GET"])
 def riyadh_roads_map_sync(request):
     """
-    Public sync endpoint for companion map apps (naqel-map / GEOTRAK).
+    Public sync endpoint for GeoTrak Maps companion clients.
 
     Returns global tiles_version (bumps on every riyadh_roads edit) and
     symbology_version (symbology.json / labeling.json changes).
@@ -260,7 +260,7 @@ def riyadh_roads_tile_proxy(request, z: int, x: int, y: int):
     req = Request(
         upstream_url,
         headers={
-            "User-Agent": "naqel-mapserver/1.0",
+            "User-Agent": "geotrak-maps/1.0",
             "Cache-Control": "no-cache, no-store",
             "Pragma": "no-cache",
         },

@@ -230,7 +230,7 @@
 }
 
 .road-geometry-edit-hint__strip-line--fallback {
-    background: linear-gradient(90deg, var(--naqel-selection-core), var(--naqel-selection-soft));
+    background: linear-gradient(90deg, var(--geotrak-selection-core), var(--geotrak-selection-soft));
     height: 4px;
     border-radius: 2px;
     opacity: 0.9;
@@ -579,7 +579,7 @@ svg[data-terra-draw] line {
     display: block;
 }
 
-/* Readable body text (legacy “white on dark” menus) */
+/* Readable body text on dark map tool menus */
 #editSidePanel.map-sidebar-root .text-white {
     color: var(--ms-text) !important;
 }

@@ -26,18 +26,18 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir -q -r requirements.txt
 
 # Copy entrypoint separately to avoid being overridden by bind mounts
-COPY entrypoint.sh /usr/local/bin/naqel_entrypoint.sh
+COPY entrypoint.sh /usr/local/bin/geotrak_entrypoint.sh
 
 # Copy project
 COPY . /app/
 
 # Normalize line endings and ensure entrypoint is executable
-RUN sed -i 's/\r$//' /usr/local/bin/naqel_entrypoint.sh && \
-    chmod +x /usr/local/bin/naqel_entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/geotrak_entrypoint.sh && \
+    chmod +x /usr/local/bin/geotrak_entrypoint.sh
 
 # Expose port
 EXPOSE 8000
 
 # Default command (may be overridden by docker-compose)
-CMD ["/usr/local/bin/naqel_entrypoint.sh"]
+CMD ["/usr/local/bin/geotrak_entrypoint.sh"]
 

@@ -4,8 +4,8 @@
  * see MapLineSelection.buildEditingCorePaint in map-line-selection.js.
  */
 :root {
-    --naqel-selection-core: #00e5ff;
-    --naqel-selection-soft: #06b6d4;
-    --naqel-selection-casing: #ffffff;
-    --naqel-selection-selected-bg: #ecfeff;
+    --geotrak-selection-core: #00e5ff;
+    --geotrak-selection-soft: #06b6d4;
+    --geotrak-selection-casing: #ffffff;
+    --geotrak-selection-selected-bg: #ecfeff;
 }

@@ -15,7 +15,7 @@
     }
 
     function getMap() {
-        var map = global.naqelMaplibreMap;
+        var map = global.geotrakMaplibreMap;
         return map && typeof map.once === 'function' ? map : null;
     }
 
@@ -47,8 +47,8 @@
             return;
         }
 
-        if (data.road.geometry && typeof global.naqelZoomToRoadGeometry === 'function') {
-            global.naqelZoomToRoadGeometry(data.road.geometry);
+        if (data.road.geometry && typeof global.geotrakZoomToRoadGeometry === 'function') {
+            global.geotrakZoomToRoadGeometry(data.road.geometry);
         }
 
         if (typeof global.openRiyadhRoadById !== 'function') {

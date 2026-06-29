@@ -7,7 +7,7 @@ from django.views.generic.base import RedirectView
 urlpatterns = [
     path(
         "favicon.ico",
-        RedirectView.as_view(url="/static/auth/images/logo.png", permanent=False),
+        RedirectView.as_view(url="/static/auth/images/geotrak-browser-icon.png?v=2", permanent=False),
         name="favicon",
     ),
     path('', include('home.urls')),

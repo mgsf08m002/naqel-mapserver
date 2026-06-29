@@ -1,5 +1,5 @@
 """
-Django settings for naqel-mapserver. See:
+Django settings for geotrak-maps. See:
 https://docs.djangoproject.com/en/6.0/topics/settings/
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """

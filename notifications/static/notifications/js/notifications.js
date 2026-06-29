@@ -60,37 +60,37 @@
             if (this._domBound) {
                 return;
             }
-            this.container = document.getElementById('notificationContainer');
-            this.template = document.getElementById('notificationTemplate');
+            this.container = document.getElementById('geotrakToastStack');
+            this.template = document.getElementById('geotrakToastTemplate');
             this._bindConfirmDom();
             this._domBound = true;
         }
 
         _bindConfirmDom() {
-            this._confirmDialog = document.getElementById('naqelConfirmDialog');
+            this._confirmDialog = document.getElementById('geotrakConfirmDialog');
             if (!this._confirmDialog) {
                 return;
             }
-            this._confirmTitle = document.getElementById('naqelConfirmTitle');
-            this._confirmMessage = document.getElementById('naqelConfirmMessage');
-            this._confirmOkBtn = this._confirmDialog.querySelector('[data-naqel-confirm-ok]');
-            this._confirmCancelBtn = this._confirmDialog.querySelector('[data-naqel-confirm-cancel]');
-            this._confirmBackdrop = this._confirmDialog.querySelector('[data-naqel-confirm-dismiss]');
+            this._confirmTitle = document.getElementById('geotrakConfirmTitle');
+            this._confirmMessage = document.getElementById('geotrakConfirmMessage');
+            this._confirmOkBtn = this._confirmDialog.querySelector('[data-geotrak-confirm-ok]');
+            this._confirmCancelBtn = this._confirmDialog.querySelector('[data-geotrak-confirm-cancel]');
+            this._confirmBackdrop = this._confirmDialog.querySelector('[data-geotrak-confirm-dismiss]');
             const self = this;
-            if (this._confirmOkBtn && !this._confirmOkBtn._naqelBound) {
-                this._confirmOkBtn._naqelBound = true;
+            if (this._confirmOkBtn && !this._confirmOkBtn._geotrakBound) {
+                this._confirmOkBtn._geotrakBound = true;
                 this._confirmOkBtn.addEventListener('click', function () {
                     self._finishConfirm(true);
                 });
             }
-            if (this._confirmCancelBtn && !this._confirmCancelBtn._naqelBound) {
-                this._confirmCancelBtn._naqelBound = true;
+            if (this._confirmCancelBtn && !this._confirmCancelBtn._geotrakBound) {
+                this._confirmCancelBtn._geotrakBound = true;
                 this._confirmCancelBtn.addEventListener('click', function () {
                     self._finishConfirm(false);
                 });
             }
-            if (this._confirmBackdrop && !this._confirmBackdrop._naqelBound) {
-                this._confirmBackdrop._naqelBound = true;
+            if (this._confirmBackdrop && !this._confirmBackdrop._geotrakBound) {
+                this._confirmBackdrop._geotrakBound = true;
                 this._confirmBackdrop.addEventListener('click', function () {
                     self._finishConfirm(false);
                 });
@@ -162,7 +162,7 @@
 
                 self._confirmDialog.hidden = false;
                 self._confirmDialog.setAttribute('aria-hidden', 'false');
-                document.body.classList.add('naqel-confirm-open');
+                document.body.classList.add('geotrak-confirm-open');
 
                 requestAnimationFrame(function () {
                     requestAnimationFrame(function () {
@@ -199,7 +199,7 @@
 
             this._confirmDialog.classList.remove('is-open');
             this._confirmDialog.setAttribute('aria-hidden', 'true');
-            document.body.classList.remove('naqel-confirm-open');
+            document.body.classList.remove('geotrak-confirm-open');
 
             const previousFocus = this._confirmPreviousFocus;
             this._confirmPreviousFocus = null;
@@ -280,7 +280,7 @@
             const normalized = normalizeType(type);
             const ms = typeof duration === 'number' ? duration : this.autoHideDelay;
             const id =
-                'notification-' + Date.now() + '-' + Math.random().toString(36).slice(2, 11);
+                'geotrak-toast-' + Date.now() + '-' + Math.random().toString(36).slice(2, 11);
             const el = this._createToast(id, message, normalized, ms);
 
             this.container.appendChild(el);
@@ -292,7 +292,7 @@
             });
 
             if (ms > 0) {
-                el._naqelAutoHide = window.setTimeout(function () {
+                el._geotrakAutoHide = window.setTimeout(function () {
                     window.notify.hide(id);
                 }, ms);
             }
@@ -302,13 +302,13 @@
 
         _createToast(id, message, type, durationMs) {
             const clone = this.template.content.cloneNode(true);
-            const toast = clone.querySelector('.naqel-toast');
-            const labelEl = clone.querySelector('.notification-label');
-            const messageEl = clone.querySelector('.notification-message');
-            const iconEl = clone.querySelector('.notification-icon');
-            const closeBtn = clone.querySelector('.notification-close');
-            const progressTrack = clone.querySelector('.notification-progress-track');
-            const progressBar = clone.querySelector('.notification-progress-bar');
+            const toast = clone.querySelector('.geotrak-toast');
+            const labelEl = clone.querySelector('.geotrak-toast__label');
+            const messageEl = clone.querySelector('.geotrak-toast__message');
+            const iconEl = clone.querySelector('.geotrak-toast__icon-wrap');
+            const closeBtn = clone.querySelector('.geotrak-toast__close');
+            const progressTrack = clone.querySelector('.geotrak-toast__progress-track');
+            const progressBar = clone.querySelector('.geotrak-toast__progress-bar');
 
             toast.id = id;
             toast.setAttribute('data-type', type);
@@ -363,11 +363,11 @@
             if (!notification) {
                 return;
             }
-            if (notification._naqelAutoHide) {
-                window.clearTimeout(notification._naqelAutoHide);
-                notification._naqelAutoHide = null;
+            if (notification._geotrakAutoHide) {
+                window.clearTimeout(notification._geotrakAutoHide);
+                notification._geotrakAutoHide = null;
             }
-            const bar = notification.querySelector('.notification-progress-bar');
+            const bar = notification.querySelector('.geotrak-toast__progress-bar');
             if (bar) {
                 bar.style.animation = 'none';
                 bar.style.transform = 'scaleX(0)';
@@ -385,7 +385,7 @@
                 return;
             }
             var ids = [];
-            this.container.querySelectorAll('.naqel-toast').forEach(function (node) {
+            this.container.querySelectorAll('.geotrak-toast').forEach(function (node) {
                 if (node.id) {
                     ids.push(node.id);
                 }

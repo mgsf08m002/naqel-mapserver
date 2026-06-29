@@ -43,7 +43,7 @@ class ValidateViewTests(TestCase):
         self.client.force_login(self.user)
 
         session = self.client.session
-        session["temp_dir"] = "C:\\temp\\naqel-upload"
+        session["temp_dir"] = "C:\\temp\\geotrak-upload"
         session["selected"] = "uploaded_roads"
         session.save()
 
@@ -62,7 +62,7 @@ class ValidateViewTests(TestCase):
         with (
             patch(
                 "layer_uploader.views.find_shapefile_path",
-                return_value="C:\\temp\\naqel-upload\\uploaded_roads.shp",
+                return_value="C:\\temp\\geotrak-upload\\uploaded_roads.shp",
             ),
             patch("layer_uploader.views.fiona.open", return_value=_StubFionaSource()),
             patch(
@@ -76,7 +76,7 @@ class ValidateViewTests(TestCase):
         self.assertRedirects(
             response, reverse("layer_review", kwargs={"layer_id": layer.pk})
         )
-        compare_mock.assert_called_once_with("C:\\temp\\naqel-upload\\uploaded_roads.shp")
+        compare_mock.assert_called_once_with("C:\\temp\\geotrak-upload\\uploaded_roads.shp")
         self.assertEqual(layer.status, Layer.Status.DRAFT)
         self.assertEqual(layer.new_features, 4)
 

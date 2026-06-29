@@ -578,7 +578,7 @@
     function setSymbologyCatalog(catalog) {
         if (!catalog || typeof catalog !== 'object' || !catalog.styles_by_label) {
             if (catalog != null) {
-                window.__naqelSymbologyCatalogLastError = new Error('Symbology catalog missing styles_by_label');
+                window.__geotrakSymbologyCatalogLastError = new Error('Symbology catalog missing styles_by_label');
             }
             return;
         }
@@ -595,7 +595,7 @@
 
         // Expose catalog so other scripts (e.g. manager approval queue) can reuse it.
         window.symbologyCatalog = catalog;
-        window.__naqelSymbologyCatalogLastError = null;
+        window.__geotrakSymbologyCatalogLastError = null;
 
         try {
             window.dispatchEvent(new CustomEvent('symbology:catalogLoaded', { detail: catalog }));
@@ -612,8 +612,8 @@
             return;
         }
         const load =
-            typeof window.__naqelLoadSymbologyCatalog === 'function'
-                ? window.__naqelLoadSymbologyCatalog
+            typeof window.__geotrakLoadSymbologyCatalog === 'function'
+                ? window.__geotrakLoadSymbologyCatalog
                 : function () {
                       return fetch('/symbology/api/catalog/', {
                           method: 'GET',
@@ -630,7 +630,7 @@
                 setSymbologyCatalog(data);
             })
             .catch(function (err) {
-                window.__naqelSymbologyCatalogLastError = err;
+                window.__geotrakSymbologyCatalogLastError = err;
             });
     }
 
@@ -1018,8 +1018,8 @@
             startHidingDefaultRendering();
 
             try {
-                if (!window.__naqelSymbologyLineDrawingCatalogSync) {
-                    window.__naqelSymbologyLineDrawingCatalogSync = true;
+                if (!window.__geotrakSymbologyLineDrawingCatalogSync) {
+                    window.__geotrakSymbologyLineDrawingCatalogSync = true;
                     window.addEventListener('symbology:catalogLoaded', function () {
                         try {
                             if (document.getElementById('lineDropdownsContainer')) {

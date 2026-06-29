@@ -76,7 +76,7 @@
 
 .map-road-search__result:hover,
 .map-road-search__result:focus-visible {
-    background: var(--naqel-selection-selected-bg, #ecfeff);
+    background: var(--geotrak-selection-selected-bg, #ecfeff);
     outline: none;
 }
 

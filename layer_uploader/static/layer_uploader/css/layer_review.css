@@ -14,9 +14,9 @@ body:has(#layer-review-root.lr-shell) main {
   --lr-border-light: #f3f4f6;
   --lr-surface: #f9fafb;
   --lr-map-placeholder: #e5e7eb;
-  --lr-selected-bg: var(--naqel-selection-selected-bg, #ecfeff);
-  --lr-selection-accent: var(--naqel-selection-soft, #06b6d4);
-  --lr-selection-accent-bright: var(--naqel-selection-core, #00e5ff);
+  --lr-selected-bg: var(--geotrak-selection-selected-bg, #ecfeff);
+  --lr-selection-accent: var(--geotrak-selection-soft, #06b6d4);
+  --lr-selection-accent-bright: var(--geotrak-selection-core, #00e5ff);
   --lr-color-new: #0000f7;
   --lr-color-approved: #02AD41;
   --lr-color-rejected: #f77e7e;

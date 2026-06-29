@@ -1,4 +1,4 @@
-// KSA Map Editing Module
+// GeoTrak Maps
 function isUserAuthenticated() {
     try {
         if (typeof IS_AUTHENTICATED !== 'undefined') return !!IS_AUTHENTICATED;
@@ -15,12 +15,12 @@ const IS_AUTHENTICATED = isUserAuthenticated();
  * (dropdowns, MVT db_fclass, GeoJSON overlay) do not race duplicate requests.
  * Retries are allowed after failure: the in-flight promise is cleared on error.
  */
-window.__naqelLoadSymbologyCatalog = function __naqelLoadSymbologyCatalog() {
+window.__geotrakLoadSymbologyCatalog = function __geotrakLoadSymbologyCatalog() {
     if (window.symbologyCatalog && window.symbologyCatalog.styles_by_label) {
         return Promise.resolve(window.symbologyCatalog);
     }
-    if (!window.__naqelSymbologyCatalogPromise) {
-        window.__naqelSymbologyCatalogPromise = fetch('/symbology/api/catalog/', {
+    if (!window.__geotrakSymbologyCatalogPromise) {
+        window.__geotrakSymbologyCatalogPromise = fetch('/symbology/api/catalog/', {
             method: 'GET',
             headers: { 'Accept': 'application/json' }
         })
@@ -35,16 +35,16 @@ window.__naqelLoadSymbologyCatalog = function __naqelLoadSymbologyCatalog() {
                     throw new Error('Invalid symbology catalog payload');
                 }
                 window.symbologyCatalog = catalog;
-                window.__naqelSymbologyCatalogLastError = null;
+                window.__geotrakSymbologyCatalogLastError = null;
                 return catalog;
             })
             .catch(function (err) {
-                window.__naqelSymbologyCatalogLastError = err;
-                window.__naqelSymbologyCatalogPromise = undefined;
+                window.__geotrakSymbologyCatalogLastError = err;
+                window.__geotrakSymbologyCatalogPromise = undefined;
                 throw err;
             });
     }
-    return window.__naqelSymbologyCatalogPromise;
+    return window.__geotrakSymbologyCatalogPromise;
 };
 
 function getMaptilerApiKey() {
@@ -200,7 +200,7 @@ const map = new maplibregl.Map({
 });
 
 /** MapLibre instance for other scripts. Do not use `window.map` — the #map div id shadows it. */
-window.naqelMaplibreMap = map;
+window.geotrakMaplibreMap = map;
 
 function setBasemapVisibility(targetId) {
     if (!map || !targetId) return;
@@ -1625,7 +1625,7 @@ map.on('load', () => {
                     return;
                 }
 
-                window.__naqelLoadSymbologyCatalog()
+                window.__geotrakLoadSymbologyCatalog()
                     .then(function (catalog) {
                         ensureRiyadhRoadLayerFromCatalog(catalog);
                         ensureRiyadhRoadLabelsFromCatalog(catalog);

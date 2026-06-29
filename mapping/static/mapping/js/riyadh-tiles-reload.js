@@ -153,7 +153,7 @@
 
     /**
      * Soft MVT refresh: keep current tiles visible until new ones load.
-     * Shared contract with naqel-map `reloadMaplibreVectorTileSource`.
+     * Shared contract with GeoTrak Maps `reloadMaplibreVectorTileSource`.
      */
     window.reloadMaplibreVectorTileSource = function (map, sourceId, baseTileUrl, version) {
         if (!map || !sourceId || !baseTileUrl) {

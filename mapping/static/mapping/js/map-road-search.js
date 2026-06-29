@@ -1,6 +1,6 @@
 /**
  * Road name search on the map (English or Arabic): zoom to match, open road details.
- * Requires map-road-select.js (openRiyadhRoadById) and naqelMaplibreMap from map.js.
+ * Requires map-road-select.js (openRiyadhRoadById) and geotrakMaplibreMap from map.js.
  */
 (function (global) {
     'use strict';
@@ -9,11 +9,11 @@
     var SEARCH_LIMIT = 12;
     var DEBOUNCE_MS = 280;
     var DRAG_THRESHOLD_PX = 6;
-    var POSITION_STORAGE_KEY = 'naqel.mapRoadSearch.position';
+    var POSITION_STORAGE_KEY = 'geotrak.mapRoadSearch.position';
     var SEARCH_URL = '/mapping/api/riyadh-road-search/';
 
     function getMap() {
-        var map = global.naqelMaplibreMap;
+        var map = global.geotrakMaplibreMap;
         return map && typeof map.flyTo === 'function' ? map : null;
     }
 
@@ -472,5 +472,5 @@
         }
     }
 
-    global.naqelZoomToRoadGeometry = zoomToGeometry;
+    global.geotrakZoomToRoadGeometry = zoomToGeometry;
 })(typeof window !== 'undefined' ? window : this);

@@ -1,7 +1,7 @@
 services:
   db:
     image: postgis/postgis:18-3.6
-    container_name: naqel_maps_db
+    container_name: geotrak_maps_db
     env_file:
       - .env
     environment:
@@ -21,7 +21,7 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: naqel_maps_pgadmin
+    container_name: geotrak_maps_pgadmin
     env_file:
       - .env
     environment:
@@ -34,15 +34,15 @@ services:
     volumes:
       - pgadmin_data:/var/lib/pgadmin
 
-  naqel_maps:
+  geotrak_maps:
     build: .
-    container_name: Naqel_Maps
+    container_name: GeoTrak_Maps
     ports:
       - "8000:8000"
     volumes:
       - .:/app
       - ./database:/database
-    command: ["/usr/local/bin/naqel_entrypoint.sh"]
+    command: ["/usr/local/bin/geotrak_entrypoint.sh"]
     environment:
       - PYTHONUNBUFFERED=1
     env_file:
@@ -54,4 +54,3 @@ services:
 volumes:
   postgres_data:
   pgadmin_data:
-

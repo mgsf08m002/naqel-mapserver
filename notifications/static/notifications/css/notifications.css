@@ -1,8 +1,8 @@
 /**
- * Naqel toast stack — minimal monochrome card, single accent (icon), calm typography.
+ * GeoTrak toast stack — minimal monochrome card, single accent (icon), calm typography.
  */
 
-#notificationContainer.naqel-toast-stack {
+#geotrakToastStack.geotrak-toast-stack {
     position: fixed;
     left: 50%;
     top: var(--toast-stack-top, 5rem);
@@ -17,12 +17,12 @@
     pointer-events: none;
 }
 
-#notificationContainer.naqel-toast-stack > .naqel-toast {
+#geotrakToastStack.geotrak-toast-stack > .geotrak-toast {
     pointer-events: auto;
 }
 
 /* Screen-reader-only: type label (Success / Error / …) stays for a11y, not shown visually */
-.naqel-sr-only {
+.geotrak-sr-only {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -34,7 +34,7 @@
     border: 0;
 }
 
-.naqel-toast {
+.geotrak-toast {
     --toast-accent: #171717;
     position: relative;
     width: 100%;
@@ -56,7 +56,7 @@
         transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.naqel-toast__main {
+.geotrak-toast__main {
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -65,7 +65,7 @@
 }
 
 /* Icon only — no filled tile; color is the sole status signal */
-.naqel-toast__icon-wrap {
+.geotrak-toast__icon-wrap {
     flex-shrink: 0;
     width: 1.375rem;
     height: 1.375rem;
@@ -75,19 +75,19 @@
     color: var(--toast-accent);
 }
 
-.naqel-toast__icon-wrap svg {
+.geotrak-toast__icon-wrap svg {
     width: 1.375rem;
     height: 1.375rem;
     flex-shrink: 0;
     stroke-width: 2;
 }
 
-.naqel-toast__text {
+.geotrak-toast__text {
     flex: 1;
     min-width: 0;
 }
 
-.naqel-toast__message {
+.geotrak-toast__message {
     margin: 0;
     font-size: 0.9375rem;
     font-weight: 500;
@@ -97,7 +97,7 @@
     word-wrap: break-word;
 }
 
-.naqel-toast__close {
+.geotrak-toast__close {
     flex-shrink: 0;
     align-self: flex-start;
     margin: -0.125rem 0 0 0;
@@ -111,18 +111,18 @@
     transition: background 0.15s ease, color 0.15s ease;
 }
 
-.naqel-toast__close:hover {
+.geotrak-toast__close:hover {
     background: rgba(17, 24, 39, 0.05);
     color: #374151;
 }
 
-.naqel-toast__close:focus-visible {
+.geotrak-toast__close:focus-visible {
     outline: 2px solid #111827;
     outline-offset: 2px;
     color: #111827;
 }
 
-.naqel-toast__close svg {
+.geotrak-toast__close svg {
     width: 1.125rem;
     height: 1.125rem;
     display: block;
@@ -130,7 +130,7 @@
 }
 
 /* Neutral timer line — avoids a second loud color strip */
-.naqel-toast__progress-track {
+.geotrak-toast__progress-track {
     height: 2px;
     background: rgba(17, 24, 39, 0.06);
     margin: 0;
@@ -138,7 +138,7 @@
     overflow: hidden;
 }
 
-.naqel-toast__progress-bar {
+.geotrak-toast__progress-bar {
     height: 100%;
     width: 100%;
     transform-origin: left center;
@@ -146,7 +146,7 @@
     transform: scaleX(1);
 }
 
-@keyframes naqel-toast-progress-shrink {
+@keyframes geotrak-toast-progress-shrink {
     from {
         transform: scaleX(1);
     }
@@ -155,44 +155,44 @@
     }
 }
 
-.naqel-toast.show .naqel-toast__progress-bar {
-    animation: naqel-toast-progress-shrink linear forwards;
+.geotrak-toast.show .geotrak-toast__progress-bar {
+    animation: geotrak-toast-progress-shrink linear forwards;
     animation-duration: var(--toast-duration-ms, 7000ms);
 }
 
-.naqel-toast.show {
+.geotrak-toast.show {
     opacity: 1;
     transform: translateY(0) scale(1);
 }
 
-.naqel-toast.hide {
+.geotrak-toast.hide {
     opacity: 0;
     transform: translateY(-0.5rem) scale(0.99);
 }
 
 /* Refined accent hues — stroke icons only */
-.naqel-toast[data-type="success"] {
+.geotrak-toast[data-type="success"] {
     --toast-accent: #047857;
 }
 
-.naqel-toast[data-type="error"] {
+.geotrak-toast[data-type="error"] {
     --toast-accent: #b91c1c;
 }
 
-.naqel-toast[data-type="warning"] {
+.geotrak-toast[data-type="warning"] {
     --toast-accent: #c2410c;
 }
 
-.naqel-toast[data-type="info"] {
+.geotrak-toast[data-type="info"] {
     --toast-accent: #374151;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .naqel-toast {
+    .geotrak-toast {
         transition-duration: 0.01ms !important;
     }
 
-    .naqel-toast.show .naqel-toast__progress-bar {
+    .geotrak-toast.show .geotrak-toast__progress-bar {
         animation: none !important;
         opacity: 0.4;
         transform: scaleX(0.4);
@@ -200,7 +200,7 @@
 }
 
 @media (max-width: 640px) {
-    #notificationContainer.naqel-toast-stack {
+    #geotrakToastStack.geotrak-toast-stack {
         left: 1rem;
         right: 1rem;
         width: auto;
@@ -209,12 +209,12 @@
     }
 }
 
-body.naqel-confirm-open {
+body.geotrak-confirm-open {
     overflow: hidden;
 }
 
 /* Confirm dialog — matches toast card aesthetic */
-.naqel-confirm {
+.geotrak-confirm {
     position: fixed;
     inset: 0;
     z-index: 10000;
@@ -227,19 +227,19 @@ body.naqel-confirm-open {
     transition: opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.naqel-confirm.is-open {
+.geotrak-confirm.is-open {
     pointer-events: auto;
     opacity: 1;
 }
 
-.naqel-confirm__backdrop {
+.geotrak-confirm__backdrop {
     position: absolute;
     inset: 0;
     background: rgba(9, 9, 11, 0.32);
     backdrop-filter: blur(6px);
 }
 
-.naqel-confirm__panel {
+.geotrak-confirm__panel {
     position: relative;
     width: min(100%, 22.5rem);
     padding: 1.5rem 1.5rem 1.25rem;
@@ -258,12 +258,12 @@ body.naqel-confirm-open {
     opacity: 0;
 }
 
-.naqel-confirm.is-open .naqel-confirm__panel {
+.geotrak-confirm.is-open .geotrak-confirm__panel {
     transform: translateY(0) scale(1);
     opacity: 1;
 }
 
-.naqel-confirm__title {
+.geotrak-confirm__title {
     margin: 0;
     font-size: 1.0625rem;
     font-weight: 600;
@@ -272,7 +272,7 @@ body.naqel-confirm-open {
     color: #111827;
 }
 
-.naqel-confirm__message {
+.geotrak-confirm__message {
     margin: 0.75rem 0 0;
     font-size: 0.9375rem;
     font-weight: 500;
@@ -281,7 +281,7 @@ body.naqel-confirm-open {
     word-wrap: break-word;
 }
 
-.naqel-confirm__actions {
+.geotrak-confirm__actions {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
@@ -289,7 +289,7 @@ body.naqel-confirm-open {
     margin-top: 1.25rem;
 }
 
-.naqel-confirm__btn {
+.geotrak-confirm__btn {
     min-width: 5.5rem;
     padding: 0.5rem 1rem;
     border-radius: 9999px;
@@ -300,45 +300,45 @@ body.naqel-confirm-open {
     transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.naqel-confirm__btn:focus-visible {
+.geotrak-confirm__btn:focus-visible {
     outline: 2px solid #111827;
     outline-offset: 2px;
 }
 
-.naqel-confirm__btn--cancel {
+.geotrak-confirm__btn--cancel {
     border: 1px solid rgba(17, 24, 39, 0.12);
     background: #ffffff;
     color: #374151;
 }
 
-.naqel-confirm__btn--cancel:hover {
+.geotrak-confirm__btn--cancel:hover {
     background: rgba(17, 24, 39, 0.04);
 }
 
-.naqel-confirm__btn--confirm {
+.geotrak-confirm__btn--confirm {
     border: 1px solid #111827;
     background: #111827;
     color: #ffffff;
 }
 
-.naqel-confirm__btn--confirm:hover {
+.geotrak-confirm__btn--confirm:hover {
     background: #27272a;
     border-color: #27272a;
 }
 
-.naqel-confirm[data-variant="danger"] .naqel-confirm__btn--confirm {
+.geotrak-confirm[data-variant="danger"] .geotrak-confirm__btn--confirm {
     border-color: #b91c1c;
     background: #b91c1c;
 }
 
-.naqel-confirm[data-variant="danger"] .naqel-confirm__btn--confirm:hover {
+.geotrak-confirm[data-variant="danger"] .geotrak-confirm__btn--confirm:hover {
     background: #991b1b;
     border-color: #991b1b;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .naqel-confirm,
-    .naqel-confirm__panel {
+    .geotrak-confirm,
+    .geotrak-confirm__panel {
         transition-duration: 0.01ms !important;
     }
 }

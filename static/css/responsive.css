@@ -4,6 +4,11 @@
  * Header spacing uses Tailwind utilities in templates.
  */
 
+/* White GeoTrak logo asset (on black) → dark logo on light headers */
+.geotrak-logo-on-light {
+  filter: invert(1);
+}
+
 /* —— Map sidebar (overlay below md) —— */
 #mapSidePanelBackdrop {
   opacity: 0;
