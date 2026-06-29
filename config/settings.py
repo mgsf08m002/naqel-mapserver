@@ -94,6 +94,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -132,10 +133,10 @@ if DEBUG:
     ]
     CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers.
 else:
-    # Production CSP: stricter defaults; django-csp is still recommended.
+    # Production CSP: inline scripts/styles required by current map templates.
     CSP_DEFAULT_SRC = ["'self'"]
-    CSP_SCRIPT_SRC = ["'self'", "https://unpkg.com", "https://cdn.jsdelivr.net"]
-    CSP_STYLE_SRC = ["'self'", "https://unpkg.com", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"]
+    CSP_SCRIPT_SRC = ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://cdn.jsdelivr.net"]
+    CSP_STYLE_SRC = ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"]
     CSP_FONT_SRC = ["'self'", "https://fonts.gstatic.com", "data:"]
     CSP_IMG_SRC = [
         "'self'",
@@ -253,9 +254,24 @@ USE_TZ = True
 # Static files (CSS, JavaScript, images)
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
+    },
+}
+
+if not DEBUG:
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_REFERRER_POLICY = 'same-origin'
 
 # Media files (user uploads)
 MEDIA_URL = 'media/'
