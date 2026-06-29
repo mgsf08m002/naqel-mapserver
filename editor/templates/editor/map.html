@@ -62,37 +62,37 @@
                 <!-- Point Button -->
                 <button 
                     id="pointToolBtn" 
-                    class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 group"
+                    class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 group"
                     title="Point"
                 >
-                    <svg class="icon w-5 h-5 text-gray-700 group-hover:text-black" fill="currentColor">
+                    <svg class="icon w-5 h-5 text-gray-700 group-hover:text-geotrak" fill="currentColor">
                         <use xlink:href="#iD-icon-point"></use>
                     </svg>
-                    <span class="text-xs font-medium text-gray-700 group-hover:text-black">Point</span>
+                    <span class="text-xs font-medium text-gray-700 group-hover:text-geotrak">Point</span>
                 </button>
                 
                 <!-- Road draw tool -->
                 <button 
                     id="lineToolBtn" 
-                    class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 group"
+                    class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 group"
                     title="Road"
                 >
-                    <svg class="icon w-5 h-5 text-gray-700 group-hover:text-black" fill="currentColor">
+                    <svg class="icon w-5 h-5 text-gray-700 group-hover:text-geotrak" fill="currentColor">
                         <use xlink:href="#iD-icon-line"></use>
                     </svg>
-                    <span class="text-xs font-medium text-gray-700 group-hover:text-black">Road</span>
+                    <span class="text-xs font-medium text-gray-700 group-hover:text-geotrak">Road</span>
                 </button>
                 
                 <!-- Area Button -->
                 <button 
                     id="areaToolBtn" 
-                    class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 group"
+                    class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 group"
                     title="Area"
                 >
-                    <svg class="icon w-5 h-5 text-gray-700 group-hover:text-black" fill="currentColor">
+                    <svg class="icon w-5 h-5 text-gray-700 group-hover:text-geotrak" fill="currentColor">
                         <use xlink:href="#iD-icon-area"></use>
                     </svg>
-                    <span class="text-xs font-medium text-gray-700 group-hover:text-black">Area</span>
+                    <span class="text-xs font-medium text-gray-700 group-hover:text-geotrak">Area</span>
                 </button>
 
                 <!-- Riyadh road shape edit (matches Point / Line / Area; shown when a road is open for edit) -->
@@ -100,26 +100,26 @@
                     <button
                         type="button"
                         id="riyadhGeometryEditToggleBtn"
-                        class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 group"
+                        class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 group"
                         title="Edit road shape — drag vertices on the map"
                         aria-pressed="false"
                     >
-                        <svg class="icon w-5 h-5 text-gray-700 group-hover:text-black" fill="currentColor" aria-hidden="true">
+                        <svg class="icon w-5 h-5 text-gray-700 group-hover:text-geotrak" fill="currentColor" aria-hidden="true">
                             <use xlink:href="#iD-icon-shape-edit"></use>
                         </svg>
-                        <span id="riyadhGeometryEditToggleLabel" class="text-xs font-medium text-gray-700 group-hover:text-black">Shape</span>
+                        <span id="riyadhGeometryEditToggleLabel" class="text-xs font-medium text-gray-700 group-hover:text-geotrak">Shape</span>
                     </button>
                     <button
                         type="button"
                         id="riyadhRoadDeleteToggleBtn"
-                        class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 group"
+                        class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 group"
                         title="Mark this road for deletion — press Save to submit"
                         aria-pressed="false"
                     >
-                        <svg class="w-5 h-5 text-gray-700 group-hover:text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <svg class="w-5 h-5 text-gray-700 group-hover:text-geotrak" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                         </svg>
-                        <span class="text-xs font-medium text-gray-700 group-hover:text-black">Delete</span>
+                        <span class="text-xs font-medium text-gray-700 group-hover:text-geotrak">Delete</span>
                     </button>
                 </div>
                 
@@ -129,25 +129,25 @@
                 <!-- Undo Button -->
                 <button 
                     id="undoBtn" 
-                    class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 group"
+                    class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 group"
                     title="Undo"
                 >
-                    <svg class="w-5 h-5 text-gray-700 group-hover:text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5 text-gray-700 group-hover:text-geotrak" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
                     </svg>
-                    <span class="text-sm font-medium text-gray-700 group-hover:text-black">Undo</span>
+                    <span class="text-sm font-medium text-gray-700 group-hover:text-geotrak">Undo</span>
                 </button>
                 
                 <!-- Redo Button -->
                 <button 
                     id="redoBtn" 
-                    class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 group"
+                    class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 group"
                     title="Redo"
                 >
-                    <svg class="w-5 h-5 text-gray-700 group-hover:text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5 text-gray-700 group-hover:text-geotrak" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"></path>
                     </svg>
-                    <span class="text-sm font-medium text-gray-700 group-hover:text-black">Redo</span>
+                    <span class="text-sm font-medium text-gray-700 group-hover:text-geotrak">Redo</span>
                 </button>
                 
                 <!-- Divider -->
@@ -156,7 +156,7 @@
                 <!-- Save Button -->
                 <button 
                     id="saveBtn" 
-                    class="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 font-medium"
+                    class="flex items-center gap-2 px-4 py-2 bg-geotrak text-white rounded-lg hover:bg-geotrak-hover transition-colors focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 font-medium"
                     title="Save"
                 >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,12 +172,12 @@
                     <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"></path>
                     </svg>
-                    <h3 class="text-2xl font-bold text-gray-900 mb-2">ZOOM IN TO EDIT</h3>
+                    <h3 class="text-2xl font-bold text-geotrak mb-2">ZOOM IN TO EDIT</h3>
                     <p class="text-gray-600">Zoom in to level 16 or higher to enable editing features.</p>
                 </div>
                 <button 
                     id="zoomInBtn" 
-                    class="px-6 py-3 bg-black text-white font-semibold rounded-lg hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
+                    class="px-6 py-3 bg-geotrak text-white font-semibold rounded-lg hover:bg-geotrak-hover transition-colors focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2"
                 >
                     Zoom to Edit Level
                 </button>

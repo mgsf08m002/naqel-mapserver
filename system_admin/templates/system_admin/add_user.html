@@ -14,7 +14,7 @@
                 <span>User Management</span>
             </div>
             <div class="flex flex-col gap-2">
-                <h1 class="text-3xl font-semibold text-gray-900">Add a new user</h1>
+                <h1 class="text-3xl font-semibold text-geotrak">Add a new user</h1>
                 <p class="text-sm text-gray-600 max-w-2xl">Create a new user account by filling in the details below. Select a role to assign appropriate permissions.</p>
             </div>
         </header>
@@ -38,20 +38,20 @@
                         <!-- Full Name -->
                         <div class="flex flex-col gap-2 md:col-span-2">
                             <label for="full_name" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Full Name</label>
-                            <input id="full_name" name="full_name" type="text" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-200" placeholder="Enter full name">
+                            <input id="full_name" name="full_name" type="text" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" placeholder="Enter full name">
                         </div>
 
                         <!-- Email Address -->
                         <div class="flex flex-col gap-2 md:col-span-2">
                             <label for="email" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Email Address</label>
-                            <input id="email" name="email" type="email" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-200" placeholder="Enter email address">
+                            <input id="email" name="email" type="email" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" placeholder="Enter email address">
                         </div>
 
                         <!-- Password -->
                         <div class="flex flex-col gap-2">
                             <label for="password" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Password</label>
                             <div class="relative">
-                                <input id="password" name="password" type="password" required minlength="8" class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-200" placeholder="Enter password">
+                                <input id="password" name="password" type="password" required minlength="8" class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" placeholder="Enter password">
                                 <button type="button" data-toggle-password="password" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-800 focus:outline-none">
                                     Show
                                 </button>
@@ -63,7 +63,7 @@
                         <div class="flex flex-col gap-2">
                             <label for="confirm_password" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Confirm Password</label>
                             <div class="relative">
-                                <input id="confirm_password" name="confirm_password" type="password" required minlength="8" class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-200" placeholder="Confirm password">
+                                <input id="confirm_password" name="confirm_password" type="password" required minlength="8" class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" placeholder="Confirm password">
                                 <button type="button" data-toggle-password="confirm_password" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-800 focus:outline-none">
                                     Show
                                 </button>
@@ -74,7 +74,7 @@
                         <!-- Role -->
                         <div class="flex flex-col gap-2 md:col-span-2">
                             <label for="role" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Role</label>
-                            <select id="role" name="role" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-200">
+                            <select id="role" name="role" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200">
                                 <option value="">Select a role</option>
                                 <option value="manager">Manager</option>
                                 <option value="editor">Editor</option>
@@ -86,7 +86,7 @@
                         <a href="{% url 'system_admin:users' %}" class="rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
                             Cancel
                         </a>
-                        <button type="button" id="nextToPermissionsBtn" class="inline-flex items-center justify-center rounded-full bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+                        <button type="button" id="nextToPermissionsBtn" class="inline-flex items-center justify-center rounded-full bg-geotrak px-5 py-3 text-sm font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
                             Add User
                         </button>
                     </div>
@@ -105,43 +105,43 @@
                     <div class="space-y-4">
                         <!-- Access Dashboard Permission (Manager only) -->
                         <label id="dashboardPermissionLabel" class="hidden flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
-                            <input type="checkbox" name="can_access_dashboard" id="can_access_dashboard" class="w-4 h-4 text-black border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
+                            <input type="checkbox" name="can_access_dashboard" id="can_access_dashboard" class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
                             <div class="flex-1">
-                                <span class="text-sm font-semibold text-gray-900">Access Dashboard</span>
+                                <span class="text-sm font-semibold text-geotrak">Access Dashboard</span>
                                 <p class="text-xs text-gray-500 mt-0.5">Allow the manager to view and access the dashboard</p>
                             </div>
                         </label>
 
                         <!-- Access Security Page Permission -->
                         <label class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
-                            <input type="checkbox" name="can_access_security" id="can_access_security" class="w-4 h-4 text-black border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
+                            <input type="checkbox" name="can_access_security" id="can_access_security" class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
                             <div class="flex-1">
-                                <span class="text-sm font-semibold text-gray-900">Access Security Page</span>
+                                <span class="text-sm font-semibold text-geotrak">Access Security Page</span>
                                 <p class="text-xs text-gray-500 mt-0.5" id="securityDescription">Allow access to the security settings page</p>
                             </div>
                         </label>
 
                         <!-- Access Account Information Permission -->
                         <label class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
-                            <input type="checkbox" name="can_access_account_information" id="can_access_account_information" class="w-4 h-4 text-black border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
+                            <input type="checkbox" name="can_access_account_information" id="can_access_account_information" class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
                             <div class="flex-1">
-                                <span class="text-sm font-semibold text-gray-900">Access Account Information</span>
+                                <span class="text-sm font-semibold text-geotrak">Access Account Information</span>
                                 <p class="text-xs text-gray-500 mt-0.5" id="accountInfoDescription">Allow access and update account information</p>
                             </div>
                         </label>
 
                         <label class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
-                            <input type="checkbox" name="can_access_layer_uploader" id="can_access_layer_uploader" class="w-4 h-4 text-black border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
+                            <input type="checkbox" name="can_access_layer_uploader" id="can_access_layer_uploader" class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
                             <div class="flex-1">
-                                <span class="text-sm font-semibold text-gray-900">Access Layer Uploader</span>
+                                <span class="text-sm font-semibold text-geotrak">Access Layer Uploader</span>
                                 <p class="text-xs text-gray-500 mt-0.5" id="layerUploaderDescription">Allow access to upload and validate GIS layers</p>
                             </div>
                         </label>
 
                         <label class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
-                            <input type="checkbox" name="can_access_my_edits" id="can_access_my_edits" checked class="w-4 h-4 text-black border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
+                            <input type="checkbox" name="can_access_my_edits" id="can_access_my_edits" checked class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
                             <div class="flex-1">
-                                <span class="text-sm font-semibold text-gray-900">Access My Edits</span>
+                                <span class="text-sm font-semibold text-geotrak">Access My Edits</span>
                                 <p class="text-xs text-gray-500 mt-0.5" id="myEditsDescription">Allow access to view road edit submission history</p>
                             </div>
                         </label>
@@ -151,7 +151,7 @@
                         <button type="button" id="backToUserDetailsBtn" class="rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
                             Back
                         </button>
-                        <button type="submit" id="createUserBtn" class="inline-flex items-center justify-center rounded-full bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+                        <button type="submit" id="createUserBtn" class="inline-flex items-center justify-center rounded-full bg-geotrak px-5 py-3 text-sm font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
                             Create User
                         </button>
                     </div>

@@ -16,15 +16,15 @@
             <div class="mx-auto w-full max-w-sm">
                 <!-- Login Form -->
                 <div>
-                    <h2 class="text-3xl font-bold text-black mb-2 animate-fade-in">Log in</h2>
-                    <p class="text-black mb-8 animate-fade-in-delay">Welcome back! Please enter your details.</p>
+                    <h2 class="text-3xl font-bold text-geotrak mb-2 animate-fade-in">Log in</h2>
+                    <p class="text-geotrak mb-8 animate-fade-in-delay">Welcome back! Please enter your details.</p>
 
                     <form id="loginForm" class="space-y-6">
                         {% csrf_token %}
                         
                         <!-- Email Field -->
                         <div class="animate-fade-in-delay-2">
-                            <label for="email" class="block text-sm font-medium text-black mb-2">
+                            <label for="email" class="block text-sm font-medium text-geotrak mb-2">
                                 Email
                             </label>
                             <input 
@@ -33,13 +33,13 @@
                                 name="email" 
                                 required
                                 placeholder="Enter your email"
-                                class="w-full px-4 py-3 border border-black rounded-full focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+                                class="w-full px-4 py-3 border border-geotrak rounded-full focus:ring-2 focus:ring-geotrak focus:border-geotrak outline-none transition"
                             >
                         </div>
 
                         <!-- Password Field -->
                         <div class="animate-fade-in-delay-3">
-                            <label for="password" class="block text-sm font-medium text-black mb-2">
+                            <label for="password" class="block text-sm font-medium text-geotrak mb-2">
                                 Password
                             </label>
                             <input 
@@ -48,24 +48,24 @@
                                 name="password" 
                                 required
                                 placeholder="Enter your password"
-                                class="w-full px-4 py-3 border border-black rounded-full focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+                                class="w-full px-4 py-3 border border-geotrak rounded-full focus:ring-2 focus:ring-geotrak focus:border-geotrak outline-none transition"
                             >
                         </div>
 
                         <!-- Forgot Password -->
                         <div class="flex items-center justify-end animate-fade-in-delay-4">
-                            <a href="#" class="text-sm text-black hover:underline font-medium">
+                            <a href="#" class="text-sm text-geotrak hover:underline font-medium">
                                 Forgot password?
                             </a>
                         </div>
 
                         <!-- Error Message -->
-                        <div id="errorMessage" class="hidden text-sm text-black bg-gray-100 border border-black p-3 rounded-full"></div>
+                        <div id="errorMessage" class="hidden text-sm text-geotrak bg-gray-100 border border-geotrak p-3 rounded-full"></div>
 
                         <!-- Sign In Button -->
                         <button 
                             type="submit"
-                            class="w-full bg-black hover:bg-gray-900 text-white font-semibold py-3 px-4 rounded-full transition duration-200 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 animate-fade-in-delay-5"
+                            class="w-full bg-geotrak hover:bg-geotrak-hover text-white font-semibold py-3 px-4 rounded-full transition duration-200 focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 animate-fade-in-delay-5"
                         >
                             Sign in
                         </button>
@@ -75,7 +75,7 @@
         </div>
 
         <!-- Right Column - Logo -->
-        <div class="hidden lg:flex flex-1 bg-black p-12 flex-col justify-center items-center border-l border-black">
+        <div class="hidden lg:flex flex-1 bg-geotrak p-12 flex-col justify-center items-center border-l border-geotrak">
             <div class="flex items-center justify-center">
                 <img src="{% static 'auth/images/geotrak-logo.png' %}" alt="GeoTrak Logo" class="max-w-xs w-full h-auto">
             </div>

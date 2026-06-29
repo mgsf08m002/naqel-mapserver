@@ -502,11 +502,11 @@
         backdrop.setAttribute('aria-modal', 'true');
         backdrop.setAttribute('aria-labelledby', 'pendingReviewDialogTitle');
         backdrop.className =
-            'fixed inset-0 z-[120] flex items-center justify-center p-5 sm:p-8 bg-zinc-950/30 backdrop-blur-xl supports-[backdrop-filter]:bg-zinc-950/25';
+            'fixed inset-0 z-[120] flex items-center justify-center p-5 sm:p-8 bg-geotrak/30 backdrop-blur-xl supports-[backdrop-filter]:bg-geotrak/25';
 
         const card = document.createElement('div');
         card.className =
-            'relative w-full max-w-[26rem] rounded-[1.75rem] border border-zinc-200/80 bg-white px-8 pb-9 pt-10 sm:px-10 sm:pb-10 sm:pt-11 shadow-[0_24px_80px_-20px_rgba(0,0,0,0.14)]';
+            'relative w-full max-w-[26rem] rounded-[1.75rem] border border-geotrak-border/80 bg-white px-8 pb-9 pt-10 sm:px-10 sm:pb-10 sm:pt-11 shadow-[0_24px_80px_-20px_rgba(0,0,0,0.14)]';
 
         const eyebrow = document.createElement('p');
         eyebrow.className =
@@ -516,7 +516,7 @@
         const title = document.createElement('h2');
         title.id = 'pendingReviewDialogTitle';
         title.className =
-            'mt-5 text-center text-[1.65rem] font-semibold leading-[1.2] tracking-[-0.02em] text-zinc-950 sm:text-[1.75rem]';
+            'mt-5 text-center text-[1.65rem] font-semibold leading-[1.2] tracking-[-0.02em] text-geotrak sm:text-[1.75rem]';
         title.textContent =
             m.reviewKind === 'delete' ? 'Deletion sent for review' : 'Edit sent for review';
 
@@ -527,7 +527,7 @@
         const doneBtn = document.createElement('button');
         doneBtn.type = 'button';
         doneBtn.className =
-            'mt-10 w-full rounded-xl bg-zinc-950 py-[0.9rem] text-[15px] font-semibold text-white antialiased transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2';
+            'mt-10 w-full rounded-xl bg-geotrak py-[0.9rem] text-[15px] font-semibold text-white antialiased transition-colors hover:bg-geotrak-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-geotrak focus-visible:ring-offset-2';
         doneBtn.textContent = 'Done';
 
         card.appendChild(eyebrow);

@@ -260,14 +260,14 @@
                 <div class="bg-white border-2 border-gray-200 rounded-xl p-6 hover:shadow-xl hover:border-gray-300 transition-all duration-200 group">
                     <div class="flex items-start justify-between mb-5">
                         <div class="flex items-center gap-4 flex-1 min-w-0">
-                            <div class="w-14 h-14 rounded-full bg-gradient-to-br from-gray-900 to-gray-700 text-white flex items-center justify-center font-semibold text-base flex-shrink-0 overflow-hidden ring-2 ring-gray-100 group-hover:ring-gray-300 transition-all">
+                            <div class="w-14 h-14 rounded-full bg-gradient-to-br from-geotrak to-geotrak-hover text-white flex items-center justify-center font-semibold text-base flex-shrink-0 overflow-hidden ring-2 ring-gray-100 group-hover:ring-gray-300 transition-all">
                                 ${user.profile_image ? 
                                     `<img src="${user.profile_image}" alt="Profile" class="w-full h-full object-cover">` : 
                                     `<span>${initials}</span>`
                                 }
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h3 class="text-base font-semibold text-gray-900 truncate mb-1">${escapeHtml(user.full_name || user.email)}</h3>
+                                <h3 class="text-base font-semibold text-geotrak truncate mb-1">${escapeHtml(user.full_name || user.email)}</h3>
                                 <p class="text-xs text-gray-500 truncate">${escapeHtml(user.email)}</p>
                             </div>
                         </div>
@@ -276,7 +276,7 @@
                         ${state.visibleColumns.role ? `
                             <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-50">
                                 <span class="text-xs font-medium text-gray-600">Role</span>
-                                <span class="text-xs font-semibold text-gray-900 px-2 py-1 rounded-md bg-white">${escapeHtml(roleDisplay)}</span>
+                                <span class="text-xs font-semibold text-geotrak px-2 py-1 rounded-md bg-white">${escapeHtml(roleDisplay)}</span>
                             </div>
                         ` : ''}
                         ${state.visibleColumns.status ? `
@@ -288,18 +288,18 @@
                         ${state.visibleColumns.created && user.account_creation_date ? `
                             <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-50">
                                 <span class="text-xs font-medium text-gray-600">Created</span>
-                                <span class="text-xs font-medium text-gray-900">${escapeHtml(user.account_creation_date)}</span>
+                                <span class="text-xs font-medium text-geotrak">${escapeHtml(user.account_creation_date)}</span>
                             </div>
                         ` : ''}
                         ${state.visibleColumns.last_login && user.last_login ? `
                             <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-50">
                                 <span class="text-xs font-medium text-gray-600">Last Login</span>
-                                <span class="text-xs font-medium text-gray-900">${escapeHtml(user.last_login)}</span>
+                                <span class="text-xs font-medium text-geotrak">${escapeHtml(user.last_login)}</span>
                             </div>
                         ` : ''}
                     </div>
                     <div class="pt-4 border-t-2 border-gray-100">
-                        <a href="/system-admin/users/view/${user.id}/" class="inline-flex items-center justify-center w-full rounded-full bg-black px-4 py-2.5 text-xs font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md">
+                        <a href="/system-admin/users/view/${user.id}/" class="inline-flex items-center justify-center w-full rounded-full bg-geotrak px-4 py-2.5 text-xs font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
@@ -328,7 +328,7 @@
             return `
                 <div class="bg-white border-2 border-gray-200 rounded-xl p-5 hover:shadow-lg hover:border-gray-300 transition-all duration-200">
                     <div class="flex items-center gap-5">
-                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-gray-900 to-gray-700 text-white flex items-center justify-center font-semibold text-sm flex-shrink-0 overflow-hidden ring-2 ring-gray-100">
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-geotrak to-geotrak-hover text-white flex items-center justify-center font-semibold text-sm flex-shrink-0 overflow-hidden ring-2 ring-gray-100">
                             ${user.profile_image ? 
                                 `<img src="${user.profile_image}" alt="Profile" class="w-full h-full object-cover">` : 
                                 `<span>${initials}</span>`
@@ -338,7 +338,7 @@
                             ${state.visibleColumns.name ? `
                                 <div class="min-w-0">
                                     <p class="text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Name</p>
-                                    <p class="text-sm font-semibold text-gray-900 truncate">${escapeHtml(user.full_name || user.email)}</p>
+                                    <p class="text-sm font-semibold text-geotrak truncate">${escapeHtml(user.full_name || user.email)}</p>
                                 </div>
                             ` : ''}
                             ${state.visibleColumns.email ? `
@@ -350,7 +350,7 @@
                             ${state.visibleColumns.role ? `
                                 <div class="min-w-0">
                                     <p class="text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Role</p>
-                                    <p class="text-sm font-semibold text-gray-900">${escapeHtml(roleDisplay)}</p>
+                                    <p class="text-sm font-semibold text-geotrak">${escapeHtml(roleDisplay)}</p>
                                 </div>
                             ` : ''}
                             ${state.visibleColumns.status ? `
@@ -360,7 +360,7 @@
                                 </div>
                             ` : ''}
                             <div class="flex items-center justify-end sm:justify-start lg:justify-end">
-                                <a href="/system-admin/users/view/${user.id}/" class="inline-flex items-center rounded-full bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md">
+                                <a href="/system-admin/users/view/${user.id}/" class="inline-flex items-center rounded-full bg-geotrak px-4 py-2 text-xs font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md">
                                     <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
@@ -390,13 +390,13 @@
             return `
                 <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
                     ${state.visibleColumns.name ? `
-                        <td class="column-name py-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-gray-900 whitespace-nowrap">${escapeHtml(user.full_name || user.email)}</td>
+                        <td class="column-name py-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-geotrak whitespace-nowrap">${escapeHtml(user.full_name || user.email)}</td>
                     ` : '<td class="column-name hidden"></td>'}
                     ${state.visibleColumns.email ? `
                         <td class="column-email py-3 px-3 sm:px-4 text-xs sm:text-sm text-gray-700 whitespace-nowrap">${escapeHtml(user.email)}</td>
                     ` : '<td class="column-email hidden"></td>'}
                     ${state.visibleColumns.role ? `
-                        <td class="column-role py-3 px-3 sm:px-4 text-xs sm:text-sm font-medium text-gray-900 whitespace-nowrap">${escapeHtml(roleDisplay)}</td>
+                        <td class="column-role py-3 px-3 sm:px-4 text-xs sm:text-sm font-medium text-geotrak whitespace-nowrap">${escapeHtml(roleDisplay)}</td>
                     ` : '<td class="column-role hidden"></td>'}
                     ${state.visibleColumns.status ? `
                         <td class="column-status py-3 px-3 sm:px-4 whitespace-nowrap">
@@ -410,7 +410,7 @@
                         <td class="column-last_login py-3 px-3 sm:px-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">${escapeHtml(user.last_login || 'Never')}</td>
                     ` : '<td class="column-last_login hidden"></td>'}
                     <td class="py-3 px-3 sm:px-4 whitespace-nowrap">
-                        <a href="/system-admin/users/view/${user.id}/" class="inline-flex items-center rounded-full bg-black px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md">
+                        <a href="/system-admin/users/view/${user.id}/" class="inline-flex items-center rounded-full bg-geotrak px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md">
                             <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5 mr-1 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>

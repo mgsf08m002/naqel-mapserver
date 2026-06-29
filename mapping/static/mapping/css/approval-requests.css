@@ -42,7 +42,7 @@
   font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: rgb(24 24 27);
+  color: rgb(15 45 83);
 }
 
 .approval-panel__count {
@@ -53,7 +53,7 @@
   height: 1.25rem;
   padding: 0 0.375rem;
   border-radius: 9999px;
-  background: rgb(24 24 27);
+  background: rgb(15 45 83);
   font-size: 0.6875rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -157,14 +157,14 @@
 }
 
 .approval-filter-btn:focus-visible {
-  outline: 2px solid rgb(24 24 27);
+  outline: 2px solid rgb(15 45 83);
   outline-offset: -2px;
   border-radius: 0.25rem;
 }
 
 .approval-filter-btn[aria-pressed='true'] {
   font-weight: 600;
-  color: rgb(24 24 27);
+  color: rgb(15 45 83);
 }
 
 .approval-filter-btn[aria-pressed='true']::after {
@@ -175,7 +175,7 @@
   bottom: 0;
   height: 2px;
   border-radius: 2px 2px 0 0;
-  background: rgb(24 24 27);
+  background: rgb(15 45 83);
 }
 
 /* —— List —— */
@@ -254,7 +254,7 @@
   font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: rgb(24 24 27);
+  color: rgb(15 45 83);
 }
 
 .approval-row__time {

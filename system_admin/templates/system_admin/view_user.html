@@ -14,7 +14,7 @@
                 <span>User Management</span>
             </div>
             <div class="flex flex-col gap-2">
-                <h1 class="text-3xl font-semibold text-gray-900">User Information</h1>
+                <h1 class="text-3xl font-semibold text-geotrak">User Information</h1>
                 <p class="text-sm text-gray-600 max-w-2xl">Complete details about the selected user account.</p>
             </div>
         </header>
@@ -22,7 +22,7 @@
         <!-- Loading State -->
         <div id="loadingState" class="flex items-center justify-center py-12">
             <div class="text-center">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-geotrak mb-4"></div>
                 <p class="text-sm text-gray-600">Loading user information...</p>
             </div>
         </div>
@@ -32,12 +32,12 @@
             <!-- Profile Section -->
             <section class="space-y-4">
                 <div class="flex items-center gap-4 pb-6 border-b border-gray-200">
-                    <div id="userAvatar" class="w-20 h-20 rounded-full bg-gray-900 text-white flex items-center justify-center font-semibold text-xl flex-shrink-0 overflow-hidden">
+                    <div id="userAvatar" class="w-20 h-20 rounded-full bg-geotrak text-white flex items-center justify-center font-semibold text-xl flex-shrink-0 overflow-hidden">
                         <span id="userInitials">U</span>
                         <img id="userAvatarImage" src="" alt="Profile" class="hidden w-full h-full object-cover">
                     </div>
                     <div class="flex-1">
-                        <h2 id="userFullName" class="text-2xl font-semibold text-gray-900 mb-1">User Name</h2>
+                        <h2 id="userFullName" class="text-2xl font-semibold text-geotrak mb-1">User Name</h2>
                         <p id="userEmail" class="text-sm text-gray-600">user@example.com</p>
                         <div class="flex items-center gap-3 mt-2">
                             <span id="userRole" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">Role</span>
@@ -50,25 +50,25 @@
             <!-- Account Information -->
             <section class="space-y-4">
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 mb-1">Account Information</h3>
+                    <h3 class="text-lg font-semibold text-geotrak mb-1">Account Information</h3>
                     <p class="text-xs text-gray-500">Basic account details and settings</p>
                 </div>
                 <div class="grid gap-4 md:grid-cols-2">
                     <div class="flex flex-col gap-2">
                         <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Full Name</p>
-                        <p id="detailFullName" class="text-sm font-medium text-gray-900">-</p>
+                        <p id="detailFullName" class="text-sm font-medium text-geotrak">-</p>
                     </div>
                     <div class="flex flex-col gap-2">
                         <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Email Address</p>
-                        <p id="detailEmail" class="text-sm font-medium text-gray-900">-</p>
+                        <p id="detailEmail" class="text-sm font-medium text-geotrak">-</p>
                     </div>
                     <div class="flex flex-col gap-2">
                         <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Username</p>
-                        <p id="detailUsername" class="text-sm font-medium text-gray-900">-</p>
+                        <p id="detailUsername" class="text-sm font-medium text-geotrak">-</p>
                     </div>
                     <div class="flex flex-col gap-2">
                         <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Role</p>
-                        <p id="detailRole" class="text-sm font-medium text-gray-900">-</p>
+                        <p id="detailRole" class="text-sm font-medium text-geotrak">-</p>
                     </div>
                     <div class="flex flex-col gap-2">
                         <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Account Status</p>
@@ -76,7 +76,7 @@
                     </div>
                     <div class="flex flex-col gap-2">
                         <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Is Superuser</p>
-                        <p id="detailSuperuser" class="text-sm font-medium text-gray-900">-</p>
+                        <p id="detailSuperuser" class="text-sm font-medium text-geotrak">-</p>
                     </div>
                 </div>
             </section>
@@ -84,17 +84,17 @@
             <!-- Account Dates -->
             <section class="space-y-4">
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 mb-1">Account Dates</h3>
+                    <h3 class="text-lg font-semibold text-geotrak mb-1">Account Dates</h3>
                     <p class="text-xs text-gray-500">Important dates related to this account</p>
                 </div>
                 <div class="grid gap-4 md:grid-cols-2">
                     <div class="flex flex-col gap-2">
                         <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Account Creation Date</p>
-                        <p id="detailCreationDate" class="text-sm font-medium text-gray-900">-</p>
+                        <p id="detailCreationDate" class="text-sm font-medium text-geotrak">-</p>
                     </div>
                     <div class="flex flex-col gap-2">
                         <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Account Creation Time</p>
-                        <p id="detailCreationTime" class="text-sm font-medium text-gray-900">-</p>
+                        <p id="detailCreationTime" class="text-sm font-medium text-geotrak">-</p>
                     </div>
                 </div>
             </section>
@@ -114,7 +114,7 @@
             <svg class="w-16 h-16 text-red-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
-            <p class="text-sm font-medium text-gray-900 mb-1">Error loading user</p>
+            <p class="text-sm font-medium text-geotrak mb-1">Error loading user</p>
             <p id="errorMessage" class="text-xs text-gray-500 mb-4">-</p>
             <a href="{% url 'system_admin:all_users' %}" class="inline-block rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 transition">
                 Back to All Users

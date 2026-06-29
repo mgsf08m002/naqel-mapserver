@@ -73,7 +73,7 @@
     top: 0;
     bottom: 0;
     width: 3px;
-    background: #0a0a0a;
+    background: var(--geotrak-brand);
     border-radius: 12px 0 0 12px;
     pointer-events: none;
 }
@@ -127,7 +127,7 @@
     font-size: 0.8125rem;
     font-weight: 700;
     letter-spacing: -0.02em;
-    color: #0a0a0a;
+    color: var(--geotrak-brand);
     line-height: 1.2;
 }
 
@@ -159,7 +159,7 @@
 
 .road-geometry-edit-hint:not(.road-geometry-edit-hint--collapsed) .road-geometry-edit-hint__chev {
     transform: rotate(180deg);
-    color: #0a0a0a;
+    color: var(--geotrak-brand);
     border-color: rgba(0, 0, 0, 0.2);
     background: #f5f5f5;
 }
@@ -256,7 +256,7 @@
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: #0a0a0a;
+    color: var(--geotrak-brand);
     line-height: 1.25;
 }
 
@@ -264,12 +264,12 @@
     margin: 0 0 0.65rem;
     font-size: 0.75rem;
     line-height: 1.5;
-    color: #171717;
+    color: var(--geotrak-brand);
 }
 
 .road-geometry-edit-hint__note strong {
     font-weight: 700;
-    color: #0a0a0a;
+    color: var(--geotrak-brand);
 }
 
 .road-geometry-edit-hint__actions-heading {
@@ -299,7 +299,7 @@
 .road-geometry-edit-hint__list-text {
     font-size: 0.75rem;
     line-height: 1.45;
-    color: #171717;
+    color: var(--geotrak-brand);
 }
 
 .road-geometry-edit-hint__list kbd,
@@ -312,7 +312,7 @@
     border-radius: 4px;
     background: #fafafa;
     border: 1px solid rgba(0, 0, 0, 0.14);
-    color: #0a0a0a;
+    color: var(--geotrak-brand);
     vertical-align: baseline;
 }
 
@@ -326,7 +326,7 @@
     border: 0;
     border-radius: 0;
     background: transparent;
-    color: #0a0a0a;
+    color: var(--geotrak-brand);
     line-height: 1.2;
 }
 
@@ -346,7 +346,7 @@
     justify-content: center;
     font-size: 12px;
     font-weight: 700;
-    color: #0a0a0a;
+    color: var(--geotrak-brand);
     line-height: 1;
     border-style: dashed;
     border-color: rgba(0, 0, 0, 0.28);
@@ -381,7 +381,7 @@
     margin: -4px 0 0 -4px;
     border-radius: 50%;
     background: #ffffff;
-    border: 2px solid #0a0a0a;
+    border: 2px solid var(--geotrak-brand);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
@@ -546,9 +546,7 @@ svg[data-terra-draw] line {
 }
 
 /* -------------------------------------------------------------------------
-   Map sidebar — light theme tokens + safety-net overrides.
-   Primary UI classes live on the template and in JS (zinc/white). Rules below
-   normalize any remaining gray/blue utilities so mixed markup stays readable.
+   Map sidebar — GeoTrak light theme tokens and compatibility overrides.
    ------------------------------------------------------------------------- */
 #mapPageShell {
     min-height: 0;
@@ -556,12 +554,12 @@ svg[data-terra-draw] line {
 
 #editSidePanel.map-sidebar-root {
     --ms-bg: #ffffff;
-    --ms-elevated: #fafafa;
-    --ms-surface: #f4f4f5;
-    --ms-border: #e4e4e7;
-    --ms-text: #18181b;
-    --ms-muted: #71717a;
-    --ms-ring: #18181b;
+    --ms-elevated: var(--geotrak-brand-subtle);
+    --ms-surface: var(--geotrak-brand-muted);
+    --ms-border: var(--geotrak-brand-border);
+    --ms-text: var(--geotrak-brand);
+    --ms-muted: var(--geotrak-text-muted);
+    --ms-ring: var(--geotrak-brand);
     will-change: transform;
     color: var(--ms-text);
 }
@@ -579,7 +577,7 @@ svg[data-terra-draw] line {
     display: block;
 }
 
-/* Readable body text on dark map tool menus */
+/* Map sidebar text on light surfaces */
 #editSidePanel.map-sidebar-root .text-white {
     color: var(--ms-text) !important;
 }
@@ -596,10 +594,10 @@ svg[data-terra-draw] line {
 
 #editSidePanel.map-sidebar-root .text-gray-600,
 #editSidePanel.map-sidebar-root .text-gray-700 {
-    color: #3f3f46 !important;
+    color: var(--geotrak-text-muted) !important;
 }
 
-/* Accent: remove blue chrome for monochrome UI */
+/* Accent: remove blue chrome for GeoTrak brand UI */
 #editSidePanel.map-sidebar-root .text-blue-300,
 #editSidePanel.map-sidebar-root .text-blue-400,
 #editSidePanel.map-sidebar-root .group-hover\:text-blue-300 {
@@ -607,6 +605,7 @@ svg[data-terra-draw] line {
 }
 
 /* Surfaces */
+/* Legacy Tailwind class normalizers (pre-brand dark sidebar markup → GeoTrak surfaces) */
 #editSidePanel.map-sidebar-root .bg-gray-900 {
     background-color: var(--ms-elevated) !important;
     color: var(--ms-text) !important;
@@ -625,7 +624,7 @@ svg[data-terra-draw] line {
 
 #editSidePanel.map-sidebar-root .bg-gray-500\/20,
 #editSidePanel.map-sidebar-root [class*='bg-blue-500'] {
-    background-color: rgba(24, 24, 27, 0.06) !important;
+    background-color: rgba(15, 45, 83, 0.06) !important;
 }
 
 #editSidePanel.map-sidebar-root .border-gray-600,
@@ -677,28 +676,19 @@ svg[data-terra-draw] line {
     --tw-ring-offset-color: var(--ms-bg) !important;
 }
 
-/* Primary / danger: keep real contrast */
-#editSidePanel.map-sidebar-root .bg-black,
-#editSidePanel.map-sidebar-root .bg-black.text-white,
-#editSidePanel.map-sidebar-root .bg-black .text-white {
-    color: #ffffff !important;
-}
-
-#editSidePanel.map-sidebar-root .bg-zinc-900.text-white {
-    color: #ffffff !important;
+/* Brand primary controls inside the sidebar */
+#editSidePanel.map-sidebar-root .bg-geotrak,
+#editSidePanel.map-sidebar-root .bg-geotrak.text-white,
+#editSidePanel.map-sidebar-root .bg-geotrak .text-white,
+#editSidePanel.map-sidebar-root ul[role='menu'].bg-geotrak {
+    color: var(--geotrak-on-brand) !important;
 }
 
 #editSidePanel.map-sidebar-root .bg-green-500 {
     background-color: #22c55e !important;
 }
 
-/* Tooltips & floating menus over dark */
-#editSidePanel.map-sidebar-root .bg-black.text-white,
-#editSidePanel.map-sidebar-root ul[role='menu'].bg-black {
-    color: #ffffff !important;
-}
-
-#editSidePanel.map-sidebar-root [role='menu']:not(.bg-black),
+#editSidePanel.map-sidebar-root [role='menu']:not(.bg-geotrak),
 #editSidePanel.map-sidebar-root .absolute.z-50.max-h-60 {
     background-color: var(--ms-bg) !important;
     border: 1px solid var(--ms-border) !important;
@@ -742,10 +732,17 @@ svg[data-terra-draw] line {
 }
 
 #lineDropdownsContainer [role='menu']::-webkit-scrollbar-thumb:hover {
-    background: #71717a;
+    background: var(--geotrak-text-muted);
 }
 
-/* Hide native date picker icon - only show custom white calendar icon */
+.geotrak-sidebar-field-group {
+    background: var(--geotrak-brand-subtle);
+    border: 1px solid var(--geotrak-brand-border);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+}
+
+/* Hide native date picker icon - only show custom calendar icon */
 input[type="date"]::-webkit-calendar-picker-indicator {
     display: none !important;
     -webkit-appearance: none !important;

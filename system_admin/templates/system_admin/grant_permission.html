@@ -14,8 +14,8 @@
                 <span>User Management</span>
             </div>
             <div class="flex flex-col gap-2">
-                <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900">Grant Permissions</h1>
-                <p class="text-xs sm:text-sm text-gray-600 max-w-2xl">Select the permissions you want to grant to <span class="font-semibold text-gray-900">{{ user.get_full_name|default:user.email }}</span>.</p>
+                <h1 class="text-2xl sm:text-3xl font-semibold text-geotrak">Grant Permissions</h1>
+                <p class="text-xs sm:text-sm text-gray-600 max-w-2xl">Select the permissions you want to grant to <span class="font-semibold text-geotrak">{{ user.get_full_name|default:user.email }}</span>.</p>
             </div>
         </header>
 
@@ -40,10 +40,10 @@
                         type="checkbox" 
                         name="can_access_dashboard" 
                         id="can_access_dashboard" 
-                        class="w-4 h-4 text-black border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer"
+                        class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer"
                     >
                     <div class="flex-1">
-                        <span class="text-sm font-semibold text-gray-900">Access Dashboard</span>
+                        <span class="text-sm font-semibold text-geotrak">Access Dashboard</span>
                         <p class="text-xs text-gray-500 mt-0.5">Allow the manager to view and access the dashboard</p>
                     </div>
                 </label>
@@ -55,10 +55,10 @@
                         type="checkbox" 
                         name="can_access_security" 
                         id="can_access_security" 
-                        class="w-4 h-4 text-black border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer"
+                        class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer"
                     >
                     <div class="flex-1">
-                        <span class="text-sm font-semibold text-gray-900">Access Security Page</span>
+                        <span class="text-sm font-semibold text-geotrak">Access Security Page</span>
                         <p class="text-xs text-gray-500 mt-0.5">Allow the {{ role }} to access the security settings page</p>
                     </div>
                 </label>
@@ -69,10 +69,10 @@
                         type="checkbox" 
                         name="can_access_account_information" 
                         id="can_access_account_information" 
-                        class="w-4 h-4 text-black border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer"
+                        class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer"
                     >
                     <div class="flex-1">
-                        <span class="text-sm font-semibold text-gray-900">Access Account Information</span>
+                        <span class="text-sm font-semibold text-geotrak">Access Account Information</span>
                         <p class="text-xs text-gray-500 mt-0.5">Allow the {{ role }} to access and update account information</p>
                     </div>
                 </label>
@@ -82,10 +82,10 @@
                         type="checkbox" 
                         name="can_access_layer_uploader" 
                         id="can_access_layer_uploader" 
-                        class="w-4 h-4 text-black border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer"
+                        class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer"
                     >
                     <div class="flex-1">
-                        <span class="text-sm font-semibold text-gray-900">Access Layer Uploader</span>
+                        <span class="text-sm font-semibold text-geotrak">Access Layer Uploader</span>
                         <p class="text-xs text-gray-500 mt-0.5">Allow the {{ role }} to upload and validate GIS layers</p>
                     </div>
                 </label>
@@ -96,10 +96,10 @@
                         name="can_access_my_edits" 
                         id="can_access_my_edits" 
                         checked
-                        class="w-4 h-4 text-black border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer"
+                        class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer"
                     >
                     <div class="flex-1">
-                        <span class="text-sm font-semibold text-gray-900">Access My Edits</span>
+                        <span class="text-sm font-semibold text-geotrak">Access My Edits</span>
                         <p class="text-xs text-gray-500 mt-0.5">Allow the {{ role }} to view their road edit submission history</p>
                     </div>
                 </label>
@@ -115,7 +115,7 @@
                 <a href="{% url 'system_admin:permissions' %}" class="flex-1 rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition text-center">
                     Cancel
                 </a>
-                <button type="submit" class="flex-1 inline-flex items-center justify-center rounded-full bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+                <button type="submit" class="flex-1 inline-flex items-center justify-center rounded-full bg-geotrak px-5 py-3 text-sm font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
                     Grant Permissions
                 </button>
             </div>

@@ -979,7 +979,7 @@
 
         const leftInput = document.createElement('input');
         leftInput.type = 'text';
-        leftInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all cursor-pointer';
+        leftInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all cursor-pointer';
         leftInput.placeholder = 'Add new tag';
         leftInput.readOnly = true;
         leftInput.value = key;
@@ -989,12 +989,12 @@
         leftChevron.innerHTML = '<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
 
         const leftMenu = document.createElement('div');
-        leftMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-lg shadow-xl z-50 hidden max-h-60 overflow-y-auto';
+        leftMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-geotrak-border rounded-lg shadow-xl z-50 hidden max-h-60 overflow-y-auto';
 
         const tagOptions = ['building', 'highway', 'source', 'name', 'surface', 'natural', 'addr:housenumber', 'addr:street', 'addr:city', 'addr:postcode'];
         tagOptions.forEach(function(option) {
             const menuItem = document.createElement('div');
-            menuItem.className = 'px-3 py-2 text-xs text-zinc-900 hover:bg-zinc-50 cursor-pointer border-b border-zinc-100 last:border-b-0';
+            menuItem.className = 'px-3 py-2 text-xs text-geotrak hover:bg-geotrak-subtle cursor-pointer border-b border-zinc-100 last:border-b-0';
             menuItem.textContent = option;
             menuItem.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -1022,13 +1022,13 @@
 
         const rightInput = document.createElement('input');
         rightInput.type = 'text';
-        rightInput.className = 'flex-1 min-w-0 bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
+        rightInput.className = 'flex-1 min-w-0 bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all';
         rightInput.placeholder = '';
         rightInput.value = value;
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors flex-shrink-0';
+        deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors flex-shrink-0';
         deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             tagRow.remove();
@@ -1083,7 +1083,7 @@
 
         const parentInput = document.createElement('input');
         parentInput.type = 'text';
-        parentInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all cursor-pointer';
+        parentInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all cursor-pointer';
         parentInput.placeholder = 'Choose a parent relation';
         parentInput.value = parentRelation;
         parentInput.readOnly = true;
@@ -1093,12 +1093,12 @@
         parentChevron.innerHTML = '<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
 
         const parentMenu = document.createElement('div');
-        parentMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-lg shadow-xl z-50 hidden max-h-60 overflow-y-auto';
+        parentMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-geotrak-border rounded-lg shadow-xl z-50 hidden max-h-60 overflow-y-auto';
 
         const relationOptions = ['New Relation'];
         relationOptions.forEach(function(option) {
             const menuItem = document.createElement('div');
-            menuItem.className = 'px-3 py-2 text-xs text-zinc-900 hover:bg-zinc-50 cursor-pointer border-b border-zinc-100 last:border-b-0';
+            menuItem.className = 'px-3 py-2 text-xs text-geotrak hover:bg-geotrak-subtle cursor-pointer border-b border-zinc-100 last:border-b-0';
             menuItem.textContent = option;
             menuItem.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -1125,7 +1125,7 @@
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors flex-shrink-0';
+        deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors flex-shrink-0';
         deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             relationRow.remove();
@@ -1137,7 +1137,7 @@
 
         const roleInput = document.createElement('input');
         roleInput.type = 'text';
-        roleInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
+        roleInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all';
         roleInput.placeholder = 'Role';
         roleInput.value = role;
 
@@ -1250,7 +1250,7 @@
             const c = fieldsData.common_name != null ? String(fieldsData.common_name).trim() : '';
             byId.value = n || c || '';
         } else {
-            const nameFieldGroup = fieldsContainer.querySelector('.ms-sidebar-field-group');
+            const nameFieldGroup = fieldsContainer.querySelector('.geotrak-sidebar-field-group');
             const fallbackNameInput = nameFieldGroup && nameFieldGroup.querySelector('input[type="text"]');
             if (fallbackNameInput) {
                 if (fieldsData.name) {
@@ -1338,20 +1338,20 @@
     // Add a multilingual-name block under the fields section.
     function createMultilingualNameField(fieldsContainer, language, name) {
         const multilingualSection = document.createElement('div');
-        multilingualSection.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2.5';
+        multilingualSection.className = 'geotrak-sidebar-field-group space-y-2.5';
         multilingualSection.id = 'multilingual-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
         const headerRow = document.createElement('div');
         headerRow.className = 'flex items-center justify-between';
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-xs font-medium text-zinc-900';
+        labelSpan.className = 'text-xs font-medium text-geotrak';
         labelSpan.textContent = 'Multilingual Name';
         headerRow.appendChild(labelSpan);
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-200/80 transition-colors';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-geotrak-muted/80 transition-colors';
         deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             multilingualSection.remove();
@@ -1364,7 +1364,7 @@
         languageDropdown.className = 'relative';
 
         const languageSelect = document.createElement('select');
-        languageSelect.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all appearance-none cursor-pointer';
+        languageSelect.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-xs text-geotrak focus:outline-none focus:ring-2 focus:ring-geotrak transition-all appearance-none cursor-pointer';
 
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
@@ -1385,7 +1385,7 @@
 
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
-        nameInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
+        nameInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all';
         nameInput.placeholder = 'Name';
         nameInput.value = name || '';
         multilingualSection.appendChild(nameInput);
@@ -1426,7 +1426,7 @@
         card.appendChild(infoText);
         const approveBtn = document.createElement('button');
         approveBtn.id = 'approveRequestBtn';
-        approveBtn.className = 'px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-colors text-sm font-medium flex items-center justify-center gap-2 shadow-md';
+        approveBtn.className = 'px-4 py-2 bg-geotrak text-white rounded-md hover:bg-geotrak-hover transition-colors text-sm font-medium flex items-center justify-center gap-2 shadow-md';
         approveBtn.innerHTML = `
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -1440,7 +1440,7 @@
         card.appendChild(approveBtn);
         const rejectBtn = document.createElement('button');
         rejectBtn.id = 'rejectRequestBtn';
-        rejectBtn.className = 'px-4 py-2 bg-white text-black border border-gray-300 rounded-md hover:bg-gray-100 transition-colors text-sm font-medium flex items-center justify-center gap-2 shadow-md';
+        rejectBtn.className = 'px-4 py-2 bg-white text-geotrak border border-gray-300 rounded-md hover:bg-gray-100 transition-colors text-sm font-medium flex items-center justify-center gap-2 shadow-md';
         rejectBtn.innerHTML = `
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1472,7 +1472,7 @@
             const legend = document.createElement('div');
             legend.className = 'text-[11px] text-gray-600 flex flex-col gap-1 border-t border-gray-200 pt-2 mt-1';
             legend.innerHTML = '<span><span class="font-medium text-gray-600">━━</span> Gray dashed: original</span>'
-                + '<span><span class="font-medium text-gray-900">━━</span> Solid: proposed</span>'
+                + '<span><span class="font-medium text-geotrak">━━</span> Solid: proposed</span>'
                 + '<span><span class="font-medium text-orange-600">━━</span> Orange: changed segments</span>';
             card.appendChild(legend);
         }

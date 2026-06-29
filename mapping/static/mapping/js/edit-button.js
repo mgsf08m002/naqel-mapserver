@@ -276,7 +276,7 @@
         const areaBtn = document.getElementById('areaToolBtn');
         [pointBtn, lineBtn, areaBtn].forEach(function(btn) {
             if (btn) {
-                btn.classList.remove('bg-gray-200', 'ring-2', 'ring-black');
+                btn.classList.remove('bg-gray-200', 'ring-2', 'ring-geotrak');
                 btn.classList.add('hover:bg-gray-100');
             }
         });
@@ -286,7 +286,7 @@
             currentTool === 'area' ? areaBtn : null;
 
         if (activeBtn) {
-            activeBtn.classList.add('bg-gray-200', 'ring-2', 'ring-black');
+            activeBtn.classList.add('bg-gray-200', 'ring-2', 'ring-geotrak');
             activeBtn.classList.remove('hover:bg-gray-100');
         }
     }

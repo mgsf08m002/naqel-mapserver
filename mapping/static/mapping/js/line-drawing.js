@@ -309,10 +309,10 @@
             Number(window.__roadGeometryEditActiveId) === Number(rid);
         btn.setAttribute('aria-pressed', active ? 'true' : 'false');
         if (active) {
-            btn.classList.add('bg-gray-200', 'ring-2', 'ring-black');
+            btn.classList.add('bg-gray-200', 'ring-2', 'ring-geotrak');
             btn.classList.remove('hover:bg-gray-100');
         } else {
-            btn.classList.remove('bg-gray-200', 'ring-2', 'ring-black');
+            btn.classList.remove('bg-gray-200', 'ring-2', 'ring-geotrak');
             btn.classList.add('hover:bg-gray-100');
         }
     }
@@ -1673,7 +1673,7 @@
         const container = document.createElement('div');
         container.id = 'lineVisualizationContainer';
         container.className =
-            'map-line-symbology-preview mb-4 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm';
+            'map-line-symbology-preview mb-4 rounded-xl border border-geotrak-border bg-white p-3 shadow-sm';
         container.style.display = 'block'; // Ensure container is visible
 
         const labelText = document.createElement('div');
@@ -1683,7 +1683,7 @@
 
         const valueDisplay = document.createElement('div');
         valueDisplay.id = 'lineVisualizationFeatureName';
-        valueDisplay.className = 'text-sm font-semibold text-zinc-900 mb-2';
+        valueDisplay.className = 'text-sm font-semibold text-geotrak mb-2';
         // Use current feature label instead of hardcoding 'Line'
         valueDisplay.textContent = currentFeatureLabel || 'Line';
         container.appendChild(valueDisplay);
@@ -1691,7 +1691,7 @@
         const svgContainer = document.createElement('div');
         svgContainer.id = 'lineVisualizationSVG';
         svgContainer.className =
-            'relative w-full overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50';
+            'relative w-full overflow-hidden rounded-lg border border-geotrak-border bg-geotrak-subtle';
         svgContainer.style.height = '140px';
         svgContainer.style.width = '100%';
         svgContainer.style.minHeight = '140px';
@@ -2324,7 +2324,7 @@
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'w-full bg-white hover:bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-3 text-left text-zinc-900 shadow-sm transition-colors duration-200 flex items-center justify-between group';
+        button.className = 'w-full bg-white hover:bg-geotrak-subtle border border-geotrak-border rounded-lg px-4 py-3 text-left text-geotrak shadow-sm transition-colors duration-200 flex items-center justify-between group';
         button.setAttribute('data-dropdown-toggle', 'dropdown-' + label.replace(/\s+/g, '-').toLowerCase());
 
         const icon = createIconForLabel(label);
@@ -2350,7 +2350,7 @@
 
         const dropdownMenu = document.createElement('div');
         dropdownMenu.id = 'dropdown-' + label.replace(/\s+/g, '-').toLowerCase();
-        dropdownMenu.className = 'hidden absolute z-50 w-full mt-1 bg-white border border-zinc-200 rounded-lg shadow-lg max-h-60 overflow-y-auto';
+        dropdownMenu.className = 'hidden absolute z-50 w-full mt-1 bg-white border border-geotrak-border rounded-lg shadow-lg max-h-60 overflow-y-auto';
         dropdownMenu.setAttribute('role', 'menu');
         dropdownMenu.setAttribute('data-dropdown-label', label);
 
@@ -2377,20 +2377,20 @@
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'w-full bg-white hover:bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-3 text-left text-zinc-900 shadow-sm transition-colors duration-200 flex items-center justify-between group';
+        button.className = 'w-full bg-white hover:bg-geotrak-subtle border border-geotrak-border rounded-lg px-4 py-3 text-left text-geotrak shadow-sm transition-colors duration-200 flex items-center justify-between group';
         button.setAttribute('data-line-box', 'true');
 
         const iconContainer = document.createElement('div');
         iconContainer.className = 'flex-shrink-0 w-6 h-6 flex items-center justify-center';
 
         const folderContainer = document.createElement('div');
-        folderContainer.className = 'w-5 h-5 rounded flex items-center justify-center bg-zinc-200';
+        folderContainer.className = 'w-5 h-5 rounded flex items-center justify-center bg-geotrak-muted';
 
         const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         iconSvg.setAttribute('class', 'w-4 h-4');
         iconSvg.setAttribute('viewBox', '0 0 24 24');
         iconSvg.setAttribute('fill', 'none');
-        iconSvg.setAttribute('stroke', '#71717a');
+        iconSvg.setAttribute('stroke', '#5a6f8c');
         iconSvg.setAttribute('stroke-width', '2');
         iconSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M6 8v8M12 8v8M18 8v8"></path>';
         folderContainer.appendChild(iconSvg);
@@ -2534,7 +2534,7 @@
         if (nameInput) {
             nameInput.readOnly = viewOnly;
             nameInput.classList.toggle('cursor-not-allowed', viewOnly);
-            nameInput.classList.toggle('bg-zinc-50', viewOnly);
+            nameInput.classList.toggle('bg-geotrak-subtle', viewOnly);
         }
 
         const addFieldSection = document.getElementById('add-field-section');
@@ -2603,7 +2603,7 @@
 
         const editScreen = document.createElement('div');
         editScreen.id = 'editFeatureScreen';
-        editScreen.className = 'h-full flex flex-col bg-zinc-50 text-zinc-900 min-h-0';
+        editScreen.className = 'h-full flex flex-col bg-geotrak-subtle text-geotrak min-h-0';
 
         if (hideBackButton) {
             editScreen.setAttribute('data-geometry-readonly', 'true');
@@ -2622,7 +2622,7 @@
         }
         
         const header = document.createElement('div');
-        header.className = 'px-4 py-3 border-b border-zinc-200 bg-white flex items-center justify-between shrink-0';
+        header.className = 'px-4 py-3 border-b border-geotrak-border bg-white flex items-center justify-between shrink-0';
         header.setAttribute('data-edit-feature-header', '');
         if (viewOnlyOnOpen) {
             header.hidden = true;
@@ -2630,9 +2630,9 @@
 
         const backButton = document.createElement('button');
         backButton.type = 'button';
-        backButton.className = 'p-2 hover:bg-zinc-100 rounded-lg transition-colors flex-shrink-0';
+        backButton.className = 'p-2 hover:bg-geotrak-muted rounded-lg transition-colors flex-shrink-0';
         backButton.setAttribute('aria-label', 'Back to feature search');
-        backButton.innerHTML = '<svg class="w-5 h-5 text-zinc-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>';
+        backButton.innerHTML = '<svg class="w-5 h-5 text-geotrak" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>';
         if (!hideBackButton) {
             backButton.addEventListener('click', function() {
                 showLineSidePanel();
@@ -2642,7 +2642,7 @@
         }
 
         const title = document.createElement('h2');
-        title.className = 'text-base font-semibold text-zinc-900 flex-1 text-center';
+        title.className = 'text-base font-semibold text-geotrak flex-1 text-center';
         title.textContent = 'Edit feature';
 
         header.appendChild(backButton);
@@ -2769,15 +2769,15 @@
 
     function createFeatureTypeMenuItem() {
         const container = document.createElement('div');
-        container.className = 'border-b border-zinc-200';
+        container.className = 'border-b border-geotrak-border';
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-zinc-100 transition-colors group';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-geotrak-muted transition-colors group';
         button.setAttribute('data-menu-item', 'featureType');
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-sm font-semibold text-zinc-900 group-hover:text-black transition-colors';
+        labelSpan.className = 'text-sm font-semibold text-geotrak group-hover:text-geotrak transition-colors';
         labelSpan.textContent = 'Feature Type';
 
         button.appendChild(labelSpan);
@@ -2822,7 +2822,7 @@
         const visualizationContainer = document.createElement('div');
         visualizationContainer.id = 'featureTypeVisualization';
         visualizationContainer.className =
-            'map-feature-type-symbology-preview flex-shrink-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50 transition-opacity';
+            'map-feature-type-symbology-preview flex-shrink-0 overflow-hidden rounded-lg border border-geotrak-border bg-geotrak-subtle transition-opacity';
         visualizationContainer.style.width = '80px';
         visualizationContainer.style.height = '40px';
         
@@ -2837,7 +2837,7 @@
 
         const selectedFeatureName = document.createElement('div');
         selectedFeatureName.id = 'selectedFeatureName';
-        selectedFeatureName.className = 'text-sm font-semibold text-zinc-900 truncate';
+        selectedFeatureName.className = 'text-sm font-semibold text-geotrak truncate';
         selectedFeatureName.textContent = labelToSet;
         
         if (!isViewOnly) {
@@ -2853,7 +2853,7 @@
         const changeBtn = document.createElement('button');
         changeBtn.type = 'button';
         changeBtn.setAttribute('data-feature-type-change', '');
-        changeBtn.className = 'flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 bg-white text-zinc-800 shadow-sm hover:bg-zinc-50 transition-colors';
+        changeBtn.className = 'flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border border-geotrak-border bg-white text-geotrak shadow-sm hover:bg-geotrak-subtle transition-colors';
         changeBtn.textContent = 'Change';
         changeBtn.hidden = isViewOnly;
         changeBtn.addEventListener('click', function() {
@@ -3045,15 +3045,15 @@
     function createFieldsMenuItem() {
         window.selectedFields = [];
         const container = document.createElement('div');
-        container.className = 'border-b border-zinc-200';
+        container.className = 'border-b border-geotrak-border';
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-zinc-100 transition-colors group';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-geotrak-muted transition-colors group';
         button.setAttribute('data-menu-item', 'fields');
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-sm font-semibold text-zinc-900 group-hover:text-black transition-colors';
+        labelSpan.className = 'text-sm font-semibold text-geotrak group-hover:text-geotrak transition-colors';
         labelSpan.textContent = 'Fields';
 
         button.appendChild(labelSpan);
@@ -3068,7 +3068,7 @@
         fieldsContainer.id = 'fields-container';
 
         const existingFieldsContainer = document.createElement('div');
-        existingFieldsContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-3';
+        existingFieldsContainer.className = 'geotrak-sidebar-field-group space-y-3';
 
         const nameField = createFieldItem('Road Label', true, true);
         const roadLabelActionRow = nameField.children[1];
@@ -3099,7 +3099,7 @@
         const commonNameInput = document.createElement('input');
         commonNameInput.type = 'text';
         commonNameInput.id = 'sidebar-feature-name-input';
-        commonNameInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-0 transition-all';
+        commonNameInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-0 transition-all';
         commonNameInput.placeholder = '';
         existingFieldsContainer.appendChild(commonNameInput);
 
@@ -3120,7 +3120,7 @@
 
         const dropdownInput = document.createElement('input');
         dropdownInput.type = 'text';
-        dropdownInput.className = 'w-full ms-sidebar-input bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all cursor-pointer';
+        dropdownInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-sm text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all cursor-pointer';
         dropdownInput.placeholder = 'Description, Fix Me, Image...';
         dropdownInput.readOnly = true;
         dropdownInput.id = 'add-field-input';
@@ -3130,13 +3130,13 @@
         dropdownChevron.innerHTML = '<svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
 
         const dropdownMenu = document.createElement('div');
-        dropdownMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-lg shadow-xl z-50 hidden';
+        dropdownMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-geotrak-border rounded-lg shadow-xl z-50 hidden';
         dropdownMenu.id = 'add-field-menu';
 
         const fieldOptions = ['Description', 'Fix Me', 'Image', 'Last Checked Date', 'Mapillary Image ID', 'Note', 'Panoramax Image ID', 'Website'];
         fieldOptions.forEach(function(option) {
             const menuItem = document.createElement('div');
-            menuItem.className = 'px-3 py-2 text-sm text-zinc-900 hover:bg-zinc-50 cursor-pointer flex items-center first:rounded-t-lg last:rounded-b-lg';
+            menuItem.className = 'px-3 py-2 text-sm text-geotrak hover:bg-geotrak-subtle cursor-pointer flex items-center first:rounded-t-lg last:rounded-b-lg';
             menuItem.setAttribute('data-field', option.toLowerCase().replace(/\s+/g, '-'));
             menuItem.textContent = option;
             menuItem.addEventListener('click', function(e) {
@@ -3169,7 +3169,7 @@
         fieldsContainer.appendChild(addFieldSection);
 
         const roadClosureSection = document.createElement('div');
-        roadClosureSection.className = 'mt-4 pt-3 border-t border-zinc-200';
+        roadClosureSection.className = 'mt-4 pt-3 border-t border-geotrak-border';
 
         const roadClosureLabel = document.createElement('div');
         roadClosureLabel.className = 'text-xs font-medium text-zinc-600 mb-2';
@@ -3180,7 +3180,7 @@
         roadClosureToggleRow.className = 'flex items-center justify-between gap-3';
 
         const roadClosureNoLabel = document.createElement('span');
-        roadClosureNoLabel.className = 'text-xs font-medium text-zinc-800';
+        roadClosureNoLabel.className = 'text-xs font-medium text-geotrak';
         roadClosureNoLabel.textContent = 'NO';
 
         const roadClosureYesLabel = document.createElement('span');
@@ -3189,7 +3189,7 @@
 
         const roadClosureToggleButton = document.createElement('button');
         roadClosureToggleButton.type = 'button';
-        roadClosureToggleButton.className = 'relative inline-flex h-6 w-11 items-center rounded-full bg-zinc-300 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2 focus:ring-offset-white';
+        roadClosureToggleButton.className = 'relative inline-flex h-6 w-11 items-center rounded-full bg-geotrak-border transition-colors focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 focus:ring-offset-white';
         roadClosureToggleButton.setAttribute('aria-pressed', 'false');
         roadClosureToggleButton.setAttribute('aria-label', 'Toggle road closure');
         roadClosureToggleButton.setAttribute('data-road-closure-toggle', '');
@@ -3202,23 +3202,23 @@
         function paintRoadClosureToggle() {
             const closed = !!window.currentRoadClosureState;
             if (closed) {
-                roadClosureToggleButton.classList.remove('bg-zinc-300');
+                roadClosureToggleButton.classList.remove('bg-geotrak-border');
                 roadClosureToggleButton.classList.add('bg-red-600');
                 roadClosureToggleKnob.classList.remove('translate-x-0');
                 roadClosureToggleKnob.classList.add('translate-x-5');
                 roadClosureToggleButton.setAttribute('aria-pressed', 'true');
-                roadClosureNoLabel.classList.remove('text-zinc-800');
+                roadClosureNoLabel.classList.remove('text-geotrak');
                 roadClosureNoLabel.classList.add('text-zinc-400');
                 roadClosureYesLabel.classList.remove('text-zinc-400');
                 roadClosureYesLabel.classList.add('text-red-700');
             } else {
                 roadClosureToggleButton.classList.remove('bg-red-600');
-                roadClosureToggleButton.classList.add('bg-zinc-300');
+                roadClosureToggleButton.classList.add('bg-geotrak-border');
                 roadClosureToggleKnob.classList.remove('translate-x-5');
                 roadClosureToggleKnob.classList.add('translate-x-0');
                 roadClosureToggleButton.setAttribute('aria-pressed', 'false');
                 roadClosureNoLabel.classList.remove('text-zinc-400');
-                roadClosureNoLabel.classList.add('text-zinc-800');
+                roadClosureNoLabel.classList.add('text-geotrak');
                 roadClosureYesLabel.classList.remove('text-red-700');
                 roadClosureYesLabel.classList.add('text-zinc-400');
             }
@@ -3278,7 +3278,7 @@
         leftSection.className = 'flex items-center flex-1';
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-xs text-zinc-900';
+        labelSpan.className = 'text-xs text-geotrak';
         labelSpan.textContent = label;
         leftSection.appendChild(labelSpan);
 
@@ -3290,7 +3290,7 @@
         if (hasInfoIcon) {
             const infoButton = document.createElement('button');
             infoButton.type = 'button';
-            infoButton.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+            infoButton.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-geotrak-muted hover:bg-geotrak-border transition-colors';
             infoButton.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
             rightSection.appendChild(infoButton);
         }
@@ -3301,15 +3301,15 @@
 
             const plusButton = document.createElement('button');
             plusButton.type = 'button';
-            plusButton.className = 'w-5 h-5 flex items-center justify-center rounded-lg bg-zinc-200 hover:bg-zinc-300 transition-colors';
+            plusButton.className = 'w-5 h-5 flex items-center justify-center rounded-lg bg-geotrak-muted hover:bg-geotrak-border transition-colors';
             plusButton.innerHTML = '<svg class="w-3 h-3 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>';
 
             const tooltip = document.createElement('div');
-            tooltip.className = 'absolute right-0 top-full mt-1.5 px-2.5 py-1.5 bg-black text-white text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none shadow-lg';
+            tooltip.className = 'absolute right-0 top-full mt-1.5 px-2.5 py-1.5 bg-geotrak text-white text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none shadow-lg';
             tooltip.textContent = 'Add Multilingual Name';
             
             const tooltipArrow = document.createElement('div');
-            tooltipArrow.className = 'absolute bottom-full right-3 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-transparent border-t-black';
+            tooltipArrow.className = 'absolute bottom-full right-3 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-transparent border-t-geotrak';
             tooltip.appendChild(tooltipArrow);
 
             plusButtonWrapper.appendChild(plusButton);
@@ -3337,15 +3337,15 @@
 
     function createTagsMenuItem() {
         const container = document.createElement('div');
-        container.className = 'border-b border-zinc-200';
+        container.className = 'border-b border-geotrak-border';
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-zinc-100 transition-colors group';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-geotrak-muted transition-colors group';
         button.setAttribute('data-menu-item', 'tags');
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-sm font-semibold text-zinc-900 group-hover:text-black transition-colors';
+        labelSpan.className = 'text-sm font-semibold text-geotrak group-hover:text-geotrak transition-colors';
         labelSpan.id = 'tags-label-span';
         labelSpan.textContent = 'Tags (0)';
 
@@ -3371,7 +3371,7 @@
 
             const leftInput = document.createElement('input');
             leftInput.type = 'text';
-            leftInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all cursor-pointer';
+            leftInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all cursor-pointer';
             leftInput.placeholder = 'Add new tag';
             leftInput.readOnly = true;
 
@@ -3380,12 +3380,12 @@
             leftChevron.innerHTML = '<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
 
             const leftMenu = document.createElement('div');
-            leftMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-lg shadow-xl z-50 hidden max-h-60 overflow-y-auto';
+            leftMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-geotrak-border rounded-lg shadow-xl z-50 hidden max-h-60 overflow-y-auto';
 
             const tagOptions = ['building', 'highway', 'source', 'name', 'surface', 'natural', 'addr:housenumber', 'addr:street', 'addr:city', 'addr:postcode'];
             tagOptions.forEach(function(option) {
                 const menuItem = document.createElement('div');
-                menuItem.className = 'px-3 py-2 text-xs text-zinc-900 hover:bg-zinc-50 cursor-pointer border-b border-zinc-100 last:border-b-0';
+                menuItem.className = 'px-3 py-2 text-xs text-geotrak hover:bg-geotrak-subtle cursor-pointer border-b border-zinc-100 last:border-b-0';
                 menuItem.textContent = option;
                 menuItem.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -3413,12 +3413,12 @@
 
             const rightInput = document.createElement('input');
             rightInput.type = 'text';
-            rightInput.className = 'flex-1 min-w-0 bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
+            rightInput.className = 'flex-1 min-w-0 bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all';
             rightInput.placeholder = '';
 
             const deleteButton = document.createElement('button');
             deleteButton.type = 'button';
-            deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors flex-shrink-0';
+            deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors flex-shrink-0';
             deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
             deleteButton.addEventListener('click', function() {
                 tagRow.remove();
@@ -3448,7 +3448,7 @@
 
         const addTagButton = document.createElement('button');
         addTagButton.type = 'button';
-        addTagButton.className = 'w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-white hover:bg-zinc-50 border border-zinc-200 rounded-lg text-xs font-medium text-zinc-800 transition-colors';
+        addTagButton.className = 'w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-white hover:bg-geotrak-subtle border border-geotrak-border rounded-lg text-xs font-medium text-geotrak transition-colors';
         addTagButton.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg><span>Add Tag</span>';
         addTagButton.addEventListener('click', function() {
             addTagRow(tagsContainer, labelSpan);
@@ -3532,7 +3532,7 @@
     }
 
     function addFieldToContainer(fieldName, fieldId, fieldsContainer) {
-        const existingFieldsContainer = fieldsContainer.querySelector('.ms-sidebar-field-group');
+        const existingFieldsContainer = fieldsContainer.querySelector('.geotrak-sidebar-field-group');
         const addFieldSection = document.getElementById('add-field-section');
         
         let fieldElement = null;
@@ -3573,15 +3573,15 @@
 
     function createRelationsMenuItem() {
         const container = document.createElement('div');
-        container.className = 'border-b border-zinc-200';
+        container.className = 'border-b border-geotrak-border';
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-zinc-100 transition-colors group';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-geotrak-muted transition-colors group';
         button.setAttribute('data-menu-item', 'relations');
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-sm font-semibold text-zinc-900 group-hover:text-black transition-colors';
+        labelSpan.className = 'text-sm font-semibold text-geotrak group-hover:text-geotrak transition-colors';
         labelSpan.id = 'relations-label-span';
         labelSpan.textContent = 'Relations (0)';
 
@@ -3610,7 +3610,7 @@
 
             const parentInput = document.createElement('input');
             parentInput.type = 'text';
-            parentInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all cursor-pointer';
+            parentInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all cursor-pointer';
             parentInput.placeholder = 'Choose a parent relation';
             parentInput.value = 'New Relation';
             parentInput.readOnly = true;
@@ -3620,12 +3620,12 @@
             parentChevron.innerHTML = '<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
 
             const parentMenu = document.createElement('div');
-            parentMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-lg shadow-xl z-50 hidden max-h-60 overflow-y-auto';
+            parentMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-geotrak-border rounded-lg shadow-xl z-50 hidden max-h-60 overflow-y-auto';
 
             const relationOptions = ['New Relation'];
             relationOptions.forEach(function(option) {
                 const menuItem = document.createElement('div');
-                menuItem.className = 'px-3 py-2 text-xs text-zinc-900 hover:bg-zinc-50 cursor-pointer border-b border-zinc-100 last:border-b-0';
+                menuItem.className = 'px-3 py-2 text-xs text-geotrak hover:bg-geotrak-subtle cursor-pointer border-b border-zinc-100 last:border-b-0';
                 menuItem.textContent = option;
                 menuItem.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -3652,7 +3652,7 @@
 
             const deleteButton = document.createElement('button');
             deleteButton.type = 'button';
-            deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors flex-shrink-0';
+            deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors flex-shrink-0';
             deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
             deleteButton.addEventListener('click', function() {
                 relationRow.remove();
@@ -3664,7 +3664,7 @@
 
             const roleInput = document.createElement('input');
             roleInput.type = 'text';
-            roleInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-0 transition-all';
+            roleInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-0 transition-all';
             roleInput.placeholder = 'Role';
 
             relationRow.appendChild(parentRelationRow);
@@ -3689,7 +3689,7 @@
 
         const addRelationButton = document.createElement('button');
         addRelationButton.type = 'button';
-        addRelationButton.className = 'w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-white hover:bg-zinc-50 border border-zinc-200 rounded-lg text-xs font-medium text-zinc-800 transition-colors';
+        addRelationButton.className = 'w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-white hover:bg-geotrak-subtle border border-geotrak-border rounded-lg text-xs font-medium text-geotrak transition-colors';
         addRelationButton.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>';
         addRelationButton.addEventListener('click', function() {
             addRelationRow(relationsContainer, labelSpan);
@@ -3721,7 +3721,7 @@
 
     function createDescriptionField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
+        fieldContainer.className = 'geotrak-sidebar-field-group space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -3731,13 +3731,13 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-zinc-900';
+        label.className = 'text-xs font-medium text-geotrak';
         label.textContent = 'Description';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-geotrak-muted hover:bg-geotrak-border transition-colors';
         infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
@@ -3745,7 +3745,7 @@
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors';
         deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
@@ -3762,7 +3762,7 @@
         fieldContainer.appendChild(header);
 
         const textarea = document.createElement('textarea');
-        textarea.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-0 transition-all resize-none';
+        textarea.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-0 transition-all resize-none';
         textarea.placeholder = 'Unknown';
         textarea.rows = 3;
         fieldContainer.appendChild(textarea);
@@ -3772,7 +3772,7 @@
 
     function createFixMeField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
+        fieldContainer.className = 'geotrak-sidebar-field-group space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -3782,13 +3782,13 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-zinc-900';
+        label.className = 'text-xs font-medium text-geotrak';
         label.textContent = 'Fix Me';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-geotrak-muted hover:bg-geotrak-border transition-colors';
         infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
@@ -3796,7 +3796,7 @@
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors';
         deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
@@ -3813,7 +3813,7 @@
         fieldContainer.appendChild(header);
 
         const textarea = document.createElement('textarea');
-        textarea.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-0 transition-all resize-none';
+        textarea.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-0 transition-all resize-none';
         textarea.placeholder = 'Unknown';
         textarea.rows = 3;
         fieldContainer.appendChild(textarea);
@@ -3823,7 +3823,7 @@
 
     function createImageField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
+        fieldContainer.className = 'geotrak-sidebar-field-group space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -3833,13 +3833,13 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-zinc-900';
+        label.className = 'text-xs font-medium text-geotrak';
         label.textContent = 'Image';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-geotrak-muted hover:bg-geotrak-border transition-colors';
         infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
@@ -3847,7 +3847,7 @@
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors';
         deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
@@ -3868,7 +3868,7 @@
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
+        input.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all';
         input.placeholder = 'https://example.com/photo.jpg';
         inputWrapper.appendChild(input);
 
@@ -3885,7 +3885,7 @@
 
     function createLastCheckedDateField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
+        fieldContainer.className = 'geotrak-sidebar-field-group space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -3895,13 +3895,13 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-zinc-900';
+        label.className = 'text-xs font-medium text-geotrak';
         label.textContent = 'Last Checked Date';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-geotrak-muted hover:bg-geotrak-border transition-colors';
         infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
@@ -3909,7 +3909,7 @@
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors';
         deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
@@ -3930,7 +3930,7 @@
 
         const input = document.createElement('input');
         input.type = 'date';
-        input.className = 'flex-1 bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
+        input.className = 'flex-1 bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all';
         input.placeholder = 'YYYY-MM-DD';
         input.id = 'date-input-' + fieldId;
         inputWrapper.appendChild(input);
@@ -3952,7 +3952,7 @@
 
     function createMapillaryImageIdField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
+        fieldContainer.className = 'geotrak-sidebar-field-group space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -3962,13 +3962,13 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-zinc-900';
+        label.className = 'text-xs font-medium text-geotrak';
         label.textContent = 'Mapillary Image ID';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-geotrak-muted hover:bg-geotrak-border transition-colors';
         infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
@@ -3976,7 +3976,7 @@
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors';
         deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
@@ -3997,7 +3997,7 @@
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
+        input.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all';
         input.value = 'Unknown';
         inputWrapper.appendChild(input);
 
@@ -4014,7 +4014,7 @@
 
     function createNoteField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
+        fieldContainer.className = 'geotrak-sidebar-field-group space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -4024,13 +4024,13 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-zinc-900';
+        label.className = 'text-xs font-medium text-geotrak';
         label.textContent = 'Note';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-geotrak-muted hover:bg-geotrak-border transition-colors';
         infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
@@ -4038,7 +4038,7 @@
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors';
         deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
@@ -4055,7 +4055,7 @@
         fieldContainer.appendChild(header);
 
         const textarea = document.createElement('textarea');
-        textarea.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-0 transition-all resize-y';
+        textarea.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-0 transition-all resize-y';
         textarea.value = 'Unknown';
         textarea.rows = 3;
         fieldContainer.appendChild(textarea);
@@ -4065,7 +4065,7 @@
 
     function createPanoramaxImageIdField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
+        fieldContainer.className = 'geotrak-sidebar-field-group space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -4075,13 +4075,13 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-zinc-900';
+        label.className = 'text-xs font-medium text-geotrak';
         label.textContent = 'Panoramax Image ID';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-geotrak-muted hover:bg-geotrak-border transition-colors';
         infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
@@ -4089,7 +4089,7 @@
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors';
         deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
@@ -4110,7 +4110,7 @@
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
+        input.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all';
         input.value = 'Unknown';
         inputWrapper.appendChild(input);
 
@@ -4127,7 +4127,7 @@
 
     function createWebsiteField(fieldId) {
         const fieldContainer = document.createElement('div');
-        fieldContainer.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2';
+        fieldContainer.className = 'geotrak-sidebar-field-group space-y-2';
         fieldContainer.id = 'field-' + fieldId;
 
         const header = document.createElement('div');
@@ -4137,13 +4137,13 @@
         labelWrapper.className = 'flex items-center gap-2';
 
         const label = document.createElement('span');
-        label.className = 'text-xs font-medium text-zinc-900';
+        label.className = 'text-xs font-medium text-geotrak';
         label.textContent = 'Website';
         labelWrapper.appendChild(label);
 
         const infoIcon = document.createElement('button');
         infoIcon.type = 'button';
-        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-zinc-200 hover:bg-zinc-300 transition-colors';
+        infoIcon.className = 'w-4 h-4 flex items-center justify-center rounded-full bg-geotrak-muted hover:bg-geotrak-border transition-colors';
         infoIcon.innerHTML = '<svg class="w-2.5 h-2.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         labelWrapper.appendChild(infoIcon);
 
@@ -4151,7 +4151,7 @@
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors';
         deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             if (window.selectedFields) {
@@ -4172,7 +4172,7 @@
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all';
+        input.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all';
         input.value = 'https://example.com';
         inputWrapper.appendChild(input);
 
@@ -4201,19 +4201,19 @@
 
     function addMultilingualNameField(fieldsContainer) {
         const multilingualSection = document.createElement('div');
-        multilingualSection.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2.5';
+        multilingualSection.className = 'geotrak-sidebar-field-group space-y-2.5';
 
         const headerRow = document.createElement('div');
         headerRow.className = 'flex items-center justify-between';
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-xs font-medium text-zinc-900';
+        labelSpan.className = 'text-xs font-medium text-geotrak';
         labelSpan.textContent = 'Multilingual Name';
         headerRow.appendChild(labelSpan);
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors';
+        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors';
         deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         deleteButton.addEventListener('click', function() {
             multilingualSection.remove();
@@ -4226,7 +4226,7 @@
         languageDropdown.className = 'relative';
 
         const languageSelect = document.createElement('select');
-        languageSelect.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all appearance-none cursor-pointer';
+        languageSelect.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-xs text-geotrak focus:outline-none focus:ring-2 focus:ring-geotrak transition-all appearance-none cursor-pointer';
         languageSelect.id = 'language-select-' + Date.now();
 
         const defaultOption = document.createElement('option');
@@ -4261,11 +4261,11 @@
 
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
-        nameInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-0 transition-all';
+        nameInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-0 transition-all';
         nameInput.placeholder = 'Name';
         multilingualSection.appendChild(nameInput);
 
-        const existingFieldsContainer = fieldsContainer.querySelector('.ms-sidebar-field-group');
+        const existingFieldsContainer = fieldsContainer.querySelector('.geotrak-sidebar-field-group');
         const addFieldSection = document.getElementById('add-field-section');
         
         if (existingFieldsContainer && addFieldSection) {
@@ -4279,15 +4279,15 @@
 
     function createEditFeatureMenuItem(label, id) {
         const container = document.createElement('div');
-        container.className = 'border-b border-zinc-200';
+        container.className = 'border-b border-geotrak-border';
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-zinc-100 transition-colors group';
+        button.className = 'w-full px-6 py-4 text-left flex items-center justify-between hover:bg-geotrak-muted transition-colors group';
         button.setAttribute('data-menu-item', id);
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-sm font-semibold text-zinc-900 group-hover:text-black transition-colors';
+        labelSpan.className = 'text-sm font-semibold text-geotrak group-hover:text-geotrak transition-colors';
         labelSpan.textContent = label;
 
         button.appendChild(labelSpan);
@@ -4328,7 +4328,7 @@
         } else if (label.includes('Natural')) {
             folderContainer.className += ' bg-emerald-100';
         } else {
-            folderContainer.className += ' bg-zinc-200';
+            folderContainer.className += ' bg-geotrak-muted';
         }
 
         const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -4336,7 +4336,7 @@
         iconSvg.setAttribute('viewBox', '0 0 24 24');
         iconSvg.setAttribute('fill', 'none');
         
-        let strokeColor = '#71717a';
+        let strokeColor = '#5a6f8c';
         if (label.includes('Waterways')) {
             strokeColor = '#0284c7';
         } else if (label.includes('Barrier')) {
@@ -4575,7 +4575,7 @@
             matches.forEach(function(item) {
                 const btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = 'w-full text-left px-3 py-2.5 text-sm text-zinc-900 hover:bg-zinc-100 rounded-lg border border-transparent hover:border-zinc-200/80 transition-colors flex items-center justify-between gap-2';
+                btn.className = 'w-full text-left px-3 py-2.5 text-sm text-geotrak hover:bg-geotrak-muted rounded-lg border border-transparent hover:border-geotrak-border/80 transition-colors flex items-center justify-between gap-2';
                 const labelSpan = document.createElement('span');
                 labelSpan.textContent = item.label;
                 const catSpan = document.createElement('span');
@@ -4634,7 +4634,7 @@
         options.forEach(function(option) {
             const item = document.createElement('button');
             item.type = 'button';
-            item.className = 'w-full text-left px-4 py-2 text-sm text-zinc-900 hover:bg-zinc-50 transition-colors first:rounded-t-lg last:rounded-b-lg';
+            item.className = 'w-full text-left px-4 py-2 text-sm text-geotrak hover:bg-geotrak-subtle transition-colors first:rounded-t-lg last:rounded-b-lg';
             item.textContent = option.label || option;
             item.setAttribute('role', 'menuitem');
             item.setAttribute('data-value', option.value || option);
@@ -4947,13 +4947,13 @@
                     } else {
                         // Fallback: simple multilingual field without helper
                         const multilingualDiv = document.createElement('div');
-                        multilingualDiv.className = 'ms-sidebar-field-group bg-zinc-100 rounded-lg border border-zinc-200 p-3 space-y-2.5';
+                        multilingualDiv.className = 'geotrak-sidebar-field-group space-y-2.5';
                         const label = document.createElement('div');
-                        label.className = 'text-xs font-medium text-zinc-900';
+                        label.className = 'text-xs font-medium text-geotrak';
                         label.textContent = 'Multilingual Name (' + multilingual.language + ')';
                         const input = document.createElement('input');
                         input.type = 'text';
-                        input.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400';
+                        input.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400';
                         input.value = multilingual.name;
                         multilingualDiv.appendChild(label);
                         multilingualDiv.appendChild(input);
@@ -5034,12 +5034,12 @@
 
                 const keyInput = document.createElement('input');
                 keyInput.type = 'text';
-                keyInput.className = 'flex-1 min-w-0 bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400';
+                keyInput.className = 'flex-1 min-w-0 bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400';
                 keyInput.value = tag.key || '';
 
                 const valueInput = document.createElement('input');
                 valueInput.type = 'text';
-                valueInput.className = 'flex-1 min-w-0 bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400';
+                valueInput.className = 'flex-1 min-w-0 bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400';
                 valueInput.value = tag.value || '';
 
                 tagRow.appendChild(keyInput);
@@ -5070,12 +5070,12 @@
 
                 const parentInput = document.createElement('input');
                 parentInput.type = 'text';
-                parentInput.className = 'flex-1 min-w-0 bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400';
+                parentInput.className = 'flex-1 min-w-0 bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400';
                 parentInput.value = relation.parent_relation || 'New Relation';
 
                 const deleteButton = document.createElement('button');
                 deleteButton.type = 'button';
-                deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-zinc-100 transition-colors flex-shrink-0';
+                deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors flex-shrink-0';
                 deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m3 0V4a1 1 0 011-1h6a1 1 0 011 1v3m-9 0h10"></path></svg>';
                 deleteButton.addEventListener('click', function() {
                     relationRow.remove();
@@ -5088,7 +5088,7 @@
 
                 const roleInput = document.createElement('input');
                 roleInput.type = 'text';
-                roleInput.className = 'w-full bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400';
+                roleInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400';
                 roleInput.value = relation.role || '';
 
                 relationRow.appendChild(header);

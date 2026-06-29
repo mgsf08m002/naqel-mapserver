@@ -8,7 +8,7 @@ body:has(#layer-review-root.lr-shell) main {
 }
 
 #layer-review-root.lr-shell {
-  --lr-fg: #111827;
+  --lr-fg: var(--geotrak-brand);
   --lr-muted: #6b7280;
   --lr-border: #e5e7eb;
   --lr-border-light: #f3f4f6;
@@ -556,7 +556,7 @@ body:has(#layer-review-root.lr-shell) main {
   letter-spacing: 0.01em;
   line-height: 1.25;
   color: #fff;
-  background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+  background: linear-gradient(180deg, var(--geotrak-brand-hover) 0%, var(--geotrak-brand) 100%);
   border: none;
   border-radius: 0.5rem;
   box-shadow:
@@ -582,7 +582,7 @@ body:has(#layer-review-root.lr-shell) main {
 }
 
 #layer-review-root .lr-btn-submit:hover {
-  background: linear-gradient(180deg, #374151 0%, #1f2937 100%);
+  background: linear-gradient(180deg, var(--geotrak-text-muted) 0%, #1f2937 100%);
   box-shadow:
     0 2px 4px rgba(15, 23, 42, 0.1),
     0 8px 20px rgba(15, 23, 42, 0.22);
@@ -594,7 +594,7 @@ body:has(#layer-review-root.lr-shell) main {
 }
 
 #layer-review-root .lr-btn-submit:focus-visible {
-  outline: 2px solid #111827;
+  outline: 2px solid var(--geotrak-brand);
   outline-offset: 2px;
 }
 

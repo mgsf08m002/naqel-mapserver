@@ -17,7 +17,7 @@
             const menuItems = document.querySelectorAll('.menu-item');
             
             menuItems.forEach(function(item) {
-                item.classList.remove('active', 'bg-gray-100', 'text-black', 'font-medium');
+                item.classList.remove('active', 'bg-gray-100', 'text-geotrak', 'font-medium');
                 item.classList.add('text-gray-700');
                 
                 const href = item.getAttribute('href');
@@ -28,7 +28,7 @@
                     
                     // Check if current path matches or starts with the href
                     if (normalizedPath === normalizedHref || normalizedPath.startsWith(normalizedHref + '/')) {
-                        item.classList.add('active', 'bg-gray-100', 'text-black', 'font-medium');
+                        item.classList.add('active', 'bg-gray-100', 'text-geotrak', 'font-medium');
                         item.classList.remove('text-gray-700');
                     }
                 }

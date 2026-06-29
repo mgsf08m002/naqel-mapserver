@@ -70,7 +70,7 @@
     padding: 0.5rem 0.6rem;
     border-radius: 0.5rem;
     font-size: 0.8125rem;
-    color: #18181b;
+    color: var(--geotrak-brand);
     transition: background 0.12s ease;
 }
 
@@ -87,6 +87,6 @@
 
 .map-road-search__result-secondary {
     font-size: 0.6875rem;
-    color: #71717a;
+    color: var(--geotrak-text-muted);
     line-height: 1.2;
 }

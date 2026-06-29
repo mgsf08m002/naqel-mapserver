@@ -20,7 +20,7 @@
                         {% if request.resolver_match.url_name == 'map' %}
                         <button 
                             id="editButton" 
-                            class="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-black border border-black rounded-full bg-white hover:bg-gray-100 active:bg-gray-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 shadow-sm"
+                            class="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-geotrak border border-geotrak rounded-full bg-white hover:bg-gray-100 active:bg-gray-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 shadow-sm"
                             disabled
                         >
                             <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -45,7 +45,7 @@
                 <!-- User Avatar & Dropdown -->
                 <div class="relative">
                     <button id="userMenuBtn" class="flex items-center space-x-2 p-1.5 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-200">
-                        <div id="headerAvatar" class="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-medium text-sm flex-shrink-0 overflow-hidden">
+                        <div id="headerAvatar" class="w-8 h-8 rounded-full bg-geotrak text-white flex items-center justify-center font-medium text-sm flex-shrink-0 overflow-hidden">
                             {% if user_profile.profile_image %}
                             <img id="headerAvatarImage" src="{{ user_profile.profile_image.url }}" alt="Profile" class="w-full h-full object-cover">
                             <span id="headerAvatarInitials" class="hidden">{{ user.first_name|first|default:user.username|first|upper }}</span>
@@ -55,7 +55,7 @@
                             {% endif %}
                         </div>
                         <div class="hidden md:flex flex-col items-start mr-1">
-                            <span class="text-sm font-semibold text-gray-900 leading-tight">{{ user.get_full_name|default:user.username }}</span>
+                            <span class="text-sm font-semibold text-geotrak leading-tight">{{ user.get_full_name|default:user.username }}</span>
                             <span class="text-xs text-gray-400 leading-tight">{{ user.email }}</span>
                         </div>
                         <svg id="userMenuIcon" class="w-4 h-4 text-gray-500 hidden md:block transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -65,7 +65,7 @@
                     <div id="userMenu" class="hidden absolute right-0 mt-1.5 w-[min(calc(100vw-1.5rem),16rem)] sm:w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-1.5 z-50">
                         <div class="px-3 py-2.5 border-b border-gray-100 bg-gray-50">
                             <div class="flex items-center space-x-2.5">
-                                <div id="dropdownAvatar" class="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-medium text-xs flex-shrink-0 overflow-hidden">
+                                <div id="dropdownAvatar" class="w-8 h-8 rounded-full bg-geotrak text-white flex items-center justify-center font-medium text-xs flex-shrink-0 overflow-hidden">
                                     {% if user_profile.profile_image %}
                                     <img id="dropdownAvatarImage" src="{{ user_profile.profile_image.url }}" alt="Profile" class="w-full h-full object-cover">
                                     <span id="dropdownAvatarInitials" class="hidden">{{ user.first_name|first|default:user.username|first|upper }}</span>
@@ -75,7 +75,7 @@
                                     {% endif %}
                                 </div>
                                 <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-semibold text-gray-900 truncate">{{ user.get_full_name|default:user.username }}</p>
+                                    <p class="text-sm font-semibold text-geotrak truncate">{{ user.get_full_name|default:user.username }}</p>
                                     <p class="text-xs text-gray-400 truncate">{{ user.email }}</p>
                                 </div>
                             </div>

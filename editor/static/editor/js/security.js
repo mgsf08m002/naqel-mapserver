@@ -113,7 +113,7 @@
                 const wrapper = document.createElement('div');
                 wrapper.className = [
                     'flex items-center justify-between rounded-2xl border px-4 py-3 transition-colors',
-                    isCurrent ? 'border-black bg-white' : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                    isCurrent ? 'border-geotrak bg-white' : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
                 ].join(' ');
 
                 const left = document.createElement('div');
@@ -135,12 +135,12 @@
                 textWrapper.className = 'space-y-0.5';
 
                 const title = document.createElement('p');
-                title.className = 'text-sm font-semibold text-gray-900 flex items-center gap-2';
+                title.className = 'text-sm font-semibold text-geotrak flex items-center gap-2';
                 title.textContent = session.browser ? session.browser.charAt(0).toUpperCase() + session.browser.slice(1) : 'Unknown browser';
 
                 if (isCurrent) {
                     const badge = document.createElement('span');
-                    badge.className = 'inline-flex items-center rounded-full bg-black px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white';
+                    badge.className = 'inline-flex items-center rounded-full bg-geotrak px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white';
                     badge.textContent = 'This browser';
                     title.appendChild(badge);
                 }
@@ -175,7 +175,7 @@
                 } else {
                     const button = document.createElement('button');
                     button.type = 'button';
-                    button.className = 'inline-flex items-center justify-center rounded-full border border-gray-900 bg-black px-4 py-1.5 text-xs font-semibold text-white hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-200';
+                    button.className = 'inline-flex items-center justify-center rounded-full border border-geotrak bg-geotrak px-4 py-1.5 text-xs font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-gray-200';
                     button.textContent = 'Log out';
                     button.addEventListener('click', () => {
                         terminateSession(session.session_key, wrapper);

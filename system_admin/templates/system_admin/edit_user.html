@@ -14,7 +14,7 @@
                 <span>User Management</span>
             </div>
             <div class="flex flex-col gap-2">
-                <h1 class="text-3xl font-semibold text-gray-900">Edit a user</h1>
+                <h1 class="text-3xl font-semibold text-geotrak">Edit a user</h1>
                 <p class="text-sm text-gray-600 max-w-2xl">Search for a user by email address and update their account information.</p>
             </div>
         </header>
@@ -34,8 +34,8 @@
                 <div class="flex flex-col gap-2">
                     <label for="search_email" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Email Address</label>
                     <div class="flex gap-3">
-                        <input id="search_email" name="search_email" type="email" required class="flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-200" placeholder="Enter user email address">
-                        <button type="submit" class="rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+                        <input id="search_email" name="search_email" type="email" required class="flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" placeholder="Enter user email address">
+                        <button type="submit" class="rounded-full bg-geotrak px-6 py-3 text-sm font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
                             Search
                         </button>
                     </div>
@@ -63,19 +63,19 @@
                     <!-- Full Name -->
                     <div class="flex flex-col gap-2 md:col-span-2">
                         <label for="full_name" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Full Name</label>
-                        <input id="full_name" name="full_name" type="text" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-200" value="{{ user_to_edit.get_full_name|default:user_to_edit.first_name }}" placeholder="Enter full name">
+                        <input id="full_name" name="full_name" type="text" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" value="{{ user_to_edit.get_full_name|default:user_to_edit.first_name }}" placeholder="Enter full name">
                     </div>
 
                     <!-- Email Address -->
                     <div class="flex flex-col gap-2 md:col-span-2">
                         <label for="email" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Email Address</label>
-                        <input id="email" name="email" type="email" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-200" value="{{ user_to_edit.email }}" placeholder="Enter email address">
+                        <input id="email" name="email" type="email" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" value="{{ user_to_edit.email }}" placeholder="Enter email address">
                     </div>
 
                     <!-- Account Status -->
                     <div class="flex flex-col gap-2 md:col-span-2">
                         <label for="account_status" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Account Status</label>
-                        <select id="account_status" name="account_status" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-200">
+                        <select id="account_status" name="account_status" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200">
                             <option value="active" {% if user_to_edit.is_active %}selected{% endif %}>Active</option>
                             <option value="inactive" {% if not user_to_edit.is_active %}selected{% endif %}>Inactive</option>
                         </select>
@@ -88,12 +88,12 @@
                         <div class="grid gap-4 md:grid-cols-2">
                             <div>
                                 <p class="text-xs text-gray-500">Role</p>
-                                <p class="text-sm font-medium text-gray-900 mt-1">{{ user_profile.role|title|default:"Not assigned" }}</p>
+                                <p class="text-sm font-medium text-geotrak mt-1">{{ user_profile.role|title|default:"Not assigned" }}</p>
                             </div>
                             {% if user_profile.account_creation_date %}
                             <div>
                                 <p class="text-xs text-gray-500">Account Created</p>
-                                <p class="text-sm font-medium text-gray-900 mt-1">{{ user_profile.account_creation_date|date:"F j, Y" }} at {{ user_profile.account_creation_time|time:"g:i A" }}</p>
+                                <p class="text-sm font-medium text-geotrak mt-1">{{ user_profile.account_creation_date|date:"F j, Y" }} at {{ user_profile.account_creation_time|time:"g:i A" }}</p>
                             </div>
                             {% endif %}
                         </div>
@@ -107,7 +107,7 @@
                     <button type="button" onclick="window.location.href='{% url 'system_admin:edit_user' %}'" class="rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
                         Search Another
                     </button>
-                    <button type="submit" class="inline-flex items-center justify-center rounded-full bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+                    <button type="submit" class="inline-flex items-center justify-center rounded-full bg-geotrak px-5 py-3 text-sm font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
                         Update User
                     </button>
                 </div>
