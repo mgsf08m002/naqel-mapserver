@@ -2,6 +2,7 @@ services:
   db:
     image: postgis/postgis:18-3.6
     container_name: geotrak_maps_db
+    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -10,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql
-      - ./database:/database  # Mount database directory for backups
+      - ./database:/database
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 10s
@@ -20,13 +21,14 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: geotrak_maps_pgadmin
+    restart: unless-stopped
     env_file:
       - .env
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     ports:
-      - "5050:80"
+      - "127.0.0.1:5050:80"
     depends_on:
       - db
     volumes:
@@ -35,6 +37,7 @@ services:
   geotrak_maps:
     build: .
     container_name: GeoTrak_Maps
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:

@@ -10,7 +10,7 @@ docker compose up -d
 # Start with build and view logs
 docker compose up --build
 
-#For DB
+# DB
 docker compose exec geotrak_maps python manage.py makemigrations
 docker compose exec geotrak_maps python manage.py migrate
 
