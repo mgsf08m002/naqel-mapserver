@@ -17,8 +17,12 @@ while ! PGPASSWORD="$DB_PASSWORD" pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB
 done
 echo " database is ready."
 
-echo "==> [GeoTrak_Maps] Running Django makemigrations"
-python manage.py makemigrations
+case "$(echo "${DEBUG:-false}" | tr '[:upper:]' '[:lower:]')" in
+  1|true|yes|on)
+    echo "==> [GeoTrak_Maps] DEBUG — running makemigrations"
+    python manage.py makemigrations
+    ;;
+esac
 
 echo "==> [GeoTrak_Maps] Applying Django migrations"
 python manage.py migrate

@@ -1,0 +1,30 @@
+# GeoTrak Maps — production app container (image only, no source bind-mount).
+#
+# Requires ../geo_infra (PostGIS, Martin, Nginx) to be running first:
+#   cd ../geo_infra && docker compose up -d
+#
+# Public URL: http://<host>:8000 (served by shared Nginx; this container publishes no ports).
+name: geotrak
+
+services:
+  geotrak_maps:
+    build: .
+    container_name: GeoTrak_Maps
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - media_data:/app/media
+    networks:
+      geo_shared:
+        aliases:
+          - geotrak_web
+
+volumes:
+  media_data:
+
+networks:
+  geo_shared:
+    external: true

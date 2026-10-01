@@ -1,10 +1,11 @@
-# GeoTrak Maps app container.
+# GeoTrak Maps — local development (bind-mounts source for live edits).
 #
-# PostgreSQL/PostGIS, Martin and Nginx live in the shared stack ../geo-infra.
-# Start it first (it creates the external `geo_shared` network):
-#   cd ../geo-infra && docker compose up -d
-# The app is reachable only through Nginx on :8000 (GEOTRAK_HTTP_PORT). Nginx resolves this
-# container by its network alias `geotrak_web`.
+# PostgreSQL/PostGIS, Martin and Nginx live in the shared stack ../geo_infra.
+# Start it first (creates the external `geo_shared` network):
+#   cd ../geo_infra && docker compose up -d
+#
+# Public URL: http://localhost:8000 (via shared Nginx).
+# Production: use docker-compose.prod.yml instead.
 services:
   geotrak_maps:
     build: .
@@ -12,6 +13,7 @@ services:
     restart: unless-stopped
     volumes:
       - .:/app
+      - media_data:/app/media
     command: ["/usr/local/bin/geotrak_entrypoint.sh"]
     environment:
       - PYTHONUNBUFFERED=1
@@ -21,6 +23,9 @@ services:
       geo_shared:
         aliases:
           - geotrak_web
+
+volumes:
+  media_data:
 
 networks:
   geo_shared:
