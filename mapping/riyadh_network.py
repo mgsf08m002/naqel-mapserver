@@ -61,13 +61,19 @@ def riyadh_map_sync_payload() -> dict[str, int]:
     }
 
 
-def riyadh_tile_proxy_absolute_url(request) -> str:
-    """Absolute Django proxy URL template for MapLibre ({z}/{x}/{y} placeholders)."""
-    if not getattr(settings, "RIYADH_ROADS_TILE_URL", "").strip():
+def riyadh_tiles_absolute_url(request) -> str:
+    """
+    Absolute same-origin tile URL template for MapLibre ({z}/{x}/{y} placeholders).
+
+    Nginx serves it: auth_request checks the session cookie (tile_access), then
+    proxies to Martin. MapLibre workers need an absolute URL, not a relative one.
+    """
+    base_path = getattr(settings, "TILES_PUBLIC_PATH", "")
+    if not base_path:
         return ""
     return (
         f"{request.scheme}://{request.get_host()}"
-        "/mapping/tiles/riyadh_roads/{z}/{x}/{y}/"
+        f"{base_path}/riyadh_roads/{{z}}/{{x}}/{{y}}"
     )
 
 

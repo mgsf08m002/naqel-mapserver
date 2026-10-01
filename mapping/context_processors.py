@@ -3,7 +3,7 @@
 from django.conf import settings
 
 from .approval_categories import EDIT_FILTER_CATEGORIES
-from .riyadh_network import riyadh_tile_proxy_absolute_url
+from .riyadh_network import riyadh_tiles_absolute_url
 
 
 def maptiler_api_key(request):
@@ -14,8 +14,8 @@ def maptiler_api_key(request):
 
 
 def riyadh_roads_tile_url(request):
-    """Inject Riyadh roads tile proxy URL for MapLibre (via Django, not Martin direct)."""
-    return {"riyadh_roads_tile_url": riyadh_tile_proxy_absolute_url(request)}
+    """Inject the Riyadh roads tile URL for MapLibre (Nginx auth_request -> Martin)."""
+    return {"riyadh_roads_tile_url": riyadh_tiles_absolute_url(request)}
 
 
 def edit_filter_categories(request):

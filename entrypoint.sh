@@ -8,8 +8,10 @@ echo "==> [GeoTrak_Maps] Compiling Tailwind CSS assets"
 mkdir -p /app/static/css
 tailwindcss -i /app/static/src/input.css -o /app/static/css/output.css --minify
 
-echo "==> [GeoTrak_Maps] Waiting for PostgreSQL database on host 'db'"
-while ! PGPASSWORD="$DB_PASSWORD" pg_isready -h db -U "$DB_USER" > /dev/null 2>&1; do
+DB_HOST="${DB_HOST:-postgis}"
+DB_PORT="${DB_PORT:-5432}"
+echo "==> [GeoTrak_Maps] Waiting for PostgreSQL on ${DB_HOST}:${DB_PORT} (shared geo-infra stack)"
+while ! PGPASSWORD="$DB_PASSWORD" pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" > /dev/null 2>&1; do
   printf '.'
   sleep 1
 done
@@ -33,7 +35,7 @@ case "$(echo "${DEBUG:-false}" | tr '[:upper:]' '[:lower:]')" in
     echo "==> [GeoTrak_Maps] Production mode — starting Gunicorn on 0.0.0.0:8000"
     exec gunicorn config.wsgi:application \
       --bind 0.0.0.0:8000 \
-      --workers "${GUNICORN_WORKERS:-3}" \
+      --workers "${GUNICORN_WORKERS:-3}"       --worker-class gthread       --threads "${GUNICORN_THREADS:-4}" \
       --timeout "${GUNICORN_TIMEOUT:-120}" \
       --access-logfile - \
       --error-logfile -

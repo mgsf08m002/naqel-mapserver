@@ -31,7 +31,7 @@ from mapping.riyadh_network import (
     publish_riyadh_tiles_version,
     published_fclass_from_edit_request,
     riyadh_map_sync_payload,
-    riyadh_tile_proxy_absolute_url,
+    riyadh_tiles_absolute_url,
     tiles_version_ms,
 )
 from system_admin.models import UserProfile
@@ -43,18 +43,17 @@ class RiyadhNetworkUtilTests(SimpleTestCase):
         second = tiles_version_ms()
         self.assertGreaterEqual(second, first)
 
-    @override_settings(RIYADH_ROADS_TILE_URL="http://example.com/tiles/{z}/{x}/{y}")
-    def test_tile_proxy_url_when_upstream_configured(self):
+    @override_settings(TILES_PUBLIC_PATH="/tiles")
+    def test_tiles_url_points_at_nginx_tiles_path(self):
         request = RequestFactory().get("/")
         request.META["HTTP_HOST"] = "localhost:8000"
-        url = riyadh_tile_proxy_absolute_url(request)
-        self.assertIn("/mapping/tiles/riyadh_roads/", url)
-        self.assertIn("{z}", url)
+        url = riyadh_tiles_absolute_url(request)
+        self.assertEqual(url, "http://localhost:8000/tiles/riyadh_roads/{z}/{x}/{y}")
 
-    @override_settings(RIYADH_ROADS_TILE_URL="")
-    def test_tile_proxy_url_empty_when_upstream_missing(self):
+    @override_settings(TILES_PUBLIC_PATH="")
+    def test_tiles_url_empty_when_tiles_disabled(self):
         request = RequestFactory().get("/")
-        self.assertEqual(riyadh_tile_proxy_absolute_url(request), "")
+        self.assertEqual(riyadh_tiles_absolute_url(request), "")
 
     def test_normalize_published_fclass_defaults_unclassified(self):
         self.assertEqual(normalize_published_fclass(""), "unclassified")
@@ -101,55 +100,6 @@ class RiyadhNetworkUtilTests(SimpleTestCase):
         )
         self.assertEqual(fields["fclass"], "motorway")
         self.assertEqual(fields["ref"], "R1")
-
-
-class RiyadhRoadsTileProxyTests(TestCase):
-    def setUp(self):
-        user_model = get_user_model()
-        self.user = user_model.objects.create_user(
-            username="tile_user",
-            email="tile@example.com",
-            password="testpass123",
-        )
-        self.client = Client()
-        self.client.force_login(self.user)
-
-    @override_settings(
-        RIYADH_ROADS_TILE_URL="http://martin.test/riyadh_roads/{z}/{x}/{y}",
-        RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE=0,
-    )
-    @patch("mapping.views.urlopen")
-    def test_empty_tile_returns_204_with_no_store(self, urlopen_mock):
-        resp = MagicMock()
-        resp.status = 204
-        resp.read.return_value = b""
-        resp.headers = {}
-        urlopen_mock.return_value.__enter__.return_value = resp
-
-        response = self.client.get("/mapping/tiles/riyadh_roads/14/1/2/?v=123")
-
-        self.assertEqual(response.status_code, 204)
-        self.assertEqual(response.content, b"")
-        self.assertIn("no-store", response["Cache-Control"])
-
-    @override_settings(
-        RIYADH_ROADS_TILE_URL="http://martin.test/riyadh_roads/{z}/{x}/{y}",
-        RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE=0,
-    )
-    @patch("mapping.views.urlopen")
-    def test_non_empty_tile_forwards_body(self, urlopen_mock):
-        body = b"\x1a\x00protobuf-bytes"
-        resp = MagicMock()
-        resp.status = 200
-        resp.read.return_value = body
-        resp.headers = {"Content-Type": "application/x-protobuf"}
-        urlopen_mock.return_value.__enter__.return_value = resp
-
-        response = self.client.get("/mapping/tiles/riyadh_roads/10/5/6/?v=999")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.content, body)
-        self.assertIn("no-store", response["Cache-Control"])
 
 
 class RiyadhRoadsMapSyncTests(TestCase):

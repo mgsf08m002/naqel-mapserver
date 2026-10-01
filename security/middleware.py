@@ -1,5 +1,9 @@
 from django.utils import timezone
 
+# Nginx auth_request calls this once per map tile. Writing the session there would
+# turn every tile into a session-table UPDATE.
+ACTIVITY_EXEMPT_PREFIXES = ("/tiles-auth/",)
+
 
 class SessionActivityMiddleware:
     """Track basic per-session activity timestamps for authenticated users."""
@@ -10,7 +14,11 @@ class SessionActivityMiddleware:
     def __call__(self, request):
         user = getattr(request, "user", None)
 
-        if user is not None and user.is_authenticated:
+        if (
+            user is not None
+            and user.is_authenticated
+            and not request.path.startswith(ACTIVITY_EXEMPT_PREFIXES)
+        ):
             session = request.session
             now_iso = timezone.now().isoformat()
 
@@ -21,4 +29,3 @@ class SessionActivityMiddleware:
 
         response = self.get_response(request)
         return response
-

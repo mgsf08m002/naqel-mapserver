@@ -6,7 +6,6 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
-from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 # Load environment variables from the .env file.
@@ -42,19 +41,14 @@ if not SECRET_KEY:
 
 MAPTILER_API_KEY = os.getenv('MAPTILER_API_KEY', '').strip()
 
-RIYADH_ROADS_TILE_URL = os.getenv(
-    "RIYADH_ROADS_TILE_URL",
-    "http://139.162.60.105:3000/riyadh_roads/{z}/{x}/{y}",
-).strip()
-RIYADH_ROADS_TILE_PROXY_TIMEOUT_SECONDS = _env_int("RIYADH_ROADS_TILE_PROXY_TIMEOUT_SECONDS", 20)
-# Live edits: proxy uses no-store; Martin must run with --cache-size 0 (see deploy/martin/README.md).
-RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE = _env_int("RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE", 0)
-
-_riyadh_tile_url = urlparse(RIYADH_ROADS_TILE_URL)
-if _riyadh_tile_url.scheme and _riyadh_tile_url.netloc:
-    RIYADH_ROADS_TILE_ORIGIN = f"{_riyadh_tile_url.scheme}://{_riyadh_tile_url.netloc}"
-else:
-    RIYADH_ROADS_TILE_ORIGIN = "http://139.162.60.105:3000"
+# Vector tiles are served same-origin by the shared Nginx (geo-infra):
+#   /tiles/<martin_source>/{z}/{x}/{y}  ->  auth_request -> tile_access.views.validate_tile_request -> Martin
+# Set TILES_PUBLIC_PATH to "" to hide the Riyadh roads layer (e.g. running without geo-infra).
+TILES_PUBLIC_PATH = os.getenv("TILES_PUBLIC_PATH", "/tiles").strip().rstrip("/")
+# Nginx sends this in X-Tile-Auth-Secret. It must match TILE_AUTH_SHARED_SECRET in geo-infra/.env.
+TILE_AUTH_SHARED_SECRET = os.getenv("TILE_AUTH_SHARED_SECRET", "").strip()
+# Count web-map (session) tile requests in TileUsageDaily as well as token requests.
+TILE_ACCESS_LOG_SESSION_USAGE = _env_bool("TILE_ACCESS_LOG_SESSION_USAGE", True)
 
 # SECURITY WARNING: DEBUG must be False in production.
 DEBUG = _env_bool('DEBUG', True)
@@ -69,6 +63,11 @@ ALLOWED_HOSTS = [
 SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", not DEBUG)
 CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", not DEBUG)
 SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", False if DEBUG else True)
+# Behind the shared Nginx: trust its X-Forwarded-Proto. Nginx always overwrites the header.
+# GeoTrak (:8000) and GeoLayers (:8081) share a host, and cookies ignore ports, so each
+# app needs its own session cookie name or logging into one logs you out of the other.
+SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME", "geotrak_sessionid")
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 # Application definition
@@ -90,6 +89,7 @@ INSTALLED_APPS = [
     'security',
     'symbology',
     'layer_uploader',
+    'tile_access',
 ]
 
 MIDDLEWARE = [
@@ -119,7 +119,6 @@ if DEBUG:
         "https://services.arcgisonline.com",
         "https://api.maptiler.com",
         "https://fonts.openmaptiles.org",
-        RIYADH_ROADS_TILE_ORIGIN,
     ]
     CSP_CONNECT_SRC = [
         "'self'",
@@ -129,7 +128,6 @@ if DEBUG:
         "https://fonts.openmaptiles.org",
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",
-        RIYADH_ROADS_TILE_ORIGIN,
     ]
     CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers.
 else:
@@ -145,7 +143,6 @@ else:
         "https://services.arcgisonline.com",
         "https://api.maptiler.com",
         "https://fonts.openmaptiles.org",
-        RIYADH_ROADS_TILE_ORIGIN,
     ]
     CSP_CONNECT_SRC = [
         "'self'",
@@ -155,7 +152,6 @@ else:
         "https://fonts.openmaptiles.org",
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",
-        RIYADH_ROADS_TILE_ORIGIN,
     ]
     CSP_WORKER_SRC = ["'self'", "blob:"]  # Required for MapLibre GL workers.
 
@@ -191,7 +187,7 @@ DATABASES = {
         "NAME": os.getenv("DB_NAME"),
         "USER": os.getenv("DB_USER", "postgres"),
         "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": os.getenv("DB_HOST", "db"),
+        "HOST": os.getenv("DB_HOST", "postgis"),
         "PORT": os.getenv("DB_PORT", "5432"),
     },
     "riyadh_roads": {
@@ -213,6 +209,12 @@ if not DATABASES["riyadh_roads"]["NAME"]:
     raise ValueError("RIYADH_ROADS_DB_NAME environment variable is not set. Please set it in your .env file.")
 if not DATABASES["riyadh_roads"]["PASSWORD"]:
     raise ValueError("RIYADH_ROADS_DB_PASSWORD environment variable is not set. Please set it in your .env file.")
+
+# Reuse DB connections across requests: every map tile makes one auth call, and a fresh
+# Postgres connection per call would add several ms. Health checks drop dead connections.
+for _db in DATABASES.values():
+    _db["CONN_MAX_AGE"] = _env_int("DB_CONN_MAX_AGE", 60)
+    _db["CONN_HEALTH_CHECKS"] = True
 
 DATABASE_ROUTERS = [
     "config.db_routers.RiyadhRoadsRouter",

@@ -19,6 +19,8 @@ urlpatterns = [
     path('security/', include('security.urls')),
     path('symbology/', include('symbology.urls')),
     path('layer_uploader/', include('layer_uploader.urls')),
+    # Nginx auth_request target for /tiles/* (blocked publicly by Nginx; see geo-infra).
+    path('tiles-auth/', include('tile_access.urls')),
 
 ]
 

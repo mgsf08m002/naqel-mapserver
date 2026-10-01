@@ -13,9 +13,6 @@ import json
 import logging
 import math
 import re
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
 
 from layer_uploader.map_review import (
     approve_layer_upload_edit_request,
@@ -240,68 +237,6 @@ def riyadh_roads_map_sync(request):
     response["Cache-Control"] = "no-store, max-age=0"
     response["Access-Control-Allow-Origin"] = "*"
     return response
-
-
-@require_http_methods(["GET"])
-def riyadh_roads_tile_proxy(request, z: int, x: int, y: int):
-    """Proxy Riyadh roads MVT tiles (Martin → PostGIS). No-store by default; client busts with ?v=."""
-    upstream_template = getattr(settings, "RIYADH_ROADS_TILE_URL", "").strip()
-    if not upstream_template:
-        raise Http404("Upstream tile service is not configured.")
-
-    try:
-        upstream_url = upstream_template.format(z=int(z), x=int(x), y=int(y))
-    except Exception:
-        raise Http404("Invalid upstream tile URL template.")
-
-    if request.GET:
-        upstream_url = f"{upstream_url}?{urlencode(request.GET, doseq=True)}"
-
-    req = Request(
-        upstream_url,
-        headers={
-            "User-Agent": "geotrak-maps/1.0",
-            "Cache-Control": "no-cache, no-store",
-            "Pragma": "no-cache",
-        },
-    )
-    try:
-        timeout_seconds = max(
-            1,
-            int(getattr(settings, "RIYADH_ROADS_TILE_PROXY_TIMEOUT_SECONDS", 20)),
-        )
-        with urlopen(req, timeout=timeout_seconds) as resp:
-            body = resp.read()
-            content_type = resp.headers.get("Content-Type") or "application/octet-stream"
-            upstream_status = int(getattr(resp, "status", 200) or 200)
-            # Martin uses 204 for empty tiles; pass it through so clients drop stale geometry.
-            out_status = upstream_status if upstream_status in (200, 204) else 200
-
-            out = HttpResponse(body, content_type=content_type, status=out_status)
-            cache_max_age = max(
-                0,
-                int(getattr(settings, "RIYADH_ROADS_TILE_PROXY_CACHE_MAX_AGE", 0)),
-            )
-            if cache_max_age == 0:
-                out["Cache-Control"] = "no-store, max-age=0"
-            elif out_status == 204 or not body:
-                out["Cache-Control"] = "no-store, max-age=0"
-            else:
-                out["Cache-Control"] = f"public, max-age={cache_max_age}"
-            out["Vary"] = "Accept-Encoding"
-            return out
-    except HTTPError as exc:
-        status = int(getattr(exc, "code", 502) or 502)
-        if status == 404:
-            raise Http404("Tile not found.")
-        logger.warning("Tile proxy upstream HTTP error %s for %s", status, upstream_url)
-        return HttpResponse(status=status)
-    except URLError as exc:
-        logger.warning("Tile proxy upstream network error for %s: %s", upstream_url, exc)
-        return HttpResponse(status=502)
-    except Exception as exc:
-        logger.warning("Tile proxy failed for %s: %s", upstream_url, exc)
-        return HttpResponse(status=502)
 
 
 @require_http_methods(["GET"])

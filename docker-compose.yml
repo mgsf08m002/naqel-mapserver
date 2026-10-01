@@ -1,57 +1,27 @@
+# GeoTrak Maps app container.
+#
+# PostgreSQL/PostGIS, Martin and Nginx live in the shared stack ../geo-infra.
+# Start it first (it creates the external `geo_shared` network):
+#   cd ../geo-infra && docker compose up -d
+# The app is reachable only through Nginx on :8000 (GEOTRAK_HTTP_PORT). Nginx resolves this
+# container by its network alias `geotrak_web`.
 services:
-  db:
-    image: postgis/postgis:18-3.6
-    container_name: geotrak_maps_db
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql
-      - ./database:/database
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: geotrak_maps_pgadmin
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
-    ports:
-      - "127.0.0.1:5050:80"
-    depends_on:
-      - db
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-
   geotrak_maps:
     build: .
     container_name: GeoTrak_Maps
     restart: unless-stopped
-    ports:
-      - "8000:8000"
     volumes:
       - .:/app
-      - ./database:/database
     command: ["/usr/local/bin/geotrak_entrypoint.sh"]
     environment:
       - PYTHONUNBUFFERED=1
     env_file:
       - .env
-    depends_on:
-      db:
-        condition: service_healthy
+    networks:
+      geo_shared:
+        aliases:
+          - geotrak_web
 
-volumes:
-  postgres_data:
-  pgadmin_data:
+networks:
+  geo_shared:
+    external: true

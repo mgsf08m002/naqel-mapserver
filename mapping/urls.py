@@ -9,11 +9,6 @@ urlpatterns = [
         views.riyadh_roads_map_sync,
         name='riyadh_roads_map_sync',
     ),
-    path(
-        'tiles/riyadh_roads/<int:z>/<int:x>/<int:y>/',
-        views.riyadh_roads_tile_proxy,
-        name='riyadh_roads_tile_proxy',
-    ),
     path('api/save-line-edit/', views.save_line_edit_request, name='save_line_edit'),
     path('api/riyadh-road-labels/', views.riyadh_road_labels, name='riyadh_road_labels'),
     path('api/riyadh-road-search/', views.riyadh_road_search, name='riyadh_road_search'),
