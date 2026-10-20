@@ -10,8 +10,16 @@ RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS = frozenset({"name", "road_closure"})
 RIYADH_FIELDS_UI_ONLY = frozenset({"common_name", "multilingual_names"})
 RIYADH_FIELDS_OMIT_FROM_TAGS = RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS | RIYADH_FIELDS_UI_ONLY | frozenset({"fclass"})
 
-# DB identifiers present in payloads but not reviewable attribute edits.
-RIYADH_FIELDS_NON_REVIEWABLE = frozenset({"gid", "id", "objectid"})
+# DB identifiers / internal snapshots present in payloads but not reviewable edits.
+RIYADH_FIELDS_NON_REVIEWABLE = frozenset(
+    {
+        "gid",
+        "id",
+        "objectid",
+        "_original_feature_label",
+        "_original_road_name",
+    }
+)
 
 
 def riyadh_decimal_eq(a, b) -> bool:

@@ -249,18 +249,6 @@ def approve_and_publish_feature(feature: Feature) -> float:
     return remote_id
 
 
-def publish_feature_list(features) -> tuple[list[float], list[str]]:
-    """Publish features; return (remote ids, error messages)."""
-    published_ids: list[float] = []
-    errors: list[str] = []
-    for feature in features:
-        try:
-            published_ids.append(approve_and_publish_feature(feature))
-        except Exception as exc:
-            errors.append(str(exc))
-    return published_ids, errors
-
-
 def reject_feature_by_manager(feature: Feature) -> None:
     """Discard a staged upload feature without publishing (manager map reject)."""
     layer = feature.layer

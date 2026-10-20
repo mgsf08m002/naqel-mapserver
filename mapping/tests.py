@@ -226,6 +226,69 @@ class SaveLineEditApprovalTests(TestCase):
         self.assertEqual(req.reviewed_by_id, self.admin.pk)
         publish_mock.assert_called_once()
 
+    @patch("mapping.views.publish_riyadh_tiles_version", return_value=12345)
+    @patch("mapping.views._apply_riyadh_road_closure_remote")
+    @patch("mapping.views._get_riyadh_road_geometry_wgs84")
+    @patch("mapping.views._resolve_riyadh_road")
+    def test_editor_closure_only_does_not_create_pending(
+        self, resolve_mock, geom_mock, closure_mock, tiles_mock
+    ):
+        """Closing/opening a road is live for editors; no manager queue row."""
+        road = MagicMock()
+        road.name = ""
+        road.ref = ""
+        road.fclass = "unclassified"
+        road.oneway = ""
+        road.maxspeed = None
+        road.osm_id = None
+        road.code = None
+        road.bridge = ""
+        road.tunnel = ""
+        road.layer = None
+        road.shape_length = None
+        road.road_closure = 0
+
+        def _apply_closure(_road_id, rc):
+            road.road_closure = rc
+
+        def _refresh(*_args, **_kwargs):
+            pass
+
+        road.refresh_from_db = MagicMock(side_effect=_refresh)
+        closure_mock.side_effect = _apply_closure
+        resolve_mock.return_value = road
+        geom_mock.return_value = self.geom
+
+        payload = {
+            "geometry": self.geom,
+            "current_feature_label": "Unclassified Road",
+            "is_riyadh_road": True,
+            "riyadh_road_id": 4242,
+            "fields_data": {
+                "name": "",
+                "fclass": "unclassified",
+                "road_closure": 1,
+            },
+            "tags_data": [],
+            "relations_data": [],
+            "road_closure": 1,
+            "closure_changed": True,
+        }
+        self.client.force_login(self.editor)
+        response = self.client.post(
+            reverse("mapping:save_line_edit"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body["success"])
+        self.assertFalse(body["pending_submitted"])
+        self.assertTrue(body["closure_applied"])
+        self.assertEqual(body["road_closure"], 1)
+        closure_mock.assert_called_once_with(4242, 1)
+        self.assertEqual(LineEditRequest.objects.count(), 0)
+
 
 class DeleteRequestApiTests(TestCase):
     def setUp(self):

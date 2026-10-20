@@ -1,13 +1,10 @@
 from django.shortcuts import get_object_or_404
-from django.http import JsonResponse, Http404, HttpResponse
+from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
-from django.utils import timezone
-from django.contrib.gis.geos import GEOSGeometry, Polygon, MultiLineString, LineString
-from django.db import transaction, connections
-from django.db.models import Q
-from django.conf import settings
+from django.contrib.gis.geos import GEOSGeometry, MultiLineString, LineString
+from django.db import connections
 from decimal import Decimal
 import json
 import logging
@@ -47,7 +44,6 @@ from .approval_categories import (
 from .models import LineEditRequest, RiyadhRoad
 from .riyadh_fclass import (
     apply_riyadh_fclass_from_feature_label,
-    ensure_riyadh_fclass_in_fields,
     feature_label_from_riyadh_fclass,
 )
 from .riyadh_fields import (
@@ -1178,8 +1174,11 @@ def _riyadh_fields_match_remote(fields_data, road) -> bool:
 def _riyadh_extra_fields_require_review(fields_data) -> bool:
     fd = fields_data or {}
     for k, v in fd.items():
+        # Underscore keys are internal snapshots (e.g. _original_feature_label),
+        # not user attribute edits — same rule as approval_categories.
         if (
-            k in RIYADH_REMOTE_FIELD_KEYS
+            str(k).startswith("_")
+            or k in RIYADH_REMOTE_FIELD_KEYS
             or k in RIYADH_FIELDS_UI_ONLY
             or k in RIYADH_FIELDS_NON_REVIEWABLE
         ):
@@ -1192,11 +1191,15 @@ def _riyadh_extra_fields_require_review(fields_data) -> bool:
 
 def _riyadh_tags_match_client(tags_data, fields_data) -> bool:
     """Tags must match fields_data for keys that are not exclusive to other sidebar controls."""
-    skip_keys = RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS | RIYADH_FIELDS_UI_ONLY
+    skip_keys = (
+        RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS
+        | RIYADH_FIELDS_UI_ONLY
+        | RIYADH_FIELDS_NON_REVIEWABLE
+    )
     canon_pairs = []
     fd = fields_data or {}
     for key, value in fd.items():
-        if key in skip_keys:
+        if str(key).startswith("_") or key in skip_keys:
             continue
         if value in (None, "", [], {}):
             continue
@@ -1208,7 +1211,9 @@ def _riyadh_tags_match_client(tags_data, fields_data) -> bool:
             str(t.get("value", "")),
         )
         for t in (tags_data or [])
-        if t.get("key") not in skip_keys
+        if t.get("key")
+        and not str(t.get("key")).startswith("_")
+        and t.get("key") not in skip_keys
     )
     return tuple(canon_pairs) == tuple(client_pairs)
 
