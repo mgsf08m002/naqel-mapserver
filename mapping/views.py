@@ -546,16 +546,40 @@ def _get_riyadh_road_geometry_wgs84(road_identifier):
         if not road:
             return None
 
+        gid = getattr(road, "gid", None)
+        if gid is None:
+            return None
+
+        # Same PostGIS path as labels/details — avoids ORM transform failures
+        # on edge MultiLineStrings from the Geofabrik import.
+        try:
+            with connections["riyadh_roads"].cursor() as cursor:
+                cursor.execute(
+                    f"""
+                    SELECT {_RIYADH_GEOM_WGS84_GEOJSON_SQL}
+                    FROM public.riyadh_roads
+                    WHERE gid = %s
+                    LIMIT 1
+                    """,
+                    [gid],
+                )
+                row = cursor.fetchone()
+            if row and row[0]:
+                return json.loads(row[0])
+        except Exception:
+            pass
+
         geom = getattr(road, "geom", None)
         if not geom:
             return None
-
         try:
             geom.transform(4326)
-        except Exception:
             return json.loads(geom.json)
-
-        return json.loads(geom.json)
+        except Exception:
+            try:
+                return json.loads(geom.json)
+            except Exception:
+                return None
     except Exception:
         return None
 
