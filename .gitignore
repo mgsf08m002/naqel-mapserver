@@ -51,6 +51,9 @@ db.sqlite3-journal
 Thumbs.db
 Desktop.ini
 
+# Local-only decks / screenshots (do not push)
+docs/
+
 # Testing / backups
 .pytest_cache/
 .coverage
