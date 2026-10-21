@@ -597,25 +597,3 @@ body:has(#layer-review-root.lr-shell) main {
   outline: 2px solid var(--geotrak-brand);
   outline-offset: 2px;
 }
-
-#layer-review-root .lr-btn-submit--publish {
-  background: linear-gradient(180deg, #059669 0%, #047857 100%);
-  box-shadow:
-    0 1px 2px rgba(4, 120, 87, 0.12),
-    0 4px 14px rgba(4, 120, 87, 0.28);
-}
-
-#layer-review-root .lr-btn-submit--publish:hover {
-  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
-  box-shadow:
-    0 2px 4px rgba(4, 120, 87, 0.14),
-    0 8px 20px rgba(4, 120, 87, 0.32);
-}
-
-#layer-review-root .lr-btn-submit--publish:focus-visible {
-  outline-color: #047857;
-}
-
-#layer-review-root .lr-btn-submit--publish:active {
-  box-shadow: 0 1px 3px rgba(4, 120, 87, 0.2);
-}
