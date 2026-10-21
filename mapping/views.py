@@ -85,6 +85,22 @@ FEATURE_TYPE_REQUIRED_FOR_SAVE_MSG = "Select a feature type for your road"
 ARABIC_CHAR_PATTERN = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
 LATIN_CHAR_PATTERN = re.compile(r"[A-Za-z]")
 
+# ST_LineMerge can return GeometryCollection EMPTY for invalid/degenerate MultiLineStrings;
+# ST_AsGeoJSON then fails the whole query (500). Prefer valid line extract + transform.
+_RIYADH_GEOM_WGS84_GEOJSON_SQL = """
+ST_AsGeoJSON(
+    ST_Transform(
+        ST_Multi(
+            ST_CollectionExtract(
+                ST_MakeValid(geom),
+                2
+            )
+        ),
+        4326
+    )
+)
+"""
+
 
 def _detect_road_label_language(label_text: str) -> str:
     """
@@ -264,22 +280,19 @@ def riyadh_road_labels(request):
         limit = 1800
     limit = max(100, min(limit, 4000))
 
-    sql = """
+    sql = f"""
         SELECT
             CAST(id AS BIGINT) AS road_id,
             NULLIF(TRIM(name_en), '') AS name_en,
             NULLIF(TRIM(name_ar), '') AS name_ar,
-            ST_AsGeoJSON(
-                ST_Transform(
-                    ST_LineMerge(geom),
-                    4326
-                )
-            ) AS geometry_geojson
+            {_RIYADH_GEOM_WGS84_GEOJSON_SQL} AS geometry_geojson
         FROM public.riyadh_roads
         WHERE
             geom && ST_Transform(ST_MakeEnvelope(%s, %s, %s, %s, 4326), 3857)
             AND ST_Intersects(geom, ST_Transform(ST_MakeEnvelope(%s, %s, %s, %s, 4326), 3857))
             AND (COALESCE(name_en, '') <> '' OR COALESCE(name_ar, '') <> '')
+            AND geom IS NOT NULL
+            AND NOT ST_IsEmpty(geom)
         LIMIT %s
     """
 
@@ -353,15 +366,13 @@ def riyadh_road_search(request):
     prefix = f"{query}%"
     query_lower = query.lower()
 
-    sql = """
+    sql = f"""
         SELECT
             CAST(id AS BIGINT) AS road_id,
             COALESCE(NULLIF(TRIM(name_en), ''), '') AS name_en,
             COALESCE(NULLIF(TRIM(name_ar), ''), '') AS name_ar,
             COALESCE(NULLIF(TRIM(name), ''), '') AS name,
-            ST_AsGeoJSON(
-                ST_Transform(ST_LineMerge(geom), 4326)
-            ) AS geometry_geojson,
+            {_RIYADH_GEOM_WGS84_GEOJSON_SQL} AS geometry_geojson,
             CASE
                 WHEN LOWER(COALESCE(name_en, '')) = %s THEN 0
                 WHEN LOWER(COALESCE(name_ar, '')) = %s THEN 0
@@ -373,9 +384,13 @@ def riyadh_road_search(request):
             END AS rank_key
         FROM public.riyadh_roads
         WHERE
-            COALESCE(name_en, '') ILIKE %s
-            OR COALESCE(name_ar, '') ILIKE %s
-            OR COALESCE(name, '') ILIKE %s
+            (
+                COALESCE(name_en, '') ILIKE %s
+                OR COALESCE(name_ar, '') ILIKE %s
+                OR COALESCE(name, '') ILIKE %s
+            )
+            AND geom IS NOT NULL
+            AND NOT ST_IsEmpty(geom)
         ORDER BY rank_key,
             length(COALESCE(NULLIF(TRIM(name_en), ''), NULLIF(TRIM(name_ar), ''), name, ''))
         LIMIT %s
@@ -1849,22 +1864,38 @@ def get_riyadh_road_details(request, road_gid):  # URL segment; value is tile ne
         )
 
     try:
-        # `road.geom.json` is GeoJSON without SRID metadata and can be ambiguous.
-        # For reliable WGS84 output (used by the geometry editor / vertex handles),
-        # transform the geometry object itself from its known SRID.
+        # Prefer PostGIS ST_AsGeoJSON (same path as labels) — avoids ORM/transform
+        # failures on edge MultiLineStrings from the Geofabrik import.
         geometry = None
         try:
-            geom_obj = getattr(road, "geom", None)
-            if geom_obj:
-                geom_obj.transform(4326)
-                geometry = json.loads(geom_obj.json)
+            with connections["riyadh_roads"].cursor() as cursor:
+                cursor.execute(
+                    f"""
+                    SELECT {_RIYADH_GEOM_WGS84_GEOJSON_SQL}
+                    FROM public.riyadh_roads
+                    WHERE gid = %s
+                    LIMIT 1
+                    """,
+                    [getattr(road, "gid", None)],
+                )
+                row = cursor.fetchone()
+            if row and row[0]:
+                geometry = json.loads(row[0])
         except Exception:
-            # Fallback: try to normalize whatever we can.
+            geometry = None
+
+        if geometry is None:
             try:
-                raw_geometry = json.loads(road.geom.json) if road.geom else None
+                geom_obj = getattr(road, "geom", None)
+                if geom_obj:
+                    geom_obj.transform(4326)
+                    geometry = json.loads(geom_obj.json)
             except Exception:
-                raw_geometry = None
-            geometry = _ensure_wgs84_geometry(raw_geometry, source_srid=3857)
+                try:
+                    raw_geometry = json.loads(road.geom.json) if road.geom else None
+                except Exception:
+                    raw_geometry = None
+                geometry = _ensure_wgs84_geometry(raw_geometry, source_srid=3857)
 
         _rc_raw = _sanitize_number(getattr(road, "road_closure", 0)) or 0
         try:
