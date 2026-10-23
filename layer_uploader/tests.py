@@ -98,6 +98,7 @@ class UploaderWorkflowTests(TestCase):
             user=self.editor,
             role="editor",
             can_access_layer_uploader=True,
+            can_access_my_edits=True,
             password_setup_completed=True,
         )
         self.manager = user_model.objects.create_user(
@@ -109,6 +110,7 @@ class UploaderWorkflowTests(TestCase):
             user=self.manager,
             role="manager",
             can_access_layer_uploader=True,
+            can_access_my_edits=True,
             password_setup_completed=True,
         )
         self.layer = Layer.objects.create(
