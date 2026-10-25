@@ -3,153 +3,203 @@
 
 {% block title %}Delete User · System Admin · GeoTrak Maps{% endblock %}
 
-{% block page_title %}Delete User{% endblock %}
+{% block extra_css %}
+<link href="{% static 'system_admin/css/users.css' %}" rel="stylesheet">
+{% endblock %}
 
-{% block content %}
-<div class="bg-white -mx-6 -my-6 px-6 py-10 min-h-[calc(100vh-64px)]">
-    <div class="max-w-5xl mx-auto space-y-12">
-        <header class="space-y-3">
-            <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
-                <span class="h-px w-6 bg-gray-300"></span>
-                <span>User Management</span>
-            </div>
-            <div class="flex flex-col gap-2">
-                <h1 class="text-3xl font-semibold text-geotrak">Delete a user</h1>
-                <p class="text-sm text-gray-600 max-w-2xl">Search for a user by email address. This action cannot be undone and will permanently delete the user and all associated data.</p>
-            </div>
-        </header>
+{% block content_wrapper %}
+<div class="users-page">
+    <div class="users-form-layout">
+        <div class="users-form-main">
+            <header>
+                <a class="users-kicker users-kicker--back" href="{% url 'system_admin:users' %}">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    User Management
+                </a>
+                <h1 class="users-title">Delete a user</h1>
+                <p class="users-subtitle">Search for a user by email address. This action cannot be undone and will permanently delete the user and all associated data.</p>
+            </header>
 
-        <!-- Search Section -->
-        {% if not user_to_delete %}
-        <section class="space-y-6">
-            <form method="post" class="space-y-6">
-                {% csrf_token %}
-                <input type="hidden" name="intent" value="search_user">
+            <section class="users-form-card">
+                <ol class="users-steps">
+                    <li class="users-step {% if user_to_delete %}is-done{% else %}is-active{% endif %}">
+                        <span class="users-step__index"{% if user_to_delete %} aria-hidden="true"{% endif %}>
+                            {% if user_to_delete %}
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.6" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            {% else %}
+                            1
+                            {% endif %}
+                        </span>
+                        <span class="users-step__copy">
+                            <span class="users-step__title">Find user</span>
+                            <span class="users-step__desc">Search by email address</span>
+                        </span>
+                    </li>
+                    <li class="users-steps__line" aria-hidden="true"></li>
+                    <li class="users-step {% if user_to_delete %}is-active{% endif %}">
+                        <span class="users-step__index">2</span>
+                        <span class="users-step__copy">
+                            <span class="users-step__title">Confirm deletion</span>
+                            <span class="users-step__desc">Review and confirm</span>
+                        </span>
+                    </li>
+                </ol>
 
-                <div id="deleteUserSearchNotify"
-                     class="hidden"
-                     data-errors="{% if search_errors %}{{ search_errors|join:'||'|escapejs }}{% endif %}">
-                </div>
+                {% if not user_to_delete %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="intent" value="search_user">
 
-                <div class="flex flex-col gap-2">
-                    <label for="search_email" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Email Address</label>
-                    <div class="flex gap-3">
-                        <input id="search_email" name="search_email" type="email" required class="flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" placeholder="Enter user email address">
-                        <button type="submit" class="rounded-full bg-geotrak px-6 py-3 text-sm font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+                    <label for="search_email" class="users-field__label">Email Address</label>
+                    <div class="users-search-row">
+                        <div class="users-field__control users-search-row__input">
+                            <span class="users-field__lead-icon" aria-hidden="true">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                </svg>
+                            </span>
+                            <input id="search_email" name="search_email" type="email" required class="users-field__input users-field__input--lead" placeholder="Enter user email address" autocomplete="email">
+                        </div>
+                        <button type="submit" class="users-btn users-btn--primary users-btn--icon">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
                             Search
                         </button>
                     </div>
-                </div>
-            </form>
-        </section>
-        {% endif %}
+                </form>
 
-        <!-- Delete Confirmation Section -->
-        {% if user_to_delete and not user_deleted %}
-        <section class="space-y-6">
-            <div id="deleteUserNotify"
-                 class="hidden"
-                 data-deleted="{% if user_deleted %}true{% else %}false{% endif %}"
-                 data-success-message="{% if success_message %}{{ success_message|escapejs }}{% endif %}"
-                 data-errors="{% if delete_errors %}{{ delete_errors|join:'||'|escapejs }}{% endif %}">
-            </div>
+                <p class="users-info-banner">
+                    <span class="users-info-banner__icon" aria-hidden="true">i</span>
+                    Enter the user's registered email address to view and confirm their account details before deletion.
+                </p>
+                {% else %}
+                <p class="users-info-banner users-info-banner--danger">
+                    <span class="users-info-banner__icon" aria-hidden="true">!</span>
+                    This action cannot be undone. Deleting this user will permanently remove their account and all associated data.
+                </p>
 
-            <!-- Warning Message -->
-            <div class="bg-red-50 border-2 border-red-200 rounded-xl p-6">
-                <div class="flex items-start gap-3">
-                    <svg class="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                    </svg>
-                    <div>
-                        <h3 class="text-sm font-semibold text-red-900 mb-1">Warning: This action cannot be undone</h3>
-                        <p class="text-sm text-red-800">Deleting this user will permanently remove their account and all associated data from the system.</p>
+                <div class="users-meta-card">
+                    <p class="users-meta-card__heading">
+                        <span class="users-info-banner__icon" aria-hidden="true">i</span>
+                        User information
+                    </p>
+                    <div class="users-meta-card__grid">
+                        <div class="users-meta-card__item">
+                            <span class="users-meta-card__label">Full name</span>
+                            <span class="users-meta-card__value">{{ user_to_delete.get_full_name|default:"Not set" }}</span>
+                        </div>
+                        <div class="users-meta-card__item">
+                            <span class="users-meta-card__label">Email address</span>
+                            <span class="users-meta-card__value">{{ user_to_delete.email }}</span>
+                        </div>
+                        <div class="users-meta-card__item">
+                            <span class="users-meta-card__label">Role</span>
+                            <span class="users-meta-card__value">{{ user_profile.role|title|default:"Not assigned" }}</span>
+                        </div>
+                        <div class="users-meta-card__item">
+                            <span class="users-meta-card__label">Account status</span>
+                            <span class="users-meta-card__value">
+                                <span class="users-status-dot {% if not user_to_delete.is_active %}is-inactive{% endif %}" aria-hidden="true"></span>
+                                {% if user_to_delete.is_active %}Active{% else %}Inactive{% endif %}
+                            </span>
+                        </div>
+                        <div class="users-meta-card__item">
+                            <span class="users-meta-card__label">Account created</span>
+                            <span class="users-meta-card__value">
+                                {% if user_profile.account_creation_date %}
+                                {{ user_profile.account_creation_date|date:"M j, Y" }}{% if user_profile.account_creation_time %} at {{ user_profile.account_creation_time|time:"g:i A" }}{% endif %}
+                                {% else %}
+                                —
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="users-meta-card__item">
+                            <span class="users-meta-card__label">Last login</span>
+                            <span class="users-meta-card__value">
+                                {% if user_to_delete.last_login %}
+                                {{ user_to_delete.last_login|date:"M j, Y" }} at {{ user_to_delete.last_login|time:"g:i A" }}
+                                {% else %}
+                                Never
+                                {% endif %}
+                            </span>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- User Information -->
-            <div class="border border-gray-200 rounded-xl p-6 space-y-4">
-                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">User Information</p>
-                <div class="grid gap-4 md:grid-cols-2">
-                    <div>
-                        <p class="text-xs text-gray-500">Full Name</p>
-                        <p class="text-sm font-medium text-geotrak mt-1">{{ user_to_delete.get_full_name|default:"Not set" }}</p>
+                <form id="delete-user-form" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="intent" value="delete_user">
+                    <input type="hidden" name="user_id" value="{{ user_to_delete.id }}">
+                    <div class="users-form-actions">
+                        <a href="{% url 'system_admin:users' %}" class="users-btn users-btn--ghost">Cancel</a>
+                        <a href="{% url 'system_admin:delete_user' %}" class="users-btn users-btn--ghost">Back</a>
+                        <button type="submit" class="users-btn users-btn--danger">Delete User</button>
                     </div>
-                    <div>
-                        <p class="text-xs text-gray-500">Email Address</p>
-                        <p class="text-sm font-medium text-geotrak mt-1">{{ user_to_delete.email }}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-500">Role</p>
-                        <p class="text-sm font-medium text-geotrak mt-1">{{ user_profile.role|title|default:"Not assigned" }}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-500">Account Status</p>
-                        <p class="text-sm font-medium {% if user_to_delete.is_active %}text-green-600{% else %}text-red-600{% endif %} mt-1">
-                            {% if user_to_delete.is_active %}Active{% else %}Inactive{% endif %}
-                        </p>
-                    </div>
-                    {% if user_profile.account_creation_date %}
-                    <div class="md:col-span-2">
-                        <p class="text-xs text-gray-500">Account Created</p>
-                        <p class="text-sm font-medium text-geotrak mt-1">{{ user_profile.account_creation_date|date:"F j, Y" }} at {{ user_profile.account_creation_time|time:"g:i A" }}</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
+                </form>
+                {% endif %}
+            </section>
+        </div>
 
-            <!-- Delete Form -->
-            <form method="post" class="space-y-6">
-                {% csrf_token %}
-                <input type="hidden" name="intent" value="delete_user">
-                <input type="hidden" name="user_id" value="{{ user_to_delete.id }}">
-
-                <div class="flex items-center gap-4 pt-4">
-                    <a href="{% url 'system_admin:users' %}" class="rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
-                        Cancel
-                    </a>
-                    <button type="button" onclick="window.location.href='{% url 'system_admin:delete_user' %}'" class="rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
-                        Search Another
-                    </button>
-                    <button type="submit" class="inline-flex items-center justify-center rounded-full bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition">
-                        Delete User
-                    </button>
-                </div>
-            </form>
-        </section>
-        {% endif %}
-
-        <!-- Success Message After Deletion -->
-        {% if user_deleted %}
-        <section class="space-y-6">
-            <div class="bg-green-50 border-2 border-green-200 rounded-xl p-6 text-center">
-                <svg class="w-12 h-12 text-green-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-                <h3 class="text-sm font-semibold text-green-900 mb-1">User Deleted Successfully</h3>
-                <p class="text-sm text-green-800">The user and all associated data have been permanently removed from the system.</p>
+        <aside class="users-team users-team--add" aria-label="{% if user_to_delete %}Confirm deletion{% else %}Remove a user{% endif %}">
+            <svg class="users-team__waves" viewBox="0 0 320 220" preserveAspectRatio="none" aria-hidden="true">
+                <path fill="#d7e4f2" d="M0 88c48 28 86-22 128-10s78 42 118 16 50-28 74-14v140H0z"></path>
+                <path fill="#c5d6e8" opacity="0.85" d="M0 128c52 20 92-18 142-6s72 34 118 8 40-16 60-6v96H0z"></path>
+            </svg>
+            <div class="users-add-art" aria-hidden="true">
+                <span class="users-add-art__dot users-add-art__dot--a"></span>
+                <span class="users-add-art__dot users-add-art__dot--b"></span>
+                <span class="users-add-art__dot users-add-art__dot--c"></span>
+                <span class="users-add-art__ring"></span>
+                <span class="users-add-art__avatar">
+                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 12a4.5 4.5 0 100-9 4.5 4.5 0 000 9zm0 2c-5.06 0-9 2.54-9 5.5V22h18v-2.5c0-2.96-3.94-5.5-9-5.5z"></path></svg>
+                </span>
+                {% if user_to_delete %}
+                <span class="users-team__plus">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </span>
+                {% else %}
+                <span class="users-team__plus users-team__plus--search">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </span>
+                {% endif %}
             </div>
-            <div class="flex justify-center">
-                <a href="{% url 'system_admin:users' %}" class="rounded-full bg-geotrak px-6 py-3 text-sm font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
-                    Back to Users
-                </a>
-            </div>
-        </section>
-        {% endif %}
+            {% if not user_to_delete %}
+            <h2 class="users-team__title">Remove a user</h2>
+            <p class="users-team__copy">Find a user by email, review their account, and permanently remove them from the GEOTRAK platform.</p>
+            {% else %}
+            <h2 class="users-team__title">Confirm deletion</h2>
+            <p class="users-team__copy">Review the account details carefully before you permanently delete this user.</p>
+            <ul class="users-team__list">
+                <li>
+                    <span class="users-side-icon users-side-icon--solid" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 13l4 4L19 7"></path></svg>
+                    </span>
+                    Review the account details
+                </li>
+                <li>
+                    <span class="users-side-icon users-side-icon--solid" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 13l4 4L19 7"></path></svg>
+                    </span>
+                    Confirm this is the right user
+                </li>
+                <li>
+                    <span class="users-side-icon users-side-icon--solid" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 13l4 4L19 7"></path></svg>
+                    </span>
+                    This cannot be undone
+                </li>
+            </ul>
+            {% endif %}
+        </aside>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="{% static 'system_admin/js/delete_user.js' %}"></script>
-<style>
-    body, main {
-        background: white !important;
-    }
-    main > div {
-        padding: 0 !important;
-        background: white !important;
-    }
-</style>
 {% endblock %}
-

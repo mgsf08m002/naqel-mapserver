@@ -2,46 +2,89 @@
     'use strict';
 
     document.addEventListener('DOMContentLoaded', () => {
-        const addUserBtn = document.getElementById('addUserBtn');
-        const editUserBtn = document.getElementById('editUserBtn');
-        const deleteUserBtn = document.getElementById('deleteUserBtn');
-        const allUsersBtn = document.getElementById('allUsersBtn');
+        const searchInput = document.getElementById('recentUsersSearch');
+        const filterBtn = document.getElementById('usersFilterBtn');
+        const filterMenu = document.getElementById('usersFilterMenu');
+        const tableBody = document.getElementById('recentUsersTableBody');
+        const emptyState = document.getElementById('recentUsersEmpty');
+        const rows = tableBody ? Array.from(tableBody.querySelectorAll('tr[data-name]')) : [];
 
-        /**
-         * Handle Add User button click
-         */
-        if (addUserBtn) {
-            addUserBtn.addEventListener('click', () => {
-                window.location.href = '/system-admin/users/add/';
+        let statusFilter = 'all';
+
+        function applyFilters() {
+            const query = (searchInput?.value || '').trim().toLowerCase();
+            let visibleCount = 0;
+
+            rows.forEach((row) => {
+                const haystack = [
+                    row.dataset.name,
+                    row.dataset.email,
+                    row.dataset.role
+                ].join(' ');
+                const matchesQuery = !query || haystack.includes(query);
+                const matchesStatus = statusFilter === 'all' || row.dataset.status === statusFilter;
+                const visible = matchesQuery && matchesStatus;
+                row.classList.toggle('is-hidden', !visible);
+                if (visible) {
+                    visibleCount += 1;
+                }
+            });
+
+            if (emptyState) {
+                emptyState.hidden = visibleCount !== 0 || rows.length === 0;
+            }
+        }
+
+        searchInput?.addEventListener('input', applyFilters);
+
+        filterBtn?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const isOpen = filterMenu?.classList.toggle('is-open');
+            filterBtn.classList.toggle('is-open', Boolean(isOpen));
+            filterBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            closeRowMenus();
+        });
+
+        filterMenu?.querySelectorAll('button[data-filter]').forEach((button) => {
+            button.addEventListener('click', () => {
+                statusFilter = button.getAttribute('data-filter') || 'all';
+                filterMenu.querySelectorAll('button[data-filter]').forEach((item) => {
+                    item.classList.toggle('is-active', item === button);
+                });
+                filterMenu.classList.remove('is-open');
+                filterBtn?.classList.remove('is-open');
+                filterBtn?.setAttribute('aria-expanded', 'false');
+                applyFilters();
+            });
+        });
+
+        function closeRowMenus(exceptMenu) {
+            document.querySelectorAll('.users-row-actions__menu.is-open').forEach((menu) => {
+                if (menu !== exceptMenu) {
+                    menu.classList.remove('is-open');
+                    menu.previousElementSibling?.classList.remove('is-open');
+                }
             });
         }
 
-        /**
-         * Handle Edit User button click
-         */
-        if (editUserBtn) {
-            editUserBtn.addEventListener('click', () => {
-                window.location.href = '/system-admin/users/edit/';
+        document.querySelectorAll('.users-row-actions__btn').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const menu = button.nextElementSibling;
+                const willOpen = !menu?.classList.contains('is-open');
+                closeRowMenus(willOpen ? menu : null);
+                filterMenu?.classList.remove('is-open');
+                filterBtn?.classList.remove('is-open');
+                menu?.classList.toggle('is-open', willOpen);
+                button.classList.toggle('is-open', willOpen);
             });
-        }
+        });
 
-        /**
-         * Handle Delete User button click
-         */
-        if (deleteUserBtn) {
-            deleteUserBtn.addEventListener('click', () => {
-                window.location.href = '/system-admin/users/delete/';
-            });
-        }
-
-        /**
-         * Handle All Users button click
-         */
-        if (allUsersBtn) {
-            allUsersBtn.addEventListener('click', () => {
-                window.location.href = '/system-admin/users/all/';
-            });
-        }
+        document.addEventListener('click', () => {
+            filterMenu?.classList.remove('is-open');
+            filterBtn?.classList.remove('is-open');
+            filterBtn?.setAttribute('aria-expanded', 'false');
+            closeRowMenus();
+        });
     });
 })();
-

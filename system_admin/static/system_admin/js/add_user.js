@@ -2,58 +2,15 @@
     'use strict';
 
     document.addEventListener('DOMContentLoaded', () => {
-        const toggles = document.querySelectorAll('[data-toggle-password]');
+        const form = document.querySelector('.users-form-card form');
         const password = document.getElementById('password');
         const confirmPassword = document.getElementById('confirm_password');
         const matchHint = document.getElementById('matchHint');
-        const notifyNode = document.getElementById('addUserNotify');
-
-        const toggleVisibility = (inputId, button) => {
-            const input = document.getElementById(inputId);
-            if (!input) return;
-
-            const isHidden = input.type === 'password';
-            input.type = isHidden ? 'text' : 'password';
-            if (button) {
-                button.textContent = isHidden ? 'Hide' : 'Show';
-            }
-        };
-
-        toggles.forEach((btn) => {
-            const targetId = btn.getAttribute('data-toggle-password');
-            btn.addEventListener('click', () => toggleVisibility(targetId, btn));
-        });
-
-        const updateMatchHint = () => {
-            if (!password || !confirmPassword || !matchHint) return;
-            if (!confirmPassword.value && !password.value) {
-                matchHint.textContent = 'Re-enter the password to confirm.';
-                matchHint.classList.remove('text-green-600', 'text-red-600');
-                matchHint.classList.add('text-gray-500');
-                return;
-            }
-
-            if (confirmPassword.value === password.value) {
-                matchHint.textContent = 'Passwords match.';
-                matchHint.classList.remove('text-gray-500', 'text-red-600');
-                matchHint.classList.add('text-green-600');
-            } else {
-                matchHint.textContent = 'Passwords do not match.';
-                matchHint.classList.remove('text-gray-500', 'text-green-600');
-                matchHint.classList.add('text-red-600');
-            }
-        };
-
-        if (password) password.addEventListener('input', updateMatchHint);
-        if (confirmPassword) confirmPassword.addEventListener('input', updateMatchHint);
-
-        // Permission selection UI
         const userDetailsForm = document.getElementById('userDetailsForm');
         const permissionsForm = document.getElementById('permissionsForm');
         const nextToPermissionsBtn = document.getElementById('nextToPermissionsBtn');
         const backToUserDetailsBtn = document.getElementById('backToUserDetailsBtn');
         const roleSelect = document.getElementById('role');
-        const form = document.querySelector('form');
         const permissionsTitle = document.getElementById('permissionsTitle');
         const permissionsDescription = document.getElementById('permissionsDescription');
         const dashboardPermissionLabel = document.getElementById('dashboardPermissionLabel');
@@ -61,89 +18,85 @@
         const accountInfoDescription = document.getElementById('accountInfoDescription');
         const createUserBtn = document.getElementById('createUserBtn');
 
-        // Function to update permissions UI based on role
-        function updatePermissionsUI(role) {
-            if (role === 'manager') {
-                if (permissionsTitle) permissionsTitle.textContent = 'Manager Permissions';
-                if (permissionsDescription) permissionsDescription.textContent = 'Select the permissions you want to grant to this manager.';
-                if (dashboardPermissionLabel) dashboardPermissionLabel.classList.remove('hidden');
-                if (securityDescription) securityDescription.textContent = 'Allow the manager to access the security settings page';
-                if (accountInfoDescription) accountInfoDescription.textContent = 'Allow the manager to access and update account information';
-                if (createUserBtn) createUserBtn.textContent = 'Create Manager';
-            } else if (role === 'editor') {
-                if (permissionsTitle) permissionsTitle.textContent = 'Editor Permissions';
-                if (permissionsDescription) permissionsDescription.textContent = 'Select the permissions you want to grant to this editor.';
-                if (dashboardPermissionLabel) dashboardPermissionLabel.classList.add('hidden');
-                if (securityDescription) securityDescription.textContent = 'Allow the editor to access the security settings page';
-                if (accountInfoDescription) accountInfoDescription.textContent = 'Allow the editor to access and update account information';
-                if (createUserBtn) createUserBtn.textContent = 'Create Editor';
-            }
-        }
-
-        // Handle "Add User" button click
-        if (nextToPermissionsBtn) {
-            nextToPermissionsBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                
-                // Validate form first
-                if (!form.checkValidity()) {
-                    form.reportValidity();
+        document.querySelectorAll('[data-toggle-password]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const input = document.getElementById(button.getAttribute('data-toggle-password'));
+                if (!input) {
                     return;
                 }
-
-                const role = roleSelect ? roleSelect.value : '';
-                
-                // If role is manager or editor, show permissions screen
-                if (role === 'manager' || role === 'editor') {
-                    updatePermissionsUI(role);
-                    userDetailsForm.classList.add('hidden');
-                    permissionsForm.classList.remove('hidden');
-                } else {
-                    // For other roles, submit directly
-                    form.submit();
+                const showPlain = input.type === 'password';
+                input.type = showPlain ? 'text' : 'password';
+                const label = button.querySelector('span');
+                if (label) {
+                    label.textContent = showPlain ? 'Hide' : 'Show';
                 }
             });
+        });
+
+        const updateMatchHint = () => {
+            if (!password || !confirmPassword || !matchHint) {
+                return;
+            }
+            if (!confirmPassword.value && !password.value) {
+                matchHint.textContent = 'Re-enter the password to confirm';
+                matchHint.classList.remove('is-ok', 'is-error');
+                return;
+            }
+            const matches = confirmPassword.value === password.value;
+            matchHint.textContent = matches ? 'Passwords match' : 'Passwords do not match';
+            matchHint.classList.toggle('is-ok', matches);
+            matchHint.classList.toggle('is-error', !matches);
+        };
+
+        password?.addEventListener('input', updateMatchHint);
+        confirmPassword?.addEventListener('input', updateMatchHint);
+
+        function updatePermissionsUI(role) {
+            const isManager = role === 'manager';
+            if (permissionsTitle) {
+                permissionsTitle.textContent = isManager ? 'Manager Permissions' : 'Editor Permissions';
+            }
+            if (permissionsDescription) {
+                permissionsDescription.textContent = isManager
+                    ? 'Select the permissions you want to grant to this manager.'
+                    : 'Select the permissions you want to grant to this editor.';
+            }
+            dashboardPermissionLabel?.classList.toggle('is-hidden', !isManager);
+            if (securityDescription) {
+                securityDescription.textContent = isManager
+                    ? 'Allow the manager to access the security settings page'
+                    : 'Allow the editor to access the security settings page';
+            }
+            if (accountInfoDescription) {
+                accountInfoDescription.textContent = isManager
+                    ? 'Allow the manager to access and update account information'
+                    : 'Allow the editor to access and update account information';
+            }
+            if (createUserBtn) {
+                createUserBtn.textContent = isManager ? 'Create Manager' : 'Create Editor';
+            }
         }
 
-        // Handle "Back" button click
-        if (backToUserDetailsBtn) {
-            backToUserDetailsBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                permissionsForm.classList.add('hidden');
-                userDetailsForm.classList.remove('hidden');
-            });
-        }
+        nextToPermissionsBtn?.addEventListener('click', (event) => {
+            event.preventDefault();
+            if (!form?.checkValidity()) {
+                form?.reportValidity();
+                return;
+            }
+            const role = roleSelect?.value || '';
+            if (role !== 'manager' && role !== 'editor') {
+                form.submit();
+                return;
+            }
+            updatePermissionsUI(role);
+            userDetailsForm?.classList.add('is-hidden');
+            permissionsForm?.classList.remove('is-hidden');
+        });
 
-        // Fire centralized notifications if available
-        if (notifyNode) {
-            const added = notifyNode.getAttribute('data-added') === 'true';
-            const successMessage = notifyNode.getAttribute('data-success-message');
-            const errorsRaw = notifyNode.getAttribute('data-errors');
-            
-            if (added && successMessage) {
-                window.notify.tryShow(successMessage, 'success');
-                // Reset form after successful addition
-                setTimeout(() => {
-                    if (form) {
-                        form.reset();
-                        // Reset UI state
-                        if (userDetailsForm) userDetailsForm.classList.remove('hidden');
-                        if (permissionsForm) permissionsForm.classList.add('hidden');
-                    }
-                    if (matchHint) {
-                        matchHint.textContent = 'Re-enter the password to confirm.';
-                        matchHint.classList.remove('text-green-600', 'text-red-600');
-                        matchHint.classList.add('text-gray-500');
-                    }
-                }, 1000);
-            }
-            if (errorsRaw) {
-                errorsRaw.split('||').forEach(err => {
-                    const trimmed = err.trim();
-                    if (trimmed) window.notify.tryShow(trimmed, 'error');
-                });
-            }
-        }
+        backToUserDetailsBtn?.addEventListener('click', (event) => {
+            event.preventDefault();
+            permissionsForm?.classList.add('is-hidden');
+            userDetailsForm?.classList.remove('is-hidden');
+        });
     });
 })();
-

@@ -3,131 +3,236 @@
 
 {% block title %}Edit User · System Admin · GeoTrak Maps{% endblock %}
 
-{% block page_title %}Edit User{% endblock %}
+{% block extra_css %}
+<link href="{% static 'system_admin/css/users.css' %}" rel="stylesheet">
+{% endblock %}
 
-{% block content %}
-<div class="bg-white -mx-6 -my-6 px-6 py-10 min-h-[calc(100vh-64px)]">
-    <div class="max-w-5xl mx-auto space-y-12">
-        <header class="space-y-3">
-            <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
-                <span class="h-px w-6 bg-gray-300"></span>
-                <span>User Management</span>
-            </div>
-            <div class="flex flex-col gap-2">
-                <h1 class="text-3xl font-semibold text-geotrak">Edit a user</h1>
-                <p class="text-sm text-gray-600 max-w-2xl">Search for a user by email address and update their account information.</p>
-            </div>
-        </header>
+{% block content_wrapper %}
+<div class="users-page">
+    <div class="users-form-layout">
+        <div class="users-form-main">
+            <header>
+                <a class="users-kicker users-kicker--back" href="{% url 'system_admin:users' %}">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    User Management
+                </a>
+                <h1 class="users-title">Edit a user</h1>
+                <p class="users-subtitle">Search for a user by email address and update their account information.</p>
+            </header>
 
-        <!-- Search Section -->
-        {% if not user_to_edit %}
-        <section class="space-y-6">
-            <form method="post" class="space-y-6">
-                {% csrf_token %}
-                <input type="hidden" name="intent" value="search_user">
+            <section class="users-form-card">
+                <ol class="users-steps">
+                    <li class="users-step {% if user_to_edit %}is-done{% else %}is-active{% endif %}">
+                        <span class="users-step__index"{% if user_to_edit %} aria-hidden="true"{% endif %}>
+                            {% if user_to_edit %}
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.6" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            {% else %}
+                            1
+                            {% endif %}
+                        </span>
+                        <span class="users-step__copy">
+                            <span class="users-step__title">Find user</span>
+                            <span class="users-step__desc">Search by email address</span>
+                        </span>
+                    </li>
+                    <li class="users-steps__line" aria-hidden="true"></li>
+                    <li class="users-step {% if user_to_edit %}is-active{% endif %}">
+                        <span class="users-step__index">2</span>
+                        <span class="users-step__copy">
+                            <span class="users-step__title">Edit details</span>
+                            <span class="users-step__desc">Update user information</span>
+                        </span>
+                    </li>
+                </ol>
 
-                <div id="editUserSearchNotify"
-                     class="hidden"
-                     data-errors="{% if search_errors %}{{ search_errors|join:'||'|escapejs }}{% endif %}">
-                </div>
+                {% if not user_to_edit %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="intent" value="search_user">
 
-                <div class="flex flex-col gap-2">
-                    <label for="search_email" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Email Address</label>
-                    <div class="flex gap-3">
-                        <input id="search_email" name="search_email" type="email" required class="flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" placeholder="Enter user email address">
-                        <button type="submit" class="rounded-full bg-geotrak px-6 py-3 text-sm font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
+                    <label for="search_email" class="users-field__label">Email Address</label>
+                    <div class="users-search-row">
+                        <div class="users-field__control users-search-row__input">
+                            <span class="users-field__lead-icon" aria-hidden="true">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                </svg>
+                            </span>
+                            <input id="search_email" name="search_email" type="email" required class="users-field__input users-field__input--lead" placeholder="Enter user email address" autocomplete="email">
+                        </div>
+                        <button type="submit" class="users-btn users-btn--primary users-btn--icon">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
                             Search
                         </button>
                     </div>
-                </div>
-            </form>
-        </section>
-        {% endif %}
+                </form>
 
-        <!-- Edit Form Section -->
-        {% if user_to_edit %}
-        <section class="space-y-6">
-            <form method="post" class="space-y-6">
-                {% csrf_token %}
-                <input type="hidden" name="intent" value="update_user">
-                <input type="hidden" name="user_id" value="{{ user_to_edit.id }}">
+                <p class="users-info-banner">
+                    <span class="users-info-banner__icon" aria-hidden="true">i</span>
+                    Enter the user's registered email address to view and edit their account details.
+                </p>
+                {% else %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="intent" value="update_user">
+                    <input type="hidden" name="user_id" value="{{ user_to_edit.id }}">
 
-                <div id="editUserNotify"
-                     class="hidden"
-                     data-updated="{% if user_updated %}true{% else %}false{% endif %}"
-                     data-success-message="{% if success_message %}{{ success_message|escapejs }}{% endif %}"
-                     data-errors="{% if update_errors %}{{ update_errors|join:'||'|escapejs }}{% endif %}">
-                </div>
-
-                <div class="grid gap-6 md:grid-cols-2">
-                    <!-- Full Name -->
-                    <div class="flex flex-col gap-2 md:col-span-2">
-                        <label for="full_name" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Full Name</label>
-                        <input id="full_name" name="full_name" type="text" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" value="{{ user_to_edit.get_full_name|default:user_to_edit.first_name }}" placeholder="Enter full name">
-                    </div>
-
-                    <!-- Email Address -->
-                    <div class="flex flex-col gap-2 md:col-span-2">
-                        <label for="email" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Email Address</label>
-                        <input id="email" name="email" type="email" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" value="{{ user_to_edit.email }}" placeholder="Enter email address">
-                    </div>
-
-                    <!-- Account Status -->
-                    <div class="flex flex-col gap-2 md:col-span-2">
-                        <label for="account_status" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Account Status</label>
-                        <select id="account_status" name="account_status" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200">
-                            <option value="active" {% if user_to_edit.is_active %}selected{% endif %}>Active</option>
-                            <option value="inactive" {% if not user_to_edit.is_active %}selected{% endif %}>Inactive</option>
-                        </select>
-                        <p class="text-xs text-gray-500">Inactive users will not be able to log in</p>
-                    </div>
-
-                    <!-- User Info Display -->
-                    <div class="flex flex-col gap-2 md:col-span-2 pt-4 border-t border-gray-100">
-                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">User Information</p>
-                        <div class="grid gap-4 md:grid-cols-2">
-                            <div>
-                                <p class="text-xs text-gray-500">Role</p>
-                                <p class="text-sm font-medium text-geotrak mt-1">{{ user_profile.role|title|default:"Not assigned" }}</p>
+                    <div class="users-form-grid">
+                        <div class="users-field">
+                            <label for="full_name" class="users-field__label">Full Name</label>
+                            <div class="users-field__control">
+                                <span class="users-field__lead-icon" aria-hidden="true">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                    </svg>
+                                </span>
+                                <input id="full_name" name="full_name" type="text" required class="users-field__input users-field__input--lead" value="{{ user_to_edit.get_full_name|default:user_to_edit.first_name }}" placeholder="Enter full name" autocomplete="name">
                             </div>
-                            {% if user_profile.account_creation_date %}
-                            <div>
-                                <p class="text-xs text-gray-500">Account Created</p>
-                                <p class="text-sm font-medium text-geotrak mt-1">{{ user_profile.account_creation_date|date:"F j, Y" }} at {{ user_profile.account_creation_time|time:"g:i A" }}</p>
+                        </div>
+
+                        <div class="users-field">
+                            <label for="email" class="users-field__label">Email Address</label>
+                            <div class="users-field__control">
+                                <span class="users-field__lead-icon" aria-hidden="true">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                    </svg>
+                                </span>
+                                <input id="email" name="email" type="email" required class="users-field__input users-field__input--lead" value="{{ user_to_edit.email }}" placeholder="Enter email address" autocomplete="email">
                             </div>
-                            {% endif %}
+                        </div>
+
+                        <div class="users-field">
+                            <label for="account_status" class="users-field__label">Account Status</label>
+                            <div class="users-field__select users-status-select {% if user_to_edit.is_active %}is-active{% else %}is-inactive{% endif %}">
+                                <span class="users-status-select__dot" aria-hidden="true"></span>
+                                <select id="account_status" name="account_status" required class="users-field__input users-field__input--status">
+                                    <option value="active" {% if user_to_edit.is_active %}selected{% endif %}>Active</option>
+                                    <option value="inactive" {% if not user_to_edit.is_active %}selected{% endif %}>Inactive</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="users-field">
+                            <label for="role_display" class="users-field__label">Role</label>
+                            <div class="users-field__control">
+                                <span class="users-field__lead-icon" aria-hidden="true">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                    </svg>
+                                </span>
+                                <input id="role_display" type="text" class="users-field__input users-field__input--lead is-locked" value="{{ user_profile.role|title|default:'Not assigned' }}" readonly tabindex="-1" aria-readonly="true">
+                            </div>
+                            <p class="users-field__hint">Role changing is not currently allowed.</p>
                         </div>
                     </div>
-                </div>
 
-                <div class="flex items-center gap-4 pt-4">
-                    <a href="{% url 'system_admin:users' %}" class="rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
-                        Cancel
-                    </a>
-                    <button type="button" onclick="window.location.href='{% url 'system_admin:edit_user' %}'" class="rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
-                        Search Another
-                    </button>
-                    <button type="submit" class="inline-flex items-center justify-center rounded-full bg-geotrak px-5 py-3 text-sm font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
-                        Update User
-                    </button>
-                </div>
-            </form>
-        </section>
-        {% endif %}
+                    <div class="users-meta-card">
+                        <p class="users-meta-card__heading">
+                            <span class="users-info-banner__icon" aria-hidden="true">i</span>
+                            User information
+                        </p>
+                        <div class="users-meta-card__grid">
+                            <div class="users-meta-card__item">
+                                <span class="users-meta-card__label">Account created</span>
+                                <span class="users-meta-card__value">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                    {% if user_profile.account_creation_date %}
+                                    {{ user_profile.account_creation_date|date:"M j, Y" }}{% if user_profile.account_creation_time %} at {{ user_profile.account_creation_time|time:"g:i A" }}{% endif %}
+                                    {% else %}
+                                    —
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="users-meta-card__item">
+                                <span class="users-meta-card__label">Last login</span>
+                                <span class="users-meta-card__value">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    {% if user_to_edit.last_login %}
+                                    {{ user_to_edit.last_login|date:"M j, Y" }} at {{ user_to_edit.last_login|time:"g:i A" }}
+                                    {% else %}
+                                    Never
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="users-form-actions">
+                        <a href="{% url 'system_admin:users' %}" class="users-btn users-btn--ghost">Cancel</a>
+                        <a href="{% url 'system_admin:edit_user' %}" class="users-btn users-btn--ghost">Back</a>
+                        <button type="submit" class="users-btn users-btn--primary">Update User</button>
+                    </div>
+                </form>
+                {% endif %}
+            </section>
+        </div>
+
+        <aside class="users-team users-team--add" aria-label="{% if user_to_edit %}User details{% else %}Quick and easy{% endif %}">
+            <svg class="users-team__waves" viewBox="0 0 320 220" preserveAspectRatio="none" aria-hidden="true">
+                <path fill="#d7e4f2" d="M0 88c48 28 86-22 128-10s78 42 118 16 50-28 74-14v140H0z"></path>
+                <path fill="#c5d6e8" opacity="0.85" d="M0 128c52 20 92-18 142-6s72 34 118 8 40-16 60-6v96H0z"></path>
+            </svg>
+            <div class="users-add-art" aria-hidden="true">
+                <span class="users-add-art__dot users-add-art__dot--a"></span>
+                <span class="users-add-art__dot users-add-art__dot--b"></span>
+                <span class="users-add-art__dot users-add-art__dot--c"></span>
+                <span class="users-add-art__ring"></span>
+                <span class="users-add-art__avatar">
+                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 12a4.5 4.5 0 100-9 4.5 4.5 0 000 9zm0 2c-5.06 0-9 2.54-9 5.5V22h18v-2.5c0-2.96-3.94-5.5-9-5.5z"></path></svg>
+                </span>
+                {% if user_to_edit %}
+                <span class="users-team__plus">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                </span>
+                {% else %}
+                <span class="users-team__plus users-team__plus--search">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </span>
+                {% endif %}
+            </div>
+            {% if not user_to_edit %}
+            <h2 class="users-team__title">Quick &amp; Easy</h2>
+            <p class="users-team__copy">Find a user by their email address to manage their account details and permissions.</p>
+            {% else %}
+            <h2 class="users-team__title">User Details</h2>
+            <p class="users-team__copy">Update the user's information and account status.</p>
+            <ul class="users-team__list">
+                <li>
+                    <span class="users-side-icon users-side-icon--solid" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 13l4 4L19 7"></path></svg>
+                    </span>
+                    View current user details
+                </li>
+                <li>
+                    <span class="users-side-icon users-side-icon--solid" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 13l4 4L19 7"></path></svg>
+                    </span>
+                    Change account status
+                </li>
+                <li>
+                    <span class="users-side-icon users-side-icon--solid" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 13l4 4L19 7"></path></svg>
+                    </span>
+                    Keep your data safe
+                </li>
+            </ul>
+            {% endif %}
+        </aside>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="{% static 'system_admin/js/edit_user.js' %}"></script>
-<style>
-    body, main {
-        background: white !important;
-    }
-    main > div {
-        padding: 0 !important;
-        background: white !important;
-    }
-</style>
 {% endblock %}
-

@@ -3,175 +3,222 @@
 
 {% block title %}Add User · System Admin · GeoTrak Maps{% endblock %}
 
-{% block page_title %}Add User{% endblock %}
+{% block extra_css %}
+<link href="{% static 'system_admin/css/users.css' %}" rel="stylesheet">
+{% endblock %}
 
-{% block content %}
-<div class="bg-white -mx-6 -my-6 px-6 py-10 min-h-[calc(100vh-64px)]">
-    <div class="max-w-5xl mx-auto space-y-12">
-        <header class="space-y-3">
-            <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
-                <span class="h-px w-6 bg-gray-300"></span>
-                <span>User Management</span>
+{% block content_wrapper %}
+<div class="users-page">
+    <div class="users-form-layout">
+        <div class="users-form-main">
+            <header>
+                <a class="users-kicker users-kicker--back" href="{% url 'system_admin:users' %}">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    User Management
+                </a>
+                <h1 class="users-title">Add a new user</h1>
+                <p class="users-subtitle">Create a new user account by filling in the details below. Select a role to assign appropriate permissions.</p>
+            </header>
+
+            <section class="users-form-card">
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="intent" value="add_user">
+
+                    <div id="userDetailsForm">
+                        <div class="users-form-grid">
+                            <div class="users-field">
+                                <label for="full_name" class="users-field__label">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                    </svg>
+                                    Full Name
+                                </label>
+                                <input id="full_name" name="full_name" type="text" required class="users-field__input" placeholder="Enter full name" autocomplete="name">
+                            </div>
+
+                            <div class="users-field">
+                                <label for="email" class="users-field__label">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                    </svg>
+                                    Email Address
+                                </label>
+                                <input id="email" name="email" type="email" required class="users-field__input" placeholder="Enter email address" autocomplete="email">
+                            </div>
+
+                            <div class="users-field">
+                                <label for="password" class="users-field__label">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                    </svg>
+                                    Password
+                                </label>
+                                <div class="users-field__control">
+                                    <input id="password" name="password" type="password" required minlength="8" class="users-field__input" placeholder="Enter password" autocomplete="new-password">
+                                    <button type="button" data-toggle-password="password" class="users-password-toggle">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        </svg>
+                                        <span>Show</span>
+                                    </button>
+                                </div>
+                                <p class="users-field__hint">Minimum 8 characters</p>
+                            </div>
+
+                            <div class="users-field">
+                                <label for="confirm_password" class="users-field__label">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                    </svg>
+                                    Confirm Password
+                                </label>
+                                <div class="users-field__control">
+                                    <input id="confirm_password" name="confirm_password" type="password" required minlength="8" class="users-field__input" placeholder="Confirm password" autocomplete="new-password">
+                                    <button type="button" data-toggle-password="confirm_password" class="users-password-toggle">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        </svg>
+                                        <span>Show</span>
+                                    </button>
+                                </div>
+                                <p id="matchHint" class="users-field__hint">Re-enter the password to confirm</p>
+                            </div>
+
+                            <div class="users-field users-field--full">
+                                <label for="role" class="users-field__label">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                                    </svg>
+                                    Role
+                                </label>
+                                <div class="users-field__select">
+                                    <select id="role" name="role" required class="users-field__input">
+                                        <option value="">Select a role</option>
+                                        <option value="manager">Manager</option>
+                                        <option value="editor">Editor</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="users-form-actions">
+                            <a href="{% url 'system_admin:users' %}" class="users-btn users-btn--ghost">Cancel</a>
+                            <button type="button" id="nextToPermissionsBtn" class="users-btn users-btn--primary">Add User</button>
+                        </div>
+                    </div>
+
+                    <div id="permissionsForm" class="users-permissions is-hidden">
+                        <div class="users-permissions__intro">
+                            <p class="users-kicker" id="permissionsTitle">Permissions</p>
+                            <p class="users-subtitle" id="permissionsDescription">Select the permissions you want to grant.</p>
+                        </div>
+
+                        <div class="users-permissions__list">
+                            <label id="dashboardPermissionLabel" class="users-perm is-hidden">
+                                <input type="checkbox" name="can_access_dashboard" id="can_access_dashboard">
+                                <span>
+                                    <span class="users-perm__title">Access Dashboard</span>
+                                    <span class="users-perm__desc">Allow the manager to view and access the dashboard</span>
+                                </span>
+                            </label>
+
+                            <label class="users-perm">
+                                <input type="checkbox" name="can_access_security" id="can_access_security">
+                                <span>
+                                    <span class="users-perm__title">Access Security Page</span>
+                                    <span class="users-perm__desc" id="securityDescription">Allow access to the security settings page</span>
+                                </span>
+                            </label>
+
+                            <label class="users-perm">
+                                <input type="checkbox" name="can_access_account_information" id="can_access_account_information">
+                                <span>
+                                    <span class="users-perm__title">Access Account Information</span>
+                                    <span class="users-perm__desc" id="accountInfoDescription">Allow access and update account information</span>
+                                </span>
+                            </label>
+
+                            <label class="users-perm">
+                                <input type="checkbox" name="can_access_layer_uploader" id="can_access_layer_uploader">
+                                <span>
+                                    <span class="users-perm__title">Access Layer Uploader</span>
+                                    <span class="users-perm__desc">Allow access to upload and validate GIS layers</span>
+                                </span>
+                            </label>
+
+                            <label class="users-perm">
+                                <input type="checkbox" name="can_access_my_edits" id="can_access_my_edits">
+                                <span>
+                                    <span class="users-perm__title">Access My Edits</span>
+                                    <span class="users-perm__desc">Allow access to view road edit submission history</span>
+                                </span>
+                            </label>
+                        </div>
+
+                        <div class="users-form-actions">
+                            <button type="button" id="backToUserDetailsBtn" class="users-btn users-btn--ghost">Back</button>
+                            <button type="submit" id="createUserBtn" class="users-btn users-btn--primary">Create User</button>
+                        </div>
+                    </div>
+                </form>
+            </section>
+        </div>
+
+        <aside class="users-team users-team--add" aria-label="Create a user account">
+            <svg class="users-team__waves" viewBox="0 0 320 220" preserveAspectRatio="none" aria-hidden="true">
+                <path fill="#d7e4f2" d="M0 88c48 28 86-22 128-10s78 42 118 16 50-28 74-14v140H0z"></path>
+                <path fill="#c5d6e8" opacity="0.85" d="M0 128c52 20 92-18 142-6s72 34 118 8 40-16 60-6v96H0z"></path>
+            </svg>
+            <div class="users-add-art" aria-hidden="true">
+                <span class="users-add-art__dot users-add-art__dot--a"></span>
+                <span class="users-add-art__dot users-add-art__dot--b"></span>
+                <span class="users-add-art__dot users-add-art__dot--c"></span>
+                <span class="users-add-art__ring"></span>
+                <span class="users-add-art__avatar">
+                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 12a4.5 4.5 0 100-9 4.5 4.5 0 000 9zm0 2c-5.06 0-9 2.54-9 5.5V22h18v-2.5c0-2.96-3.94-5.5-9-5.5z"></path></svg>
+                </span>
+                <span class="users-team__plus">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M12 5v14m7-7H5"></path></svg>
+                </span>
             </div>
-            <div class="flex flex-col gap-2">
-                <h1 class="text-3xl font-semibold text-geotrak">Add a new user</h1>
-                <p class="text-sm text-gray-600 max-w-2xl">Create a new user account by filling in the details below. Select a role to assign appropriate permissions.</p>
-            </div>
-        </header>
-
-        <!-- Add User Form -->
-        <section class="space-y-6">
-            <form method="post" class="space-y-6">
-                {% csrf_token %}
-                <input type="hidden" name="intent" value="add_user">
-
-                <div id="addUserNotify"
-                     class="hidden"
-                     data-added="{% if user_added %}true{% else %}false{% endif %}"
-                     data-success-message="{% if success_message %}{{ success_message|escapejs }}{% endif %}"
-                     data-errors="{% if add_errors %}{{ add_errors|join:'||'|escapejs }}{% endif %}">
-                </div>
-
-                <!-- User Details Form -->
-                <div id="userDetailsForm" class="space-y-6">
-                    <div class="grid gap-6 md:grid-cols-2">
-                        <!-- Full Name -->
-                        <div class="flex flex-col gap-2 md:col-span-2">
-                            <label for="full_name" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Full Name</label>
-                            <input id="full_name" name="full_name" type="text" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" placeholder="Enter full name">
-                        </div>
-
-                        <!-- Email Address -->
-                        <div class="flex flex-col gap-2 md:col-span-2">
-                            <label for="email" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Email Address</label>
-                            <input id="email" name="email" type="email" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" placeholder="Enter email address">
-                        </div>
-
-                        <!-- Password -->
-                        <div class="flex flex-col gap-2">
-                            <label for="password" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Password</label>
-                            <div class="relative">
-                                <input id="password" name="password" type="password" required minlength="8" class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" placeholder="Enter password">
-                                <button type="button" data-toggle-password="password" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-800 focus:outline-none">
-                                    Show
-                                </button>
-                            </div>
-                            <p class="text-xs text-gray-500">Minimum 8 characters</p>
-                        </div>
-
-                        <!-- Confirm Password -->
-                        <div class="flex flex-col gap-2">
-                            <label for="confirm_password" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Confirm Password</label>
-                            <div class="relative">
-                                <input id="confirm_password" name="confirm_password" type="password" required minlength="8" class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200" placeholder="Confirm password">
-                                <button type="button" data-toggle-password="confirm_password" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-800 focus:outline-none">
-                                    Show
-                                </button>
-                            </div>
-                            <p id="matchHint" class="text-xs text-gray-500">Re-enter the password to confirm</p>
-                        </div>
-
-                        <!-- Role -->
-                        <div class="flex flex-col gap-2 md:col-span-2">
-                            <label for="role" class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Role</label>
-                            <select id="role" name="role" required class="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-geotrak focus:border-geotrak focus:ring-2 focus:ring-gray-200">
-                                <option value="">Select a role</option>
-                                <option value="manager">Manager</option>
-                                <option value="editor">Editor</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-4 pt-4">
-                        <a href="{% url 'system_admin:users' %}" class="rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
-                            Cancel
-                        </a>
-                        <button type="button" id="nextToPermissionsBtn" class="inline-flex items-center justify-center rounded-full bg-geotrak px-5 py-3 text-sm font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
-                            Add User
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Permissions Form (shown for managers and editors) -->
-                <div id="permissionsForm" class="hidden space-y-6">
-                    <div class="space-y-4">
-                        <div class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
-                            <span class="h-px w-6 bg-gray-300"></span>
-                            <span id="permissionsTitle">Permissions</span>
-                        </div>
-                        <p class="text-sm text-gray-600" id="permissionsDescription">Select the permissions you want to grant.</p>
-                    </div>
-
-                    <div class="space-y-4">
-                        <!-- Access Dashboard Permission (Manager only) -->
-                        <label id="dashboardPermissionLabel" class="hidden flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
-                            <input type="checkbox" name="can_access_dashboard" id="can_access_dashboard" class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
-                            <div class="flex-1">
-                                <span class="text-sm font-semibold text-geotrak">Access Dashboard</span>
-                                <p class="text-xs text-gray-500 mt-0.5">Allow the manager to view and access the dashboard</p>
-                            </div>
-                        </label>
-
-                        <!-- Access Security Page Permission -->
-                        <label class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
-                            <input type="checkbox" name="can_access_security" id="can_access_security" class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
-                            <div class="flex-1">
-                                <span class="text-sm font-semibold text-geotrak">Access Security Page</span>
-                                <p class="text-xs text-gray-500 mt-0.5" id="securityDescription">Allow access to the security settings page</p>
-                            </div>
-                        </label>
-
-                        <!-- Access Account Information Permission -->
-                        <label class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
-                            <input type="checkbox" name="can_access_account_information" id="can_access_account_information" class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
-                            <div class="flex-1">
-                                <span class="text-sm font-semibold text-geotrak">Access Account Information</span>
-                                <p class="text-xs text-gray-500 mt-0.5" id="accountInfoDescription">Allow access and update account information</p>
-                            </div>
-                        </label>
-
-                        <label class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
-                            <input type="checkbox" name="can_access_layer_uploader" id="can_access_layer_uploader" class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
-                            <div class="flex-1">
-                                <span class="text-sm font-semibold text-geotrak">Access Layer Uploader</span>
-                                <p class="text-xs text-gray-500 mt-0.5" id="layerUploaderDescription">Allow access to upload and validate GIS layers</p>
-                            </div>
-                        </label>
-
-                        <label class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
-                            <input type="checkbox" name="can_access_my_edits" id="can_access_my_edits" class="w-4 h-4 text-geotrak border-gray-300 rounded focus:ring-2 focus:ring-gray-200 cursor-pointer">
-                            <div class="flex-1">
-                                <span class="text-sm font-semibold text-geotrak">Access My Edits</span>
-                                <p class="text-xs text-gray-500 mt-0.5" id="myEditsDescription">Allow access to view road edit submission history</p>
-                            </div>
-                        </label>
-                    </div>
-
-                    <div class="flex items-center gap-4 pt-4">
-                        <button type="button" id="backToUserDetailsBtn" class="rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
-                            Back
-                        </button>
-                        <button type="submit" id="createUserBtn" class="inline-flex items-center justify-center rounded-full bg-geotrak px-5 py-3 text-sm font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-gray-200 transition">
-                            Create User
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </section>
+            <h2 class="users-team__title">Create a user account</h2>
+            <p class="users-team__copy">Set credentials, choose a role, and grant the right access to the GEOTRAK platform.</p>
+            <ul class="users-team__list">
+                <li>
+                    <span class="users-side-icon" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    </span>
+                    Secure access from day one
+                </li>
+                <li>
+                    <span class="users-side-icon" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    </span>
+                    Assign the right role
+                </li>
+                <li>
+                    <span class="users-side-icon" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 3v18h18M7 16l4-4 3 3 5-7"></path></svg>
+                    </span>
+                    Grant only needed permissions
+                </li>
+                <li>
+                    <span class="users-side-icon users-side-icon--solid" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 13l4 4L19 7"></path></svg>
+                    </span>
+                    Keep your data safe
+                </li>
+            </ul>
+        </aside>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="{% static 'system_admin/js/add_user.js' %}"></script>
-<style>
-    body, main {
-        background: white !important;
-    }
-    main > div {
-        padding: 0 !important;
-        background: white !important;
-    }
-</style>
 {% endblock %}
-

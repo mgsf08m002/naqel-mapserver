@@ -1,3 +1,4 @@
+from datetime import datetime
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -8,9 +9,22 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.db.models import F
 from .models import UserProfile
 from mapping.presentation import enforce_my_edits_access, my_edits_page_context
 import json
+
+
+def _manageable_user(user_id, action_label):
+    """Return a non-admin user and profile, or an error message."""
+    try:
+        user = User.objects.get(pk=user_id)
+    except (User.DoesNotExist, TypeError, ValueError):
+        return None, None, 'User not found.'
+    if user.is_superuser:
+        return None, None, f'System Admin accounts cannot be {action_label} through this page.'
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    return user, profile, None
 
 
 @login_required(login_url='/login/')
@@ -144,11 +158,41 @@ def users_view(request):
     now = timezone.now()
     start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     users_this_month = User.objects.filter(date_joined__gte=start_of_month).count()
+
+    def _display_role(user):
+        if user.is_superuser:
+            return 'Administrator'
+        profile = getattr(user, 'profile', None)
+        if profile and profile.role == 'editor':
+            return 'Editor'
+        if profile and profile.role == 'manager':
+            return 'Manager'
+        return 'Viewer'
+
+    recent_users = []
+    recent_qs = (
+        User.objects.select_related('profile')
+        .order_by(F('last_login').desc(nulls_last=True), '-date_joined')[:50]
+    )
+    for user in recent_qs:
+        profile = getattr(user, 'profile', None)
+        full_name = user.get_full_name() or user.username
+        recent_users.append({
+            'id': user.id,
+            'full_name': full_name,
+            'email': user.email,
+            'role': _display_role(user),
+            'is_active': user.is_active,
+            'last_login': user.last_login,
+            'initial': (full_name or user.email or '?')[:1].upper(),
+            'profile_image': profile.profile_image.url if profile and profile.profile_image else '',
+        })
     
     context = {
         'all_users_count': all_users_count,
         'active_users_count': active_users_count,
         'users_this_month': users_this_month,
+        'recent_users': recent_users,
     }
     
     return render(request, 'system_admin/users.html', context)
@@ -257,161 +301,169 @@ def add_user_view(request):
 
 
 @login_required(login_url='/login/')
-def edit_user_view(request):
+def edit_user_view(request, user_id=None):
     """Edit User view."""
-    # Only superusers (system admins) can edit user accounts.
     if not request.user.is_superuser:
         logout(request)
         return redirect(f"{reverse('auth:login')}?session_ended=1")
-    
+
     context = {}
-    user_to_edit = None
-    
-    if request.method == 'POST':
-        intent = request.POST.get('intent')
-        
-        if intent == 'search_user':
-            email = request.POST.get('search_email', '').strip()
-            if not email:
-                messages.error(request, 'Email is required to search for a user.')
+
+    if request.method != 'POST':
+        if user_id:
+            user_to_edit, profile, error = _manageable_user(user_id, 'edited')
+            if error:
+                messages.warning(request, error)
             else:
-                try:
-                    user_to_edit = User.objects.get(username=email)
-                    # System Admin accounts are immutable via this view.
-                    if user_to_edit.is_superuser:
-                        messages.warning(
-                            request,
-                            'System Admin accounts cannot be edited through this page.',
-                        )
-                        user_to_edit = None
-                    else:
-                        # Ensure the user has an associated profile.
-                        profile, created = UserProfile.objects.get_or_create(user=user_to_edit)
-                        context['user_to_edit'] = user_to_edit
-                        context['user_profile'] = profile
-                except User.DoesNotExist:
-                    messages.error(request, 'User with this email does not exist.')
+                context['user_to_edit'] = user_to_edit
+                context['user_profile'] = profile
+        return render(request, 'system_admin/edit_user.html', context)
 
-        elif intent == 'update_user':
-            # Look up the selected user by id.
-            user_id = request.POST.get('user_id')
-            if not user_id:
-                messages.error(request, 'User ID is required.')
+    intent = request.POST.get('intent')
+
+    if intent == 'search_user':
+        email = request.POST.get('search_email', '').strip()
+        if not email:
+            messages.error(request, 'Email is required to search for a user.')
+            return render(request, 'system_admin/edit_user.html', context)
+
+        try:
+            user_to_edit = User.objects.get(username=email)
+        except User.DoesNotExist:
+            messages.error(request, 'User with this email does not exist.')
+            return render(request, 'system_admin/edit_user.html', context)
+
+        if user_to_edit.is_superuser:
+            messages.warning(
+                request,
+                'System Admin accounts cannot be edited through this page.',
+            )
+            return render(request, 'system_admin/edit_user.html', context)
+
+        profile, _ = UserProfile.objects.get_or_create(user=user_to_edit)
+        context['user_to_edit'] = user_to_edit
+        context['user_profile'] = profile
+
+    elif intent == 'update_user':
+        user_id = request.POST.get('user_id')
+        if not user_id:
+            messages.error(request, 'User ID is required.')
+            return render(request, 'system_admin/edit_user.html', context)
+
+        try:
+            user_to_edit = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            messages.error(request, 'User not found.')
+            return render(request, 'system_admin/edit_user.html', context)
+
+        if user_to_edit.is_superuser:
+            messages.error(request, 'System Admin accounts cannot be edited.')
+            return render(request, 'system_admin/edit_user.html', context)
+
+        errors = []
+        full_name = request.POST.get('full_name', '').strip()
+        email = request.POST.get('email', '').strip()
+        account_status = request.POST.get('account_status', '').strip()
+
+        if not full_name:
+            errors.append('Full name is required.')
+
+        if not email:
+            errors.append('Email is required.')
+        else:
+            try:
+                validate_email(email)
+            except ValidationError:
+                errors.append('Please provide a valid email.')
             else:
-                try:
-                    user_to_edit = User.objects.get(pk=user_id)
-                    if user_to_edit.is_superuser:
-                        messages.error(request, 'System Admin accounts cannot be edited.')
-                    else:
-                        errors = []
-                        full_name = request.POST.get('full_name', '').strip()
-                        email = request.POST.get('email', '').strip()
-                        account_status = request.POST.get('account_status', '').strip()
+                if User.objects.filter(username=email).exclude(pk=user_to_edit.pk).exists():
+                    errors.append('A user with this email already exists.')
 
-                        if not full_name:
-                            errors.append('Full name is required.')
+        if account_status not in ['active', 'inactive']:
+            errors.append('Invalid account status selected.')
 
-                        if not email:
-                            errors.append('Email is required.')
-                        else:
-                            try:
-                                validate_email(email)
-                            except ValidationError:
-                                errors.append('Please provide a valid email.')
-                            else:
-                                # Prevent duplicate email addresses across users.
-                                if User.objects.filter(username=email).exclude(pk=user_to_edit.pk).exists():
-                                    errors.append('A user with this email already exists.')
+        if not errors:
+            name_parts = full_name.split()
+            user_to_edit.first_name = name_parts[0] if name_parts else ''
+            user_to_edit.last_name = ' '.join(name_parts[1:]) if len(name_parts) > 1 else ''
+            user_to_edit.email = email
+            user_to_edit.username = email
+            user_to_edit.is_active = account_status == 'active'
+            user_to_edit.save()
+            messages.success(request, f'User {full_name} has been updated successfully.')
+        else:
+            for err in errors:
+                messages.error(request, err)
 
-                        if account_status not in ['active', 'inactive']:
-                            errors.append('Invalid account status selected.')
+        profile, _ = UserProfile.objects.get_or_create(user=user_to_edit)
+        context['user_to_edit'] = user_to_edit
+        context['user_profile'] = profile
 
-                        if not errors:
-                            # Persist basic user changes.
-                            user_to_edit.first_name = full_name.split()[0] if full_name.split() else ''
-                            user_to_edit.last_name = ' '.join(full_name.split()[1:]) if len(full_name.split()) > 1 else ''
-                            user_to_edit.email = email
-                            user_to_edit.username = email
-                            user_to_edit.is_active = (account_status == 'active')
-                            user_to_edit.save()
-
-                            messages.success(
-                                request,
-                                f'User {full_name} has been updated successfully.',
-                            )
-                            context['user_to_edit'] = user_to_edit
-                            if hasattr(user_to_edit, 'profile'):
-                                context['user_profile'] = user_to_edit.profile
-                        else:
-                            for err in errors:
-                                messages.error(request, err)
-                            context['user_to_edit'] = user_to_edit
-                            if hasattr(user_to_edit, 'profile'):
-                                context['user_profile'] = user_to_edit.profile
-                except User.DoesNotExist:
-                    messages.error(request, 'User not found.')
-    
     return render(request, 'system_admin/edit_user.html', context)
 
 
 @login_required(login_url='/login/')
-def delete_user_view(request):
+def delete_user_view(request, user_id=None):
     """Delete User view."""
-    # Only superusers (system admins) can delete user accounts.
     if not request.user.is_superuser:
         logout(request)
         return redirect(f"{reverse('auth:login')}?session_ended=1")
-    
+
     context = {}
-    user_to_delete = None
-    
-    if request.method == 'POST':
-        intent = request.POST.get('intent')
-        
-        if intent == 'search_user':
-            email = request.POST.get('search_email', '').strip()
-            if not email:
-                messages.error(request, 'Email is required to search for a user.')
+
+    if request.method != 'POST':
+        if user_id:
+            user_to_delete, profile, error = _manageable_user(user_id, 'deleted')
+            if error:
+                messages.warning(request, error)
             else:
-                try:
-                    user_to_delete = User.objects.get(username=email)
-                    # System Admin accounts cannot be deleted from this screen.
-                    if user_to_delete.is_superuser:
-                        messages.warning(
-                            request,
-                            'System Admin accounts cannot be deleted through this page.',
-                        )
-                        user_to_delete = None
-                    else:
-                        # Include profile details when present.
-                        if hasattr(user_to_delete, 'profile'):
-                            context['user_profile'] = user_to_delete.profile
-                        context['user_to_delete'] = user_to_delete
-                except User.DoesNotExist:
-                    messages.error(request, 'User with this email does not exist.')
+                context['user_to_delete'] = user_to_delete
+                context['user_profile'] = profile
+        return render(request, 'system_admin/delete_user.html', context)
 
-        elif intent == 'delete_user':
-            user_id = request.POST.get('user_id')
-            if user_id:
-                try:
-                    user_to_delete = User.objects.get(pk=user_id)
-                    if user_to_delete.is_superuser:
-                        messages.error(request, 'System Admin accounts cannot be deleted.')
-                    else:
-                        # Capture details for the success notification.
-                        user_full_name = user_to_delete.get_full_name() or user_to_delete.username
-                        user_email = user_to_delete.email
+    intent = request.POST.get('intent')
 
-                        # Delete the user; related profile is removed via CASCADE.
-                        user_to_delete.delete()
+    if intent == 'search_user':
+        email = request.POST.get('search_email', '').strip()
+        if not email:
+            messages.error(request, 'Email is required to search for a user.')
+        else:
+            try:
+                user_to_delete = User.objects.get(username=email)
+            except User.DoesNotExist:
+                messages.error(request, 'User with this email does not exist.')
+            else:
+                if user_to_delete.is_superuser:
+                    messages.warning(
+                        request,
+                        'System Admin accounts cannot be deleted through this page.',
+                    )
+                else:
+                    profile, _ = UserProfile.objects.get_or_create(user=user_to_delete)
+                    context['user_to_delete'] = user_to_delete
+                    context['user_profile'] = profile
 
-                        messages.success(
-                            request,
-                            f'User {user_full_name} ({user_email}) has been deleted successfully.',
-                        )
-                except User.DoesNotExist:
-                    messages.error(request, 'User not found.')
-    
+    elif intent == 'delete_user':
+        posted_user_id = request.POST.get('user_id')
+        if not posted_user_id:
+            messages.error(request, 'User ID is required.')
+        else:
+            try:
+                user_to_delete = User.objects.get(pk=posted_user_id)
+            except User.DoesNotExist:
+                messages.error(request, 'User not found.')
+            else:
+                if user_to_delete.is_superuser:
+                    messages.error(request, 'System Admin accounts cannot be deleted.')
+                else:
+                    user_full_name = user_to_delete.get_full_name() or user_to_delete.username
+                    user_email = user_to_delete.email
+                    user_to_delete.delete()
+                    messages.success(
+                        request,
+                        f'User {user_full_name} ({user_email}) has been deleted successfully.',
+                    )
+
     return render(request, 'system_admin/delete_user.html', context)
 
 
@@ -507,23 +559,19 @@ def remove_profile_image_view(request):
 @login_required(login_url='/login/')
 def all_users_view(request):
     """All Users view."""
-    # Only superusers (system admins) can access this overview.
     if not request.user.is_superuser:
         logout(request)
         return redirect(f"{reverse('auth:login')}?session_ended=1")
-    
     return render(request, 'system_admin/all_users.html')
 
 
 @login_required(login_url='/login/')
 def view_user_view(request, user_id):
     """View User detail view."""
-    # Only superusers (system admins) can view detailed user information.
     if not request.user.is_superuser:
         logout(request)
         return redirect(f"{reverse('auth:login')}?session_ended=1")
-    
-    return render(request, 'system_admin/view_user.html')
+    return render(request, 'system_admin/view_user.html', {'user_id': user_id})
 
 
 @login_required(login_url='/login/')
@@ -563,6 +611,14 @@ def users_api_view(request):
             
             date_joined = user.date_joined.strftime('%B %d, %Y at %I:%M %p') if user.date_joined else None
             last_login = user.last_login.strftime('%B %d, %Y at %I:%M %p') if user.last_login else None
+            created_source = None
+            if profile and profile.account_creation_date:
+                created_time = profile.account_creation_time or datetime.min.time()
+                created_source = datetime.combine(profile.account_creation_date, created_time)
+            elif user.date_joined:
+                created_source = user.date_joined
+            created_display = created_source.strftime('%b %d, %Y at %I:%M %p') if created_source else None
+            last_login_display = user.last_login.strftime('%b %d, %Y at %I:%M %p') if user.last_login else None
             
             # Profile image URL
             profile_image = None
@@ -585,6 +641,8 @@ def users_api_view(request):
                 'account_creation_time': account_creation_time,
                 'date_joined': date_joined,
                 'last_login': last_login,
+                'created_display': created_display,
+                'last_login_display': last_login_display,
                 'password_setup_completed': profile.password_setup_completed if profile else False,
             }
             users_data.append(user_data)
@@ -614,50 +672,36 @@ def user_detail_api_view(request, user_id):
     try:
         user = User.objects.select_related('profile').get(pk=user_id)
         profile = getattr(user, 'profile', None)
-        
-        # Get full name
         full_name = user.get_full_name() or (user.first_name + ' ' + user.last_name).strip() or None
-        
-        # Get role
+
         role = None
         if user.is_superuser:
             role = 'system_admin'
         elif profile and profile.role:
             role = profile.role
-        
-        # Format dates
+
         account_creation_date = None
         account_creation_time = None
         if profile and profile.account_creation_date:
             account_creation_date = profile.account_creation_date.strftime('%B %d, %Y')
             if profile.account_creation_time:
                 account_creation_time = profile.account_creation_time.strftime('%I:%M %p')
-        
-        date_joined = user.date_joined.strftime('%B %d, %Y at %I:%M %p') if user.date_joined else None
-        last_login = user.last_login.strftime('%B %d, %Y at %I:%M %p') if user.last_login else None
-        
-        # Profile image URL
+
         profile_image = None
         if profile and profile.profile_image:
             profile_image = profile.profile_image.url
-        
+
         user_data = {
             'id': user.id,
             'username': user.username,
             'email': user.email,
-            'first_name': user.first_name or '',
-            'last_name': user.last_name or '',
             'full_name': full_name,
             'is_active': user.is_active,
-            'is_staff': user.is_staff,
             'is_superuser': user.is_superuser,
             'role': role,
             'profile_image': profile_image,
             'account_creation_date': account_creation_date,
             'account_creation_time': account_creation_time,
-            'date_joined': date_joined,
-            'last_login': last_login,
-            'password_setup_completed': profile.password_setup_completed if profile else False,
         }
         
         return JsonResponse({

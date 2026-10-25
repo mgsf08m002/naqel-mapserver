@@ -1,16 +1,17 @@
 (function() {
     'use strict';
 
-    // State management
+    const PAGE_SIZE = 8;
+
     const state = {
         users: [],
         filteredUsers: [],
-        currentView: 'classic',
-        roleFilter: '',
         searchQuery: '',
+        roleFilter: '',
+        statusFilter: '',
+        sortBy: 'newest',
+        page: 1,
         visibleColumns: {
-            name: true,
-            email: true,
             role: true,
             status: true,
             created: true,
@@ -18,113 +19,129 @@
         }
     };
 
-    // DOM Elements
     const elements = {
         loadingState: document.getElementById('loadingState'),
         emptyState: document.getElementById('emptyState'),
-        classicView: document.getElementById('classicView'),
-        listView: document.getElementById('listView'),
-        tableView: document.getElementById('tableView'),
-        tableBody: document.getElementById('tableBody'),
-        viewClassic: document.getElementById('viewClassic'),
-        viewList: document.getElementById('viewList'),
-        viewTable: document.getElementById('viewTable'),
+        usersList: document.getElementById('usersList'),
+        pagination: document.getElementById('pagination'),
         roleFilter: document.getElementById('roleFilter'),
+        statusFilter: document.getElementById('statusFilter'),
+        sortSelect: document.getElementById('sortSelect'),
         searchInput: document.getElementById('searchInput'),
         clearSearchBtn: document.getElementById('clearSearchBtn'),
         columnCustomizeBtn: document.getElementById('columnCustomizeBtn'),
         columnCustomizeMenu: document.getElementById('columnCustomizeMenu'),
         columnToggles: document.querySelectorAll('.column-toggle'),
-        resultsCounter: document.getElementById('resultsCounter'),
         resultsCount: document.getElementById('resultsCount')
     };
 
-    /**
-     * Initialize the page
-     */
     function init() {
         setupEventListeners();
         loadSavedPreferences();
         loadUsers();
     }
 
-    /**
-     * Setup event listeners
-     */
     function setupEventListeners() {
-        // View switcher
-        elements.viewClassic?.addEventListener('click', () => switchView('classic'));
-        elements.viewList?.addEventListener('click', () => switchView('list'));
-        elements.viewTable?.addEventListener('click', () => switchView('table'));
-
-        // Search input
         let searchTimeout;
-        elements.searchInput?.addEventListener('input', (e) => {
+        elements.searchInput?.addEventListener('input', (event) => {
             clearTimeout(searchTimeout);
-            state.searchQuery = e.target.value.trim().toLowerCase();
-            
-            // Show/hide clear button
-            if (state.searchQuery) {
-                elements.clearSearchBtn?.classList.remove('hidden');
-            } else {
-                elements.clearSearchBtn?.classList.add('hidden');
-            }
-            
-            // Debounce search
+            state.searchQuery = event.target.value.trim().toLowerCase();
+            elements.clearSearchBtn?.classList.toggle('is-hidden', !state.searchQuery);
             searchTimeout = setTimeout(() => {
+                state.page = 1;
                 applyFilters();
                 savePreferences();
-            }, 300);
+            }, 250);
         });
 
-        // Clear search
         elements.clearSearchBtn?.addEventListener('click', () => {
             state.searchQuery = '';
-            elements.searchInput.value = '';
-            elements.clearSearchBtn?.classList.add('hidden');
+            if (elements.searchInput) {
+                elements.searchInput.value = '';
+            }
+            elements.clearSearchBtn.classList.add('is-hidden');
+            state.page = 1;
             applyFilters();
             savePreferences();
         });
 
-        // Role filter
-        elements.roleFilter?.addEventListener('change', (e) => {
-            state.roleFilter = e.target.value;
+        elements.roleFilter?.addEventListener('change', (event) => {
+            state.roleFilter = event.target.value;
+            state.page = 1;
             applyFilters();
             savePreferences();
         });
 
-        // Column customization
-        elements.columnCustomizeBtn?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            elements.columnCustomizeMenu?.classList.toggle('hidden');
+        elements.statusFilter?.addEventListener('change', (event) => {
+            state.statusFilter = event.target.value;
+            state.page = 1;
+            applyFilters();
+            savePreferences();
         });
 
-        // Close column menu when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!elements.columnCustomizeBtn?.contains(e.target) && 
-                !elements.columnCustomizeMenu?.contains(e.target)) {
-                elements.columnCustomizeMenu?.classList.add('hidden');
+        elements.sortSelect?.addEventListener('change', (event) => {
+            state.sortBy = event.target.value;
+            state.page = 1;
+            applyFilters();
+            savePreferences();
+        });
+
+        elements.columnCustomizeBtn?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            elements.columnCustomizeMenu?.classList.toggle('is-hidden');
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!elements.columnCustomizeBtn?.contains(event.target) &&
+                !elements.columnCustomizeMenu?.contains(event.target)) {
+                elements.columnCustomizeMenu?.classList.add('is-hidden');
+            }
+            if (!event.target.closest('.all-users-row__menu')) {
+                closeOverflowMenus();
             }
         });
 
-        // Column toggles
-        elements.columnToggles?.forEach(toggle => {
-            toggle.addEventListener('change', (e) => {
-                const column = e.target.dataset.column;
-                state.visibleColumns[column] = e.target.checked;
-                applyFilters();
+        elements.columnToggles.forEach((toggle) => {
+            toggle.addEventListener('change', (event) => {
+                const column = event.target.dataset.column;
+                state.visibleColumns[column] = event.target.checked;
+                renderUsers();
                 savePreferences();
             });
         });
+
+        elements.usersList?.addEventListener('click', (event) => {
+            const menuBtn = event.target.closest('[data-overflow-toggle]');
+            if (menuBtn) {
+                event.stopPropagation();
+                const menu = menuBtn.parentElement.querySelector('.all-users-row__dropdown');
+                const wasOpen = menu && !menu.classList.contains('is-hidden');
+                closeOverflowMenus();
+                if (menu && !wasOpen) {
+                    menu.classList.remove('is-hidden');
+                }
+            }
+        });
+
+        elements.pagination?.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-page]');
+            if (!button) {
+                return;
+            }
+            const nextPage = Number(button.dataset.page);
+            if (Number.isNaN(nextPage) || nextPage === state.page) {
+                return;
+            }
+            state.page = nextPage;
+            renderUsers();
+        });
     }
 
-    /**
-     * Load users from API
-     */
     async function loadUsers() {
         try {
-            elements.loadingState?.classList.remove('hidden');
-            elements.emptyState?.classList.add('hidden');
+            elements.loadingState?.classList.remove('is-hidden');
+            elements.emptyState?.classList.add('is-hidden');
+            elements.usersList?.classList.add('is-hidden');
 
             const response = await fetch('/system-admin/api/users/');
             if (!response.ok) {
@@ -137,407 +154,310 @@
         } catch (error) {
             showError('Failed to load users. Please try again.');
         } finally {
-            elements.loadingState?.classList.add('hidden');
+            elements.loadingState?.classList.add('is-hidden');
         }
     }
 
-    /**
-     * Apply filters and render
-     */
     function applyFilters() {
-        // Filter by role
-        let filtered = state.users.filter(user => {
-            if (state.roleFilter && state.roleFilter !== '') {
-                if (state.roleFilter === 'system_admin') {
-                    return user.is_superuser;
-                }
+        let filtered = state.users.filter((user) => {
+            if (state.roleFilter === 'system_admin') {
+                return user.is_superuser;
+            }
+            if (state.roleFilter) {
                 return user.role === state.roleFilter;
             }
             return true;
         });
 
-        // Filter by search query
+        if (state.statusFilter === 'active') {
+            filtered = filtered.filter((user) => user.is_active);
+        } else if (state.statusFilter === 'inactive') {
+            filtered = filtered.filter((user) => !user.is_active);
+        }
+
         if (state.searchQuery) {
-            filtered = filtered.filter(user => {
-                const searchLower = state.searchQuery.toLowerCase();
-                const fullName = (user.full_name || '').toLowerCase();
-                const email = (user.email || '').toLowerCase();
-                const role = (user.role || '').toLowerCase();
-                const roleDisplay = user.is_superuser ? 'system admin' : role;
-                
-                return fullName.includes(searchLower) || 
-                       email.includes(searchLower) || 
-                       roleDisplay.includes(searchLower);
+            filtered = filtered.filter((user) => {
+                const haystack = [
+                    user.full_name || '',
+                    user.email || '',
+                    roleLabel(user)
+                ].join(' ').toLowerCase();
+                return haystack.includes(state.searchQuery);
             });
         }
 
+        filtered = sortUsers(filtered);
         state.filteredUsers = filtered;
-        
-        // Update results counter
+        const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+        if (state.page > pageCount) {
+            state.page = pageCount;
+        }
         updateResultsCounter();
-
-        // Render based on current view
         renderUsers();
     }
 
-    /**
-     * Update results counter
-     */
+    function sortUsers(users) {
+        const sorted = users.slice();
+        if (state.sortBy === 'oldest') {
+            return sorted.reverse();
+        }
+        if (state.sortBy === 'name_asc' || state.sortBy === 'name_desc') {
+            sorted.sort((a, b) => {
+                const left = (a.full_name || a.email || '').toLowerCase();
+                const right = (b.full_name || b.email || '').toLowerCase();
+                return left.localeCompare(right);
+            });
+            if (state.sortBy === 'name_desc') {
+                sorted.reverse();
+            }
+        }
+        return sorted;
+    }
+
     function updateResultsCounter() {
         if (elements.resultsCount) {
-            elements.resultsCount.textContent = state.filteredUsers.length;
+            elements.resultsCount.textContent = String(state.filteredUsers.length);
         }
     }
 
-    /**
-     * Switch view mode
-     * @param {string} view - The view to switch to ('classic', 'list', or 'table')
-     * @param {boolean} save - Whether to save preferences (default: true)
-     */
-    function switchView(view, save = true) {
-        state.currentView = view;
-        
-        // Update button states
-        document.querySelectorAll('.view-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        document.querySelector(`[data-view="${view}"]`)?.classList.add('active');
-
-        // Hide all views
-        elements.classicView?.classList.add('hidden');
-        elements.listView?.classList.add('hidden');
-        elements.tableView?.classList.add('hidden');
-
-        // Show selected view
-        if (view === 'classic') {
-            elements.classicView?.classList.remove('hidden');
-        } else if (view === 'list') {
-            elements.listView?.classList.remove('hidden');
-        } else if (view === 'table') {
-            elements.tableView?.classList.remove('hidden');
-        }
-
-        renderUsers();
-        if (save) {
-            savePreferences();
-        }
-    }
-
-    /**
-     * Render users based on current view
-     */
     function renderUsers() {
-        if (state.filteredUsers.length === 0) {
-            elements.emptyState?.classList.remove('hidden');
+        closeOverflowMenus();
+
+        if (!state.filteredUsers.length) {
+            elements.emptyState?.classList.remove('is-hidden');
+            elements.usersList?.classList.add('is-hidden');
+            elements.pagination?.classList.add('is-hidden');
+            if (elements.usersList) {
+                elements.usersList.innerHTML = '';
+            }
             return;
         }
 
-        elements.emptyState?.classList.add('hidden');
+        elements.emptyState?.classList.add('is-hidden');
+        elements.usersList?.classList.remove('is-hidden');
 
-        if (state.currentView === 'classic') {
-            renderClassicView();
-        } else if (state.currentView === 'list') {
-            renderListView();
-        } else if (state.currentView === 'table') {
-            renderTableView();
-        }
+        const start = (state.page - 1) * PAGE_SIZE;
+        const pageUsers = state.filteredUsers.slice(start, start + PAGE_SIZE);
+        elements.usersList.innerHTML = pageUsers.map(renderUserRow).join('');
+        renderPagination();
     }
 
-    /**
-     * Render classic view (cards)
-     */
-    function renderClassicView() {
-        const container = elements.classicView;
-        if (!container) return;
+    function renderUserRow(user) {
+        const initials = getUserInitials(user);
+        const name = escapeHtml(user.full_name || user.email);
+        const email = escapeHtml(user.email);
+        const role = escapeHtml(roleLabel(user));
+        const created = escapeHtml(formatCreated(user));
+        const lastLogin = escapeHtml(user.last_login_display || user.last_login || 'Never');
+        const avatar = user.profile_image
+            ? `<img src="${escapeHtml(user.profile_image)}" alt="">`
+            : `<span>${escapeHtml(initials)}</span>`;
 
-        container.innerHTML = state.filteredUsers.map(user => {
-            const initials = getUserInitials(user);
-            const statusClass = user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-            const statusText = user.is_active ? 'Active' : 'Inactive';
-            const roleDisplay = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : (user.is_superuser ? 'System Admin' : 'Not assigned');
-
-            return `
-                <div class="bg-white border-2 border-gray-200 rounded-xl p-6 hover:shadow-xl hover:border-gray-300 transition-all duration-200 group">
-                    <div class="flex items-start justify-between mb-5">
-                        <div class="flex items-center gap-4 flex-1 min-w-0">
-                            <div class="w-14 h-14 rounded-full bg-gradient-to-br from-geotrak to-geotrak-hover text-white flex items-center justify-center font-semibold text-base flex-shrink-0 overflow-hidden ring-2 ring-gray-100 group-hover:ring-gray-300 transition-all">
-                                ${user.profile_image ? 
-                                    `<img src="${user.profile_image}" alt="Profile" class="w-full h-full object-cover">` : 
-                                    `<span>${initials}</span>`
-                                }
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <h3 class="text-base font-semibold text-geotrak truncate mb-1">${escapeHtml(user.full_name || user.email)}</h3>
-                                <p class="text-xs text-gray-500 truncate">${escapeHtml(user.email)}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="space-y-3 mb-5">
+        return `
+            <article class="all-users-row">
+                <div class="all-users-row__identity">
+                    <div class="all-users-row__avatar">${avatar}</div>
+                    <div class="all-users-row__who">
+                        <h2>${name}</h2>
+                        <p>${email}</p>
                         ${state.visibleColumns.role ? `
-                            <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-50">
-                                <span class="text-xs font-medium text-gray-600">Role</span>
-                                <span class="text-xs font-semibold text-geotrak px-2 py-1 rounded-md bg-white">${escapeHtml(roleDisplay)}</span>
-                            </div>
-                        ` : ''}
-                        ${state.visibleColumns.status ? `
-                            <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-50">
-                                <span class="text-xs font-medium text-gray-600">Status</span>
-                                <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${statusClass}">${statusText}</span>
-                            </div>
-                        ` : ''}
-                        ${state.visibleColumns.created && user.account_creation_date ? `
-                            <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-50">
-                                <span class="text-xs font-medium text-gray-600">Created</span>
-                                <span class="text-xs font-medium text-geotrak">${escapeHtml(user.account_creation_date)}</span>
-                            </div>
-                        ` : ''}
-                        ${state.visibleColumns.last_login && user.last_login ? `
-                            <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-50">
-                                <span class="text-xs font-medium text-gray-600">Last Login</span>
-                                <span class="text-xs font-medium text-geotrak">${escapeHtml(user.last_login)}</span>
-                            </div>
-                        ` : ''}
-                    </div>
-                    <div class="pt-4 border-t-2 border-gray-100">
-                        <a href="/system-admin/users/view/${user.id}/" class="inline-flex items-center justify-center w-full rounded-full bg-geotrak px-4 py-2.5 text-xs font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        <span class="all-users-role">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                             </svg>
-                            View Details
-                        </a>
+                            ${role}
+                        </span>` : ''}
                     </div>
                 </div>
-            `;
-        }).join('');
-    }
-
-    /**
-     * Render list view
-     */
-    function renderListView() {
-        const container = elements.listView;
-        if (!container) return;
-
-        container.innerHTML = state.filteredUsers.map(user => {
-            const initials = getUserInitials(user);
-            const statusClass = user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-            const statusText = user.is_active ? 'Active' : 'Inactive';
-            const roleDisplay = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : (user.is_superuser ? 'System Admin' : 'Not assigned');
-
-            return `
-                <div class="bg-white border-2 border-gray-200 rounded-xl p-5 hover:shadow-lg hover:border-gray-300 transition-all duration-200">
-                    <div class="flex items-center gap-5">
-                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-geotrak to-geotrak-hover text-white flex items-center justify-center font-semibold text-sm flex-shrink-0 overflow-hidden ring-2 ring-gray-100">
-                            ${user.profile_image ? 
-                                `<img src="${user.profile_image}" alt="Profile" class="w-full h-full object-cover">` : 
-                                `<span>${initials}</span>`
-                            }
-                        </div>
-                        <div class="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-center">
-                            ${state.visibleColumns.name ? `
-                                <div class="min-w-0">
-                                    <p class="text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Name</p>
-                                    <p class="text-sm font-semibold text-geotrak truncate">${escapeHtml(user.full_name || user.email)}</p>
-                                </div>
-                            ` : ''}
-                            ${state.visibleColumns.email ? `
-                                <div class="min-w-0">
-                                    <p class="text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Email</p>
-                                    <p class="text-sm text-gray-700 truncate">${escapeHtml(user.email)}</p>
-                                </div>
-                            ` : ''}
-                            ${state.visibleColumns.role ? `
-                                <div class="min-w-0">
-                                    <p class="text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Role</p>
-                                    <p class="text-sm font-semibold text-geotrak">${escapeHtml(roleDisplay)}</p>
-                                </div>
-                            ` : ''}
-                            ${state.visibleColumns.status ? `
-                                <div class="min-w-0">
-                                    <p class="text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Status</p>
-                                    <span class="inline-block text-xs font-semibold px-2.5 py-1 rounded-full ${statusClass}">${statusText}</span>
-                                </div>
-                            ` : ''}
-                            <div class="flex items-center justify-end sm:justify-start lg:justify-end">
-                                <a href="/system-admin/users/view/${user.id}/" class="inline-flex items-center rounded-full bg-geotrak px-4 py-2 text-xs font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md">
-                                    <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    </svg>
-                                    View
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    /**
-     * Render table view
-     */
-    function renderTableView() {
-        const tbody = elements.tableBody;
-        if (!tbody) return;
-
-        tbody.innerHTML = state.filteredUsers.map(user => {
-            const statusClass = user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-            const statusText = user.is_active ? 'Active' : 'Inactive';
-            const roleDisplay = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : (user.is_superuser ? 'System Admin' : 'Not assigned');
-
-            return `
-                <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
-                    ${state.visibleColumns.name ? `
-                        <td class="column-name py-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-geotrak whitespace-nowrap">${escapeHtml(user.full_name || user.email)}</td>
-                    ` : '<td class="column-name hidden"></td>'}
-                    ${state.visibleColumns.email ? `
-                        <td class="column-email py-3 px-3 sm:px-4 text-xs sm:text-sm text-gray-700 whitespace-nowrap">${escapeHtml(user.email)}</td>
-                    ` : '<td class="column-email hidden"></td>'}
-                    ${state.visibleColumns.role ? `
-                        <td class="column-role py-3 px-3 sm:px-4 text-xs sm:text-sm font-medium text-geotrak whitespace-nowrap">${escapeHtml(roleDisplay)}</td>
-                    ` : '<td class="column-role hidden"></td>'}
-                    ${state.visibleColumns.status ? `
-                        <td class="column-status py-3 px-3 sm:px-4 whitespace-nowrap">
-                            <span class="inline-block text-[10px] sm:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full ${statusClass}">${statusText}</span>
-                        </td>
-                    ` : '<td class="column-status hidden"></td>'}
+                <div class="all-users-row__dates">
                     ${state.visibleColumns.created ? `
-                        <td class="column-created py-3 px-3 sm:px-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">${escapeHtml(user.account_creation_date || '-')}</td>
-                    ` : '<td class="column-created hidden"></td>'}
+                    <p>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <span><small>Created</small>${created}</span>
+                    </p>` : ''}
                     ${state.visibleColumns.last_login ? `
-                        <td class="column-last_login py-3 px-3 sm:px-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">${escapeHtml(user.last_login || 'Never')}</td>
-                    ` : '<td class="column-last_login hidden"></td>'}
-                    <td class="py-3 px-3 sm:px-4 whitespace-nowrap">
-                        <a href="/system-admin/users/view/${user.id}/" class="inline-flex items-center rounded-full bg-geotrak px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-semibold text-white hover:bg-geotrak-hover focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md">
-                            <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5 mr-1 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    <p>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span><small>Last Login</small>${lastLogin}</span>
+                    </p>` : ''}
+                </div>
+                <div class="all-users-row__status">
+                    ${state.visibleColumns.status ? `
+                    <span class="all-users-status ${user.is_active ? 'is-active' : 'is-inactive'}">
+                        <small>Status</small>
+                        <strong><span class="users-status-dot ${user.is_active ? '' : 'is-inactive'}"></span>${user.is_active ? 'Active' : 'Inactive'}</strong>
+                    </span>` : ''}
+                </div>
+                <div class="all-users-row__actions">
+                    <div class="all-users-row__menu">
+                        <button type="button" class="all-users-icon-btn" data-overflow-toggle aria-label="More actions">
+                            <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="5" cy="12" r="1.7"></circle>
+                                <circle cx="12" cy="12" r="1.7"></circle>
+                                <circle cx="19" cy="12" r="1.7"></circle>
                             </svg>
-                            <span class="hidden sm:inline">View</span>
-                        </a>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-
-        // Update table header visibility
-        document.querySelectorAll('thead th').forEach(th => {
-            const column = th.classList.contains('column-name') ? 'name' :
-                          th.classList.contains('column-email') ? 'email' :
-                          th.classList.contains('column-role') ? 'role' :
-                          th.classList.contains('column-status') ? 'status' :
-                          th.classList.contains('column-created') ? 'created' :
-                          th.classList.contains('column-last_login') ? 'last_login' : null;
-            
-            if (column && !state.visibleColumns[column]) {
-                th.classList.add('hidden');
-            } else if (column) {
-                th.classList.remove('hidden');
-            }
-        });
+                        </button>
+                        <div class="all-users-row__dropdown is-hidden">
+                            <a href="/system-admin/users/edit/${user.id}/">Edit user</a>
+                            <a href="/system-admin/users/delete/${user.id}/" class="is-danger">Delete user</a>
+                        </div>
+                    </div>
+                    <a class="all-users-view" href="/system-admin/users/view/${user.id}/">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                        View Details
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </a>
+                </div>
+            </article>
+        `;
     }
 
-    /**
-     * Get user initials
-     */
+    function renderPagination() {
+        const pageCount = Math.max(1, Math.ceil(state.filteredUsers.length / PAGE_SIZE));
+
+        const pages = [];
+        pages.push(`<button type="button" class="all-users-page-btn" data-page="${Math.max(1, state.page - 1)}" ${state.page === 1 ? 'disabled' : ''} aria-label="Previous page">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+        </button>`);
+
+        for (let page = 1; page <= pageCount; page += 1) {
+            pages.push(`<button type="button" class="all-users-page-btn ${page === state.page ? 'is-current' : ''}" data-page="${page}">${page}</button>`);
+        }
+
+        pages.push(`<button type="button" class="all-users-page-btn" data-page="${Math.min(pageCount, state.page + 1)}" ${state.page === pageCount ? 'disabled' : ''} aria-label="Next page">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+        </button>`);
+
+        if (!elements.pagination) {
+            return;
+        }
+        elements.pagination.classList.remove('is-hidden');
+        elements.pagination.innerHTML = pages.join('');
+    }
+
+    function roleLabel(user) {
+        if (user.is_superuser || user.role === 'system_admin') {
+            return 'System Admin';
+        }
+        if (user.role) {
+            return user.role.charAt(0).toUpperCase() + user.role.slice(1);
+        }
+        return 'Not assigned';
+    }
+
+    function formatCreated(user) {
+        if (user.created_display) {
+            return user.created_display;
+        }
+        if (user.account_creation_date && user.account_creation_time) {
+            return `${user.account_creation_date} at ${user.account_creation_time}`;
+        }
+        return user.date_joined || '—';
+    }
+
     function getUserInitials(user) {
         if (user.full_name) {
-            const parts = user.full_name.trim().split(' ');
+            const parts = user.full_name.trim().split(/\s+/);
             if (parts.length >= 2) {
                 return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
             }
             return parts[0][0].toUpperCase();
         }
-        return user.email[0].toUpperCase();
+        return (user.email || 'U')[0].toUpperCase();
     }
 
-    /**
-     * Escape HTML to prevent XSS
-     */
     function escapeHtml(text) {
-        if (!text) return '';
+        if (!text) {
+            return '';
+        }
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
 
-    /**
-     * Show error message
-     */
     function showError(message) {
-        elements.emptyState?.classList.remove('hidden');
-        const emptyText = elements.emptyState?.querySelector('p');
-        if (emptyText) {
-            emptyText.textContent = message;
+        elements.emptyState?.classList.remove('is-hidden');
+        const text = elements.emptyState?.querySelector('p');
+        if (text) {
+            text.textContent = message;
         }
     }
 
+    function closeOverflowMenus() {
+        document.querySelectorAll('.all-users-row__dropdown').forEach((menu) => {
+            menu.classList.add('is-hidden');
+        });
+    }
 
-    /**
-     * Load saved preferences from localStorage
-     */
     function loadSavedPreferences() {
         try {
-            const savedView = localStorage.getItem('allUsersView');
-            if (savedView && ['classic', 'list', 'table'].includes(savedView)) {
-                switchView(savedView, false); // Don't save preferences when loading them
-            } else {
-                // Default to classic view if no saved preference
-                switchView('classic', false);
-            }
+            localStorage.removeItem('allUsersView');
 
             const savedFilter = localStorage.getItem('allUsersRoleFilter');
-            if (savedFilter) {
+            if (savedFilter && elements.roleFilter) {
                 state.roleFilter = savedFilter;
-                if (elements.roleFilter) {
-                    elements.roleFilter.value = savedFilter;
-                }
+                elements.roleFilter.value = savedFilter;
+            }
+
+            const savedStatus = localStorage.getItem('allUsersStatusFilter');
+            if (savedStatus && elements.statusFilter) {
+                state.statusFilter = savedStatus;
+                elements.statusFilter.value = savedStatus;
+            }
+
+            const savedSort = localStorage.getItem('allUsersSort');
+            if (savedSort && elements.sortSelect) {
+                state.sortBy = savedSort;
+                elements.sortSelect.value = savedSort;
             }
 
             const savedSearch = localStorage.getItem('allUsersSearchQuery');
-            if (savedSearch) {
-                state.searchQuery = savedSearch;
-                if (elements.searchInput) {
-                    elements.searchInput.value = savedSearch;
-                    if (savedSearch) {
-                        elements.clearSearchBtn?.classList.remove('hidden');
-                    }
-                }
+            if (savedSearch && elements.searchInput) {
+                state.searchQuery = savedSearch.toLowerCase();
+                elements.searchInput.value = savedSearch;
+                elements.clearSearchBtn?.classList.toggle('is-hidden', !savedSearch);
             }
 
             const savedColumns = localStorage.getItem('allUsersVisibleColumns');
             if (savedColumns) {
-                state.visibleColumns = { ...state.visibleColumns, ...JSON.parse(savedColumns) };
-                elements.columnToggles?.forEach(toggle => {
+                const parsed = JSON.parse(savedColumns);
+                Object.keys(state.visibleColumns).forEach((column) => {
+                    if (Object.prototype.hasOwnProperty.call(parsed, column)) {
+                        state.visibleColumns[column] = Boolean(parsed[column]);
+                    }
+                });
+                elements.columnToggles.forEach((toggle) => {
                     const column = toggle.dataset.column;
-                    if (state.visibleColumns.hasOwnProperty(column)) {
+                    if (Object.prototype.hasOwnProperty.call(state.visibleColumns, column)) {
                         toggle.checked = state.visibleColumns[column];
                     }
                 });
             }
-        } catch (e) {
-            // Default to classic view on error
-            switchView('classic', false);
+        } catch (error) {
+            // Keep defaults if stored preferences are invalid.
         }
     }
 
-    /**
-     * Save preferences to localStorage
-     */
     function savePreferences() {
         try {
-            localStorage.setItem('allUsersView', state.currentView);
             localStorage.setItem('allUsersRoleFilter', state.roleFilter);
-            localStorage.setItem('allUsersSearchQuery', state.searchQuery);
+            localStorage.setItem('allUsersStatusFilter', state.statusFilter);
+            localStorage.setItem('allUsersSort', state.sortBy);
+            localStorage.setItem('allUsersSearchQuery', elements.searchInput?.value || '');
             localStorage.setItem('allUsersVisibleColumns', JSON.stringify(state.visibleColumns));
-        } catch (e) {
-            // Failed to save preferences
+        } catch (error) {
+            // Ignore storage failures.
         }
     }
 
-    // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', init);
 })();
-
