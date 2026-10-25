@@ -26,6 +26,5 @@ urlpatterns = [
     path('api/users/', views.users_api_view, name='users_api'),
     path('api/users/<int:user_id>/', views.user_detail_api_view, name='user_detail_api'),
     path('api/permissions/', views.permissions_api_view, name='permissions_api'),
-    path('api/permissions/<int:user_id>/', views.update_permissions_api_view, name='update_permissions_api'),
 ]
 

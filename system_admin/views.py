@@ -8,12 +8,10 @@ from django.contrib.auth.models import User
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
 from django.db.models import F
 from .account import render_account_page
 from .models import UserProfile
 from mapping.presentation import enforce_my_edits_access, my_edits_page_context
-import json
 
 
 def _manageable_user(user_id, action_label):
@@ -663,284 +661,126 @@ def user_detail_api_view(request, user_id):
         }, status=500)
 
 
-@login_required(login_url='/login/')
-def permissions_view(request):
-    """Permissions management view."""
-    # Only superusers (system admins) can manage permissions.
+def _permission_subject(user_id):
+    """Return a manager/editor and profile, or an error message."""
+    try:
+        user = User.objects.select_related('profile').get(pk=user_id)
+    except User.DoesNotExist:
+        return None, None, None, 'That user could not be found.'
+
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    role = 'system_admin' if user.is_superuser else profile.role
+    if role not in ('manager', 'editor'):
+        return None, None, None, 'Permissions can only be managed for manager or editor accounts.'
+    return user, profile, role, None
+
+
+def _save_permission_flags(profile, role, post_data):
+    if role == 'manager':
+        profile.can_access_dashboard = post_data.get('can_access_dashboard') == 'on'
+    else:
+        profile.can_access_dashboard = False
+    profile.can_access_security = post_data.get('can_access_security') == 'on'
+    profile.can_access_account_information = post_data.get('can_access_account_information') == 'on'
+    profile.can_access_layer_uploader = post_data.get('can_access_layer_uploader') == 'on'
+    profile.can_access_my_edits = post_data.get('can_access_my_edits') == 'on'
+    profile.save()
+
+
+def _has_any_permission(profile, role):
+    flags = [
+        profile.can_access_security,
+        profile.can_access_account_information,
+        profile.can_access_layer_uploader,
+        profile.can_access_my_edits,
+    ]
+    if role == 'manager':
+        flags.append(profile.can_access_dashboard)
+    return any(flags)
+
+
+def _permissions_form_view(request, user_id, template_name, success_message):
     if not request.user.is_superuser:
         logout(request)
         return redirect(f"{reverse('auth:login')}?session_ended=1")
-    
+
+    target_user, profile, role, error = _permission_subject(user_id)
+    if error:
+        if 'could not be found' in error:
+            messages.error(request, error)
+        else:
+            messages.warning(request, error)
+        return redirect('system_admin:permissions')
+
+    if request.method == 'POST':
+        _save_permission_flags(profile, role, request.POST)
+        messages.success(
+            request,
+            success_message.format(target_user.get_full_name() or target_user.email),
+        )
+        return redirect('system_admin:permissions')
+
+    return render(request, template_name, {
+        'target_user': target_user,
+        'profile': profile,
+        'role': role,
+    })
+
+
+@login_required(login_url='/login/')
+def permissions_view(request):
+    if not request.user.is_superuser:
+        logout(request)
+        return redirect(f"{reverse('auth:login')}?session_ended=1")
     return render(request, 'system_admin/permissions.html')
 
 
 @login_required(login_url='/login/')
 def grant_permission_view(request, user_id):
-    """Grant permissions view for users without permissions."""
-    # Only superusers (system admins) can grant permissions.
-    if not request.user.is_superuser:
-        logout(request)
-        return redirect(f"{reverse('auth:login')}?session_ended=1")
-    
-    try:
-        user = User.objects.select_related('profile').get(pk=user_id)
-        profile, created = UserProfile.objects.get_or_create(user=user)
-        
-        # Resolve the user’s effective role.
-        role = None
-        if user.is_superuser:
-            role = 'system_admin'
-        elif profile.role:
-            role = profile.role
-        
-        # Only managers and editors are eligible for explicit permissions.
-        if role not in ['manager', 'editor']:
-            messages.warning(
-                request,
-                'Permissions can only be managed for manager or editor accounts.',
-            )
-            return redirect('system_admin:permissions')
-        
-        context = {
-            'user': user,
-            'profile': profile,
-            'role': role,
-            'permissions_granted': False
-        }
-        
-        if request.method == 'POST':
-            intent = request.POST.get('intent')
-            if intent == 'grant_permissions':
-                # Update permission flags according to the current role.
-                if role == 'manager':
-                    profile.can_access_dashboard = request.POST.get('can_access_dashboard') == 'on'
-                    profile.can_access_security = request.POST.get('can_access_security') == 'on'
-                    profile.can_access_account_information = request.POST.get('can_access_account_information') == 'on'
-                    profile.can_access_layer_uploader = request.POST.get('can_access_layer_uploader') == 'on'
-                    profile.can_access_my_edits = request.POST.get('can_access_my_edits') == 'on'
-                elif role == 'editor':
-                    profile.can_access_dashboard = False
-                    profile.can_access_security = request.POST.get('can_access_security') == 'on'
-                    profile.can_access_account_information = request.POST.get('can_access_account_information') == 'on'
-                    profile.can_access_layer_uploader = request.POST.get('can_access_layer_uploader') == 'on'
-                    profile.can_access_my_edits = request.POST.get('can_access_my_edits') == 'on'
-                
-                profile.save()
-                messages.success(
-                    request,
-                    f'Permissions have been granted successfully to {user.get_full_name() or user.email}.',
-                )
-
-        return render(request, 'system_admin/grant_permission.html', context)
-    except User.DoesNotExist:
-        messages.error(request, 'That user could not be found.')
-        return redirect('system_admin:permissions')
+    return _permissions_form_view(
+        request,
+        user_id,
+        'system_admin/grant_permission.html',
+        'Permissions have been granted successfully to {}.',
+    )
 
 
 @login_required(login_url='/login/')
 def check_permission_view(request, user_id):
-    """Check/Edit permissions view for users with existing permissions."""
-    # Only superusers (system admins) can review or edit permissions.
-    if not request.user.is_superuser:
-        logout(request)
-        return redirect(f"{reverse('auth:login')}?session_ended=1")
-    
-    try:
-        user = User.objects.select_related('profile').get(pk=user_id)
-        profile, created = UserProfile.objects.get_or_create(user=user)
-        
-        # Resolve the user’s effective role.
-        role = None
-        if user.is_superuser:
-            role = 'system_admin'
-        elif profile.role:
-            role = profile.role
-        
-        # Only managers and editors have configurable permissions here.
-        if role not in ['manager', 'editor']:
-            messages.warning(
-                request,
-                'Permissions can only be managed for manager or editor accounts.',
-            )
-            return redirect('system_admin:permissions')
-        
-        context = {
-            'user': user,
-            'profile': profile,
-            'role': role,
-            'permissions_updated': False
-        }
-        
-        if request.method == 'POST':
-            intent = request.POST.get('intent')
-            if intent == 'update_permissions':
-                # Update permission flags based on role.
-                if role == 'manager':
-                    profile.can_access_dashboard = request.POST.get('can_access_dashboard') == 'on'
-                    profile.can_access_security = request.POST.get('can_access_security') == 'on'
-                    profile.can_access_account_information = request.POST.get('can_access_account_information') == 'on'
-                elif role == 'editor':
-                    profile.can_access_dashboard = False
-                    profile.can_access_security = request.POST.get('can_access_security') == 'on'
-                    profile.can_access_account_information = request.POST.get('can_access_account_information') == 'on'
-                profile.can_access_layer_uploader = request.POST.get('can_access_layer_uploader') == 'on'
-                profile.can_access_my_edits = request.POST.get('can_access_my_edits') == 'on'
-
-                profile.save()
-                messages.success(
-                    request,
-                    f'Permissions have been updated successfully for {user.get_full_name() or user.email}.',
-                )
-
-        return render(request, 'system_admin/check_permission.html', context)
-    except User.DoesNotExist:
-        messages.error(request, 'That user could not be found.')
-        return redirect('system_admin:permissions')
+    return _permissions_form_view(
+        request,
+        user_id,
+        'system_admin/check_permission.html',
+        'Permissions have been updated successfully for {}.',
+    )
 
 
 @login_required(login_url='/login/')
 def permissions_api_view(request):
-    """API endpoint to fetch all users with permissions data."""
     if not request.user.is_superuser:
-        return JsonResponse({
-            'success': False,
-            'message': 'Unauthorized',
-            'users': []
-        }, status=403)
-    
+        return JsonResponse({'success': False, 'message': 'Unauthorized', 'users': []}, status=403)
+
     try:
-        users = User.objects.all().select_related('profile').order_by('-date_joined')
         users_data = []
-        
+        users = User.objects.select_related('profile').order_by('-date_joined')
         for user in users:
-            profile = getattr(user, 'profile', None)
-            
-            # Get full name
-            full_name = user.get_full_name() or (user.first_name + ' ' + user.last_name).strip() or None
-            
-            # Get role
-            role = None
             if user.is_superuser:
-                role = 'system_admin'
-            elif profile and profile.role:
-                role = profile.role
-            
-            # Get permissions (only for managers and editors)
-            has_permissions = False
-            permissions = {
-                'can_access_dashboard': False,
-                'can_access_security': False,
-                'can_access_account_information': False,
-                'can_access_layer_uploader': False,
-                'can_access_my_edits': False,
-            }
-            
-            if profile and role in ['manager', 'editor']:
-                permissions['can_access_dashboard'] = profile.can_access_dashboard if role == 'manager' else False
-                permissions['can_access_security'] = profile.can_access_security
-                permissions['can_access_account_information'] = profile.can_access_account_information
-                permissions['can_access_layer_uploader'] = profile.can_access_layer_uploader
-                permissions['can_access_my_edits'] = profile.can_access_my_edits
-                has_permissions = any([
-                    permissions['can_access_dashboard'],
-                    permissions['can_access_security'],
-                    permissions['can_access_account_information'],
-                    permissions['can_access_layer_uploader'],
-                    permissions['can_access_my_edits'],
-                ])
-            
-            user_data = {
+                continue
+            profile = getattr(user, 'profile', None)
+            role = profile.role if profile else None
+            if role not in ('manager', 'editor'):
+                continue
+            full_name = user.get_full_name() or (user.first_name + ' ' + user.last_name).strip() or None
+            users_data.append({
                 'id': user.id,
-                'username': user.username,
                 'email': user.email,
-                'first_name': user.first_name or '',
-                'last_name': user.last_name or '',
                 'full_name': full_name,
                 'role': role,
-                'has_permissions': has_permissions,
-                'permissions': permissions
-            }
-            users_data.append(user_data)
-        
-        return JsonResponse({
-            'success': True,
-            'users': users_data
-        })
+                'has_permissions': _has_any_permission(profile, role),
+            })
+        return JsonResponse({'success': True, 'users': users_data})
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': str(e),
-            'users': []
-        }, status=500)
-
-
-@login_required(login_url='/login/')
-@require_http_methods(["POST"])
-def update_permissions_api_view(request, user_id):
-    """API endpoint to update user permissions."""
-    if not request.user.is_superuser:
-        return JsonResponse({
-            'success': False,
-            'message': 'Unauthorized'
-        }, status=403)
-    
-    try:
-        user = User.objects.select_related('profile').get(pk=user_id)
-        profile, created = UserProfile.objects.get_or_create(user=user)
-        
-        # Get role
-        role = None
-        if user.is_superuser:
-            role = 'system_admin'
-        elif profile.role:
-            role = profile.role
-        
-        # Only allow updating permissions for managers and editors
-        if role not in ['manager', 'editor']:
-            return JsonResponse({
-                'success': False,
-                'message': 'Permissions can only be set for managers and editors'
-            }, status=400)
-        
-        # Parse JSON data
-        try:
-            data = json.loads(request.body.decode('utf-8'))
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            return JsonResponse({
-                'success': False,
-                'message': 'Invalid JSON data'
-            }, status=400)
-        
-        # Update permissions based on role
-        if role == 'manager':
-            profile.can_access_dashboard = data.get('can_access_dashboard', False)
-            profile.can_access_security = data.get('can_access_security', False)
-            profile.can_access_account_information = data.get('can_access_account_information', False)
-        elif role == 'editor':
-            # Editors don't have dashboard permission
-            profile.can_access_dashboard = False
-            profile.can_access_security = data.get('can_access_security', False)
-            profile.can_access_account_information = data.get('can_access_account_information', False)
-        profile.can_access_layer_uploader = data.get('can_access_layer_uploader', False)
-        profile.can_access_my_edits = data.get('can_access_my_edits', False)
-        
-        profile.save()
-        
-        return JsonResponse({
-            'success': True,
-            'message': 'Permissions updated successfully',
-            'notification': {'message': 'Permissions updated successfully', 'type': 'success'}
-        })
-    except User.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'message': 'User not found'
-        }, status=404)
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': str(e)
-        }, status=500)
+        return JsonResponse({'success': False, 'message': str(e), 'users': []}, status=500)
 
 
 @login_required(login_url='/login/')
