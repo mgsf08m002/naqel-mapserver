@@ -8,6 +8,7 @@
     <title>{% block title %}Editor · GeoTrak Maps{% endblock %}</title>
     <link href="{% static 'css/output.css' %}" rel="stylesheet">
     <link href="{% static 'css/responsive.css' %}" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
 </head>
 <body class="bg-white min-h-screen font-sans flex flex-col h-screen overflow-hidden" data-user-role="editor">
     <!-- Header -->

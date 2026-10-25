@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.db.models import F
+from .account import render_account_page
 from .models import UserProfile
 from mapping.presentation import enforce_my_edits_access, my_edits_page_context
 import json
@@ -39,61 +40,10 @@ def map_view(request):
 @login_required(login_url='/login/')
 def account_information_view(request):
     """Account Information view."""
-    # Only superusers (system admins) can access this view.
     if not request.user.is_superuser:
         logout(request)
         return redirect(f"{reverse('auth:login')}?session_ended=1")
-
-    # Ensure a profile record exists for the current admin.
-    profile, created = UserProfile.objects.get_or_create(user=request.user)
-    
-    # Backfill account creation date/time for existing admins that predate this field.
-    if not profile.account_creation_date:
-        profile.set_account_creation_datetime()
-    
-    context = {'profile': profile}
-
-    if request.method == 'POST':
-        intent = request.POST.get('intent')
-        if intent == 'update_profile':
-            errors = []
-            full_name = request.POST.get('full_name', '').strip()
-            email = request.POST.get('email', '').strip()
-
-            if not full_name:
-                errors.append('Full name is required.')
-
-            if not email:
-                errors.append('Email is required.')
-            else:
-                try:
-                    validate_email(email)
-                except ValidationError:
-                    errors.append('Please provide a valid email.')
-                else:
-                    if User.objects.filter(username=email).exclude(pk=request.user.pk).exists():
-                        errors.append('This email is already in use.')
-
-            if not errors:
-                user = request.user
-                old_email = user.email
-                old_username = user.username
-                user.first_name = full_name
-                user.last_name = ''
-                user.email = email
-                user.username = email
-                user.save()
-
-                if old_email != email or old_username != email:
-                    logout(request)
-                    return redirect("/login/?email_changed=1")
-
-                messages.success(request, "Profile updated.")
-            else:
-                for err in errors:
-                    messages.error(request, err)
-
-    return render(request, 'system_admin/account_information.html', context)
+    return render_account_page(request, 'admin', 'system_admin/account_information.html')
 
 
 @login_required(login_url='/login/')
@@ -470,23 +420,14 @@ def delete_user_view(request, user_id=None):
 @login_required(login_url='/login/')
 def manage_passwords_view(request):
     """Manage Passwords view."""
-    # Only superusers (system admins) can access password statistics.
     if not request.user.is_superuser:
         logout(request)
         return redirect(f"{reverse('auth:login')}?session_ended=1")
-    
-    # Placeholder statistics until password-management models are introduced.
-    pending_requests = 0
-    
-    # Track password changes per month once the backing model exists.
-    password_changes_this_month = 0
-    
-    context = {
-        'pending_requests': pending_requests,
-        'password_changes_this_month': password_changes_this_month,
-    }
-    
-    return render(request, 'system_admin/manage_passwords.html', context)
+
+    return render(request, 'system_admin/manage_passwords.html', {
+        'pending_requests': 0,
+        'password_changes_this_month': 0,
+    })
 
 
 @login_required(login_url='/login/')

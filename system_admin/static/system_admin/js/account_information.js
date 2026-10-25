@@ -1,28 +1,70 @@
-(function() {
+(function () {
     'use strict';
 
     document.addEventListener('DOMContentLoaded', () => {
+        const page = document.querySelector('.account-page');
+        const editBtn = document.getElementById('editBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const editableFields = document.querySelectorAll('.editable-field');
         const avatarButton = document.getElementById('profileAvatar');
         const fileInput = document.getElementById('profileInput');
         const imageEl = document.getElementById('profileImage');
         const initialsEl = document.getElementById('profileInitials');
         const removeBtn = document.getElementById('removePhotoBtn');
         const stateEl = document.getElementById('photoState');
-        const editBtn = document.getElementById('editBtn');
-        const saveBtn = document.getElementById('saveBtn');
-        const cancelBtn = document.getElementById('cancelBtn');
-        const editableFields = document.querySelectorAll('.editable-field');
-        const notifyNode = document.getElementById('accountNotify');
-        
-        // Cropper elements
         const cropModal = document.getElementById('cropModal');
         const cropImage = document.getElementById('cropImage');
         const closeCropModal = document.getElementById('closeCropModal');
         const cancelCrop = document.getElementById('cancelCrop');
         const saveCrop = document.getElementById('saveCrop');
-        
+
+        if (!page) return;
+
+        const uploadUrl = page.dataset.uploadUrl || '';
+        const removeUrl = page.dataset.removeUrl || '';
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
         let cropper = null;
         let selectedFile = null;
+
+        const csrfHeader = () => ({
+            'X-CSRFToken': csrfToken,
+        });
+
+        const setEditing = (isEditing) => {
+            page.classList.toggle('is-editing', isEditing);
+            editableFields.forEach((field) => {
+                if (isEditing) {
+                    field.dataset.originalValue = field.value;
+                    field.disabled = false;
+                } else {
+                    field.disabled = true;
+                }
+            });
+            if (isEditing) {
+                const first = editableFields[0];
+                if (first) first.focus();
+            }
+        };
+
+        const cancelEditing = () => {
+            editableFields.forEach((field) => {
+                if (field.dataset.originalValue !== undefined) {
+                    field.value = field.dataset.originalValue;
+                }
+            });
+            setEditing(false);
+        };
+
+        if (page.classList.contains('is-editing')) {
+            setEditing(true);
+        }
+
+        if (editBtn) {
+            editBtn.addEventListener('click', () => setEditing(true));
+        }
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', cancelEditing);
+        }
 
         if (!avatarButton || !fileInput || !imageEl || !initialsEl) return;
 
@@ -59,35 +101,44 @@
 
         const updatePhotoState = (hasPhoto, imageUrl = null) => {
             if (hasPhoto) {
-                imageEl.classList.remove('hidden');
+                imageEl.classList.remove('is-hidden');
                 if (imageUrl) imageEl.src = imageUrl;
-                initialsEl.classList.add('hidden');
+                initialsEl.classList.add('is-hidden');
                 if (stateEl) stateEl.textContent = 'Photo added';
                 if (removeBtn) removeBtn.disabled = false;
                 syncHeaderAvatars(imageUrl || imageEl.src);
             } else {
-                imageEl.classList.add('hidden');
+                imageEl.classList.add('is-hidden');
                 imageEl.removeAttribute('src');
-                initialsEl.classList.remove('hidden');
+                initialsEl.classList.remove('is-hidden');
                 if (stateEl) stateEl.textContent = 'No photo uploaded';
                 if (removeBtn) removeBtn.disabled = true;
                 syncHeaderAvatars(null);
             }
         };
 
-        const openFilePicker = () => fileInput.click();
+        const closeCropModalHandler = () => {
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+            if (cropModal) cropModal.classList.add('is-hidden');
+            if (cropImage) cropImage.src = '';
+            fileInput.value = '';
+            selectedFile = null;
+        };
 
         const openCropModal = (file) => {
+            if (typeof Cropper === 'undefined' || !cropModal || !cropImage) {
+                window.notify.tryShow('Image cropper failed to load.', 'error');
+                return;
+            }
             selectedFile = file;
             const reader = new FileReader();
             reader.onload = (event) => {
                 cropImage.src = event.target.result;
-                cropModal.classList.remove('hidden');
-                
-                // Initialize cropper with circular aspect ratio
-                if (cropper) {
-                    cropper.destroy();
-                }
+                cropModal.classList.remove('is-hidden');
+                if (cropper) cropper.destroy();
                 cropper = new Cropper(cropImage, {
                     aspectRatio: 1,
                     viewMode: 1,
@@ -107,205 +158,116 @@
             reader.readAsDataURL(file);
         };
 
-        const closeCropModalHandler = () => {
-            if (cropper) {
-                cropper.destroy();
-                cropper = null;
-            }
-            cropModal.classList.add('hidden');
-            cropImage.src = '';
-            fileInput.value = '';
-            selectedFile = null;
-        };
-
         const uploadCroppedImage = () => {
             if (!cropper || !selectedFile) return;
-
-            // Get cropped canvas
             const canvas = cropper.getCroppedCanvas({
                 width: 400,
                 height: 400,
                 imageSmoothingEnabled: true,
                 imageSmoothingQuality: 'high',
             });
-
             canvas.toBlob((blob) => {
                 if (!blob) {
                     window.notify.tryShow('Failed to crop image.', 'error');
                     return;
                 }
-
-                // Create FormData with cropped image
                 const formData = new FormData();
                 formData.append('profile_image', blob, selectedFile.name);
-                formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]')?.value || '');
-
-                // Show loading state
+                formData.append('csrfmiddlewaretoken', csrfToken);
                 if (saveCrop) {
                     saveCrop.disabled = true;
                     saveCrop.textContent = 'Uploading...';
                 }
-
-                fetch('/system-admin/upload-profile-image/', {
+                fetch(uploadUrl, {
                     method: 'POST',
                     body: formData,
-                    credentials: 'same-origin'
+                    credentials: 'same-origin',
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (saveCrop) {
-                        saveCrop.disabled = false;
-                        saveCrop.textContent = 'Save Crop';
-                    }
-                    
-                    if (data.success) {
-                        updatePhotoState(true, data.image_url);
-                        closeCropModalHandler();
-                        const successMsg = data.notification?.message || data.message || 'Profile photo uploaded successfully.';
-                        window.notify.tryShow(successMsg, 'success');
-                    } else {
-                        const errorMsg = data.notification?.message || data.message || 'Failed to upload photo.';
-                        window.notify.tryShow(errorMsg, 'error');
-                    }
-                })
-                .catch(error => {
-                    if (saveCrop) {
-                        saveCrop.disabled = false;
-                        saveCrop.textContent = 'Save Crop';
-                    }
-                    window.notify.tryShow('Failed to upload photo. Please try again.', 'error');
-                });
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (saveCrop) {
+                            saveCrop.disabled = false;
+                            saveCrop.textContent = 'Save Crop';
+                        }
+                        if (data.success) {
+                            updatePhotoState(true, data.image_url);
+                            closeCropModalHandler();
+                            window.notify.tryShow(
+                                data.notification?.message || data.message || 'Profile photo uploaded successfully.',
+                                'success'
+                            );
+                        } else {
+                            window.notify.tryShow(
+                                data.notification?.message || data.message || 'Failed to upload photo.',
+                                'error'
+                            );
+                        }
+                    })
+                    .catch(() => {
+                        if (saveCrop) {
+                            saveCrop.disabled = false;
+                            saveCrop.textContent = 'Save Crop';
+                        }
+                        window.notify.tryShow('Failed to upload photo. Please try again.', 'error');
+                    });
             }, 'image/jpeg', 0.95);
         };
 
-        const handleFileChange = () => {
-            const file = fileInput.files && fileInput.files[0];
-            if (!file) {
-                updatePhotoState(false);
-                window.notify.tryShow('No photo selected.', 'info');
-                return;
-            }
+        avatarButton.addEventListener('click', () => fileInput.click());
 
-            // Validate file type
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return;
             if (!file.type.startsWith('image/')) {
                 window.notify.tryShow('Please select an image file.', 'error');
                 fileInput.value = '';
                 return;
             }
-
-            // Open crop modal instead of uploading directly
             openCropModal(file);
-        };
-
-        const removePhoto = () => {
-            fetch('/system-admin/remove-profile-image/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
-                },
-                credentials: 'same-origin'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    fileInput.value = '';
-                    updatePhotoState(false);
-                    const successMsg = data.notification?.message || data.message || 'Profile photo removed.';
-                    window.notify.tryShow(successMsg, 'success');
-                } else {
-                    const errorMsg = data.notification?.message || data.message || 'Failed to remove photo.';
-                    window.notify.tryShow(errorMsg, 'error');
-                }
-            })
-            .catch(error => {
-                window.notify.tryShow('Failed to remove photo. Please try again.', 'error');
-            });
-        };
-
-        const setEditing = (isEditing) => {
-            editableFields.forEach((field) => {
-                field.disabled = !isEditing;
-                if (isEditing) {
-                    field.dataset.originalValue = field.value;
-                    field.classList.add('bg-white', 'border-gray-300');
-                } else {
-                    field.classList.remove('bg-white', 'border-gray-300');
-                }
-            });
-
-            if (editBtn) editBtn.classList.toggle('hidden', isEditing);
-            if (saveBtn) saveBtn.classList.toggle('hidden', !isEditing);
-            if (cancelBtn) cancelBtn.classList.toggle('hidden', !isEditing);
-        };
-
-        const cancelEditing = () => {
-            editableFields.forEach((field) => {
-                if (field.dataset.originalValue !== undefined) {
-                    field.value = field.dataset.originalValue;
-                }
-            });
-            setEditing(false);
-        };
-
-        if (editBtn) {
-            editBtn.addEventListener('click', () => setEditing(true));
-        }
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', cancelEditing);
-        }
-
-        // Notifications from server (profile updated / errors)
-        if (notifyNode) {
-            const updated = notifyNode.getAttribute('data-updated') === 'true';
-            const errorsRaw = notifyNode.getAttribute('data-errors');
-
-            if (updated) {
-                window.notify.tryShow('Profile updated.', 'success');
-            }
-
-            if (errorsRaw) {
-                errorsRaw.split('||').forEach((err) => {
-                    const trimmed = err.trim();
-                    if (trimmed) window.notify.tryShow(trimmed, 'error');
-                });
-            }
-        }
-
-        avatarButton.addEventListener('click', openFilePicker);
-        avatarButton.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                openFilePicker();
-            }
         });
 
-        fileInput.addEventListener('change', handleFileChange);
-        if (removeBtn) removeBtn.addEventListener('click', removePhoto);
-        
-        // Cropper modal event listeners
-        if (closeCropModal) {
-            closeCropModal.addEventListener('click', closeCropModalHandler);
-        }
-        if (cancelCrop) {
-            cancelCrop.addEventListener('click', closeCropModalHandler);
-        }
-        if (saveCrop) {
-            saveCrop.addEventListener('click', uploadCroppedImage);
-        }
-        
-        // Close modal on backdrop click
-        if (cropModal) {
-            cropModal.addEventListener('click', (e) => {
-                if (e.target === cropModal) {
-                    closeCropModalHandler();
-                }
+        if (removeBtn) {
+            removeBtn.addEventListener('click', () => {
+                fetch(removeUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...csrfHeader(),
+                    },
+                    credentials: 'same-origin',
+                })
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (data.success) {
+                            fileInput.value = '';
+                            updatePhotoState(false);
+                            window.notify.tryShow(
+                                data.notification?.message || data.message || 'Profile photo removed.',
+                                'success'
+                            );
+                        } else {
+                            window.notify.tryShow(
+                                data.notification?.message || data.message || 'Failed to remove photo.',
+                                'error'
+                            );
+                        }
+                    })
+                    .catch(() => {
+                        window.notify.tryShow('Failed to remove photo. Please try again.', 'error');
+                    });
             });
         }
-        
-        // Close modal on Escape key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && cropModal && !cropModal.classList.contains('hidden')) {
+
+        if (closeCropModal) closeCropModal.addEventListener('click', closeCropModalHandler);
+        if (cancelCrop) cancelCrop.addEventListener('click', closeCropModalHandler);
+        if (saveCrop) saveCrop.addEventListener('click', uploadCroppedImage);
+        if (cropModal) {
+            cropModal.addEventListener('click', (event) => {
+                if (event.target === cropModal) closeCropModalHandler();
+            });
+        }
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && cropModal && !cropModal.classList.contains('is-hidden')) {
                 closeCropModalHandler();
             }
         });

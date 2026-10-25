@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 from django.urls import reverse
 from django.http import JsonResponse
+from system_admin.account import render_account_page
 from system_admin.models import UserProfile
 from mapping.presentation import enforce_my_edits_access, my_edits_page_context
 
@@ -26,49 +27,15 @@ def map_view(request):
 @login_required(login_url='/login/')
 def account_information_view(request):
     """Account Information view."""
-    # Require an editor profile.
     if not hasattr(request.user, "profile") or request.user.profile.role != "editor":
         logout(request)
         return redirect(f"{reverse('auth:login')}?session_ended=1")
-
-    # Require account-information permission.
     if not request.user.profile.can_access_account_information:
         logout(request)
         return redirect(
             "auth:login?no_permission=1&permission_type=account_information"
         )
-    
-    # Ensure a profile record exists for the current editor.
-    profile, created = UserProfile.objects.get_or_create(user=request.user)
-    
-    # Backfill account creation timestamp when missing.
-    if not profile.account_creation_date:
-        profile.set_account_creation_datetime()
-    
-    context = {'profile': profile}
-
-    if request.method == 'POST':
-        intent = request.POST.get('intent')
-        if intent == 'update_profile':
-            errors = []
-            full_name = request.POST.get('full_name', '').strip()
-
-            if not full_name:
-                errors.append('Full name is required.')
-
-            if not errors:
-                # Editors can update only their display name here.
-                user = request.user
-                user.first_name = full_name
-                user.last_name = ""
-                user.save()
-
-                messages.success(request, "Profile updated.")
-            else:
-                for err in errors:
-                    messages.error(request, err)
-
-    return render(request, 'editor/account_information.html', context)
+    return render_account_page(request, 'editor', 'editor/account_information.html')
 
 
 @login_required(login_url='/login/')
