@@ -73,7 +73,7 @@
         tileReloadCoalesceTimer = setTimeout(flushRiyadhTilesReload, TILE_RELOAD_COALESCE_MS);
     };
 
-    /** True when MVT tiles must refresh (geometry edit or delete). */
+    /** True when MVT tiles must refresh (geometry, delete, or label change). */
     window.riyadhMutationNeedsTileReload = function (data) {
         if (!data) {
             return false;
@@ -81,8 +81,21 @@
         if (data.deleted_road_id != null) {
             return true;
         }
-        return !!data.geometry_changed;
+        if (data.geometry_changed) {
+            return true;
+        }
+        // Labels are layout text-field (tile props only); soft-reload after label edits.
+        return !!data.label_changed;
     };
+
+    function mutationHasLabelFields(editData) {
+        if (!editData || !editData.fields_data || typeof editData.fields_data !== 'object') {
+            return false;
+        }
+        var fd = editData.fields_data;
+        return fd.name != null || fd.common_name != null ||
+            fd.name_en != null || fd.name_ar != null;
+    }
 
     function resolveMutationGeometry(editData) {
         if (editData && editData.geometry) {
@@ -178,6 +191,9 @@
         }
         options = options || {};
         var editData = options.editData || null;
+        if (mutationHasLabelFields(editData) && data.label_changed == null) {
+            data.label_changed = true;
+        }
         var needsReload = window.riyadhMutationNeedsTileReload(data);
 
         if (data.deleted_road_id != null) {

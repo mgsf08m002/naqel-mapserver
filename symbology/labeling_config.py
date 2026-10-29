@@ -15,8 +15,6 @@ class RoadLabelingConfig(TypedDict):
     halo_color: str
     halo_width: float
     halo_blur: float
-    fetch_debounce_ms: int
-    fetch_limits: Dict[str, int]
     symbol_spacing: float
     max_angle: float
     padding: float
@@ -28,6 +26,7 @@ class RoadLabelingConfig(TypedDict):
 
 
 def get_road_labeling_config() -> RoadLabelingConfig:
+    """Load road label style for MapLibre symbol layers on Martin MVT properties."""
     module_dir = Path(__file__).resolve().parent
     json_path = module_dir / "labeling.json"
     if not json_path.exists():
@@ -42,29 +41,23 @@ def get_road_labeling_config() -> RoadLabelingConfig:
     defaults: Dict[str, Any] = {
         "enabled": True,
         "min_zoom_en": 11.0,
-        "min_zoom_ar": 11.8,
+        "min_zoom_ar": 11.5,
         "max_zoom": 22.0,
         "text_size": {
             "base": 11.0,
-            "mid": 13.0,
-            "high": 15.0,
+            "mid": 12.5,
+            "high": 14.5,
         },
         "text_color": "#0f172a",
         "halo_color": "#ffffff",
-        "halo_width": 1.8,
-        "halo_blur": 0.4,
-        "fetch_debounce_ms": 120,
-        "fetch_limits": {
-            "z12": 1200,
-            "z14": 1800,
-            "z16": 2600,
-        },
+        "halo_width": 1.6,
+        "halo_blur": 0.35,
         "placement": "line-center",
         "allow_overlap": False,
         "ignore_placement": False,
-        "symbol_spacing": 620.0,
-        "max_angle": 35.0,
-        "padding": 3.0,
+        "symbol_spacing": 720.0,
+        "max_angle": 32.0,
+        "padding": 4.0,
         "english": {
             "field": "name_en",
             "font_stack": ["Open Sans Regular", "Noto Sans Regular"],
@@ -80,14 +73,12 @@ def get_road_labeling_config() -> RoadLabelingConfig:
     }
 
     cfg: Dict[str, Any] = {**defaults, **raw}
+
     if not isinstance(cfg.get("text_size"), dict):
         cfg["text_size"] = dict(defaults["text_size"])
     else:
         cfg["text_size"] = {**defaults["text_size"], **cfg["text_size"]}
-    if not isinstance(cfg.get("fetch_limits"), dict):
-        cfg["fetch_limits"] = dict(defaults["fetch_limits"])
-    else:
-        cfg["fetch_limits"] = {**defaults["fetch_limits"], **cfg["fetch_limits"]}
+
     for lang in ("english", "arabic"):
         lang_raw = cfg.get(lang)
         if not isinstance(lang_raw, dict):

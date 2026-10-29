@@ -1,29 +1,23 @@
 {
   "enabled": true,
   "min_zoom_en": 11.0,
-  "min_zoom_ar": 11.8,
+  "min_zoom_ar": 11.5,
   "max_zoom": 22.0,
   "text_size": {
     "base": 11.0,
-    "mid": 13.0,
-    "high": 15.0
+    "mid": 12.5,
+    "high": 14.5
   },
   "text_color": "#0f172a",
   "halo_color": "#ffffff",
-  "halo_width": 1.8,
-  "halo_blur": 0.4,
-  "fetch_debounce_ms": 120,
-  "fetch_limits": {
-    "z12": 1200,
-    "z14": 1800,
-    "z16": 2600
-  },
+  "halo_width": 1.6,
+  "halo_blur": 0.35,
   "placement": "line-center",
   "allow_overlap": false,
   "ignore_placement": false,
-  "symbol_spacing": 620.0,
-  "max_angle": 35.0,
-  "padding": 3.0,
+  "symbol_spacing": 720.0,
+  "max_angle": 32.0,
+  "padding": 4.0,
   "english": {
     "field": "name_en",
     "font_stack": ["Open Sans Regular", "Noto Sans Regular"],
