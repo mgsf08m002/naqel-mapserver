@@ -227,6 +227,67 @@ def onetime_api(request):
         }, status=500)
 
 
+_FORGOT_PASSWORD_ERRORS = {
+    "inactive": "Account is inactive. Contact your administrator.",
+    "not_eligible": (
+        "Password reset requests are only available for manager and editor accounts."
+    ),
+    "pending": (
+        "A reset request is already pending. Please wait for the administrator."
+    ),
+    "cooldown": (
+        "A password reset was recently handled for this account. "
+        "Please try again later or contact your administrator."
+    ),
+}
+
+
+def forgot_password_view(request):
+    """Public forgot-password request form (admin-mediated reset)."""
+    from system_admin.password_admin import (
+        create_password_reset_request,
+        find_user_by_login_email,
+        get_client_ip,
+    )
+
+    context = {
+        "email": "",
+        "form_error": "",
+        "request_submitted": False,
+    }
+
+    if request.method != "POST":
+        return render(request, "auth/forgot_password.html", context)
+
+    email = (request.POST.get("email") or "").strip()
+    context["email"] = email
+    if not email:
+        context["form_error"] = "Email is required."
+        return render(request, "auth/forgot_password.html", context)
+
+    user = find_user_by_login_email(email)
+    if user is None:
+        context["form_error"] = "No account found for that email."
+        return render(request, "auth/forgot_password.html", context)
+
+    req, error_code = create_password_reset_request(
+        user=user,
+        requester_ip=get_client_ip(request),
+    )
+    if error_code:
+        context["form_error"] = _FORGOT_PASSWORD_ERRORS.get(
+            error_code,
+            "Unable to submit the request. Please try again.",
+        )
+    elif req is not None:
+        context["request_submitted"] = True
+        messages.success(request, "Your password reset request has been submitted.")
+    else:
+        context["form_error"] = "Unable to submit the request. Please try again."
+
+    return render(request, "auth/forgot_password.html", context)
+
+
 @login_required(login_url='/login/')
 def password_setup_view(request):
     """First-time password setup view for Manager/Editor users."""

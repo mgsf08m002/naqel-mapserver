@@ -41,3 +41,85 @@ class UserProfile(models.Model):
         self.account_creation_date = riyadh_now.date()
         self.account_creation_time = riyadh_now.time()
         self.save()
+
+
+class PasswordResetRequest(models.Model):
+    """User-initiated forgot-password request awaiting System Admin action."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        RESOLVED = "resolved", "Resolved"
+        DISMISSED = "dismissed", "Dismissed"
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="password_reset_requests",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    requested_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="password_resets_handled",
+    )
+    admin_note = models.TextField(blank=True, default="")
+    requester_ip = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-requested_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=models.Q(status="pending"),
+                name="password_reset_one_pending_per_user",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} — {self.status} ({self.requested_at:%Y-%m-%d})"
+
+
+class PasswordChangeEvent(models.Model):
+    """Audit row for admin/self password changes (powers Manage Passwords stats)."""
+
+    class Source(models.TextChoices):
+        ADMIN_DIRECT = "admin_direct", "Admin direct change"
+        FORGOT_REQUEST = "forgot_request", "Forgot password request"
+        SELF_SECURITY = "self_security", "Self service (Security)"
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="password_change_events",
+    )
+    changed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="password_changes_performed",
+    )
+    source = models.CharField(max_length=32, choices=Source.choices)
+    request = models.ForeignKey(
+        PasswordResetRequest,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="change_events",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} via {self.source} ({self.created_at:%Y-%m-%d})"

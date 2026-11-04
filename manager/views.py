@@ -79,9 +79,16 @@ def security_view(request):
                 errors.append('New passwords do not match.')
 
             if not errors:
+                from system_admin.models import PasswordChangeEvent
+
                 user = request.user
                 user.set_password(new_password)
                 user.save()
+                PasswordChangeEvent.objects.create(
+                    user=user,
+                    changed_by=user,
+                    source=PasswordChangeEvent.Source.SELF_SECURITY,
+                )
                 logout(request)
                 return redirect('/login/?password_changed=1')
             else:

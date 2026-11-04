@@ -14,6 +14,16 @@ urlpatterns = [
     path('users/all/', views.all_users_view, name='all_users'),
     path('users/view/<int:user_id>/', views.view_user_view, name='view_user'),
     path('manage-passwords/', views.manage_passwords_view, name='manage_passwords'),
+    path(
+        'manage-passwords/change/',
+        views.change_user_password_view,
+        name='change_user_password',
+    ),
+    path(
+        'manage-passwords/requests/',
+        views.password_requests_view,
+        name='password_requests',
+    ),
     path('permissions/', views.permissions_view, name='permissions'),
     path('permissions/grant/<int:user_id>/', views.grant_permission_view, name='grant_permission'),
     path('permissions/check/<int:user_id>/', views.check_permission_view, name='check_permission'),

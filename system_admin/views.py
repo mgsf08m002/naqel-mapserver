@@ -10,7 +10,15 @@ from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.db.models import F
 from .account import render_account_page
-from .models import UserProfile
+from .models import PasswordChangeEvent, PasswordResetRequest, UserProfile
+from .password_admin import (
+    apply_admin_temporary_password,
+    dismiss_password_reset_request,
+    find_user_by_login_email,
+    password_changes_this_month_count,
+    pending_request_count,
+    validate_temporary_password,
+)
 from mapping.presentation import enforce_my_edits_access, my_edits_page_context
 
 
@@ -24,6 +32,14 @@ def _manageable_user(user_id, action_label):
         return None, None, f'System Admin accounts cannot be {action_label} through this page.'
     profile, _ = UserProfile.objects.get_or_create(user=user)
     return user, profile, None
+
+
+def _require_superuser(request):
+    """Return None when allowed, otherwise a redirect response."""
+    if request.user.is_superuser:
+        return None
+    logout(request)
+    return redirect(f"{reverse('auth:login')}?session_ended=1")
 
 
 @login_required(login_url='/login/')
@@ -79,6 +95,11 @@ def security_view(request):
                 user = request.user
                 user.set_password(new_password)
                 user.save()
+                PasswordChangeEvent.objects.create(
+                    user=user,
+                    changed_by=user,
+                    source=PasswordChangeEvent.Source.SELF_SECURITY,
+                )
                 logout(request)
                 return redirect('/login/?password_changed=1')
             else:
@@ -417,15 +438,161 @@ def delete_user_view(request, user_id=None):
 
 @login_required(login_url='/login/')
 def manage_passwords_view(request):
-    """Manage Passwords view."""
-    if not request.user.is_superuser:
-        logout(request)
-        return redirect(f"{reverse('auth:login')}?session_ended=1")
+    """Manage Passwords hub."""
+    if denied := _require_superuser(request):
+        return denied
 
     return render(request, 'system_admin/manage_passwords.html', {
-        'pending_requests': 0,
-        'password_changes_this_month': 0,
+        'pending_requests': pending_request_count(),
+        'password_changes_this_month': password_changes_this_month_count(),
     })
+
+
+@login_required(login_url='/login/')
+def change_user_password_view(request):
+    """System Admin: search a user and set a temporary password directly."""
+    if denied := _require_superuser(request):
+        return denied
+
+    context = {
+        'user_to_change': None,
+        'user_profile': None,
+        'password_set': False,
+        'temporary_password': '',
+    }
+
+    if request.method == 'POST':
+        intent = request.POST.get('intent')
+
+        if intent == 'search_user':
+            email = request.POST.get('search_email', '').strip()
+            if not email:
+                messages.error(request, 'Email is required to search for a user.')
+            else:
+                user = find_user_by_login_email(email)
+                if user is None:
+                    messages.error(request, 'User with this email does not exist.')
+                elif user.is_superuser:
+                    messages.error(
+                        request,
+                        'System Admin accounts cannot be reset through this page.',
+                    )
+                else:
+                    profile, _ = UserProfile.objects.get_or_create(user=user)
+                    if profile.role not in ('manager', 'editor'):
+                        messages.error(
+                            request,
+                            'Only manager and editor accounts can have passwords reset here.',
+                        )
+                    else:
+                        context['user_to_change'] = user
+                        context['user_profile'] = profile
+
+        elif intent == 'set_password':
+            user, profile, err = _manageable_user(
+                request.POST.get('user_id'),
+                'password-reset',
+            )
+            if err:
+                messages.error(request, err)
+            elif profile.role not in ('manager', 'editor'):
+                messages.error(
+                    request,
+                    'Only manager and editor accounts can have passwords reset here.',
+                )
+                context['user_to_change'] = user
+                context['user_profile'] = profile
+            else:
+                context['user_to_change'] = user
+                context['user_profile'] = profile
+                new_password = request.POST.get('new_password', '').strip()
+                confirm_password = request.POST.get('confirm_password', '').strip()
+                errors = validate_temporary_password(new_password, confirm_password)
+                if errors:
+                    for err_msg in errors:
+                        messages.error(request, err_msg)
+                else:
+                    apply_admin_temporary_password(
+                        target=user,
+                        new_password=new_password,
+                        changed_by=request.user,
+                        source=PasswordChangeEvent.Source.ADMIN_DIRECT,
+                    )
+                    context['password_set'] = True
+                    context['temporary_password'] = new_password
+                    messages.success(
+                        request,
+                        'Temporary password set. Share it with the user out-of-band; '
+                        'they will be asked to set a personal password on next sign-in.',
+                    )
+
+    return render(request, 'system_admin/change_password.html', context)
+
+
+@login_required(login_url='/login/')
+def password_requests_view(request):
+    """System Admin: review and fulfill forgot-password requests."""
+    if denied := _require_superuser(request):
+        return denied
+
+    context = {
+        'reset_success': None,
+        'temporary_password': '',
+        'active_request_id': None,
+    }
+
+    if request.method == 'POST':
+        intent = request.POST.get('intent')
+        try:
+            reset_req = PasswordResetRequest.objects.select_related(
+                'user', 'user__profile'
+            ).get(pk=request.POST.get('request_id'))
+        except (PasswordResetRequest.DoesNotExist, TypeError, ValueError):
+            messages.error(request, 'Password reset request not found.')
+            reset_req = None
+
+        if reset_req is not None and reset_req.status != PasswordResetRequest.Status.PENDING:
+            messages.error(request, 'This request is no longer pending.')
+            reset_req = None
+
+        if reset_req is not None and intent == 'dismiss_request':
+            dismiss_password_reset_request(
+                request=reset_req,
+                dismissed_by=request.user,
+                admin_note=request.POST.get('admin_note', '').strip(),
+            )
+            messages.success(request, 'Request dismissed.')
+
+        elif reset_req is not None and intent == 'reset_password':
+            new_password = request.POST.get('new_password', '').strip()
+            confirm_password = request.POST.get('confirm_password', '').strip()
+            errors = validate_temporary_password(new_password, confirm_password)
+            if errors:
+                for err_msg in errors:
+                    messages.error(request, err_msg)
+                context['active_request_id'] = reset_req.pk
+            else:
+                apply_admin_temporary_password(
+                    target=reset_req.user,
+                    new_password=new_password,
+                    changed_by=request.user,
+                    source=PasswordChangeEvent.Source.FORGOT_REQUEST,
+                    request=reset_req,
+                    admin_note=request.POST.get('admin_note', '').strip(),
+                )
+                context['reset_success'] = reset_req.user
+                context['temporary_password'] = new_password
+                messages.success(
+                    request,
+                    'Password reset. Share the temporary password with the user out-of-band.',
+                )
+
+    context['pending_requests'] = (
+        PasswordResetRequest.objects.filter(status=PasswordResetRequest.Status.PENDING)
+        .select_related('user', 'user__profile')
+        .order_by('-requested_at')
+    )
+    return render(request, 'system_admin/password_requests.html', context)
 
 
 @login_required(login_url='/login/')
