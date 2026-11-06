@@ -10,9 +10,7 @@
         }
 
         const syncStatusDot = (value) => {
-            const isActive = value === 'active';
-            statusWrap.classList.toggle('is-active', isActive);
-            statusWrap.classList.toggle('is-inactive', !isActive);
+            statusWrap.classList.toggle('is-inactive', value !== 'active');
         };
 
         syncStatusDot(accountStatusSelect.value);

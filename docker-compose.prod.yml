@@ -15,6 +15,7 @@ services:
       - .env
     environment:
       - PYTHONUNBUFFERED=1
+      - TZ=Asia/Riyadh
     volumes:
       - media_data:/app/media
     networks:

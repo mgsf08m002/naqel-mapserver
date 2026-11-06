@@ -1,10 +1,10 @@
 {% extends 'system_admin/base.html' %}
 {% load static %}
 
-{% block title %}Delete User · System Admin · GeoTrak Maps{% endblock %}
+{% block title %}{{ ui.delete_user_doc_title }}{% endblock %}
 
 {% block extra_css %}
-<link href="{% static 'system_admin/css/users.css' %}" rel="stylesheet">
+<link href="{% static 'system_admin/css/users.css' %}?v=ar-rtl-2" rel="stylesheet">
 {% endblock %}
 
 {% block content_wrapper %}
@@ -16,10 +16,10 @@
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                     </svg>
-                    User Management
+                    {{ ui.users_kicker }}
                 </a>
-                <h1 class="users-title">Delete a user</h1>
-                <p class="users-subtitle">Search for a user by email address. This action cannot be undone and will permanently delete the user and all associated data.</p>
+                <h1 class="users-title">{{ ui.delete_user_heading }}</h1>
+                <p class="users-subtitle">{{ ui.delete_user_subtitle }}</p>
             </header>
 
             <section class="users-form-card">
@@ -35,16 +35,16 @@
                             {% endif %}
                         </span>
                         <span class="users-step__copy">
-                            <span class="users-step__title">Find user</span>
-                            <span class="users-step__desc">Search by email address</span>
+                            <span class="users-step__title">{{ ui.edit_user_step_find }}</span>
+                            <span class="users-step__desc">{{ ui.edit_user_step_find_desc }}</span>
                         </span>
                     </li>
                     <li class="users-steps__line" aria-hidden="true"></li>
                     <li class="users-step {% if user_to_delete %}is-active{% endif %}">
                         <span class="users-step__index">2</span>
                         <span class="users-step__copy">
-                            <span class="users-step__title">Confirm deletion</span>
-                            <span class="users-step__desc">Review and confirm</span>
+                            <span class="users-step__title">{{ ui.delete_user_step_confirm }}</span>
+                            <span class="users-step__desc">{{ ui.delete_user_step_confirm_desc }}</span>
                         </span>
                     </li>
                 </ol>
@@ -54,7 +54,7 @@
                     {% csrf_token %}
                     <input type="hidden" name="intent" value="search_user">
 
-                    <label for="search_email" class="users-field__label">Email Address</label>
+                    <label for="search_email" class="users-field__label">{{ ui.email_address }}</label>
                     <div class="users-search-row">
                         <div class="users-field__control users-search-row__input">
                             <span class="users-field__lead-icon" aria-hidden="true">
@@ -62,69 +62,69 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                                 </svg>
                             </span>
-                            <input id="search_email" name="search_email" type="email" required class="users-field__input users-field__input--lead" placeholder="Enter user email address" autocomplete="email">
+                            <input id="search_email" name="search_email" type="email" required class="users-field__input users-field__input--lead" placeholder="{{ ui.edit_user_search_placeholder }}" autocomplete="email">
                         </div>
                         <button type="submit" class="users-btn users-btn--primary users-btn--icon">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
-                            Search
+                            {{ ui.search }}
                         </button>
                     </div>
                 </form>
 
                 <p class="users-info-banner">
                     <span class="users-info-banner__icon" aria-hidden="true">i</span>
-                    Enter the user's registered email address to view and confirm their account details before deletion.
+                    {{ ui.delete_user_search_hint }}
                 </p>
                 {% else %}
                 <p class="users-info-banner users-info-banner--danger">
                     <span class="users-info-banner__icon" aria-hidden="true">!</span>
-                    This action cannot be undone. Deleting this user will permanently remove their account and all associated data.
+                    {{ ui.delete_user_danger }}
                 </p>
 
                 <div class="users-meta-card">
                     <p class="users-meta-card__heading">
                         <span class="users-info-banner__icon" aria-hidden="true">i</span>
-                        User information
+                        {{ ui.delete_user_meta_heading }}
                     </p>
                     <div class="users-meta-card__grid">
                         <div class="users-meta-card__item">
-                            <span class="users-meta-card__label">Full name</span>
-                            <span class="users-meta-card__value">{{ user_to_delete.get_full_name|default:"Not set" }}</span>
+                            <span class="users-meta-card__label">{{ ui.delete_user_full_name }}</span>
+                            <span class="users-meta-card__value">{{ user_to_delete.get_full_name|default:ui.not_set }}</span>
                         </div>
                         <div class="users-meta-card__item">
-                            <span class="users-meta-card__label">Email address</span>
+                            <span class="users-meta-card__label">{{ ui.delete_user_email }}</span>
                             <span class="users-meta-card__value">{{ user_to_delete.email }}</span>
                         </div>
                         <div class="users-meta-card__item">
-                            <span class="users-meta-card__label">Role</span>
-                            <span class="users-meta-card__value">{{ user_profile.role|title|default:"Not assigned" }}</span>
+                            <span class="users-meta-card__label">{{ ui.role }}</span>
+                            <span class="users-meta-card__value">{% if user_profile.role == 'manager' %}{{ ui.role_manager }}{% elif user_profile.role == 'editor' %}{{ ui.role_editor }}{% else %}{{ ui.not_assigned }}{% endif %}</span>
                         </div>
                         <div class="users-meta-card__item">
-                            <span class="users-meta-card__label">Account status</span>
+                            <span class="users-meta-card__label">{{ ui.edit_user_account_status }}</span>
                             <span class="users-meta-card__value">
                                 <span class="users-status-dot {% if not user_to_delete.is_active %}is-inactive{% endif %}" aria-hidden="true"></span>
-                                {% if user_to_delete.is_active %}Active{% else %}Inactive{% endif %}
+                                {% if user_to_delete.is_active %}{{ ui.active }}{% else %}{{ ui.inactive }}{% endif %}
                             </span>
                         </div>
                         <div class="users-meta-card__item">
-                            <span class="users-meta-card__label">Account created</span>
+                            <span class="users-meta-card__label">{{ ui.edit_user_account_created }}</span>
                             <span class="users-meta-card__value">
-                                {% if user_profile.account_creation_date %}
-                                {{ user_profile.account_creation_date|date:"M j, Y" }}{% if user_profile.account_creation_time %} at {{ user_profile.account_creation_time|time:"g:i A" }}{% endif %}
+                                {% if account_created_display %}
+                                {{ account_created_display }}
                                 {% else %}
                                 —
                                 {% endif %}
                             </span>
                         </div>
                         <div class="users-meta-card__item">
-                            <span class="users-meta-card__label">Last login</span>
+                            <span class="users-meta-card__label">{{ ui.edit_user_last_login }}</span>
                             <span class="users-meta-card__value">
-                                {% if user_to_delete.last_login %}
-                                {{ user_to_delete.last_login|date:"M j, Y" }} at {{ user_to_delete.last_login|time:"g:i A" }}
+                                {% if last_login_display %}
+                                {{ last_login_display }}
                                 {% else %}
-                                Never
+                                {{ ui.never }}
                                 {% endif %}
                             </span>
                         </div>
@@ -136,16 +136,15 @@
                     <input type="hidden" name="intent" value="delete_user">
                     <input type="hidden" name="user_id" value="{{ user_to_delete.id }}">
                     <div class="users-form-actions">
-                        <a href="{% url 'system_admin:users' %}" class="users-btn users-btn--ghost">Cancel</a>
-                        <a href="{% url 'system_admin:delete_user' %}" class="users-btn users-btn--ghost">Back</a>
-                        <button type="submit" class="users-btn users-btn--danger">Delete User</button>
+                        <a href="{% url 'system_admin:delete_user' %}" class="users-btn users-btn--ghost">{{ ui.back }}</a>
+                        <button type="submit" class="users-btn users-btn--danger">{{ ui.delete_user_btn }}</button>
                     </div>
                 </form>
                 {% endif %}
             </section>
         </div>
 
-        <aside class="users-team users-team--add" aria-label="{% if user_to_delete %}Confirm deletion{% else %}Remove a user{% endif %}">
+        <aside class="users-team users-team--add" aria-label="{% if user_to_delete %}{{ ui.delete_user_aside_confirm_title }}{% else %}{{ ui.delete_user_aside_title }}{% endif %}">
             <svg class="users-team__waves" viewBox="0 0 320 220" preserveAspectRatio="none" aria-hidden="true">
                 <path fill="#d7e4f2" d="M0 88c48 28 86-22 128-10s78 42 118 16 50-28 74-14v140H0z"></path>
                 <path fill="#c5d6e8" opacity="0.85" d="M0 128c52 20 92-18 142-6s72 34 118 8 40-16 60-6v96H0z"></path>
@@ -169,29 +168,29 @@
                 {% endif %}
             </div>
             {% if not user_to_delete %}
-            <h2 class="users-team__title">Remove a user</h2>
-            <p class="users-team__copy">Find a user by email, review their account, and permanently remove them from the GEOTRAK platform.</p>
+            <h2 class="users-team__title">{{ ui.delete_user_aside_title }}</h2>
+            <p class="users-team__copy">{{ ui.delete_user_aside_copy }}</p>
             {% else %}
-            <h2 class="users-team__title">Confirm deletion</h2>
-            <p class="users-team__copy">Review the account details carefully before you permanently delete this user.</p>
+            <h2 class="users-team__title">{{ ui.delete_user_aside_confirm_title }}</h2>
+            <p class="users-team__copy">{{ ui.delete_user_aside_confirm_copy }}</p>
             <ul class="users-team__list">
                 <li>
                     <span class="users-side-icon users-side-icon--solid" aria-hidden="true">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 13l4 4L19 7"></path></svg>
                     </span>
-                    Review the account details
+                    {{ ui.delete_user_aside_b1 }}
                 </li>
                 <li>
                     <span class="users-side-icon users-side-icon--solid" aria-hidden="true">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 13l4 4L19 7"></path></svg>
                     </span>
-                    Confirm this is the right user
+                    {{ ui.delete_user_aside_b2 }}
                 </li>
                 <li>
                     <span class="users-side-icon users-side-icon--solid" aria-hidden="true">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 13l4 4L19 7"></path></svg>
                     </span>
-                    This cannot be undone
+                    {{ ui.delete_user_aside_b3 }}
                 </li>
             </ul>
             {% endif %}

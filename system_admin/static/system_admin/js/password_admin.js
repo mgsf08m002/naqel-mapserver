@@ -1,6 +1,10 @@
 (function () {
     'use strict';
 
+    function t(key, fallback) {
+        return typeof window.uiT === 'function' ? window.uiT(key, fallback) : fallback;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('[data-toggle-password]').forEach((button) => {
             button.addEventListener('click', () => {
@@ -12,7 +16,9 @@
                 input.type = showPlain ? 'text' : 'password';
                 const label = button.querySelector('span');
                 if (label) {
-                    label.textContent = showPlain ? 'Hide' : 'Show';
+                    label.textContent = showPlain
+                        ? t('hide_password', 'Hide')
+                        : t('show_password', 'Show');
                 }
             });
         });
@@ -26,12 +32,17 @@
                 return;
             }
             if (!confirmPassword.value && !password.value) {
-                matchHint.textContent = 'Re-enter the password to confirm';
+                matchHint.textContent = t(
+                    'confirm_password_hint',
+                    'Re-enter the password to confirm'
+                );
                 matchHint.classList.remove('is-ok', 'is-error');
                 return;
             }
             const matches = confirmPassword.value === password.value;
-            matchHint.textContent = matches ? 'Passwords match' : 'Passwords do not match';
+            matchHint.textContent = matches
+                ? t('passwords_match', 'Passwords match')
+                : t('passwords_mismatch', 'Passwords do not match');
             matchHint.classList.toggle('is-ok', matches);
             matchHint.classList.toggle('is-error', !matches);
         };
@@ -49,12 +60,21 @@
                 try {
                     await navigator.clipboard.writeText(text);
                     if (window.notify) {
-                        window.notify.success((typeof window.uiT === 'function' ? window.uiT('toast_copied', 'Copied') : 'Copied'));
+                        window.notify.success(t('toast_copied', 'Copied'));
                     }
                 } catch {
                     if (window.notify) {
-                        window.notify.error((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_copy', "Couldn't copy") : "Couldn't copy"));
+                        window.notify.error(t('toast_couldnt_copy', "Couldn't copy"));
                     }
+                }
+            });
+        });
+
+        document.querySelectorAll('[data-dismiss-confirm]').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                const message = button.getAttribute('data-dismiss-confirm');
+                if (message && !window.confirm(message)) {
+                    event.preventDefault();
                 }
             });
         });

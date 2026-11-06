@@ -220,7 +220,7 @@ body:has(.account-page) main {
 }
 
 .account-hero__live-caption {
-  margin-left: 16px;
+  margin-inline-start: 16px;
   font-size: 12px;
   color: var(--account-muted);
 }
@@ -228,7 +228,7 @@ body:has(.account-page) main {
 .account-hero__actions {
   position: relative;
   z-index: 1;
-  margin-left: auto;
+  margin-inline-start: auto;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -438,7 +438,7 @@ body:has(.account-page) main {
 
   .account-hero__actions {
     width: 100%;
-    margin-left: 0;
+    margin-inline-start: 0;
     justify-content: flex-end;
   }
 
@@ -519,4 +519,32 @@ body:has(.account-page) main {
   .account-title {
     font-size: 28px;
   }
+}
+
+/* Account module RTL */
+html[dir="rtl"] .account-page {
+  text-align: right;
+}
+
+html[dir="rtl"] .account-kicker,
+html[dir="rtl"] .account-tile__label {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+html[dir="rtl"] .account-hero__wave {
+  right: auto;
+  left: -4%;
+  transform: scaleX(-1);
+}
+
+html[dir="rtl"] .account-tile__body,
+html[dir="rtl"] .account-section__heading,
+html[dir="rtl"] .account-hero__identity,
+html[dir="rtl"] .account-hero__live {
+  text-align: right;
+}
+
+html[dir="rtl"] .account-crop__footer {
+  flex-direction: row-reverse;
 }

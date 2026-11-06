@@ -118,8 +118,11 @@ class LineEditRequest(models.Model):
         verbose_name_plural = 'Road edit requests'
 
     def __str__(self):
+        from config.riyadh_time import format_riyadh
+
         category = self.request_category or self.edit_type or 'road edit'
-        return f'{self.requester.username} - {category} - {self.status} ({self.created_at.strftime("%Y-%m-%d %H:%M")})'
+        stamp = format_riyadh(self.created_at)
+        return f'{self.requester.username} - {category} - {self.status} ({stamp})'
     
     def get_requester_role(self):
         """Get the role of the requester."""

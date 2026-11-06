@@ -79,7 +79,8 @@ body:has(.users-page) main {
   border: 1px solid rgba(15, 45, 83, 0.04);
   border-radius: var(--users-radius);
   box-shadow: var(--users-shadow);
-  padding: 18px 14px 18px 18px;
+  padding-block: 18px;
+  padding-inline: 18px 14px;
   text-decoration: none;
   color: inherit;
   min-height: 108px;
@@ -138,13 +139,26 @@ body:has(.users-page) main {
   gap: 4px;
   margin-top: 8px;
   font-size: 11px;
+  font-weight: 600;
   color: var(--users-muted);
 }
 
 .users-stat__trend svg {
   width: 11px;
   height: 11px;
-  color: #93a4b6;
+  color: currentColor;
+}
+
+.users-stat__trend--up {
+  color: #15803d;
+}
+
+.users-stat__trend--down {
+  color: #b91c1c;
+}
+
+.users-stat__trend--flat {
+  color: var(--users-muted);
 }
 
 .users-stat__chevron {
@@ -383,8 +397,8 @@ body:has(.users-page) main {
 }
 
 .users-table-wrap {
-  overflow-x: auto;
-  overflow-y: visible;
+  /* Avoid overflow clipping of row action menus (overflow-x:auto forces overflow-y:auto). */
+  overflow: visible;
 }
 
 .users-table {
@@ -462,7 +476,7 @@ body:has(.users-page) main {
 
 .users-role {
   color: #1d4f91;
-  font-style: italic;
+  font-style: normal;
   font-weight: 600;
 }
 
@@ -522,21 +536,33 @@ body:has(.users-page) main {
 
 .users-row-actions__menu {
   display: none;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
+  position: fixed;
   min-width: 132px;
   background: #fff;
   border: 1px solid var(--users-line);
   border-radius: 12px;
   box-shadow: 0 12px 28px rgba(15, 45, 83, 0.12);
   padding: 6px;
-  z-index: 25;
+  z-index: 80;
   text-align: left;
 }
 
 .users-row-actions__menu.is-open {
   display: block;
+}
+
+html[dir="rtl"] .users-row-actions__menu {
+  text-align: right;
+}
+
+html[dir="rtl"] .users-table th,
+html[dir="rtl"] .users-filter__menu button {
+  text-align: right;
+}
+
+html[dir="rtl"] .users-table th:last-child,
+html[dir="rtl"] .users-table td:last-child {
+  text-align: left;
 }
 
 .users-row-actions__menu a {
@@ -686,12 +712,13 @@ body:has(.users-page) main {
 
 .users-team__copy {
   position: relative;
-  margin: 10px auto 24px;
+  margin: 10px auto 28px;
   text-align: center;
   max-width: 230px;
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--users-text);
+  text-wrap: pretty;
 }
 
 .users-team__list {
@@ -2234,4 +2261,83 @@ body:has(.users-page) main {
   }
 }
 
+/* Users module RTL */
+html[dir="rtl"] .users-page {
+  text-align: right;
+}
 
+html[dir="rtl"] .users-kicker,
+html[dir="rtl"] .users-stat__label,
+html[dir="rtl"] .users-field__label,
+html[dir="rtl"] .users-table th,
+html[dir="rtl"] .users-filter__menu button,
+html[dir="rtl"] .view-user-field__label {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+html[dir="rtl"] .users-team__copy {
+  max-width: 255px;
+  letter-spacing: 0;
+}
+
+html[dir="rtl"] .users-stat__chevron svg,
+html[dir="rtl"] .users-action__chevron svg,
+html[dir="rtl"] .all-users-view svg:last-child,
+html[dir="rtl"] .users-kicker--back svg {
+  transform: scaleX(-1);
+}
+
+html[dir="rtl"] .users-search svg {
+  left: auto;
+  right: 12px;
+}
+
+html[dir="rtl"] .users-search input {
+  padding: 0 32px 0 12px;
+}
+
+html[dir="rtl"] .all-users-search__icon {
+  left: auto;
+  right: 16px;
+}
+
+html[dir="rtl"] .all-users-search__clear {
+  left: 12px;
+  right: auto;
+}
+
+html[dir="rtl"] .users-field__lead-icon {
+  left: auto;
+  right: 14px;
+}
+
+html[dir="rtl"] .users-field__input--lead {
+  padding-left: 12px;
+  padding-right: 40px;
+}
+
+html[dir="rtl"] .users-password-toggle {
+  left: 14px;
+  right: auto;
+}
+
+html[dir="rtl"] .users-field__control:has(.users-password-toggle) .users-field__input {
+  padding-left: 78px;
+  padding-right: 14px;
+}
+
+html[dir="rtl"] .users-field__select::after {
+  left: 18px;
+  right: auto;
+}
+
+html[dir="rtl"] .users-field__select .users-field__input {
+  padding-left: 40px;
+  padding-right: 14px;
+}
+
+html[dir="rtl"] .users-field__input--status {
+  padding-left: 12px;
+  padding-right: 28px;
+}

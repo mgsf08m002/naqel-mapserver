@@ -1,3 +1,5 @@
+{% load static %}
+<script src="{% static 'js/riyadh-time.js' %}?v=riyadh-2"></script>
 <script>
     window.UI_I18N = {{ ui_i18n_json|safe }};
     window.uiT = function (key, fallback) {

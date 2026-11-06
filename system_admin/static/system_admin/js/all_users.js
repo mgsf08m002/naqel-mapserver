@@ -1,6 +1,10 @@
 (function() {
     'use strict';
 
+    function t(key, fallback) {
+        return typeof window.uiT === 'function' ? window.uiT(key, fallback) : fallback;
+    }
+
     const PAGE_SIZE = 8;
 
     const state = {
@@ -144,15 +148,16 @@
             elements.usersList?.classList.add('is-hidden');
 
             const response = await fetch('/system-admin/api/users/');
-            if (!response.ok) {
-                throw new Error('Failed to load users');
+            const data = await response.json().catch(function() { return null; });
+            if (!response.ok || !data) {
+                showError(t('all_users_load_failed', "Couldn't load users — try again"));
+                return;
             }
 
-            const data = await response.json();
             state.users = data.users || [];
             applyFilters();
         } catch (error) {
-            showError('Failed to load users. Please try again.');
+            showError(t('all_users_load_failed', "Couldn't load users — try again"));
         } finally {
             elements.loadingState?.classList.add('is-hidden');
         }
@@ -248,10 +253,19 @@
         const email = escapeHtml(user.email);
         const role = escapeHtml(roleLabel(user));
         const created = escapeHtml(formatCreated(user));
-        const lastLogin = escapeHtml(user.last_login_display || user.last_login || 'Never');
+        const lastLogin = escapeHtml(user.last_login_display || t('never', 'Never'));
         const avatar = user.profile_image
             ? `<img src="${escapeHtml(user.profile_image)}" alt="">`
             : `<span>${escapeHtml(initials)}</span>`;
+        const canManage = !user.is_superuser;
+        const labelCreated = escapeHtml(t('all_users_label_created', 'Created'));
+        const labelLastLogin = escapeHtml(t('all_users_label_last_login', 'Last Login'));
+        const labelStatus = escapeHtml(t('status', 'Status'));
+        const statusText = escapeHtml(user.is_active ? t('active', 'Active') : t('inactive', 'Inactive'));
+        const moreActions = escapeHtml(t('all_users_more_actions', 'More actions'));
+        const editUser = escapeHtml(t('all_users_edit_user', 'Edit user'));
+        const deleteUser = escapeHtml(t('all_users_delete_user', 'Delete user'));
+        const viewDetails = escapeHtml(t('all_users_view_details', 'View Details'));
 
         return `
             <article class="all-users-row">
@@ -275,26 +289,27 @@
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                         </svg>
-                        <span><small>Created</small>${created}</span>
+                        <span><small>${labelCreated}</small>${created}</span>
                     </p>` : ''}
                     ${state.visibleColumns.last_login ? `
                     <p>
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        <span><small>Last Login</small>${lastLogin}</span>
+                        <span><small>${labelLastLogin}</small>${lastLogin}</span>
                     </p>` : ''}
                 </div>
                 <div class="all-users-row__status">
                     ${state.visibleColumns.status ? `
                     <span class="all-users-status ${user.is_active ? 'is-active' : 'is-inactive'}">
-                        <small>Status</small>
-                        <strong><span class="users-status-dot ${user.is_active ? '' : 'is-inactive'}"></span>${user.is_active ? 'Active' : 'Inactive'}</strong>
+                        <small>${labelStatus}</small>
+                        <strong><span class="users-status-dot ${user.is_active ? '' : 'is-inactive'}"></span>${statusText}</strong>
                     </span>` : ''}
                 </div>
                 <div class="all-users-row__actions">
+                    ${canManage ? `
                     <div class="all-users-row__menu">
-                        <button type="button" class="all-users-icon-btn" data-overflow-toggle aria-label="More actions">
+                        <button type="button" class="all-users-icon-btn" data-overflow-toggle aria-label="${moreActions}">
                             <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <circle cx="5" cy="12" r="1.7"></circle>
                                 <circle cx="12" cy="12" r="1.7"></circle>
@@ -302,16 +317,16 @@
                             </svg>
                         </button>
                         <div class="all-users-row__dropdown is-hidden">
-                            <a href="/system-admin/users/edit/${user.id}/">Edit user</a>
-                            <a href="/system-admin/users/delete/${user.id}/" class="is-danger">Delete user</a>
+                            <a href="/system-admin/users/edit/${user.id}/">${editUser}</a>
+                            <a href="/system-admin/users/delete/${user.id}/" class="is-danger">${deleteUser}</a>
                         </div>
-                    </div>
+                    </div>` : ''}
                     <a class="all-users-view" href="/system-admin/users/view/${user.id}/">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                         </svg>
-                        View Details
+                        ${viewDetails}
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                         </svg>
@@ -325,7 +340,7 @@
         const pageCount = Math.max(1, Math.ceil(state.filteredUsers.length / PAGE_SIZE));
 
         const pages = [];
-        pages.push(`<button type="button" class="all-users-page-btn" data-page="${Math.max(1, state.page - 1)}" ${state.page === 1 ? 'disabled' : ''} aria-label="Previous page">
+        pages.push(`<button type="button" class="all-users-page-btn" data-page="${Math.max(1, state.page - 1)}" ${state.page === 1 ? 'disabled' : ''} aria-label="${escapeHtml(t('all_users_prev_page', 'Previous page'))}">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
         </button>`);
 
@@ -333,7 +348,7 @@
             pages.push(`<button type="button" class="all-users-page-btn ${page === state.page ? 'is-current' : ''}" data-page="${page}">${page}</button>`);
         }
 
-        pages.push(`<button type="button" class="all-users-page-btn" data-page="${Math.min(pageCount, state.page + 1)}" ${state.page === pageCount ? 'disabled' : ''} aria-label="Next page">
+        pages.push(`<button type="button" class="all-users-page-btn" data-page="${Math.min(pageCount, state.page + 1)}" ${state.page === pageCount ? 'disabled' : ''} aria-label="${escapeHtml(t('all_users_next_page', 'Next page'))}">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
         </button>`);
 
@@ -346,22 +361,22 @@
 
     function roleLabel(user) {
         if (user.is_superuser || user.role === 'system_admin') {
-            return 'System Admin';
+            return t('role_system_admin', 'System Admin');
         }
-        if (user.role) {
-            return user.role.charAt(0).toUpperCase() + user.role.slice(1);
+        if (user.role === 'manager') {
+            return t('role_manager', 'Manager');
         }
-        return 'Not assigned';
+        if (user.role === 'editor') {
+            return t('role_editor', 'Editor');
+        }
+        if (user.role === 'viewer') {
+            return t('role_viewer', 'Viewer');
+        }
+        return t('not_assigned', 'Not assigned');
     }
 
     function formatCreated(user) {
-        if (user.created_display) {
-            return user.created_display;
-        }
-        if (user.account_creation_date && user.account_creation_time) {
-            return `${user.account_creation_date} at ${user.account_creation_time}`;
-        }
-        return user.date_joined || '—';
+        return user.created_display || '—';
     }
 
     function getUserInitials(user) {
@@ -400,8 +415,6 @@
 
     function loadSavedPreferences() {
         try {
-            localStorage.removeItem('allUsersView');
-
             const savedFilter = localStorage.getItem('allUsersRoleFilter');
             if (savedFilter && elements.roleFilter) {
                 state.roleFilter = savedFilter;

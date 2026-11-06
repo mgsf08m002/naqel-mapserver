@@ -1,10 +1,10 @@
 {% extends 'system_admin/base.html' %}
 {% load static %}
 
-{% block title %}Permissions · System Admin · GeoTrak Maps{% endblock %}
+{% block title %}{{ ui.perm_doc_title }}{% endblock %}
 
 {% block extra_css %}
-<link href="{% static 'system_admin/css/permissions.css' %}" rel="stylesheet">
+<link href="{% static 'system_admin/css/permissions.css' %}?v=ar-rtl-2" rel="stylesheet">
 {% endblock %}
 
 {% block content_wrapper %}
@@ -12,9 +12,9 @@
     <div class="permissions-page__inner">
         <header class="permissions-header">
             <div>
-                <p class="permissions-kicker">Permissions Management</p>
-                <h1 class="permissions-title">Permissions</h1>
-                <p class="permissions-subtitle">Manage user permissions for managers and editors. Grant or modify access to dashboard, security, and account information.</p>
+                <p class="permissions-kicker">{{ ui.perm_kicker }}</p>
+                <h1 class="permissions-title">{{ ui.perm_heading }}</h1>
+                <p class="permissions-subtitle">{{ ui.perm_subtitle }}</p>
             </div>
             <div class="permissions-hero" aria-hidden="true">
                 <svg viewBox="0 0 96 96" fill="none">
@@ -32,25 +32,25 @@
             </div>
         </header>
 
-        <section class="permissions-toolbar" aria-label="Search and filters">
+        <section class="permissions-toolbar" aria-label="{{ ui.perm_toolbar_aria }}">
             <div class="permissions-search">
                 <span class="permissions-search__icon" aria-hidden="true">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
                 </span>
-                <input id="searchInput" type="search" placeholder="Search users by name, email, or role..." autocomplete="off">
-                <button id="clearSearchBtn" type="button" class="permissions-search__clear is-hidden" aria-label="Clear search">
+                <input id="searchInput" type="search" placeholder="{{ ui.perm_search_placeholder }}" autocomplete="off">
+                <button id="clearSearchBtn" type="button" class="permissions-search__clear is-hidden" aria-label="{{ ui.clear_search }}">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
                 </button>
             </div>
             <label class="permissions-select">
-                <select id="roleFilter" aria-label="Filter by role">
-                    <option value="">All Roles</option>
-                    <option value="manager">Manager</option>
-                    <option value="editor">Editor</option>
+                <select id="roleFilter" aria-label="{{ ui.perm_role_filter }}">
+                    <option value="">{{ ui.perm_all_roles }}</option>
+                    <option value="manager">{{ ui.role_manager }}</option>
+                    <option value="editor">{{ ui.role_editor }}</option>
                 </select>
                 <span class="permissions-select__chevron" aria-hidden="true">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -60,22 +60,32 @@
             </label>
         </section>
 
-        <p class="permissions-count"><span id="resultsCount">0</span> users found</p>
+        <p class="permissions-count"><span id="resultsCount">0</span> {{ ui.perm_users_found }}</p>
 
         <div id="loadingState" class="permissions-state">
             <span class="permissions-spinner" aria-hidden="true"></span>
-            <p>Loading users...</p>
+            <p>{{ ui.perm_loading }}</p>
         </div>
 
         <div id="emptyState" class="permissions-state is-hidden">
-            <p>No users found</p>
+            <p>{{ ui.perm_empty }}</p>
         </div>
 
-        <section id="usersGrid" class="permissions-grid is-hidden" aria-label="Users"></section>
+        <section
+            id="usersGrid"
+            class="permissions-grid is-hidden"
+            aria-label="{{ ui.perm_grid_aria }}"
+            data-i18n-role-manager="{{ ui.role_manager }}"
+            data-i18n-role-editor="{{ ui.role_editor }}"
+            data-i18n-not-assigned="{{ ui.not_assigned }}"
+            data-i18n-action-title="{{ ui.perm_card_action_title }}"
+            data-i18n-action-desc="{{ ui.perm_card_action_desc }}"
+            data-i18n-load-failed="{{ ui.perm_load_failed }}"
+        ></section>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'system_admin/js/permissions.js' %}"></script>
+<script src="{% static 'system_admin/js/permissions.js' %}?v=perm-ar-1"></script>
 {% endblock %}

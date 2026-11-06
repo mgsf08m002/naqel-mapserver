@@ -1,10 +1,10 @@
 {% extends 'system_admin/base.html' %}
 {% load static %}
 
-{% block title %}All Users · System Admin · GeoTrak Maps{% endblock %}
+{% block title %}{{ ui.all_users_doc_title }}{% endblock %}
 
 {% block extra_css %}
-<link href="{% static 'system_admin/css/users.css' %}" rel="stylesheet">
+<link href="{% static 'system_admin/css/users.css' %}?v=ar-rtl-2" rel="stylesheet">
 {% endblock %}
 
 {% block content_wrapper %}
@@ -16,28 +16,28 @@
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                     </svg>
-                    User Management
+                    {{ ui.users_kicker }}
                 </a>
-                <h1 class="users-title">All Users</h1>
-                <p class="users-subtitle">View and manage all user accounts in the system. Customize your view and filter by role.</p>
+                <h1 class="users-title">{{ ui.all_users_heading }}</h1>
+                <p class="users-subtitle">{{ ui.all_users_subtitle }}</p>
             </div>
             <a class="users-btn users-btn--primary users-btn--icon" href="{% url 'system_admin:add_user' %}">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
                 </svg>
-                Add User
+                {{ ui.all_users_add }}
             </a>
         </header>
 
-        <section class="all-users-toolbar" aria-label="Search and filters">
+        <section class="all-users-toolbar" aria-label="{{ ui.all_users_toolbar_aria }}">
             <div class="all-users-search">
                 <span class="all-users-search__icon" aria-hidden="true">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
                 </span>
-                <input id="searchInput" type="search" placeholder="Search users by name, email, or role..." autocomplete="off">
-                <button id="clearSearchBtn" type="button" class="all-users-search__clear is-hidden" aria-label="Clear search">
+                <input id="searchInput" type="search" placeholder="{{ ui.all_users_search_placeholder }}" autocomplete="off">
+                <button id="clearSearchBtn" type="button" class="all-users-search__clear is-hidden" aria-label="{{ ui.clear_search }}">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -50,20 +50,20 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     </svg>
                 </span>
-                <select id="roleFilter" aria-label="Filter by role">
-                    <option value="">All Roles</option>
-                    <option value="manager">Manager</option>
-                    <option value="editor">Editor</option>
-                    <option value="system_admin">System Admin</option>
+                <select id="roleFilter" aria-label="{{ ui.all_users_role_filter }}">
+                    <option value="">{{ ui.all_users_all_roles }}</option>
+                    <option value="manager">{{ ui.role_manager }}</option>
+                    <option value="editor">{{ ui.role_editor }}</option>
+                    <option value="system_admin">{{ ui.role_system_admin }}</option>
                 </select>
             </label>
 
             <label class="all-users-select all-users-select--status">
                 <span class="users-status-dot" aria-hidden="true"></span>
-                <select id="statusFilter" aria-label="Filter by status">
-                    <option value="">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
+                <select id="statusFilter" aria-label="{{ ui.all_users_status_filter }}">
+                    <option value="">{{ ui.all_users_all_status }}</option>
+                    <option value="active">{{ ui.active }}</option>
+                    <option value="inactive">{{ ui.inactive }}</option>
                 </select>
             </label>
 
@@ -72,44 +72,44 @@
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h7M4 12h16M4 18h11M15 6h5M19 16v4m0 0h-2m2 0h2"></path>
                     </svg>
-                    Columns
+                    {{ ui.columns }}
                 </button>
                 <div id="columnCustomizeMenu" class="all-users-columns__menu is-hidden">
-                    <p>Show / hide fields</p>
-                    <label><input type="checkbox" class="column-toggle" data-column="role" checked> Role</label>
-                    <label><input type="checkbox" class="column-toggle" data-column="created" checked> Account created</label>
-                    <label><input type="checkbox" class="column-toggle" data-column="last_login" checked> Last login</label>
-                    <label><input type="checkbox" class="column-toggle" data-column="status" checked> Status</label>
+                    <p>{{ ui.all_users_columns_menu }}</p>
+                    <label><input type="checkbox" class="column-toggle" data-column="role" checked> {{ ui.role }}</label>
+                    <label><input type="checkbox" class="column-toggle" data-column="created" checked> {{ ui.all_users_col_created }}</label>
+                    <label><input type="checkbox" class="column-toggle" data-column="last_login" checked> {{ ui.edit_user_last_login }}</label>
+                    <label><input type="checkbox" class="column-toggle" data-column="status" checked> {{ ui.status }}</label>
                 </div>
             </div>
         </section>
 
         <div class="all-users-meta">
-            <p><span id="resultsCount">0</span> users found</p>
+            <p><span id="resultsCount">0</span> {{ ui.all_users_users_found }}</p>
             <label class="all-users-sort">
-                Sort by
-                <select id="sortSelect" aria-label="Sort users">
-                    <option value="newest">Newest First</option>
-                    <option value="oldest">Oldest First</option>
-                    <option value="name_asc">Name A–Z</option>
-                    <option value="name_desc">Name Z–A</option>
+                {{ ui.all_users_sort_by }}
+                <select id="sortSelect" aria-label="{{ ui.all_users_sort_by }}">
+                    <option value="newest">{{ ui.all_users_sort_newest }}</option>
+                    <option value="oldest">{{ ui.all_users_sort_oldest }}</option>
+                    <option value="name_asc">{{ ui.all_users_sort_name_asc }}</option>
+                    <option value="name_desc">{{ ui.all_users_sort_name_desc }}</option>
                 </select>
             </label>
         </div>
 
         <div id="loadingState" class="all-users-state">
             <span class="all-users-spinner" aria-hidden="true"></span>
-            <p>Loading users...</p>
+            <p>{{ ui.all_users_loading }}</p>
         </div>
 
         <div id="emptyState" class="all-users-state is-hidden">
-            <p>No users found</p>
-            <span>Try adjusting your search or filters.</span>
+            <p>{{ ui.all_users_empty }}</p>
+            <span>{{ ui.all_users_empty_hint }}</span>
         </div>
 
         <div id="usersList" class="all-users-list is-hidden"></div>
 
-        <nav id="pagination" class="all-users-pagination is-hidden" aria-label="User list pages"></nav>
+        <nav id="pagination" class="all-users-pagination is-hidden" aria-label="{{ ui.all_users_pagination_aria }}"></nav>
     </div>
 </div>
 {% endblock %}

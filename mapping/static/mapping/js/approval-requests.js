@@ -85,9 +85,10 @@
         if (diffHours < 24) {
             return diffHours + 'h ago';
         }
-        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
-            ', ' +
-            date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        if (typeof window.formatRiyadhDate === 'function' && typeof window.formatRiyadhClock === 'function') {
+            return window.formatRiyadhDate(isoString) + ', ' + window.formatRiyadhClock(isoString);
+        }
+        return '';
     }
 
     function approvalCategoryClass(categoryKey) {

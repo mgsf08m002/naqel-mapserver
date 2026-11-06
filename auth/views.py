@@ -4,7 +4,6 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.urls import reverse
-from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
@@ -12,6 +11,7 @@ import json
 
 from config.api_errors import json_api_error
 from config.ui_strings import t
+from security.session_meta import stamp_session_metadata
 from system_admin.password_admin import (
     create_password_reset_request,
     find_user_by_login_email,
@@ -137,18 +137,7 @@ def login_api(request):
         
         if user is not None:
             login(request, user)
-
-            # Capture basic session metadata for security/session management.
-            request.session["client_ip"] = (
-                request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
-                or request.META.get("REMOTE_ADDR", "")
-            )
-            request.session["user_agent"] = request.META.get("HTTP_USER_AGENT", "")[
-                :512
-            ]
-            now_iso = timezone.now().isoformat()
-            request.session.setdefault("session_created_at", now_iso)
-            request.session["last_seen_at"] = now_iso
+            stamp_session_metadata(request, force=True)
             # First sign-in: personal password setup before entering the map.
             if (
                 hasattr(user, "profile")
@@ -396,6 +385,7 @@ def password_setup_view(request):
                 request.user.profile.password_setup_completed = True
                 request.user.profile.save()
                 login(request, request.user)
+                stamp_session_metadata(request, force=True)
                 messages.success(request, t(lang, "setup_saved_toast"))
                 return _map_redirect_for_role(role)
 
@@ -404,6 +394,10 @@ def password_setup_view(request):
 
 @login_required
 def logout_view(request):
-    """Handle logout."""
+    """Handle logout and drop the matching UserSession enrichment row."""
+    from security.session_meta import delete_user_session_record
+
+    session_key = request.session.session_key
     logout(request)
+    delete_user_session_record(session_key)
     return redirect(f"{reverse('auth:login')}?signed_out=1")

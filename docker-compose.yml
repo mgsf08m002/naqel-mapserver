@@ -17,6 +17,7 @@ services:
     command: ["/usr/local/bin/geotrak_entrypoint.sh"]
     environment:
       - PYTHONUNBUFFERED=1
+      - TZ=Asia/Riyadh
     env_file:
       - .env
     networks:

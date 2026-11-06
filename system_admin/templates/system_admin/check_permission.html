@@ -1,19 +1,19 @@
 {% extends 'system_admin/base.html' %}
 {% load static %}
 
-{% block title %}Check Permissions · System Admin · GeoTrak Maps{% endblock %}
+{% block title %}{{ ui.perm_check_doc_title }}{% endblock %}
 
 {% block extra_css %}
-<link href="{% static 'system_admin/css/permissions.css' %}" rel="stylesheet">
+<link href="{% static 'system_admin/css/permissions.css' %}?v=ar-rtl-2" rel="stylesheet">
 {% endblock %}
 
 {% block content_wrapper %}
 <div class="permissions-form">
     <div class="permissions-form__inner">
         <header>
-            <p class="permissions-kicker">Permissions Management</p>
-            <h1 class="permissions-title">Check Permissions</h1>
-            <p class="permissions-subtitle">View and modify permissions for <strong>{{ target_user.get_full_name|default:target_user.email }}</strong>.</p>
+            <p class="permissions-kicker">{{ ui.perm_kicker }}</p>
+            <h1 class="permissions-title">{{ ui.perm_check_heading }}</h1>
+            <p class="permissions-subtitle">{{ page_subtitle }}</p>
         </header>
 
         <form method="post">
@@ -26,8 +26,8 @@
                     </svg>
                 </span>
                 <div>
-                    <h2>{{ role }} Permissions</h2>
-                    <p>Select or deselect permissions for this {{ role }}.</p>
+                    <h2>{{ role_heading }}</h2>
+                    <p>{{ role_desc }}</p>
                 </div>
             </div>
 
@@ -38,13 +38,13 @@
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
-                    Cancel
+                    {{ ui.cancel }}
                 </a>
                 <button class="permissions-btn permissions-btn--primary" type="submit">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                     </svg>
-                    Update Permissions
+                    {{ ui.perm_check_btn }}
                 </button>
             </div>
         </form>

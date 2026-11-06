@@ -309,6 +309,19 @@ html[dir="rtl"] body {
   font-family: "Segoe UI", Tahoma, "Noto Naskh Arabic", "Arabic Typesetting", sans-serif;
 }
 
+/*
+ * Keep the vertical scrollbar on the physical right in RTL.
+ * dir=rtl on <html> would otherwise flip the scrolling gutter to the left.
+ * Restore RTL on the main content children so layout/text stay mirrored.
+ */
+html[dir="rtl"] body > main {
+  direction: ltr;
+}
+
+html[dir="rtl"] body > main > * {
+  direction: rtl;
+}
+
 /* Floating header: panel cut below chrome, overlays map; toolbar/search clear header */
 body:has(.app-chrome) #editSidePanel.map-sidebar-root {
   top: var(--app-chrome-offset);

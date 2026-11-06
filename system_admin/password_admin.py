@@ -8,6 +8,8 @@ from django.contrib.sessions.models import Session
 from django.db import transaction
 from django.utils import timezone
 
+from config.riyadh_time import start_of_next_riyadh_month, start_of_riyadh_month
+from config.ui_strings import t
 from .models import PasswordChangeEvent, PasswordResetRequest, UserProfile
 
 REQUEST_COOLDOWN = timedelta(hours=24)
@@ -93,28 +95,42 @@ def create_password_reset_request(*, user: User, requester_ip: str | None = None
     return req, ""
 
 
-def validate_temporary_password(new_password: str, confirm_password: str) -> list[str]:
+def validate_temporary_password(
+    new_password: str, confirm_password: str, lang: str = "en"
+) -> list[str]:
     """Return validation error messages for an admin-set temporary password."""
     errors: list[str] = []
     if not new_password or not confirm_password:
-        errors.append("Both password fields are required.")
+        errors.append(t(lang, "pwd_both_required"))
     if new_password and len(new_password) < MIN_PASSWORD_LENGTH:
-        errors.append(f"Password must be at least {MIN_PASSWORD_LENGTH} characters long.")
+        errors.append(t(lang, "password_min"))
     if new_password and confirm_password and new_password != confirm_password:
-        errors.append("Passwords do not match.")
+        errors.append(t(lang, "passwords_mismatch"))
     return errors
 
 
 def flush_user_sessions(user: User) -> None:
-    """Delete all Django sessions belonging to ``user``."""
+    """Delete all Django sessions + UserSession rows belonging to ``user``."""
     now = timezone.now()
+    keys: list[str] = []
     for session in Session.objects.filter(expire_date__gte=now):
         data = session.get_decoded()
         if str(data.get("_auth_user_id")) == str(user.pk):
+            keys.append(session.session_key)
             session.delete()
+    if keys:
+        from security.session_meta import delete_user_session_records_for_keys
+
+        delete_user_session_records_for_keys(keys)
+    else:
+        from security.models import UserSession
+
+        UserSession.objects.filter(user=user).delete()
 
 
-def cancel_pending_requests(user: User, *, by: User | None = None, note: str = "") -> None:
+def cancel_pending_requests(
+    user: User, *, by: User | None = None, note: str = "", lang: str = "en"
+) -> None:
     """Mark all pending requests for ``user`` as dismissed (e.g. admin set password directly)."""
     now = timezone.now()
     PasswordResetRequest.objects.filter(
@@ -124,7 +140,7 @@ def cancel_pending_requests(user: User, *, by: User | None = None, note: str = "
         status=PasswordResetRequest.Status.DISMISSED,
         resolved_at=now,
         resolved_by=by,
-        admin_note=note or "Cancelled because an administrator set a new password.",
+        admin_note=note or t(lang, "pwd_admin_note_cancelled"),
     )
 
 
@@ -137,13 +153,14 @@ def apply_admin_temporary_password(
     source: str,
     request: PasswordResetRequest | None = None,
     admin_note: str = "",
+    lang: str = "en",
 ) -> PasswordChangeEvent:
     """
     Set a temporary password, force password-setup on next login, flush sessions,
     resolve/cancel pending requests, and write an audit event.
     """
     if len(new_password) < MIN_PASSWORD_LENGTH:
-        raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters long.")
+        raise ValueError(t(lang, "password_min"))
 
     target.set_password(new_password)
     target.save(update_fields=["password"])
@@ -165,7 +182,8 @@ def apply_admin_temporary_password(
         cancel_pending_requests(
             target,
             by=changed_by,
-            note=admin_note or "Cancelled because an administrator set a new password.",
+            note=admin_note or t(lang, "pwd_admin_note_cancelled"),
+            lang=lang,
         )
 
     event = PasswordChangeEvent.objects.create(
@@ -183,9 +201,10 @@ def dismiss_password_reset_request(
     request: PasswordResetRequest,
     dismissed_by: User,
     admin_note: str = "",
+    lang: str = "en",
 ) -> PasswordResetRequest:
     if request.status != PasswordResetRequest.Status.PENDING:
-        raise ValueError("Only pending requests can be dismissed.")
+        raise ValueError(t(lang, "msg_pwd_request_not_pending"))
     request.status = PasswordResetRequest.Status.DISMISSED
     request.resolved_at = timezone.now()
     request.resolved_by = dismissed_by
@@ -200,8 +219,10 @@ def pending_request_count() -> int:
 
 
 def password_changes_this_month_count() -> int:
-    now = timezone.now()
+    """Count password changes in the current Asia/Riyadh calendar month."""
+    start = start_of_riyadh_month()
+    end = start_of_next_riyadh_month()
     return PasswordChangeEvent.objects.filter(
-        created_at__year=now.year,
-        created_at__month=now.month,
+        created_at__gte=start,
+        created_at__lt=end,
     ).count()

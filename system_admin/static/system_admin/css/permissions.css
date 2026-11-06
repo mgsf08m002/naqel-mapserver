@@ -1,4 +1,4 @@
-/* Permissions — listing layout matching the GeoTrak redesign. */
+/* Permissions Management */
 
 body:has(.permissions-page),
 body:has(.permissions-page) main,
@@ -14,7 +14,6 @@ body:has(.permissions-form) main {
   --perm-label: #8b9bb0;
   --perm-text: #5a6f8c;
   --perm-card: #ffffff;
-  --perm-soft: #eef4fb;
   --perm-border: #e4edf5;
   --perm-shadow: 0 10px 28px rgba(15, 45, 83, 0.05);
   color: #0f2d53;
@@ -25,7 +24,6 @@ body:has(.permissions-form) main {
   padding: 40px 32px 56px;
 }
 
-.permissions-page.is-hidden,
 .permissions-page .is-hidden,
 .permissions-form .is-hidden {
   display: none !important;
@@ -616,4 +614,49 @@ body:has(.permissions-form) main {
   .permissions-btn {
     width: 100%;
   }
+}
+
+/* Permissions module RTL */
+html[dir="rtl"] .permissions-page,
+html[dir="rtl"] .permissions-form {
+  text-align: right;
+}
+
+html[dir="rtl"] .permissions-search__icon {
+  left: auto;
+  right: 16px;
+}
+
+html[dir="rtl"] .permissions-search__clear {
+  right: auto;
+  left: 12px;
+}
+
+html[dir="rtl"] .permissions-select select {
+  padding: 0 16px 0 36px;
+}
+
+html[dir="rtl"] .permissions-select__chevron {
+  right: auto;
+  left: 14px;
+}
+
+html[dir="rtl"] .permissions-card__action {
+  text-align: right;
+}
+
+html[dir="rtl"] .permissions-card__action-copy,
+html[dir="rtl"] .permissions-card__identity {
+  text-align: right;
+}
+
+html[dir="rtl"] .permissions-card__chevron svg,
+html[dir="rtl"] .permissions-perm-chevron svg {
+  transform: scaleX(-1);
+}
+
+html[dir="rtl"] .permissions-kicker,
+html[dir="rtl"] .permissions-perm-heading h2 {
+  letter-spacing: 0;
+  text-transform: none;
 }

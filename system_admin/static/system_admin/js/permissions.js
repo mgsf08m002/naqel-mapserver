@@ -1,13 +1,6 @@
 (function () {
     'use strict';
 
-    const state = {
-        users: [],
-        filteredUsers: [],
-        searchQuery: '',
-        roleFilter: '',
-    };
-
     const elements = {
         loadingState: document.getElementById('loadingState'),
         emptyState: document.getElementById('emptyState'),
@@ -18,14 +11,36 @@
         resultsCount: document.getElementById('resultsCount'),
     };
 
+    const pageI18n = {
+        role_manager: elements.usersGrid?.dataset.i18nRoleManager || '',
+        role_editor: elements.usersGrid?.dataset.i18nRoleEditor || '',
+        not_assigned: elements.usersGrid?.dataset.i18nNotAssigned || '',
+        perm_card_action_title: elements.usersGrid?.dataset.i18nActionTitle || '',
+        perm_card_action_desc: elements.usersGrid?.dataset.i18nActionDesc || '',
+        perm_load_failed: elements.usersGrid?.dataset.i18nLoadFailed || '',
+    };
+
+    function t(key, fallback) {
+        if (pageI18n[key]) return pageI18n[key];
+        return typeof window.uiT === 'function' ? window.uiT(key, fallback) : fallback;
+    }
+
+    const state = {
+        users: [],
+        filteredUsers: [],
+        searchQuery: '',
+        roleFilter: '',
+    };
+
     function initials(name) {
         const first = String(name || '').trim().split(/\s+/).filter(Boolean)[0] || 'U';
         return first.slice(0, 2).toUpperCase();
     }
 
     function roleLabel(role) {
-        if (!role) return 'Not assigned';
-        return role.charAt(0).toUpperCase() + role.slice(1);
+        if (role === 'manager') return t('role_manager', 'Manager');
+        if (role === 'editor') return t('role_editor', 'Editor');
+        return t('not_assigned', 'Not assigned');
     }
 
     function escapeHtml(text) {
@@ -73,6 +88,10 @@
 
         setHidden(elements.emptyState, true);
         setHidden(elements.usersGrid, false);
+
+        const actionTitle = t('perm_card_action_title', 'User Permissions');
+        const actionDesc = t('perm_card_action_desc', 'View and manage permissions for this user');
+
         elements.usersGrid.innerHTML = state.filteredUsers.map((user) => {
             const name = user.full_name || user.email || 'User';
             return `
@@ -97,8 +116,8 @@
                             </svg>
                         </span>
                         <span class="permissions-card__action-copy">
-                            <span class="permissions-card__action-title">User Permissions</span>
-                            <span class="permissions-card__action-desc">View and manage permissions for this user</span>
+                            <span class="permissions-card__action-title">${escapeHtml(actionTitle)}</span>
+                            <span class="permissions-card__action-desc">${escapeHtml(actionDesc)}</span>
                         </span>
                         <span class="permissions-card__chevron" aria-hidden="true">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -116,7 +135,12 @@
 
         if (state.searchQuery) {
             filtered = filtered.filter((user) => {
-                const haystack = `${user.full_name || ''} ${user.email || ''} ${user.role || ''}`.toLowerCase();
+                const haystack = [
+                    user.full_name || '',
+                    user.email || '',
+                    user.role || '',
+                    roleLabel(user.role),
+                ].join(' ').toLowerCase();
                 return haystack.includes(state.searchQuery);
             });
         }
@@ -141,11 +165,11 @@
                 applyFilters();
             } else {
                 hideLoading();
-                window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_load', "Couldn't load") : "Couldn't load"), 'error');
+                window.notify.tryShow(t('perm_load_failed', t('toast_couldnt_load', "Couldn't load")), 'error');
             }
         } catch (error) {
             hideLoading();
-            window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_load', "Couldn't load") : "Couldn't load"), 'error');
+            window.notify.tryShow(t('perm_load_failed', t('toast_couldnt_load', "Couldn't load")), 'error');
         }
     }
 

@@ -8,8 +8,12 @@
         const tableBody = document.getElementById('recentUsersTableBody');
         const emptyState = document.getElementById('recentUsersEmpty');
         const rows = tableBody ? Array.from(tableBody.querySelectorAll('tr[data-name]')) : [];
+        const scrollRoot = document.querySelector('main');
 
         let statusFilter = 'all';
+        let activeMenu = null;
+        let activeButton = null;
+        let activeHome = null;
 
         function applyFilters() {
             const query = (searchInput?.value || '').trim().toLowerCase();
@@ -58,33 +62,108 @@
             });
         });
 
-        function closeRowMenus(exceptMenu) {
-            document.querySelectorAll('.users-row-actions__menu.is-open').forEach((menu) => {
-                if (menu !== exceptMenu) {
-                    menu.classList.remove('is-open');
-                    menu.previousElementSibling?.classList.remove('is-open');
+        function clearMenuPosition(menu) {
+            if (!menu) {
+                return;
+            }
+            menu.style.top = '';
+            menu.style.left = '';
+            menu.style.right = '';
+        }
+
+        function restoreActiveMenu() {
+            if (!activeMenu || !activeHome) {
+                return;
+            }
+            activeMenu.classList.remove('is-open');
+            activeButton?.classList.remove('is-open');
+            clearMenuPosition(activeMenu);
+            activeHome.appendChild(activeMenu);
+            activeMenu = null;
+            activeButton = null;
+            activeHome = null;
+        }
+
+        function positionRowMenu(button, menu) {
+            const rect = button.getBoundingClientRect();
+            const menuRect = menu.getBoundingClientRect();
+            const gap = 4;
+            const pad = 8;
+            const menuWidth = menuRect.width || 132;
+            const menuHeight = menuRect.height || 120;
+            const isRtl = document.documentElement.getAttribute('dir') === 'rtl';
+
+            let top = rect.bottom + gap;
+            if (top + menuHeight > window.innerHeight - pad) {
+                top = Math.max(pad, rect.top - gap - menuHeight);
+            }
+
+            let left;
+            if (isRtl) {
+                left = rect.left;
+                if (left + menuWidth > window.innerWidth - pad) {
+                    left = window.innerWidth - menuWidth - pad;
                 }
-            });
+            } else {
+                left = rect.right - menuWidth;
+                if (left < pad) {
+                    left = pad;
+                }
+            }
+
+            menu.style.top = `${Math.round(top)}px`;
+            menu.style.left = `${Math.round(left)}px`;
+            menu.style.right = 'auto';
+        }
+
+        function closeRowMenus() {
+            restoreActiveMenu();
+        }
+
+        function openRowMenu(button, menu) {
+            closeRowMenus();
+            activeButton = button;
+            activeMenu = menu;
+            activeHome = menu.parentElement;
+            document.body.appendChild(menu);
+            menu.classList.add('is-open');
+            button.classList.add('is-open');
+            positionRowMenu(button, menu);
         }
 
         document.querySelectorAll('.users-row-actions__btn').forEach((button) => {
             button.addEventListener('click', (event) => {
                 event.stopPropagation();
-                const menu = button.nextElementSibling;
-                const willOpen = !menu?.classList.contains('is-open');
-                closeRowMenus(willOpen ? menu : null);
+                const menu = button.nextElementSibling || (
+                    activeButton === button ? activeMenu : null
+                );
+                if (!menu) {
+                    return;
+                }
                 filterMenu?.classList.remove('is-open');
                 filterBtn?.classList.remove('is-open');
-                menu?.classList.toggle('is-open', willOpen);
-                button.classList.toggle('is-open', willOpen);
+                filterBtn?.setAttribute('aria-expanded', 'false');
+
+                const isAlreadyOpen = activeButton === button && activeMenu === menu;
+                if (isAlreadyOpen) {
+                    closeRowMenus();
+                    return;
+                }
+                openRowMenu(button, menu);
             });
         });
 
-        document.addEventListener('click', () => {
+        document.addEventListener('click', (event) => {
+            if (activeMenu && activeMenu.contains(event.target)) {
+                return;
+            }
             filterMenu?.classList.remove('is-open');
             filterBtn?.classList.remove('is-open');
             filterBtn?.setAttribute('aria-expanded', 'false');
             closeRowMenus();
         });
+
+        scrollRoot?.addEventListener('scroll', () => closeRowMenus(), { passive: true });
+        window.addEventListener('resize', () => closeRowMenus());
     });
 })();

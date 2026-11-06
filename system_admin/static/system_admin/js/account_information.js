@@ -20,6 +20,19 @@
 
         if (!page) return;
 
+        const pageI18n = {
+            acct_photo_added: page.dataset.i18nPhotoAdded || '',
+            acct_photo_none: page.dataset.i18nPhotoNone || '',
+            acct_save_crop: page.dataset.i18nSaveCrop || '',
+            acct_uploading: page.dataset.i18nUploading || '',
+            acct_pick_image: page.dataset.i18nPickImage || '',
+        };
+
+        function t(key, fallback) {
+            if (pageI18n[key]) return pageI18n[key];
+            return typeof window.uiT === 'function' ? window.uiT(key, fallback) : fallback;
+        }
+
         const uploadUrl = page.dataset.uploadUrl || '';
         const removeUrl = page.dataset.removeUrl || '';
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
@@ -104,14 +117,14 @@
                 imageEl.classList.remove('is-hidden');
                 if (imageUrl) imageEl.src = imageUrl;
                 initialsEl.classList.add('is-hidden');
-                if (stateEl) stateEl.textContent = 'Photo added';
+                if (stateEl) stateEl.textContent = t('acct_photo_added', 'Photo added');
                 if (removeBtn) removeBtn.disabled = false;
                 syncHeaderAvatars(imageUrl || imageEl.src);
             } else {
                 imageEl.classList.add('is-hidden');
                 imageEl.removeAttribute('src');
                 initialsEl.classList.remove('is-hidden');
-                if (stateEl) stateEl.textContent = 'No photo uploaded';
+                if (stateEl) stateEl.textContent = t('acct_photo_none', 'No photo uploaded');
                 if (removeBtn) removeBtn.disabled = true;
                 syncHeaderAvatars(null);
             }
@@ -130,7 +143,7 @@
 
         const openCropModal = (file) => {
             if (typeof Cropper === 'undefined' || !cropModal || !cropImage) {
-                window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_load', "Couldn't load") : "Couldn't load"), 'error');
+                window.notify.tryShow(t('toast_couldnt_load', "Couldn't load"), 'error');
                 return;
             }
             selectedFile = file;
@@ -168,7 +181,7 @@
             });
             canvas.toBlob((blob) => {
                 if (!blob) {
-                    window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_update_photo', "Couldn't update photo") : "Couldn't update photo"), 'error');
+                    window.notify.tryShow(t('toast_couldnt_update_photo', "Couldn't update photo"), 'error');
                     return;
                 }
                 const formData = new FormData();
@@ -176,7 +189,7 @@
                 formData.append('csrfmiddlewaretoken', csrfToken);
                 if (saveCrop) {
                     saveCrop.disabled = true;
-                    saveCrop.textContent = 'Uploading...';
+                    saveCrop.textContent = t('acct_uploading', 'Uploading...');
                 }
                 fetch(uploadUrl, {
                     method: 'POST',
@@ -187,28 +200,22 @@
                     .then((data) => {
                         if (saveCrop) {
                             saveCrop.disabled = false;
-                            saveCrop.textContent = 'Save Crop';
+                            saveCrop.textContent = t('acct_save_crop', 'Save Crop');
                         }
                         if (data.success) {
                             updatePhotoState(true, data.image_url);
                             closeCropModalHandler();
-                            window.notify.tryShow(
-                                (typeof window.uiT === 'function' ? window.uiT('toast_photo_updated', 'Photo updated') : 'Photo updated'),
-                                'success'
-                            );
+                            window.notify.tryShow(t('toast_photo_updated', 'Photo updated'), 'success');
                         } else {
-                            window.notify.tryShow(
-                                (typeof window.uiT === 'function' ? window.uiT('toast_couldnt_update_photo', "Couldn't update photo") : "Couldn't update photo"),
-                                'error'
-                            );
+                            window.notify.tryShow(t('toast_couldnt_update_photo', "Couldn't update photo"), 'error');
                         }
                     })
                     .catch(() => {
                         if (saveCrop) {
                             saveCrop.disabled = false;
-                            saveCrop.textContent = 'Save Crop';
+                            saveCrop.textContent = t('acct_save_crop', 'Save Crop');
                         }
-                        window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_update_photo', "Couldn't update photo") : "Couldn't update photo"), 'error');
+                        window.notify.tryShow(t('toast_couldnt_update_photo', "Couldn't update photo"), 'error');
                     });
             }, 'image/jpeg', 0.95);
         };
@@ -219,7 +226,7 @@
             const file = fileInput.files && fileInput.files[0];
             if (!file) return;
             if (!file.type.startsWith('image/')) {
-                window.notify.tryShow('Pick an image file.', 'error');
+                window.notify.tryShow(t('acct_pick_image', 'Pick an image file.'), 'error');
                 fileInput.value = '';
                 return;
             }
@@ -241,19 +248,13 @@
                         if (data.success) {
                             fileInput.value = '';
                             updatePhotoState(false);
-                            window.notify.tryShow(
-                                (typeof window.uiT === 'function' ? window.uiT('toast_photo_removed', 'Photo removed') : 'Photo removed'),
-                                'success'
-                            );
+                            window.notify.tryShow(t('toast_photo_removed', 'Photo removed'), 'success');
                         } else {
-                            window.notify.tryShow(
-                                (typeof window.uiT === 'function' ? window.uiT('toast_couldnt_update_photo', "Couldn't update photo") : "Couldn't update photo"),
-                                'error'
-                            );
+                            window.notify.tryShow(t('toast_couldnt_update_photo', "Couldn't update photo"), 'error');
                         }
                     })
                     .catch(() => {
-                        window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_update_photo', "Couldn't update photo") : "Couldn't update photo"), 'error');
+                        window.notify.tryShow(t('toast_couldnt_update_photo', "Couldn't update photo"), 'error');
                     });
             });
         }

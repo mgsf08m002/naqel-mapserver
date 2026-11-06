@@ -1,10 +1,10 @@
 {% extends 'system_admin/base.html' %}
 {% load static %}
 
-{% block title %}View User · System Admin · GeoTrak Maps{% endblock %}
+{% block title %}{{ ui.view_user_doc_title }}{% endblock %}
 
 {% block extra_css %}
-<link href="{% static 'system_admin/css/users.css' %}" rel="stylesheet">
+<link href="{% static 'system_admin/css/users.css' %}?v=ar-rtl-2" rel="stylesheet">
 {% endblock %}
 
 {% block content_wrapper %}
@@ -15,15 +15,15 @@
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                 </svg>
-                User Management
+                {{ ui.users_kicker }}
             </a>
-            <h1 class="users-title">View User</h1>
-            <p class="users-subtitle">View and manage all user accounts in the system. Customize your view and filter by role.</p>
+            <h1 class="users-title">{{ ui.view_user_heading }}</h1>
+            <p class="users-subtitle">{{ ui.view_user_subtitle }}</p>
         </header>
 
         <div id="loadingState" class="view-user-state">
             <span class="all-users-spinner" aria-hidden="true"></span>
-            <p>Loading user information...</p>
+            <p>{{ ui.view_user_loading }}</p>
         </div>
 
         <div id="userDetails" class="view-user-card is-hidden">
@@ -31,26 +31,26 @@
                 <div class="view-user-profile__identity">
                     <div class="view-user-avatar">
                         <span id="userInitials">U</span>
-                        <img id="userAvatarImage" src="" alt="Profile" class="is-hidden">
+                        <img id="userAvatarImage" src="" alt="{{ ui.profile }}" class="is-hidden">
                     </div>
                     <div>
                         <h2 class="view-user-profile__name">
-                            <span id="userFullName">User Name</span>
-                            <span class="view-user-verified" aria-label="Verified" title="Verified">
+                            <span id="userFullName">—</span>
+                            <span class="view-user-verified" aria-label="{{ ui.view_user_verified }}" title="{{ ui.view_user_verified }}">
                                 <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path d="M12 2l1.7 1.1 1.95-.55.7 1.9 1.9.7-.55 1.95L21 9.8l-1.1 1.7 1.1 1.7-2.3 1.1.55 1.95-1.9.7-.7 1.9-1.95-.55L12 22l-1.7-1.1-1.95.55-.7-1.9-1.9-.7.55-1.95L3 13.2l1.1-1.7L3 9.8l2.3-1.1-.55-1.95 1.9-.7.7-1.9 1.95.55L12 2zm-1.1 13.2l5.3-5.3-1.4-1.4-3.9 3.9-1.8-1.8-1.4 1.4 3.2 3.2z"></path>
                                 </svg>
                             </span>
                         </h2>
-                        <p id="userEmail" class="view-user-profile__email">user@example.com</p>
+                        <p id="userEmail" class="view-user-profile__email">—</p>
                         <div class="view-user-profile__badges">
                             <span class="all-users-role">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                                 </svg>
-                                <span id="userRole">Role</span>
+                                <span id="userRole">{{ ui.role }}</span>
                             </span>
-                            <span id="userStatus" class="view-user-status-chip is-active">Active</span>
+                            <span id="userStatus" class="view-user-status-chip is-active">{{ ui.active }}</span>
                         </div>
                     </div>
                 </div>
@@ -58,7 +58,7 @@
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                     </svg>
-                    Edit User
+                    {{ ui.users_action_edit_title }}
                 </a>
             </div>
 
@@ -70,8 +70,8 @@
                         </svg>
                     </span>
                     <div>
-                        <h3 id="accountInfoHeading">Account Information</h3>
-                        <p>Basic account details and settings</p>
+                        <h3 id="accountInfoHeading">{{ ui.view_user_account_info }}</h3>
+                        <p>{{ ui.view_user_account_info_sub }}</p>
                     </div>
                 </div>
                 <div class="view-user-fields">
@@ -80,7 +80,7 @@
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                         </span>
                         <div>
-                            <span class="view-user-field__label">Full Name</span>
+                            <span class="view-user-field__label">{{ ui.full_name }}</span>
                             <span id="detailFullName" class="view-user-field__value">-</span>
                         </div>
                     </div>
@@ -89,7 +89,7 @@
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                         </span>
                         <div>
-                            <span class="view-user-field__label">Email Address</span>
+                            <span class="view-user-field__label">{{ ui.email_address }}</span>
                             <span id="detailEmail" class="view-user-field__value">-</span>
                         </div>
                     </div>
@@ -98,7 +98,7 @@
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                         </span>
                         <div>
-                            <span class="view-user-field__label">Username</span>
+                            <span class="view-user-field__label">{{ ui.view_user_username }}</span>
                             <span id="detailUsername" class="view-user-field__value">-</span>
                         </div>
                     </div>
@@ -107,7 +107,7 @@
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
                         </span>
                         <div>
-                            <span class="view-user-field__label">Role</span>
+                            <span class="view-user-field__label">{{ ui.role }}</span>
                             <span id="detailRole" class="view-user-field__value">-</span>
                         </div>
                     </div>
@@ -116,8 +116,8 @@
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         </span>
                         <div>
-                            <span class="view-user-field__label">Account Status</span>
-                            <span id="detailStatus" class="view-user-status-chip is-active">Active</span>
+                            <span class="view-user-field__label">{{ ui.edit_user_account_status }}</span>
+                            <span id="detailStatus" class="view-user-status-chip is-active">{{ ui.active }}</span>
                         </div>
                     </div>
                     <div class="view-user-field">
@@ -125,7 +125,7 @@
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
                         </span>
                         <div>
-                            <span class="view-user-field__label">Is Superuser</span>
+                            <span class="view-user-field__label">{{ ui.view_user_is_superuser }}</span>
                             <span id="detailSuperuser" class="view-user-field__value">-</span>
                         </div>
                     </div>
@@ -140,8 +140,8 @@
                         </svg>
                     </span>
                     <div>
-                        <h3 id="accountDatesHeading">Account Dates</h3>
-                        <p>Important dates related to this account</p>
+                        <h3 id="accountDatesHeading">{{ ui.view_user_dates }}</h3>
+                        <p>{{ ui.view_user_dates_sub }}</p>
                     </div>
                 </div>
                 <div class="view-user-fields">
@@ -150,7 +150,7 @@
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         </span>
                         <div>
-                            <span class="view-user-field__label">Account Creation Date</span>
+                            <span class="view-user-field__label">{{ ui.view_user_creation_date }}</span>
                             <span id="detailCreationDate" class="view-user-field__value">-</span>
                         </div>
                     </div>
@@ -159,7 +159,7 @@
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         </span>
                         <div>
-                            <span class="view-user-field__label">Account Creation Time</span>
+                            <span class="view-user-field__label">{{ ui.view_user_creation_time }}</span>
                             <span id="detailCreationTime" class="view-user-field__value">-</span>
                         </div>
                     </div>
@@ -171,15 +171,15 @@
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                     </svg>
-                    Back to All Users
+                    {{ ui.view_user_back_all }}
                 </a>
             </div>
         </div>
 
         <div id="errorState" class="view-user-card view-user-state is-hidden">
-            <p>Error loading user</p>
+            <p>{{ ui.view_user_error_title }}</p>
             <span id="errorMessage">-</span>
-            <a class="users-btn users-btn--ghost" href="{% url 'system_admin:all_users' %}">Back to All Users</a>
+            <a class="users-btn users-btn--ghost" href="{% url 'system_admin:all_users' %}">{{ ui.view_user_back_all }}</a>
         </div>
     </div>
 </div>

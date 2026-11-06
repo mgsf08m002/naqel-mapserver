@@ -1,0 +1,164 @@
+{% load static %}
+<div
+    class="security-page"
+    data-i18n-show="{{ ui.show_password }}"
+    data-i18n-hide="{{ ui.hide_password }}"
+    data-i18n-hint="{{ ui.confirm_password_hint }}"
+    data-i18n-match="{{ ui.passwords_match }}"
+    data-i18n-mismatch="{{ ui.passwords_mismatch }}"
+    data-i18n-this-browser="{{ ui.sec_this_browser }}"
+    data-i18n-active-now="{{ ui.sec_active_now }}"
+    data-i18n-log-out="{{ ui.sec_log_out }}"
+    data-i18n-unknown-browser="{{ ui.sec_unknown_browser }}"
+    data-i18n-unknown-time="{{ ui.sec_unknown_time }}"
+    data-i18n-label-system="{{ ui.sec_label_system }}"
+    data-i18n-label-location="{{ ui.sec_label_location }}"
+    data-i18n-label-ip="{{ ui.sec_label_ip }}"
+    data-i18n-last-active="{{ ui.sec_last_active }}"
+    data-i18n-signed-in="{{ ui.sec_signed_in }}"
+    data-i18n-no-details="{{ ui.sec_no_details }}"
+    data-i18n-sessions-one="{{ ui.sec_sessions_count_one }}"
+    data-i18n-sessions-two="{{ ui.sec_sessions_count_two }}"
+    data-i18n-sessions-few="{{ ui.sec_sessions_count_few }}"
+    data-i18n-sessions-many="{{ ui.sec_sessions_count_many }}"
+>
+    <div class="security-shell">
+        <header>
+            <p class="security-kicker">{{ ui.sec_kicker }}</p>
+            <h1 class="security-title">{{ ui.sec_heading }}</h1>
+            <p class="security-subtitle">{{ security_subtitle }}</p>
+        </header>
+
+        <section class="security-hero" aria-label="{{ ui.sec_summary_aria }}">
+            <svg class="security-hero__wave" viewBox="0 0 640 220" fill="none" aria-hidden="true">
+                <path d="M80 180c70-40 120-120 210-118 90 2 120 90 210 86 40-2 80-22 140-70" stroke="currentColor" stroke-width="18" stroke-linecap="round"/>
+                <path d="M40 150c80-30 130-90 220-86 95 4 118 78 215 74 48-2 92-20 165-64" stroke="currentColor" stroke-width="12" stroke-linecap="round" opacity="0.7"/>
+                <path d="M120 200c75-28 140-70 230-64 88 6 120 54 210 48" stroke="currentColor" stroke-width="10" stroke-linecap="round" opacity="0.45"/>
+            </svg>
+
+            <div class="security-hero__mark" aria-hidden="true">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                </svg>
+            </div>
+
+            <div class="security-hero__identity">
+                <p class="security-hero__name">{{ ui.sec_hero_title }}</p>
+                <p class="security-hero__role">{{ ui.sec_hero_desc }}</p>
+            </div>
+
+            <span class="security-hero__divider" aria-hidden="true"></span>
+
+            <div class="security-hero__live">
+                <div class="security-hero__live-row">
+                    <span class="security-hero__live-dot" aria-hidden="true"></span>
+                    <span id="securitySessionCount">—</span>
+                </div>
+                <span class="security-hero__live-caption">{{ ui.sec_sessions_caption }}</span>
+            </div>
+        </section>
+
+        <section class="security-section" aria-labelledby="securityPasswordHeading">
+            <div class="security-section__heading">
+                <div class="security-section__intro">
+                    <span class="security-section__icon" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                        </svg>
+                    </span>
+                    <div>
+                        <h2 id="securityPasswordHeading">{{ ui.sec_password_title }}</h2>
+                        <p>{{ ui.sec_password_desc }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <form method="post" id="securityPasswordForm" autocomplete="off">
+                {% csrf_token %}
+                <input type="hidden" name="intent" value="change_password">
+
+                <div class="security-form-grid">
+                    <div class="security-field security-field--full">
+                        <label class="security-field__label" for="current_password">{{ ui.sec_current_password }}</label>
+                        <div class="security-field__control">
+                            <input id="current_password" class="security-field__input" name="current_password" type="password" autocomplete="current-password" required placeholder="{{ ui.sec_current_placeholder }}">
+                            <button type="button" class="security-field__toggle" data-toggle-password="current_password">{{ ui.show_password }}</button>
+                        </div>
+                    </div>
+
+                    <div class="security-field">
+                        <label class="security-field__label" for="new_password">{{ ui.sec_new_password }}</label>
+                        <div class="security-field__control">
+                            <input id="new_password" class="security-field__input" name="new_password" type="password" autocomplete="new-password" required minlength="8" placeholder="{{ ui.sec_new_placeholder }}">
+                            <button type="button" class="security-field__toggle" data-toggle-password="new_password">{{ ui.show_password }}</button>
+                        </div>
+                        <p class="security-field__hint">{{ ui.sec_password_hint }}</p>
+                    </div>
+
+                    <div class="security-field">
+                        <label class="security-field__label" for="confirm_password">{{ ui.sec_confirm_password }}</label>
+                        <div class="security-field__control">
+                            <input id="confirm_password" class="security-field__input" name="confirm_password" type="password" autocomplete="new-password" required minlength="8" placeholder="{{ ui.sec_confirm_placeholder }}">
+                            <button type="button" class="security-field__toggle" data-toggle-password="confirm_password">{{ ui.show_password }}</button>
+                        </div>
+                        <p id="matchHint" class="security-field__hint">{{ ui.confirm_password_hint }}</p>
+                    </div>
+                </div>
+
+                <div class="security-form-actions">
+                    <button class="security-btn security-btn--primary" type="submit">{{ ui.sec_update_password }}</button>
+                </div>
+            </form>
+        </section>
+
+        <section
+            class="security-section security-section--sessions"
+            id="sessionsSection"
+            aria-labelledby="securitySessionsHeading"
+            data-browser-icon-base="{% static 'images/security/' %}"
+            data-sessions-endpoint="/security/api/sessions/"
+            data-terminate-endpoint="/security/api/sessions/terminate/"
+            data-terminate-others-endpoint="/security/api/sessions/terminate-others/"
+        >
+            <div class="security-section__heading">
+                <div class="security-section__intro">
+                    <span class="security-section__icon security-section__icon--shield" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"></path>
+                        </svg>
+                    </span>
+                    <div>
+                        <h2 id="securitySessionsHeading">{{ ui.sec_sessions_title }}</h2>
+                        <p>{{ ui.sec_sessions_desc }}</p>
+                    </div>
+                </div>
+                <div class="security-section__actions">
+                    <button type="button" id="terminateOtherSessionsButton" class="security-btn security-btn--danger security-btn--sm is-hidden">
+                        {{ ui.sec_log_out_others }}
+                    </button>
+                    <button type="button" id="refreshSessionsButton" class="security-btn security-btn--outline security-btn--sm">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"></path>
+                        </svg>
+                        {{ ui.sec_refresh }}
+                    </button>
+                </div>
+            </div>
+
+            <div id="sessionsSkeleton" class="security-skeleton" aria-hidden="true">
+                <div class="security-skeleton__left">
+                    <span class="security-skeleton__avatar"></span>
+                    <span class="security-skeleton__lines">
+                        <span class="security-skeleton__line security-skeleton__line--sm"></span>
+                        <span class="security-skeleton__line security-skeleton__line--lg"></span>
+                    </span>
+                </div>
+                <span class="security-skeleton__btn"></span>
+            </div>
+
+            <div id="sessionsContainer" class="security-sessions"></div>
+
+            <p id="sessionsEmptyState" class="security-empty is-hidden">{{ ui.sec_sessions_empty }}</p>
+        </section>
+    </div>
+</div>

@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.utils import timezone
-import zoneinfo
+
+from config.riyadh_time import format_riyadh, riyadh_now
 
 
 class UserProfile(models.Model):
@@ -10,7 +10,7 @@ class UserProfile(models.Model):
         ('manager', 'Manager'),
         ('editor', 'Editor'),
     ]
-    
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     profile_image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, blank=True, null=True)
@@ -28,18 +28,12 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
-    
-    @staticmethod
-    def get_riyadh_datetime():
-        """Get current datetime in Riyadh timezone."""
-        riyadh_tz = zoneinfo.ZoneInfo('Asia/Riyadh')
-        return timezone.now().astimezone(riyadh_tz)
-    
+
     def set_account_creation_datetime(self):
-        """Set account creation date and time in Riyadh timezone."""
-        riyadh_now = self.get_riyadh_datetime()
-        self.account_creation_date = riyadh_now.date()
-        self.account_creation_time = riyadh_now.time()
+        """Store account creation date/time as Asia/Riyadh wall clock."""
+        now = riyadh_now()
+        self.account_creation_date = now.date()
+        self.account_creation_time = now.time()
         self.save()
 
 
@@ -85,7 +79,8 @@ class PasswordResetRequest(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user.username} — {self.status} ({self.requested_at:%Y-%m-%d})"
+        stamp = format_riyadh(self.requested_at, "%Y-%m-%d")
+        return f"{self.user.username} — {self.status} ({stamp})"
 
 
 class PasswordChangeEvent(models.Model):
@@ -122,4 +117,5 @@ class PasswordChangeEvent(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.user.username} via {self.source} ({self.created_at:%Y-%m-%d})"
+        stamp = format_riyadh(self.created_at, "%Y-%m-%d")
+        return f"{self.user.username} via {self.source} ({stamp})"

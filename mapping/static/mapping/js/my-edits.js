@@ -32,19 +32,10 @@
     }
 
     function formatDate(iso) {
-        if (!iso) return '—';
-        try {
-            var d = new Date(iso);
-            return d.toLocaleString(undefined, {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        } catch (e) {
-            return iso;
+        if (typeof window.formatRiyadhDateTime === 'function') {
+            return window.formatRiyadhDateTime(iso, '—');
         }
+        return iso || '—';
     }
 
     function reviewerLabel(item) {

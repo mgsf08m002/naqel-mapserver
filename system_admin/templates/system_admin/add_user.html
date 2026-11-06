@@ -1,10 +1,10 @@
 {% extends 'system_admin/base.html' %}
 {% load static %}
 
-{% block title %}Add User · System Admin · GeoTrak Maps{% endblock %}
+{% block title %}{{ ui.add_user_doc_title }}{% endblock %}
 
 {% block extra_css %}
-<link href="{% static 'system_admin/css/users.css' %}" rel="stylesheet">
+<link href="{% static 'system_admin/css/users.css' %}?v=ar-rtl-2" rel="stylesheet">
 {% endblock %}
 
 {% block content_wrapper %}
@@ -16,10 +16,10 @@
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                     </svg>
-                    User Management
+                    {{ ui.users_kicker }}
                 </a>
-                <h1 class="users-title">Add a new user</h1>
-                <p class="users-subtitle">Create a new user account by filling in the details below. Select a role to assign appropriate permissions.</p>
+                <h1 class="users-title">{{ ui.add_user_heading }}</h1>
+                <p class="users-subtitle">{{ ui.add_user_subtitle }}</p>
             </header>
 
             <section class="users-form-card">
@@ -34,9 +34,9 @@
                                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                                     </svg>
-                                    Full Name
+                                    {{ ui.full_name }}
                                 </label>
-                                <input id="full_name" name="full_name" type="text" required class="users-field__input" placeholder="Enter full name" autocomplete="name">
+                                <input id="full_name" name="full_name" type="text" required class="users-field__input" placeholder="{{ ui.add_user_placeholder_name }}" autocomplete="name">
                             </div>
 
                             <div class="users-field">
@@ -44,9 +44,9 @@
                                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                                     </svg>
-                                    Email Address
+                                    {{ ui.email_address }}
                                 </label>
-                                <input id="email" name="email" type="email" required class="users-field__input" placeholder="Enter email address" autocomplete="email">
+                                <input id="email" name="email" type="email" required class="users-field__input" placeholder="{{ ui.add_user_placeholder_email }}" autocomplete="email">
                             </div>
 
                             <div class="users-field">
@@ -54,19 +54,19 @@
                                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                                     </svg>
-                                    Password
+                                    {{ ui.password }}
                                 </label>
                                 <div class="users-field__control">
-                                    <input id="password" name="password" type="password" required minlength="8" class="users-field__input" placeholder="Enter password" autocomplete="new-password">
+                                    <input id="password" name="password" type="password" required minlength="8" class="users-field__input" placeholder="{{ ui.add_user_placeholder_password }}" autocomplete="new-password">
                                     <button type="button" data-toggle-password="password" class="users-password-toggle">
                                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                         </svg>
-                                        <span>Show</span>
+                                        <span>{{ ui.show_password }}</span>
                                     </button>
                                 </div>
-                                <p class="users-field__hint">Minimum 8 characters</p>
+                                <p class="users-field__hint">{{ ui.add_user_password_min }}</p>
                             </div>
 
                             <div class="users-field">
@@ -74,19 +74,19 @@
                                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                                     </svg>
-                                    Confirm Password
+                                    {{ ui.confirm_password }}
                                 </label>
                                 <div class="users-field__control">
-                                    <input id="confirm_password" name="confirm_password" type="password" required minlength="8" class="users-field__input" placeholder="Confirm password" autocomplete="new-password">
+                                    <input id="confirm_password" name="confirm_password" type="password" required minlength="8" class="users-field__input" placeholder="{{ ui.add_user_placeholder_confirm }}" autocomplete="new-password">
                                     <button type="button" data-toggle-password="confirm_password" class="users-password-toggle">
                                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                         </svg>
-                                        <span>Show</span>
+                                        <span>{{ ui.show_password }}</span>
                                     </button>
                                 </div>
-                                <p id="matchHint" class="users-field__hint">Re-enter the password to confirm</p>
+                                <p id="matchHint" class="users-field__hint">{{ ui.confirm_password_hint }}</p>
                             </div>
 
                             <div class="users-field users-field--full">
@@ -94,82 +94,82 @@
                                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
                                     </svg>
-                                    Role
+                                    {{ ui.role }}
                                 </label>
                                 <div class="users-field__select">
                                     <select id="role" name="role" required class="users-field__input">
-                                        <option value="">Select a role</option>
-                                        <option value="manager">Manager</option>
-                                        <option value="editor">Editor</option>
+                                        <option value="">{{ ui.add_user_select_role }}</option>
+                                        <option value="manager">{{ ui.role_manager }}</option>
+                                        <option value="editor">{{ ui.role_editor }}</option>
                                     </select>
                                 </div>
                             </div>
                         </div>
 
                         <div class="users-form-actions">
-                            <a href="{% url 'system_admin:users' %}" class="users-btn users-btn--ghost">Cancel</a>
-                            <button type="button" id="nextToPermissionsBtn" class="users-btn users-btn--primary">Add User</button>
+                            <a href="{% url 'system_admin:users' %}" class="users-btn users-btn--ghost">{{ ui.cancel }}</a>
+                            <button type="button" id="nextToPermissionsBtn" class="users-btn users-btn--primary">{{ ui.add_user_next }}</button>
                         </div>
                     </div>
 
                     <div id="permissionsForm" class="users-permissions is-hidden">
                         <div class="users-permissions__intro">
-                            <p class="users-kicker" id="permissionsTitle">Permissions</p>
-                            <p class="users-subtitle" id="permissionsDescription">Select the permissions you want to grant.</p>
+                            <p class="users-kicker" id="permissionsTitle">{{ ui.add_user_perm_intro }}</p>
+                            <p class="users-subtitle" id="permissionsDescription">{{ ui.add_user_perm_desc }}</p>
                         </div>
 
                         <div class="users-permissions__list">
                             <label id="dashboardPermissionLabel" class="users-perm is-hidden">
                                 <input type="checkbox" name="can_access_dashboard" id="can_access_dashboard">
                                 <span>
-                                    <span class="users-perm__title">Access Dashboard</span>
-                                    <span class="users-perm__desc">Allow the manager to view and access the dashboard</span>
+                                    <span class="users-perm__title">{{ ui.add_user_perm_dashboard }}</span>
+                                    <span class="users-perm__desc">{{ ui.add_user_perm_dashboard_desc }}</span>
                                 </span>
                             </label>
 
                             <label class="users-perm">
                                 <input type="checkbox" name="can_access_security" id="can_access_security">
                                 <span>
-                                    <span class="users-perm__title">Access Security Page</span>
-                                    <span class="users-perm__desc" id="securityDescription">Allow access to the security settings page</span>
+                                    <span class="users-perm__title">{{ ui.add_user_perm_security }}</span>
+                                    <span class="users-perm__desc" id="securityDescription">{{ ui.add_user_perm_security_desc }}</span>
                                 </span>
                             </label>
 
                             <label class="users-perm">
                                 <input type="checkbox" name="can_access_account_information" id="can_access_account_information">
                                 <span>
-                                    <span class="users-perm__title">Access Account Information</span>
-                                    <span class="users-perm__desc" id="accountInfoDescription">Allow access and update account information</span>
+                                    <span class="users-perm__title">{{ ui.add_user_perm_account }}</span>
+                                    <span class="users-perm__desc" id="accountInfoDescription">{{ ui.add_user_perm_account_desc }}</span>
                                 </span>
                             </label>
 
                             <label class="users-perm">
                                 <input type="checkbox" name="can_access_layer_uploader" id="can_access_layer_uploader">
                                 <span>
-                                    <span class="users-perm__title">Access Layer Uploader</span>
-                                    <span class="users-perm__desc">Allow access to upload and validate GIS layers</span>
+                                    <span class="users-perm__title">{{ ui.add_user_perm_uploader }}</span>
+                                    <span class="users-perm__desc">{{ ui.add_user_perm_uploader_desc }}</span>
                                 </span>
                             </label>
 
                             <label class="users-perm">
                                 <input type="checkbox" name="can_access_my_edits" id="can_access_my_edits">
                                 <span>
-                                    <span class="users-perm__title">Access My Edits</span>
-                                    <span class="users-perm__desc">Allow access to view road edit submission history</span>
+                                    <span class="users-perm__title">{{ ui.add_user_perm_edits }}</span>
+                                    <span class="users-perm__desc">{{ ui.add_user_perm_edits_desc }}</span>
                                 </span>
                             </label>
                         </div>
 
                         <div class="users-form-actions">
-                            <button type="button" id="backToUserDetailsBtn" class="users-btn users-btn--ghost">Back</button>
-                            <button type="submit" id="createUserBtn" class="users-btn users-btn--primary">Create User</button>
+                            <button type="button" id="backToUserDetailsBtn" class="users-btn users-btn--ghost">{{ ui.back }}</button>
+                            <button type="submit" id="createUserBtn" class="users-btn users-btn--primary">{{ ui.add_user_create }}</button>
                         </div>
                     </div>
                 </form>
             </section>
         </div>
 
-        <aside class="users-team users-team--add" aria-label="Create a user account">
+        <aside class="users-team users-team--add" aria-label="{{ ui.add_user_aside_aria }}">
             <svg class="users-team__waves" viewBox="0 0 320 220" preserveAspectRatio="none" aria-hidden="true">
                 <path fill="#d7e4f2" d="M0 88c48 28 86-22 128-10s78 42 118 16 50-28 74-14v140H0z"></path>
                 <path fill="#c5d6e8" opacity="0.85" d="M0 128c52 20 92-18 142-6s72 34 118 8 40-16 60-6v96H0z"></path>
@@ -186,32 +186,32 @@
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M12 5v14m7-7H5"></path></svg>
                 </span>
             </div>
-            <h2 class="users-team__title">Create a user account</h2>
-            <p class="users-team__copy">Set credentials, choose a role, and grant the right access to the GEOTRAK platform.</p>
+            <h2 class="users-team__title">{{ ui.add_user_aside_title }}</h2>
+            <p class="users-team__copy">{{ ui.add_user_aside_copy }}</p>
             <ul class="users-team__list">
                 <li>
                     <span class="users-side-icon" aria-hidden="true">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                     </span>
-                    Secure access from day one
+                    {{ ui.add_user_aside_b1 }}
                 </li>
                 <li>
                     <span class="users-side-icon" aria-hidden="true">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                     </span>
-                    Assign the right role
+                    {{ ui.add_user_aside_b2 }}
                 </li>
                 <li>
                     <span class="users-side-icon" aria-hidden="true">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 3v18h18M7 16l4-4 3 3 5-7"></path></svg>
                     </span>
-                    Grant only needed permissions
+                    {{ ui.add_user_aside_b3 }}
                 </li>
                 <li>
                     <span class="users-side-icon users-side-icon--solid" aria-hidden="true">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 13l4 4L19 7"></path></svg>
                     </span>
-                    Keep your data safe
+                    {{ ui.add_user_aside_b4 }}
                 </li>
             </ul>
         </aside>

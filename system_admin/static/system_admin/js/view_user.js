@@ -1,6 +1,10 @@
 (function() {
     'use strict';
 
+    function t(key, fallback) {
+        return typeof window.uiT === 'function' ? window.uiT(key, fallback) : fallback;
+    }
+
     const elements = {
         page: document.querySelector('.view-user'),
         loadingState: document.getElementById('loadingState'),
@@ -34,29 +38,23 @@
             elements.errorState?.classList.add('is-hidden');
 
             const userId = elements.page?.dataset.userId;
+            const fallback = t('view_user_load_failed', "Couldn't load user information — try again");
             if (!userId || Number.isNaN(Number(userId))) {
-                throw new Error('Invalid user ID');
+                showError(fallback);
+                return;
             }
 
             const response = await fetch(`/system-admin/api/users/${userId}/`);
-            if (!response.ok) {
-                throw new Error('Failed to load user details');
-            }
-
-            const data = await response.json();
-            if (!data.success || !data.user) {
-                throw new Error(data.message || 'User not found');
+            const data = await response.json().catch(function() { return null; });
+            if (!response.ok || !data || !data.success || !data.user) {
+                showError(fallback);
+                return;
             }
 
             renderUserDetails(data.user);
             elements.userDetails?.classList.remove('is-hidden');
         } catch (error) {
-            var fallback = 'Failed to load user information. Please try again.';
-            showError(
-                typeof window.safeUserMessage === 'function'
-                    ? window.safeUserMessage(error, fallback)
-                    : fallback
-            );
+            showError(t('view_user_load_failed', "Couldn't load user information — try again"));
         } finally {
             elements.loadingState?.classList.add('is-hidden');
         }
@@ -81,32 +79,38 @@
         setStatusChip(elements.userStatus, user.is_active);
         setStatusChip(elements.detailStatus, user.is_active);
 
-        elements.detailFullName.textContent = user.full_name || 'Not set';
+        elements.detailFullName.textContent = user.full_name || t('not_set', 'Not set');
         elements.detailEmail.textContent = user.email || '—';
         elements.detailUsername.textContent = user.username || '—';
         elements.detailRole.textContent = roleDisplay;
-        elements.detailSuperuser.textContent = user.is_superuser ? 'Yes' : 'No';
-        elements.detailCreationDate.textContent = user.account_creation_date || 'Not set';
-        elements.detailCreationTime.textContent = user.account_creation_time || 'Not set';
+        elements.detailSuperuser.textContent = user.is_superuser ? t('yes', 'Yes') : t('no', 'No');
+        elements.detailCreationDate.textContent = user.account_creation_date || t('not_set', 'Not set');
+        elements.detailCreationTime.textContent = user.account_creation_time || t('not_set', 'Not set');
     }
 
     function setStatusChip(element, isActive) {
         if (!element) {
             return;
         }
-        element.textContent = isActive ? 'Active' : 'Inactive';
+        element.textContent = isActive ? t('active', 'Active') : t('inactive', 'Inactive');
         element.classList.toggle('is-active', isActive);
         element.classList.toggle('is-inactive', !isActive);
     }
 
     function roleLabel(user) {
         if (user.is_superuser || user.role === 'system_admin') {
-            return 'System Admin';
+            return t('role_system_admin', 'System Admin');
         }
-        if (user.role) {
-            return user.role.charAt(0).toUpperCase() + user.role.slice(1);
+        if (user.role === 'manager') {
+            return t('role_manager', 'Manager');
         }
-        return 'Not assigned';
+        if (user.role === 'editor') {
+            return t('role_editor', 'Editor');
+        }
+        if (user.role === 'viewer') {
+            return t('role_viewer', 'Viewer');
+        }
+        return t('not_assigned', 'Not assigned');
     }
 
     function getUserInitials(user) {

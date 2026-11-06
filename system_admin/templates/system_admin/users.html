@@ -1,10 +1,10 @@
 {% extends 'system_admin/base.html' %}
 {% load static %}
 
-{% block title %}Users · System Admin · GeoTrak Maps{% endblock %}
+{% block title %}{{ ui.users_doc_title }}{% endblock %}
 
 {% block extra_css %}
-<link href="{% static 'system_admin/css/users.css' %}" rel="stylesheet">
+<link href="{% static 'system_admin/css/users.css' %}?v=ar-rtl-2" rel="stylesheet">
 {% endblock %}
 
 {% block content_wrapper %}
@@ -12,12 +12,12 @@
     <div class="users-page__layout">
         <div class="users-page__main">
             <header>
-                <p class="users-kicker">User Management</p>
-                <h1 class="users-title">Manage users</h1>
-                <p class="users-subtitle">Add, edit, delete, or view all users in the system. Select an option below to get started.</p>
+                <p class="users-kicker">{{ ui.users_kicker }}</p>
+                <h1 class="users-title">{{ ui.users_heading }}</h1>
+                <p class="users-subtitle">{{ ui.users_subtitle }}</p>
             </header>
 
-            <section class="users-stats" aria-label="User statistics">
+            <section class="users-stats" aria-label="{{ ui.users_stats_aria }}">
                 <a class="users-stat" href="{% url 'system_admin:all_users' %}">
                     <span class="users-stat__icon" aria-hidden="true">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -25,11 +25,17 @@
                         </svg>
                     </span>
                     <span class="users-stat__body">
-                        <span class="users-stat__label">All Users</span>
+                        <span class="users-stat__label">{{ ui.users_stat_all }}</span>
                         <span class="users-stat__value">{{ all_users_count }}</span>
-                        <span class="users-stat__trend">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
-                            No change
+                        <span class="users-stat__trend users-stat__trend--{{ all_users_trend.direction }}">
+                            {% if all_users_trend.direction == 'up' %}
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
+                            {% elif all_users_trend.direction == 'down' %}
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 7L7 17M15 17H7v-8"></path></svg>
+                            {% else %}
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14"></path></svg>
+                            {% endif %}
+                            {{ all_users_trend.label }}
                         </span>
                     </span>
                     <span class="users-stat__chevron" aria-hidden="true">
@@ -44,11 +50,17 @@
                         </svg>
                     </span>
                     <span class="users-stat__body">
-                        <span class="users-stat__label">Active Users</span>
+                        <span class="users-stat__label">{{ ui.users_stat_active }}</span>
                         <span class="users-stat__value">{{ active_users_count }}</span>
-                        <span class="users-stat__trend">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
-                            No change
+                        <span class="users-stat__trend users-stat__trend--{{ active_users_trend.direction }}">
+                            {% if active_users_trend.direction == 'up' %}
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
+                            {% elif active_users_trend.direction == 'down' %}
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 7L7 17M15 17H7v-8"></path></svg>
+                            {% else %}
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14"></path></svg>
+                            {% endif %}
+                            {{ active_users_trend.label }}
                         </span>
                     </span>
                     <span class="users-stat__chevron" aria-hidden="true">
@@ -63,11 +75,17 @@
                         </svg>
                     </span>
                     <span class="users-stat__body">
-                        <span class="users-stat__label">This Month</span>
+                        <span class="users-stat__label">{{ ui.users_stat_month }}</span>
                         <span class="users-stat__value">{{ users_this_month }}</span>
-                        <span class="users-stat__trend">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
-                            No change
+                        <span class="users-stat__trend users-stat__trend--{{ users_this_month_trend.direction }}">
+                            {% if users_this_month_trend.direction == 'up' %}
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
+                            {% elif users_this_month_trend.direction == 'down' %}
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 7L7 17M15 17H7v-8"></path></svg>
+                            {% else %}
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14"></path></svg>
+                            {% endif %}
+                            {{ users_this_month_trend.label }}
                         </span>
                     </span>
                     <span class="users-stat__chevron" aria-hidden="true">
@@ -76,15 +94,15 @@
                 </a>
             </section>
 
-            <h2 class="users-section-title">Actions</h2>
-            <section class="users-actions" aria-label="User actions">
+            <h2 class="users-section-title">{{ ui.users_actions_heading }}</h2>
+            <section class="users-actions" aria-label="{{ ui.users_actions_aria }}">
                 <a class="users-action" href="{% url 'system_admin:add_user' %}">
                     <span class="users-action__icon" aria-hidden="true">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                     </span>
                     <span class="users-action__copy">
-                        <span class="users-action__title">Add a User</span>
-                        <p class="users-action__desc">Create a new user account in the system.</p>
+                        <span class="users-action__title">{{ ui.users_action_add_title }}</span>
+                        <p class="users-action__desc">{{ ui.users_action_add_desc }}</p>
                     </span>
                     <span class="users-action__chevron" aria-hidden="true">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
@@ -96,8 +114,8 @@
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                     </span>
                     <span class="users-action__copy">
-                        <span class="users-action__title">Edit a User</span>
-                        <p class="users-action__desc">Modify existing user information.</p>
+                        <span class="users-action__title">{{ ui.users_action_edit_title }}</span>
+                        <p class="users-action__desc">{{ ui.users_action_edit_desc }}</p>
                     </span>
                     <span class="users-action__chevron" aria-hidden="true">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
@@ -109,8 +127,8 @@
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     </span>
                     <span class="users-action__copy">
-                        <span class="users-action__title">Delete a User</span>
-                        <p class="users-action__desc">Remove a user account from the system.</p>
+                        <span class="users-action__title">{{ ui.users_action_delete_title }}</span>
+                        <p class="users-action__desc">{{ ui.users_action_delete_desc }}</p>
                     </span>
                     <span class="users-action__chevron" aria-hidden="true">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
@@ -122,8 +140,8 @@
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                     </span>
                     <span class="users-action__copy">
-                        <span class="users-action__title">All Users</span>
-                        <p class="users-action__desc">View and manage all user accounts.</p>
+                        <span class="users-action__title">{{ ui.users_action_all_title }}</span>
+                        <p class="users-action__desc">{{ ui.users_action_all_desc }}</p>
                     </span>
                     <span class="users-action__chevron" aria-hidden="true">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
@@ -131,26 +149,26 @@
                 </a>
             </section>
 
-            <section class="users-table-card" aria-label="Recent users">
+            <section class="users-table-card" aria-label="{{ ui.users_recent_aria }}">
                 <div class="users-table-toolbar">
-                    <h2 class="users-table-title">Recent Users</h2>
+                    <h2 class="users-table-title">{{ ui.users_recent_title }}</h2>
                     <div class="users-table-tools">
                         <label class="users-search">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
-                            <input id="recentUsersSearch" type="search" placeholder="Search users..." autocomplete="off">
+                            <input id="recentUsersSearch" type="search" placeholder="{{ ui.users_search_placeholder }}" autocomplete="off">
                         </label>
                         <div class="users-filter">
-                            <button id="usersFilterBtn" class="users-filter__btn" type="button" aria-label="Filter users" aria-expanded="false">
+                            <button id="usersFilterBtn" class="users-filter__btn" type="button" aria-label="{{ ui.users_filter_aria }}" aria-expanded="false">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 5h16l-5.5 7.2V19l-5 2v-8.8L4 5z"></path>
                                 </svg>
                             </button>
                             <div id="usersFilterMenu" class="users-filter__menu" role="menu">
-                                <button type="button" data-filter="all" class="is-active">All</button>
-                                <button type="button" data-filter="active">Active</button>
-                                <button type="button" data-filter="inactive">Inactive</button>
+                                <button type="button" data-filter="all" class="is-active">{{ ui.users_filter_all }}</button>
+                                <button type="button" data-filter="active">{{ ui.active }}</button>
+                                <button type="button" data-filter="inactive">{{ ui.inactive }}</button>
                             </div>
                         </div>
                     </div>
@@ -160,12 +178,12 @@
                     <table class="users-table">
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Role</th>
-                                <th>Status</th>
-                                <th>Last Login</th>
-                                <th>Actions</th>
+                                <th>{{ ui.users_col_name }}</th>
+                                <th>{{ ui.users_col_email }}</th>
+                                <th>{{ ui.users_col_role }}</th>
+                                <th>{{ ui.users_col_status }}</th>
+                                <th>{{ ui.users_col_last_login }}</th>
+                                <th>{{ ui.users_col_actions }}</th>
                             </tr>
                         </thead>
                         <tbody id="recentUsersTableBody">
@@ -187,27 +205,29 @@
                                 <td class="users-role">{{ user_row.role }}</td>
                                 <td>
                                     {% if user_row.is_active %}
-                                    <span class="users-status"><span class="users-status__dot"></span>Active</span>
+                                    <span class="users-status"><span class="users-status__dot"></span>{{ ui.active }}</span>
                                     {% else %}
-                                    <span class="users-status users-status--inactive"><span class="users-status__dot"></span>Inactive</span>
+                                    <span class="users-status users-status--inactive"><span class="users-status__dot"></span>{{ ui.inactive }}</span>
                                     {% endif %}
                                 </td>
                                 <td class="users-login">
-                                    {% if user_row.last_login %}
-                                    {{ user_row.last_login|date:"M j, Y g:i A" }}
+                                    {% if user_row.last_login_display %}
+                                    {{ user_row.last_login_display }}
                                     {% else %}
-                                    Never
+                                    {{ ui.never }}
                                     {% endif %}
                                 </td>
                                 <td>
                                     <div class="users-row-actions">
-                                        <button type="button" class="users-row-actions__btn" aria-label="User actions" aria-haspopup="true">
+                                        <button type="button" class="users-row-actions__btn" aria-label="{{ ui.users_row_actions_aria }}" aria-haspopup="true">
                                             <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>
                                         </button>
                                         <div class="users-row-actions__menu">
-                                            <a href="{% url 'system_admin:view_user' user_row.id %}">View</a>
-                                            <a href="{% url 'system_admin:edit_user_selected' user_row.id %}">Edit</a>
-                                            <a class="is-danger" href="{% url 'system_admin:delete_user_selected' user_row.id %}">Delete</a>
+                                            <a href="{% url 'system_admin:view_user' user_row.id %}">{{ ui.users_view }}</a>
+                                            {% if not user_row.is_superuser %}
+                                            <a href="{% url 'system_admin:edit_user_selected' user_row.id %}">{{ ui.users_edit }}</a>
+                                            <a class="is-danger" href="{% url 'system_admin:delete_user_selected' user_row.id %}">{{ ui.users_delete }}</a>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </td>
@@ -215,18 +235,18 @@
                             {% empty %}
                             <tr>
                                 <td colspan="6">
-                                    <div class="users-empty">No users found.</div>
+                                    <div class="users-empty">{{ ui.users_empty }}</div>
                                 </td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
-                <p id="recentUsersEmpty" class="users-empty" hidden>No users match your search.</p>
+                <p id="recentUsersEmpty" class="users-empty" hidden>{{ ui.users_empty_search }}</p>
             </section>
         </div>
 
-        <aside class="users-team" aria-label="Manage all users">
+        <aside class="users-team" aria-label="{{ ui.users_aside_title }}">
             <svg class="users-team__waves" viewBox="0 0 320 220" preserveAspectRatio="none" aria-hidden="true">
                 <path fill="#d7e4f2" d="M0 88c48 28 86-22 128-10s78 42 118 16 50-28 74-14v140H0z"></path>
                 <path fill="#c5d6e8" opacity="0.85" d="M0 128c52 20 92-18 142-6s72 34 118 8 40-16 60-6v96H0z"></path>
@@ -246,17 +266,17 @@
                 <span class="users-team__avatar users-team__avatar--right">
                     <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5z"></path></svg>
                 </span>
-                <a class="users-team__plus" href="{% url 'system_admin:add_user' %}" aria-label="Add a user">
+                <a class="users-team__plus" href="{% url 'system_admin:add_user' %}" aria-label="{{ ui.users_aside_add_aria }}">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M12 5v14m7-7H5"></path></svg>
                 </a>
             </div>
-            <h2 class="users-team__title">Manage all users</h2>
-            <p class="users-team__copy">Add, edit, or remove users and control access to the GEOTRAK platform.</p>
+            <h2 class="users-team__title">{{ ui.users_aside_title }}</h2>
+            <p class="users-team__copy">{{ ui.users_aside_copy }}</p>
             <ul class="users-team__list">
-                <li><span class="users-check"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg></span>Secure access control</li>
-                <li><span class="users-check"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg></span>Role-based permissions</li>
-                <li><span class="users-check"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg></span>Track user activity</li>
-                <li><span class="users-check"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg></span>Keep your data safe</li>
+                <li><span class="users-check"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg></span>{{ ui.users_aside_b1 }}</li>
+                <li><span class="users-check"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg></span>{{ ui.users_aside_b2 }}</li>
+                <li><span class="users-check"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg></span>{{ ui.users_aside_b3 }}</li>
+                <li><span class="users-check"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg></span>{{ ui.users_aside_b4 }}</li>
             </ul>
         </aside>
     </div>

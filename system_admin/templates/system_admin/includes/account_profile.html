@@ -8,39 +8,48 @@
     {% url 'system_admin:upload_profile_image' as account_upload_url %}
     {% url 'system_admin:remove_profile_image' as account_remove_url %}
 {% endif %}
-<div class="account-page{% if is_editing %} is-editing{% endif %}" data-upload-url="{{ account_upload_url }}" data-remove-url="{{ account_remove_url }}">
+<div
+    class="account-page{% if is_editing %} is-editing{% endif %}"
+    data-upload-url="{{ account_upload_url }}"
+    data-remove-url="{{ account_remove_url }}"
+    data-i18n-photo-added="{{ ui.acct_photo_added }}"
+    data-i18n-photo-none="{{ ui.acct_photo_none }}"
+    data-i18n-save-crop="{{ ui.acct_save_crop }}"
+    data-i18n-uploading="{{ ui.acct_uploading }}"
+    data-i18n-pick-image="{{ ui.acct_pick_image }}"
+>
     <div class="account-shell">
         <header>
-            <p class="account-kicker">Account</p>
-            <h1 class="account-title">Profile Overview</h1>
+            <p class="account-kicker">{{ ui.acct_kicker }}</p>
+            <h1 class="account-title">{{ ui.acct_heading }}</h1>
             <p class="account-subtitle">{{ account_subtitle }}</p>
         </header>
 
-        <section class="account-hero" aria-label="Profile summary">
+        <section class="account-hero" aria-label="{{ ui.acct_summary_aria }}">
             <svg class="account-hero__wave" viewBox="0 0 640 220" fill="none" aria-hidden="true">
                 <path d="M80 180c70-40 120-120 210-118 90 2 120 90 210 86 40-2 80-22 140-70" stroke="currentColor" stroke-width="18" stroke-linecap="round"/>
                 <path d="M40 150c80-30 130-90 220-86 95 4 118 78 215 74 48-2 92-20 165-64" stroke="currentColor" stroke-width="12" stroke-linecap="round" opacity="0.7"/>
                 <path d="M120 200c75-28 140-70 230-64 88 6 120 54 210 48" stroke="currentColor" stroke-width="10" stroke-linecap="round" opacity="0.45"/>
             </svg>
 
-            <button id="profileAvatar" class="account-avatar" type="button" aria-label="Update profile photo">
+            <button id="profileAvatar" class="account-avatar" type="button" aria-label="{{ ui.acct_update_photo_aria }}">
                 {% if profile.profile_image %}
-                <img id="profileImage" src="{{ profile.profile_image.url }}" alt="Profile">
+                <img id="profileImage" src="{{ profile.profile_image.url }}" alt="{{ ui.acct_heading }}">
                 <span id="profileInitials" class="is-hidden">{{ account_initials }}</span>
                 {% else %}
-                <img id="profileImage" src="" alt="Profile" class="is-hidden">
+                <img id="profileImage" src="" alt="{{ ui.acct_heading }}" class="is-hidden">
                 <span id="profileInitials">{{ account_initials }}</span>
                 {% endif %}
-                <span class="account-avatar__overlay">Update photo</span>
+                <span class="account-avatar__overlay">{{ ui.acct_update_photo }}</span>
             </button>
-            <input id="profileInput" type="file" accept="image/*" class="is-hidden" aria-label="Upload profile photo">
+            <input id="profileInput" type="file" accept="image/*" class="is-hidden" aria-label="{{ ui.acct_upload_photo_aria }}">
 
             <div class="account-hero__identity">
                 <p class="account-hero__name">{{ account_full_name }}</p>
                 <p class="account-hero__role">{{ account_role_label }}</p>
                 <div class="account-hero__photo">
-                    <span id="photoState">{% if profile.profile_image %}Photo added{% else %}No photo uploaded{% endif %}</span>
-                    <button id="removePhotoBtn" class="account-photo-remove" type="button"{% if not profile.profile_image %} disabled{% endif %}>Remove</button>
+                    <span id="photoState">{% if profile.profile_image %}{{ ui.acct_photo_added }}{% else %}{{ ui.acct_photo_none }}{% endif %}</span>
+                    <button id="removePhotoBtn" class="account-photo-remove" type="button"{% if not profile.profile_image %} disabled{% endif %}>{{ ui.acct_remove }}</button>
                 </div>
             </div>
 
@@ -51,7 +60,7 @@
                     <span class="account-hero__live-dot" aria-hidden="true"></span>
                     {{ account_status }}
                 </div>
-                <span class="account-hero__live-caption">Account Status</span>
+                <span class="account-hero__live-caption">{{ ui.acct_status_caption }}</span>
             </div>
 
             <div class="account-hero__actions">
@@ -59,11 +68,11 @@
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                     </svg>
-                    Edit Account
+                    {{ ui.acct_edit }}
                 </button>
                 <div class="account-save-actions">
-                    <button id="cancelBtn" class="account-btn" type="button">Cancel</button>
-                    <button id="saveBtn" class="account-btn account-btn--primary" type="submit" form="accountForm">Save</button>
+                    <button id="cancelBtn" class="account-btn" type="button">{{ ui.cancel }}</button>
+                    <button id="saveBtn" class="account-btn account-btn--primary" type="submit" form="accountForm">{{ ui.save }}</button>
                 </div>
             </div>
         </section>
@@ -76,8 +85,8 @@
                     </svg>
                 </span>
                 <div>
-                    <h2 id="accountInfoHeading">Account Information</h2>
-                    <p>Here are your contact details, role and account creation information.</p>
+                    <h2 id="accountInfoHeading">{{ ui.acct_section_title }}</h2>
+                    <p>{{ ui.acct_section_desc }}</p>
                 </div>
             </div>
 
@@ -93,7 +102,7 @@
                             </svg>
                         </span>
                         <div class="account-tile__body">
-                            <label class="account-tile__label" for="email">Email Address</label>
+                            <label class="account-tile__label" for="email">{{ ui.email_address }}</label>
                             <span class="account-tile__value">{{ account_email }}</span>
                             <input id="email" class="account-tile__input editable-field" name="email" type="email" value="{{ account_email }}" autocomplete="email" required disabled>
                         </div>
@@ -106,7 +115,7 @@
                             </svg>
                         </span>
                         <div class="account-tile__body">
-                            <label class="account-tile__label" for="full_name">Full Name</label>
+                            <label class="account-tile__label" for="full_name">{{ ui.full_name }}</label>
                             <span class="account-tile__value">{{ account_full_name }}</span>
                             <input id="full_name" class="account-tile__input editable-field" name="full_name" type="text" value="{{ account_full_name }}" autocomplete="name" required disabled>
                         </div>
@@ -117,7 +126,7 @@
                             <span class="account-status-dot{% if not account_is_active %} is-inactive{% endif %}"></span>
                         </span>
                         <div class="account-tile__body">
-                            <span class="account-tile__label">Status</span>
+                            <span class="account-tile__label">{{ ui.status }}</span>
                             <span class="account-tile__value">{{ account_status }}</span>
                         </div>
                     </div>
@@ -129,7 +138,7 @@
                             </svg>
                         </span>
                         <div class="account-tile__body">
-                            <span class="account-tile__label">Role</span>
+                            <span class="account-tile__label">{{ ui.role }}</span>
                             <span class="account-tile__value">{{ account_role_label }}</span>
                         </div>
                     </div>
@@ -141,14 +150,8 @@
                             </svg>
                         </span>
                         <div class="account-tile__body">
-                            <span class="account-tile__label">Account Creation Date</span>
-                            <span class="account-tile__value">
-                                {% if profile.account_creation_date %}
-                                    {{ profile.account_creation_date|date:"F j, Y" }}
-                                {% else %}
-                                    Not set
-                                {% endif %}
-                            </span>
+                            <span class="account-tile__label">{{ ui.acct_created_date }}</span>
+                            <span class="account-tile__value">{{ account_created_date_display }}</span>
                         </div>
                     </div>
 
@@ -159,14 +162,8 @@
                             </svg>
                         </span>
                         <div class="account-tile__body">
-                            <span class="account-tile__label">Account Creation Time</span>
-                            <span class="account-tile__value">
-                                {% if profile.account_creation_time %}
-                                    {{ profile.account_creation_time|time:"g:i A" }}
-                                {% else %}
-                                    Not set
-                                {% endif %}
-                            </span>
+                            <span class="account-tile__label">{{ ui.acct_created_time }}</span>
+                            <span class="account-tile__value">{{ account_created_time_display }}</span>
                         </div>
                     </div>
                 </div>
@@ -178,19 +175,19 @@
 <div id="cropModal" class="account-crop is-hidden" role="dialog" aria-modal="true" aria-labelledby="cropModalTitle">
     <div class="account-crop__panel">
         <div class="account-crop__header">
-            <h3 id="cropModalTitle">Crop Profile Image</h3>
-            <button id="closeCropModal" class="account-crop__close" type="button" aria-label="Close">
+            <h3 id="cropModalTitle">{{ ui.acct_crop_title }}</h3>
+            <button id="closeCropModal" class="account-crop__close" type="button" aria-label="{{ ui.cancel }}">
                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
             </button>
         </div>
         <div class="account-crop__body">
-            <img id="cropImage" src="" alt="Crop">
+            <img id="cropImage" src="" alt="{{ ui.acct_crop_title }}">
         </div>
         <div class="account-crop__footer">
-            <button id="cancelCrop" class="account-btn" type="button">Cancel</button>
-            <button id="saveCrop" class="account-btn account-btn--primary" type="button">Save Crop</button>
+            <button id="cancelCrop" class="account-btn" type="button">{{ ui.cancel }}</button>
+            <button id="saveCrop" class="account-btn account-btn--primary" type="button">{{ ui.acct_save_crop }}</button>
         </div>
     </div>
 </div>

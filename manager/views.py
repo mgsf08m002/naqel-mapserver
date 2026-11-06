@@ -4,8 +4,17 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 from django.urls import reverse
 from django.http import JsonResponse
-from system_admin.account import render_account_page
-from system_admin.models import UserProfile
+from config.ui_strings import t
+from system_admin.account import (
+    remove_profile_image,
+    render_account_page,
+    upload_profile_image,
+)
+from system_admin.security_page import render_security_page
+
+
+def _ui_lang(request) -> str:
+    return getattr(request, "ui_language", None) or "en"
 from mapping.presentation import (
     enforce_my_edits_access,
     my_edits_page_context,
@@ -45,119 +54,37 @@ def account_information_view(request):
 @login_required(login_url='/login/')
 def security_view(request):
     """Security view."""
-    # Require a manager profile.
     if not hasattr(request.user, "profile") or request.user.profile.role != "manager":
         logout(request)
         return redirect(f"{reverse('auth:login')}?session_ended=1")
 
-    # Require security permission.
     if not request.user.profile.can_access_security:
         logout(request)
         return redirect("auth:login?no_permission=1&permission_type=security")
 
-    context = {}
-
-    if request.method == 'POST':
-        intent = request.POST.get('intent')
-
-        if intent == 'change_password':
-            errors = []
-            current_password = request.POST.get('current_password', '').strip()
-            new_password = request.POST.get('new_password', '').strip()
-            confirm_password = request.POST.get('confirm_password', '').strip()
-
-            if not current_password or not new_password or not confirm_password:
-                errors.append('All password fields are required.')
-
-            if current_password and not request.user.check_password(current_password):
-                errors.append('Current password is incorrect.')
-
-            if new_password and len(new_password) < 8:
-                errors.append('New password must be at least 8 characters long.')
-
-            if new_password and confirm_password and new_password != confirm_password:
-                errors.append('New passwords do not match.')
-
-            if not errors:
-                from system_admin.models import PasswordChangeEvent
-
-                user = request.user
-                user.set_password(new_password)
-                user.save()
-                PasswordChangeEvent.objects.create(
-                    user=user,
-                    changed_by=user,
-                    source=PasswordChangeEvent.Source.SELF_SECURITY,
-                )
-                logout(request)
-                return redirect('/login/?password_changed=1')
-            else:
-                for err in errors:
-                    messages.error(request, err)
-
-    return render(request, "manager/security.html", context)
+    return render_security_page(request, "manager", "manager/security.html")
 
 
 @login_required(login_url='/login/')
 def upload_profile_image_view(request):
     """Handle profile image upload."""
-    # Only managers can upload a profile image from this view.
     if not hasattr(request.user, 'profile') or request.user.profile.role != 'manager':
         return JsonResponse({
             'success': False,
-            'message': 'Unauthorized'
+            'message': t(_ui_lang(request), 'toast_couldnt_load'),
         }, status=403)
-    
-    if request.method == 'POST' and request.FILES.get('profile_image'):
-        profile, created = UserProfile.objects.get_or_create(user=request.user)
-        # Remove any previous image before saving the new one.
-        if profile.profile_image:
-            profile.profile_image.delete()
-        profile.profile_image = request.FILES['profile_image']
-        profile.save()
-        return JsonResponse({
-            'success': True,
-            'message': 'Photo updated',
-            'image_url': profile.profile_image.url
-        })
-    
-    return JsonResponse({
-        'success': False,
-        'message': 'No image provided'
-    }, status=400)
+    return upload_profile_image(request)
 
 
 @login_required(login_url='/login/')
 def remove_profile_image_view(request):
     """Handle profile image removal."""
-    # Only managers can remove a profile image from this view.
     if not hasattr(request.user, 'profile') or request.user.profile.role != 'manager':
         return JsonResponse({
             'success': False,
-            'message': 'Unauthorized'
+            'message': t(_ui_lang(request), 'toast_couldnt_load'),
         }, status=403)
-    
-    if request.method == 'POST':
-        try:
-            profile = UserProfile.objects.get(user=request.user)
-            if profile.profile_image:
-                profile.profile_image.delete()
-                profile.profile_image = None
-                profile.save()
-            return JsonResponse({
-                'success': True,
-                'message': 'Photo removed'
-            })
-        except UserProfile.DoesNotExist:
-            return JsonResponse({
-                'success': True,
-                'message': 'Photo removed'
-            })
-    
-    return JsonResponse({
-        'success': False,
-        'message': 'Invalid request'
-    }, status=400)
+    return remove_profile_image(request)
 
 
 @login_required(login_url='/login/')
