@@ -1,0 +1,28 @@
+<script>
+    window.UI_I18N = {{ ui_i18n_json|safe }};
+    window.uiT = function (key, fallback) {
+        var table = window.UI_I18N || {};
+        if (Object.prototype.hasOwnProperty.call(table, key) && table[key] && typeof table[key] === 'string') {
+            return table[key];
+        }
+        return fallback != null ? fallback : key;
+    };
+    window.displayFeatureTypeLabel = function (label) {
+        if (!label) {
+            return label;
+        }
+        var table = (window.UI_I18N && window.UI_I18N.featureTypeLabels) || {};
+        return table[label] || label;
+    };
+    window.displayFeatureCategoryLabel = function (label) {
+        if (!label) {
+            return label;
+        }
+        var table = (window.UI_I18N && window.UI_I18N.featureCategoryLabels) || {};
+        if (table[label]) {
+            return table[label];
+        }
+        var bare = String(label).replace(/\.\.\.$/, '').trim();
+        return table[bare] || table[bare + '...'] || label;
+    };
+</script>

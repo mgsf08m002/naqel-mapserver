@@ -1,54 +1,98 @@
-(function() {
+/**
+ * First-login personal password setup: show/hide + match hint.
+ */
+(function () {
     'use strict';
 
-    document.addEventListener('DOMContentLoaded', () => {
+    function t(key, fallback) {
+        if (typeof window.uiT === 'function') {
+            return window.uiT(key, fallback);
+        }
+        return fallback != null ? fallback : key;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
         const toggles = document.querySelectorAll('[data-toggle-password]');
         const newPassword = document.getElementById('new_password');
         const confirmPassword = document.getElementById('confirm_password');
         const matchHint = document.getElementById('matchHint');
-        const toggleVisibility = (inputId, button) => {
-            const input = document.getElementById(inputId);
-            if (!input) return;
 
-            const isHidden = input.type === 'password';
-            input.type = isHidden ? 'text' : 'password';
-            if (button) {
-                button.textContent = isHidden ? 'Hide' : 'Show';
+        function setRevealLabel(button, revealing) {
+            if (!button) {
+                return;
             }
-        };
+            const label = revealing ? t('hide_password', 'Hide') : t('show_password', 'Show');
+            button.textContent = label;
+            button.setAttribute('aria-label', label);
+        }
 
-        toggles.forEach((btn) => {
+        function toggleVisibility(inputId, button) {
+            const input = document.getElementById(inputId);
+            if (!input) {
+                return;
+            }
+            const revealing = input.type === 'password';
+            input.type = revealing ? 'text' : 'password';
+            setRevealLabel(button, revealing);
+        }
+
+        toggles.forEach(function (btn) {
             const targetId = btn.getAttribute('data-toggle-password');
-            btn.addEventListener('click', () => toggleVisibility(targetId, btn));
+            btn.addEventListener('click', function () {
+                toggleVisibility(targetId, btn);
+            });
         });
 
-        const updateMatchHint = () => {
-            if (!newPassword || !confirmPassword || !matchHint) return;
-            if (!confirmPassword.value && !newPassword.value) {
-                matchHint.textContent = 'Re-enter the password to confirm.';
-                matchHint.classList.remove('text-green-600', 'text-red-600');
-                matchHint.classList.add('text-gray-500');
+        function updateMatchHint() {
+            if (!newPassword || !confirmPassword || !matchHint) {
                 return;
             }
 
-            if (confirmPassword.value === newPassword.value && newPassword.value.length >= 8) {
-                matchHint.textContent = 'Passwords match.';
-                matchHint.classList.remove('text-gray-500', 'text-red-600');
-                matchHint.classList.add('text-green-600');
-            } else if (confirmPassword.value && confirmPassword.value !== newPassword.value) {
-                matchHint.textContent = 'Passwords do not match.';
-                matchHint.classList.remove('text-gray-500', 'text-green-600');
-                matchHint.classList.add('text-red-600');
-            } else {
-                matchHint.textContent = 'Re-enter the password to confirm.';
-                matchHint.classList.remove('text-green-600', 'text-red-600');
-                matchHint.classList.add('text-gray-500');
+            matchHint.classList.remove(
+                'auth-field__hint--ok',
+                'auth-field__hint--bad'
+            );
+
+            if (!confirmPassword.value && !newPassword.value) {
+                matchHint.textContent = t(
+                    'confirm_password_hint',
+                    'Re-enter the password to confirm'
+                );
+                return;
             }
-        };
 
-        if (newPassword) newPassword.addEventListener('input', updateMatchHint);
-        if (confirmPassword) confirmPassword.addEventListener('input', updateMatchHint);
+            if (
+                confirmPassword.value === newPassword.value &&
+                newPassword.value.length >= 8
+            ) {
+                matchHint.textContent = t('passwords_match', 'Passwords match');
+                matchHint.classList.add('auth-field__hint--ok');
+                return;
+            }
 
+            if (
+                confirmPassword.value &&
+                confirmPassword.value !== newPassword.value
+            ) {
+                matchHint.textContent = t(
+                    'passwords_mismatch',
+                    'Passwords do not match'
+                );
+                matchHint.classList.add('auth-field__hint--bad');
+                return;
+            }
+
+            matchHint.textContent = t(
+                'confirm_password_hint',
+                'Re-enter the password to confirm'
+            );
+        }
+
+        if (newPassword) {
+            newPassword.addEventListener('input', updateMatchHint);
+        }
+        if (confirmPassword) {
+            confirmPassword.addEventListener('input', updateMatchHint);
+        }
     });
 })();
-

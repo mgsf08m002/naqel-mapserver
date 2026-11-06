@@ -1,169 +1,105 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ ui_language }}" dir="{{ ui_dir }}">
 <head>
     {% include 'auth/includes/geotrak_favicon.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In · GeoTrak Maps</title>
+    <title>{{ ui.login_title }}</title>
     <link href="{% static 'css/output.css' %}" rel="stylesheet">
     <link href="{% static 'css/responsive.css' %}" rel="stylesheet">
+    <link href="{% static 'auth/css/auth-shell.css' %}" rel="stylesheet">
 </head>
-<body class="bg-white min-h-screen font-sans">
-    <div class="flex min-h-screen">
-        <!-- Left Column - Login Form -->
-        <div class="auth-page__form-col flex-1 flex flex-col justify-center px-4 sm:px-8 py-8 sm:py-12 bg-white">
-            <div class="mx-auto w-full max-w-sm">
-                <!-- Login Form -->
-                <div>
-                    <h2 class="text-3xl font-bold text-geotrak mb-2 animate-fade-in">Log in</h2>
-                    <p class="text-geotrak mb-8 animate-fade-in-delay">Welcome back! Please enter your details.</p>
+<body class="font-sans">
+    <div class="auth-shell">
+        <div class="auth-shell__lang">
+            {% include 'auth/includes/language_switcher.html' %}
+        </div>
 
-                    <form id="loginForm" class="space-y-6">
+        <div class="auth-shell__card">
+            <div class="auth-shell__brand">
+                <a href="{% url 'home:landing' %}" class="auth-shell__logo-link" aria-label="{{ ui.home_aria }}">
+                    {% include 'auth/includes/geotrak_logo.html' %}
+                </a>
+                <h1 class="auth-shell__title">{{ ui.login_welcome }}</h1>
+                <p class="auth-shell__subtitle">{{ ui.login_subtitle }}</p>
+            </div>
+
+            <div class="auth-shell__body">
+                <div class="auth-method-stack" role="tablist" aria-label="{{ ui.sign_in_method }}">
+                    <button
+                        type="button"
+                        class="auth-method-btn is-active"
+                        role="tab"
+                        aria-selected="true"
+                    >
+                        {{ ui.via_password }}
+                    </button>
+                    <span class="auth-method-or" aria-hidden="true">{{ ui.method_or }}</span>
+                    <button
+                        type="button"
+                        class="auth-method-btn is-soon"
+                        role="tab"
+                        aria-selected="false"
+                        disabled
+                        title="{{ ui.coming_soon }}"
+                    >
+                        <span>{{ ui.via_verification_code }}</span>
+                        <span class="auth-method-btn__soon">{{ ui.coming_soon }}</span>
+                    </button>
+                </div>
+
+                <div class="auth-panel">
+                    <div class="auth-divider" aria-hidden="true">
+                        <span class="auth-divider__text">{{ ui.continue_with_email }}</span>
+                    </div>
+
+                    <form id="loginForm" class="auth-form" novalidate>
                         {% csrf_token %}
-                        
-                        <!-- Email Field -->
-                        <div class="animate-fade-in-delay-2">
-                            <label for="email" class="block text-sm font-medium text-geotrak mb-2">
-                                Email
-                            </label>
-                            <input 
-                                type="email" 
-                                id="email" 
-                                name="email" 
+
+                        <div class="auth-field">
+                            <label for="email" class="auth-field__label">{{ ui.email_address }}</label>
+                            <input
+                                type="email"
+                                id="email"
+                                name="email"
                                 required
-                                placeholder="Enter your email"
-                                class="w-full px-4 py-3 border border-geotrak rounded-full focus:ring-2 focus:ring-geotrak focus:border-geotrak outline-none transition"
+                                autocomplete="username"
+                                placeholder="{{ ui.email_placeholder }}"
+                                class="auth-field__input"
                             >
                         </div>
 
-                        <!-- Password Field -->
-                        <div class="animate-fade-in-delay-3">
-                            <label for="password" class="block text-sm font-medium text-geotrak mb-2">
-                                Password
-                            </label>
-                            <input 
-                                type="password" 
-                                id="password" 
-                                name="password" 
-                                required
-                                placeholder="Enter your password"
-                                class="w-full px-4 py-3 border border-geotrak rounded-full focus:ring-2 focus:ring-geotrak focus:border-geotrak outline-none transition"
+                        <div id="passwordStep" class="auth-field" hidden>
+                            <label for="password" class="auth-field__label">{{ ui.password }}</label>
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                autocomplete="current-password"
+                                placeholder="{{ ui.password_placeholder }}"
+                                class="auth-field__input"
                             >
+                            <div class="auth-actions-row">
+                                <a href="{% url 'auth:forgot_password' %}" class="auth-link">{{ ui.forgot_password_link }}</a>
+                            </div>
                         </div>
 
-                        <!-- Forgot Password -->
-                        <div class="flex items-center justify-end animate-fade-in-delay-4">
-                            <a href="{% url 'auth:forgot_password' %}" class="text-sm text-geotrak hover:underline font-medium">
-                                Forgot password?
-                            </a>
-                        </div>
+                        <div id="errorMessage" class="auth-error" role="alert"></div>
 
-                        <!-- Error Message -->
-                        <div id="errorMessage" class="hidden text-sm text-geotrak bg-gray-100 border border-geotrak p-3 rounded-full"></div>
-
-                        <!-- Sign In Button -->
-                        <button 
-                            type="submit"
-                            class="w-full bg-geotrak hover:bg-geotrak-hover text-white font-semibold py-3 px-4 rounded-full transition duration-200 focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 animate-fade-in-delay-5"
-                        >
-                            Sign in
+                        <button type="submit" id="loginContinueBtn" class="auth-primary-btn">
+                            {{ ui.continue }}
                         </button>
                     </form>
                 </div>
             </div>
         </div>
-
-        <!-- Right Column - Logo -->
-        <div class="hidden lg:flex flex-1 bg-geotrak p-12 flex-col justify-center items-center border-l border-geotrak">
-            <div class="flex items-center justify-center">
-                <img src="{% static 'auth/images/geotrak-logo.png' %}" alt="GeoTrak Logo" class="max-w-xs w-full h-auto">
-            </div>
-        </div>
     </div>
 
-    <style>
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        .animate-fade-in {
-            animation: fadeIn 0.6s ease-out forwards;
-            opacity: 0;
-        }
-        .animate-fade-in-delay {
-            animation: fadeIn 0.6s ease-out 0.2s forwards;
-            opacity: 0;
-        }
-        .animate-fade-in-delay-2 {
-            animation: fadeIn 0.6s ease-out 0.4s forwards;
-            opacity: 0;
-        }
-        .animate-fade-in-delay-3 {
-            animation: fadeIn 0.6s ease-out 0.6s forwards;
-            opacity: 0;
-        }
-        .animate-fade-in-delay-4 {
-            animation: fadeIn 0.6s ease-out 0.8s forwards;
-            opacity: 0;
-        }
-        .animate-fade-in-delay-5 {
-            animation: fadeIn 0.6s ease-out 1s forwards;
-            opacity: 0;
-        }
-    </style>
     {% include 'notifications/includes/toast_stack.html' %}
     <script src="{% static 'notifications/js/notifications.js' %}"></script>
     {% include 'notifications/includes/django_messages_script.html' %}
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            function run() {
-                if (!window.notify) {
-                    setTimeout(run, 50);
-                    return;
-                }
-                var params = new URLSearchParams(window.location.search);
-                if (params.get('email_changed') === '1') {
-                    window.notify.info('System admin email changed. Please log in with the new email.');
-                }
-                if (params.get('password_changed') === '1') {
-                    window.notify.info('Password updated. Please log in again.');
-                }
-                if (params.get('no_permission') === '1') {
-                    var permissionType = params.get('permission_type');
-                    var message = 'You do not have permission to access this page.';
-                    if (permissionType === 'dashboard') {
-                        message = 'You do not have permission to access this feature. Please contact your system administrator.';
-                    } else if (permissionType === 'account_information') {
-                        message = 'You do not have permission to access account information. Please contact your system administrator.';
-                    } else if (permissionType === 'security') {
-                        message = 'You do not have permission to access security settings. Please contact your system administrator.';
-                    } else if (permissionType === 'layer_uploader') {
-                        message = 'You do not have permission to access the layer uploader. Please contact your system administrator.';
-                    } else if (permissionType === 'my_edits') {
-                        message = 'You do not have permission to access My Edits. Please contact your system administrator.';
-                    }
-                    window.notify.error(message);
-                }
-                if (params.get('signed_out') === '1') {
-                    window.notify.info('You have been signed out.');
-                }
-                if (params.get('session_ended') === '1') {
-                    window.notify.warning(
-                        'Your session ended or this area is not available for your account. Please sign in again.'
-                    );
-                }
-            }
-            run();
-        });
-    </script>
+    {% include 'auth/includes/ui_i18n_script.html' %}
     <script src="{% static 'auth/js/login.js' %}"></script>
 </body>
 </html>
-

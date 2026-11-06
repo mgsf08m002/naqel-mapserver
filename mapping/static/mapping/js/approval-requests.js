@@ -21,10 +21,36 @@
         '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>' +
         '</svg>';
 
+    function uiT(key, fallback) {
+        if (typeof window.uiT === 'function') {
+            return window.uiT(key, fallback);
+        }
+        return fallback != null ? fallback : key;
+    }
+
     function showToast(message, type) {
         if (message && window.notify && typeof window.notify.tryShow === 'function') {
             window.notify.tryShow(message, type || 'info');
         }
+    }
+
+    function toastApproveSuccess(data) {
+        if (data && data.deleted_road_id != null) {
+            return uiT('toast_road_deleted', 'Road deleted');
+        }
+        const msg = data && data.message ? String(data.message) : '';
+        if (/layer/i.test(msg)) {
+            return uiT('toast_layer_published', 'Layer published');
+        }
+        return uiT('toast_approved', 'Approved');
+    }
+
+    function toastRejectSuccess(data) {
+        const msg = data && data.message ? String(data.message) : '';
+        if (/layer/i.test(msg)) {
+            return uiT('toast_layer_rejected', 'Layer rejected');
+        }
+        return uiT('toast_rejected', 'Rejected');
     }
 
     function approvalEmptyHtml() {
@@ -117,7 +143,7 @@
             if (bell) {
                 bell.setAttribute('aria-expanded', 'false');
             }
-            removeApproveRejectButtons();
+            // Closing the bell list must not cancel an in-progress map review.
             syncApprovalUI();
         }
     }
@@ -527,16 +553,18 @@
         .then(function(data) {
             if (data && data.success) {
                 showEditRequestOnMap(data.request);
-            } else if (data) {
-                const message = data.message || 'Unknown error loading request.';
-                showToast('Error loading request: ' + message, 'error');
             } else {
-                showToast('Error loading request: Empty response from server.', 'error');
+                showToast(
+                    uiT('toast_couldnt_load_request', "Couldn't load request"),
+                    'error'
+                );
             }
         })
-        .catch(function(error) {
-            const message = (error && error.message) ? error.message : 'Please try again.';
-            showToast('Error loading request details: ' + message, 'error');
+        .catch(function() {
+            showToast(
+                uiT('toast_couldnt_load_request', "Couldn't load request"),
+                'error'
+            );
         });
     }
 
@@ -585,50 +613,45 @@
 
     // Remove any previously drawn request features and markers from the map.
     function cleanupRequestLines() {
-        if (typeof map === 'undefined' || !map) return;
-        
-        if (window.viewingRequestIds && window.viewingRequestIds.length > 0) {
-            window.viewingRequestIds.forEach(function(featureId) {
-                removeOneRequestCompareSet(featureId);
-            });
-            
-            if (window.requestMarkers) {
-                window.viewingRequestIds.forEach(function(featureId) {
-                    if (window.requestMarkers[featureId]) {
-                        window.requestMarkers[featureId].forEach(function(marker) {
-                            marker.remove();
-                        });
-                        delete window.requestMarkers[featureId];
-                    }
-                });
-            }
-            
-            window.viewingRequestIds = [];
+        if (typeof map === 'undefined' || !map) {
+            return;
         }
+        if (!window.viewingRequestIds || !window.viewingRequestIds.length) {
+            return;
+        }
+        window.viewingRequestIds.forEach(function (featureId) {
+            removeOneRequestCompareSet(featureId);
+        });
+        window.viewingRequestIds = [];
     }
 
     // Zoom the map to the request geometry, draw it, and open the details UI.
     function showEditRequestOnMap(request) {
         if (typeof map === 'undefined' || !map) {
-            showToast('Map not initialized', 'error');
+            showToast(uiT('toast_map_not_ready', "Map isn't ready"), 'error');
             return;
         }
 
         cleanupRequestLines();
         removeApproveRejectButtons();
-        hideEditToolbarsForReview();
-
         setApprovalPanelOpen(false);
+        hideEditToolbarsForReview();
         
         const normalizedGeometry = normalizeRequestGeometry(request.geometry);
         if (!normalizedGeometry || !normalizedGeometry.coordinates || normalizedGeometry.coordinates.length < 2) {
-            if (window.notify && window.notify.warning) {
-                window.notify.warning('This road has invalid geometry and cannot be shown on the map, but its details can still be reviewed.');
-            }
+            showToast(
+                uiT(
+                    'toast_cant_show_on_map',
+                    "Can't show on map — details still available"
+                ),
+                'warning'
+            );
 
             ensureSidePanelForReview(function() {
-                populateSidepanelWithRequestData(request);
-                showRequestDetailsSidepanel(request);
+                try {
+                    populateSidepanelWithRequestData(request);
+                } catch (ePop) {}
+                createApproveRejectButtons(request);
             });
             return;
         }
@@ -660,17 +683,14 @@
         expandBoundsFromLineString(normBefore);
 
         if (!Number.isFinite(minLng) || !Number.isFinite(minLat)) {
-            const coordinates = normalizedGeometry.coordinates;
-            minLng = coordinates[0][0];
-            minLat = coordinates[0][1];
-            maxLng = coordinates[0][0];
-            maxLat = coordinates[0][1];
-            coordinates.forEach(function(coord) {
-                minLng = Math.min(minLng, coord[0]);
-                minLat = Math.min(minLat, coord[1]);
-                maxLng = Math.max(maxLng, coord[0]);
-                maxLat = Math.max(maxLat, coord[1]);
+            showToast(uiT('toast_cant_find_on_map', "Can't find on map"), 'warning');
+            ensureSidePanelForReview(function () {
+                try {
+                    populateSidepanelWithRequestData(requestForMap);
+                } catch (ePop) {}
+                createApproveRejectButtons(request);
             });
+            return;
         }
 
         const bounds = [[minLng, minLat], [maxLng, maxLat]];
@@ -682,8 +702,10 @@
         ensureSidePanelForReview(function() {
             setTimeout(function() {
                 drawRequestLineOnMap(requestForMap);
-                populateSidepanelWithRequestData(requestForMap);
-                showRequestDetailsSidepanel(request);
+                try {
+                    populateSidepanelWithRequestData(requestForMap);
+                } catch (ePop) {}
+                createApproveRejectButtons(request);
                 hideEditToolbarsForReview();
             }, 1100);
         });
@@ -716,11 +738,6 @@
             window.applyMapSidePanelOpen(true);
         } else {
             sidePanel.classList.remove('-translate-x-full');
-        }
-        if (typeof map !== 'undefined' && map && map.resize) {
-            setTimeout(function() {
-                map.resize();
-            }, 100);
         }
         setTimeout(function() {
             hideEditToolbarsForReview();
@@ -888,14 +905,10 @@
         if (!mls) {
             return;
         }
-        var corePaint =
-            isRoadClosed && window.RoadClosure && window.RoadClosure.corePaintFromStyle
-                ? window.RoadClosure.corePaintFromStyle(mls, style, lineDasharray)
-                : mls.buildEditingCorePaint(
-                      style,
-                      lineDasharray,
-                      request.current_feature_label || "Unnamed Road"
-                  );
+        var paintLabel = isRoadClosed
+            ? closureLabel
+            : request.current_feature_label || "Unnamed Road";
+        var corePaint = mls.buildEditingCorePaint(style, lineDasharray, paintLabel);
         var pair = isRoadClosed
             ? null
             : mls.maplibreSelectionCasingPaintPair(style.lineWidth, lineDasharray);
@@ -947,229 +960,15 @@
         } catch (error) {}
     }
 
-    // Fill the tags section of the side panel from request.tags_data.
-    function populateTagsData(tagsData) {
-        const tagsRowsContainer = document.getElementById('tags-rows-container');
-        const tagsLabel = document.getElementById('tags-label-span');
-
-        if (!tagsRowsContainer || !tagsLabel) return;
-
-        tagsRowsContainer.innerHTML = '';
-        if (!Array.isArray(tagsData) || tagsData.length === 0) {
-            tagsLabel.textContent = 'Tags (0)';
-            return;
-        }
-
-        tagsData.forEach(function(tag) {
-            if (tag.key || tag.value) {
-                createTagRow(tagsRowsContainer, tagsLabel, tag.key || '', tag.value || '');
-            }
-        });
-    }
-
-    // Create a single editable tag row (key/value) in the tags section.
-    function createTagRow(container, labelElement, key, value) {
-        const tagRow = document.createElement('div');
-        tagRow.className = 'flex items-center gap-2';
-        const tagId = 'tag-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-        tagRow.id = tagId;
-
-        const leftDropdown = document.createElement('div');
-        leftDropdown.className = 'relative flex-1 min-w-0';
-
-        const leftInput = document.createElement('input');
-        leftInput.type = 'text';
-        leftInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all cursor-pointer';
-        leftInput.placeholder = 'Add new tag';
-        leftInput.readOnly = true;
-        leftInput.value = key;
-
-        const leftChevron = document.createElement('div');
-        leftChevron.className = 'absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none';
-        leftChevron.innerHTML = '<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
-
-        const leftMenu = document.createElement('div');
-        leftMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-geotrak-border rounded-lg shadow-xl z-50 hidden max-h-60 overflow-y-auto';
-
-        const tagOptions = ['building', 'highway', 'source', 'name', 'surface', 'natural', 'addr:housenumber', 'addr:street', 'addr:city', 'addr:postcode'];
-        tagOptions.forEach(function(option) {
-            const menuItem = document.createElement('div');
-            menuItem.className = 'px-3 py-2 text-xs text-geotrak hover:bg-geotrak-subtle cursor-pointer border-b border-zinc-100 last:border-b-0';
-            menuItem.textContent = option;
-            menuItem.addEventListener('click', function(e) {
-                e.stopPropagation();
-                leftInput.value = option;
-                leftMenu.classList.add('hidden');
-                updateTagsCount(labelElement);
-            });
-            leftMenu.appendChild(menuItem);
-        });
-
-        leftInput.addEventListener('click', function(e) {
-            e.stopPropagation();
-            leftMenu.classList.toggle('hidden');
-        });
-
-        document.addEventListener('click', function(e) {
-            if (!leftDropdown.contains(e.target)) {
-                leftMenu.classList.add('hidden');
-            }
-        });
-
-        leftDropdown.appendChild(leftInput);
-        leftDropdown.appendChild(leftChevron);
-        leftDropdown.appendChild(leftMenu);
-
-        const rightInput = document.createElement('input');
-        rightInput.type = 'text';
-        rightInput.className = 'flex-1 min-w-0 bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all';
-        rightInput.placeholder = '';
-        rightInput.value = value;
-
-        const deleteButton = document.createElement('button');
-        deleteButton.type = 'button';
-        deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors flex-shrink-0';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
-        deleteButton.addEventListener('click', function() {
-            tagRow.remove();
-            updateTagsCount(labelElement);
-        });
-
-        tagRow.appendChild(leftDropdown);
-        tagRow.appendChild(rightInput);
-        tagRow.appendChild(deleteButton);
-        container.appendChild(tagRow);
-        updateTagsCount(labelElement);
-    }
-
-    // Update "Tags (N)" label based on the number of tag rows.
-    function updateTagsCount(labelElement) {
-        const tagsRowsContainer = document.getElementById('tags-rows-container');
-        if (tagsRowsContainer && labelElement) {
-            const tagRows = tagsRowsContainer.querySelectorAll('.flex.items-center.gap-2');
-            const count = tagRows.length;
-            labelElement.textContent = 'Tags (' + count + ')';
-        }
-    }
-
-    // Fill the relations section of the side panel from request.relations_data.
-    function populateRelationsData(relationsData) {
-        if (!Array.isArray(relationsData) || relationsData.length === 0) return;
-        
-        const relationsRowsContainer = document.getElementById('relations-rows-container');
-        const relationsLabel = document.getElementById('relations-label-span');
-        
-        if (!relationsRowsContainer || !relationsLabel) return;
-
-        relationsData.forEach(function(relation) {
-            if (relation.parent_relation || relation.role) {
-                createRelationRow(relationsRowsContainer, relationsLabel, relation.parent_relation || 'New Relation', relation.role || '');
-            }
-        });
-    }
-
-    // Create a single editable relation row (parent + role).
-    function createRelationRow(container, labelElement, parentRelation, role) {
-        const relationRow = document.createElement('div');
-        relationRow.className = 'space-y-2';
-        const relationId = 'relation-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-        relationRow.id = relationId;
-
-        const parentRelationRow = document.createElement('div');
-        parentRelationRow.className = 'flex items-center gap-2';
-
-        const parentDropdown = document.createElement('div');
-        parentDropdown.className = 'relative flex-1 min-w-0';
-
-        const parentInput = document.createElement('input');
-        parentInput.type = 'text';
-        parentInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all cursor-pointer';
-        parentInput.placeholder = 'Choose a parent relation';
-        parentInput.value = parentRelation;
-        parentInput.readOnly = true;
-
-        const parentChevron = document.createElement('div');
-        parentChevron.className = 'absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none';
-        parentChevron.innerHTML = '<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
-
-        const parentMenu = document.createElement('div');
-        parentMenu.className = 'absolute top-full left-0 right-0 mt-1 bg-white border border-geotrak-border rounded-lg shadow-xl z-50 hidden max-h-60 overflow-y-auto';
-
-        const relationOptions = ['New Relation'];
-        relationOptions.forEach(function(option) {
-            const menuItem = document.createElement('div');
-            menuItem.className = 'px-3 py-2 text-xs text-geotrak hover:bg-geotrak-subtle cursor-pointer border-b border-zinc-100 last:border-b-0';
-            menuItem.textContent = option;
-            menuItem.addEventListener('click', function(e) {
-                e.stopPropagation();
-                parentInput.value = option;
-                parentMenu.classList.add('hidden');
-            });
-            parentMenu.appendChild(menuItem);
-        });
-
-        parentInput.addEventListener('click', function(e) {
-            e.stopPropagation();
-            parentMenu.classList.toggle('hidden');
-        });
-
-        document.addEventListener('click', function(e) {
-            if (!parentDropdown.contains(e.target)) {
-                parentMenu.classList.add('hidden');
-            }
-        });
-
-        parentDropdown.appendChild(parentInput);
-        parentDropdown.appendChild(parentChevron);
-        parentDropdown.appendChild(parentMenu);
-
-        const deleteButton = document.createElement('button');
-        deleteButton.type = 'button';
-        deleteButton.className = 'w-5 h-5 flex items-center justify-center rounded hover:bg-geotrak-muted transition-colors flex-shrink-0';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
-        deleteButton.addEventListener('click', function() {
-            relationRow.remove();
-            updateRelationsCount(labelElement);
-        });
-
-        parentRelationRow.appendChild(parentDropdown);
-        parentRelationRow.appendChild(deleteButton);
-
-        const roleInput = document.createElement('input');
-        roleInput.type = 'text';
-        roleInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all';
-        roleInput.placeholder = 'Role';
-        roleInput.value = role;
-
-        relationRow.appendChild(parentRelationRow);
-        relationRow.appendChild(roleInput);
-        container.appendChild(relationRow);
-        updateRelationsCount(labelElement);
-    }
-
-    // Update "Relations (N)" label based on the number of relation rows.
-    function updateRelationsCount(labelElement) {
-        const relationsRowsContainer = document.getElementById('relations-rows-container');
-        if (relationsRowsContainer && labelElement) {
-            const relationRows = relationsRowsContainer.querySelectorAll('.space-y-2');
-            const count = relationRows.length;
-            labelElement.textContent = 'Relations (' + count + ')';
-        }
-    }
-
-    // Open the edit side panel and populate it with request metadata.
+    // Open the road panel for read-only review and fill label / closure fields.
     function populateSidepanelWithRequestData(request) {
         const sidePanel = document.getElementById('editSidePanel');
-
         hideEditToolbarsForReview();
-
         if (!sidePanel) {
             return;
         }
 
-        const isCurrentlyActive = !sidePanel.classList.contains('-translate-x-full');
-
-        if (!isCurrentlyActive) {
+        if (sidePanel.classList.contains('-translate-x-full')) {
             if (typeof window.initMapSidePanelChrome === 'function') {
                 window.initMapSidePanelChrome();
             }
@@ -1179,240 +978,56 @@
                 sidePanel.classList.remove('-translate-x-full');
             }
         }
-        hideEditToolbarsForReview();
-        let retryCount = window.populateSidepanelRetryCount || 0;
-        if (retryCount < 10) {
-            if (sidePanel.classList.contains('-translate-x-full')) {
-                window.populateSidepanelRetryCount = retryCount + 1;
-                setTimeout(function() {
-                    populateSidepanelWithRequestData(request);
-                }, 200);
-                return;
-            }
-            window.populateSidepanelRetryCount = 0;
-        } else {
-            window.populateSidepanelRetryCount = 0;
-        }
+
         if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateCurrentFeatureLabel === 'function') {
-            window.lineDrawingHandler.updateCurrentFeatureLabel(request.current_feature_label || 'Unnamed Road');
+            window.lineDrawingHandler.updateCurrentFeatureLabel(
+                request.current_feature_label || 'Unnamed Road'
+            );
         }
-        setTimeout(function() {
-            if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showEditFeatureScreen === 'function') {
+
+        function fillReviewFields() {
+            hideEditToolbarsForReview();
+            if (request.fields_data) {
+                populateFieldsData(request.fields_data);
+            }
+        }
+
+        setTimeout(function () {
+            if (
+                window.lineDrawingHandler &&
+                typeof window.lineDrawingHandler.showEditFeatureScreen === 'function'
+            ) {
                 window.lineDrawingHandler.showEditFeatureScreen({
                     hideBackButton: true,
                     requestGeometry: request.geometry,
                     lineData: { road_closure: request.road_closure },
                 });
             }
-            hideEditToolbarsForReview();
-            setTimeout(function() {
-                hideEditToolbarsForReview();
-                const editScreen = document.getElementById('editFeatureScreen');
-                if (!editScreen) {
-                    setTimeout(function() {
-                        if (window.lineDrawingHandler && typeof window.lineDrawingHandler.showEditFeatureScreen === 'function') {
-                            window.lineDrawingHandler.showEditFeatureScreen();
-                        }
-                        setTimeout(function() {
-                            if (request.fields_data) {
-                                populateFieldsData(request.fields_data);
-                            }
-                            if (request.tags_data) {
-                                populateTagsData(request.tags_data);
-                            }
-                            if (request.relations_data) {
-                                populateRelationsData(request.relations_data);
-                            }
-                        }, 300);
-                    }, 200);
-                    return;
-                }
-                if (request.fields_data) {
-                    populateFieldsData(request.fields_data);
-                }
-                if (request.tags_data) {
-                    populateTagsData(request.tags_data);
-                }
-                if (request.relations_data) {
-                    populateRelationsData(request.relations_data);
-                }
-            }, 400);
-        }, 200);
+            setTimeout(fillReviewFields, 50);
+        }, 50);
     }
 
-    // Fill the main fields section of the side panel from request.fields_data.
+    // Fill the road-label field from request.fields_data.
     function populateFieldsData(fieldsData) {
-        const fieldsContainer = document.getElementById('fields-container');
-        if (!fieldsContainer || !fieldsData) return;
-        const byId = document.getElementById('sidebar-feature-name-input');
-        if (byId) {
-            const n = fieldsData.name != null ? String(fieldsData.name).trim() : '';
-            const c = fieldsData.common_name != null ? String(fieldsData.common_name).trim() : '';
-            byId.value = n || c || '';
-        } else {
-            const nameFieldGroup = fieldsContainer.querySelector('.geotrak-sidebar-field-group');
-            const fallbackNameInput = nameFieldGroup && nameFieldGroup.querySelector('input[type="text"]');
-            if (fallbackNameInput) {
-                if (fieldsData.name) {
-                    fallbackNameInput.value = fieldsData.name;
-                } else if (fieldsData.common_name) {
-                    fallbackNameInput.value = fieldsData.common_name;
-                }
-            }
+        if (!fieldsData) {
+            return;
         }
-        if (fieldsData.multilingual_names && Array.isArray(fieldsData.multilingual_names)) {
-            fieldsData.multilingual_names.forEach(function(multilingual) {
-                if (multilingual.language && multilingual.name) {
-                    let multilingualSection = null;
-                    if (typeof window.addMultilingualNameField === 'function') {
-                        window.addMultilingualNameField(fieldsContainer);
-                        setTimeout(function() {
-                            const multilingualSections = fieldsContainer.querySelectorAll('[id^="multilingual-"]');
-                            if (multilingualSections.length > 0) {
-                                multilingualSection = multilingualSections[multilingualSections.length - 1];
-                                const languageSelect = multilingualSection.querySelector('select');
-                                const nameInput = multilingualSection.querySelector('input[type="text"]');
-                                if (languageSelect) languageSelect.value = multilingual.language;
-                                if (nameInput) nameInput.value = multilingual.name;
-                            }
-                        }, 50);
-                    } else {
-                        createMultilingualNameField(fieldsContainer, multilingual.language, multilingual.name);
-                    }
-                }
-            });
+        if (
+            window.RiyadhRoadShared &&
+            typeof window.RiyadhRoadShared.fillRoadLabelInputFromFields === 'function'
+        ) {
+            window.RiyadhRoadShared.fillRoadLabelInputFromFields(fieldsData);
         }
-        const fieldMappings = {
-            'description': { id: 'description', name: 'Description' },
-            'fix_me': { id: 'fix-me', name: 'Fix Me' },
-            'image': { id: 'image', name: 'Image' },
-            'last_checked_date': { id: 'last-checked-date', name: 'Last Checked Date' },
-            'mapillary_image_id': { id: 'mapillary-image-id', name: 'Mapillary Image ID' },
-            'note': { id: 'note', name: 'Note' },
-            'panoramax_image_id': { id: 'panoramax-image-id', name: 'Panoramax Image ID' },
-            'website': { id: 'website', name: 'Website' }
-        };
-
-        Object.keys(fieldMappings).forEach(function(fieldKey) {
-            if (fieldsData[fieldKey]) {
-                const fieldInfo = fieldMappings[fieldKey];
-                const fieldId = fieldInfo.id;
-                const existingField = document.getElementById('field-' + fieldId);
-                if (!existingField) {
-                    if (typeof window.addFieldToContainer === 'function') {
-                        window.addFieldToContainer(fieldInfo.name, fieldId, fieldsContainer);
-                        if (typeof window.selectedFields === 'undefined') {
-                            window.selectedFields = [];
-                        }
-                        if (window.selectedFields.indexOf(fieldId) === -1) {
-                            window.selectedFields.push(fieldId);
-                        }
-                        setTimeout(function() {
-                            const fieldElement = document.getElementById('field-' + fieldId);
-                            if (fieldElement) {
-                                const input = fieldElement.querySelector('input, textarea');
-                                if (input) {
-                                    input.value = fieldsData[fieldKey];
-                                }
-                            }
-                        }, 150);
-                    }
-                } else {
-                    const input = existingField.querySelector('input, textarea');
-                    if (input) {
-                        input.value = fieldsData[fieldKey];
-                    }
-                }
-            }
-        });
-        setTimeout(function() {
-            if (typeof window.updateAddFieldDisplay === 'function') {
-                window.updateAddFieldDisplay();
-            }
-        }, 200);
-        if (typeof window.syncRemoveRoadLabelButtonVisibility === 'function') {
-            window.syncRemoveRoadLabelButtonVisibility();
+        if (typeof window.syncRoadPanelEditModeUI === 'function') {
+            window.syncRoadPanelEditModeUI();
         }
-    }
-
-    // Add a multilingual-name block under the fields section.
-    function createMultilingualNameField(fieldsContainer, language, name) {
-        const multilingualSection = document.createElement('div');
-        multilingualSection.className = 'geotrak-sidebar-field-group space-y-2.5';
-        multilingualSection.id = 'multilingual-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-
-        const headerRow = document.createElement('div');
-        headerRow.className = 'flex items-center justify-between';
-
-        const labelSpan = document.createElement('span');
-        labelSpan.className = 'text-xs font-medium text-geotrak';
-        labelSpan.textContent = 'Multilingual Name';
-        headerRow.appendChild(labelSpan);
-
-        const deleteButton = document.createElement('button');
-        deleteButton.type = 'button';
-        deleteButton.className = 'w-4 h-4 flex items-center justify-center rounded hover:bg-geotrak-muted/80 transition-colors';
-        deleteButton.innerHTML = '<svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
-        deleteButton.addEventListener('click', function() {
-            multilingualSection.remove();
-        });
-        headerRow.appendChild(deleteButton);
-
-        multilingualSection.appendChild(headerRow);
-
-        const languageDropdown = document.createElement('div');
-        languageDropdown.className = 'relative';
-
-        const languageSelect = document.createElement('select');
-        languageSelect.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 pr-8 text-xs text-geotrak focus:outline-none focus:ring-2 focus:ring-geotrak transition-all appearance-none cursor-pointer';
-
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = 'Choose language';
-        defaultOption.disabled = true;
-        languageSelect.appendChild(defaultOption);
-
-        ['english', 'urdu', 'arabic'].forEach(function(lang) {
-            const option = document.createElement('option');
-            option.value = lang;
-            option.textContent = lang.charAt(0).toUpperCase() + lang.slice(1);
-            languageSelect.appendChild(option);
-        });
-
-        languageSelect.value = language || '';
-        languageDropdown.appendChild(languageSelect);
-        multilingualSection.appendChild(languageDropdown);
-
-        const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.className = 'w-full bg-white border border-geotrak-border rounded-lg px-3 py-1.5 text-xs text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak transition-all';
-        nameInput.placeholder = 'Name';
-        nameInput.value = name || '';
-        multilingualSection.appendChild(nameInput);
-
-        const addFieldSection = document.getElementById('add-field-section');
-        if (addFieldSection && addFieldSection.parentNode) {
-            addFieldSection.parentNode.insertBefore(multilingualSection, addFieldSection);
-        } else {
-            fieldsContainer.appendChild(multilingualSection);
-        }
-    }
-
-    // Show the bottom-center review card (Approve / Reject) after map focus.
-    function showRequestDetailsSidepanel(request) {
-        setTimeout(function() {
-            createApproveRejectButtons(request);
-        }, 1000);
     }
 
     // Create the Approve / Reject floating buttons for the active request.
     function createApproveRejectButtons(request) {
         removeApproveRejectButtons();
+        setManagerReviewMode(true);
 
-        const mapContainer = document.getElementById('mapContainer') || document.querySelector('.mapboxgl-map');
-        if (!mapContainer) {
-            return;
-        }
         const buttonContainer = document.createElement('div');
         buttonContainer.id = 'approveRejectButtonsContainer';
         buttonContainer.className = 'fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 flex gap-3 items-center';
@@ -1452,19 +1067,25 @@
             const runReject = function () {
                 rejectRequest(request.id);
             };
-            window.notify
-                .confirm({
-                    title: 'Reject request',
-                    message: 'Are you sure you want to reject this approval request?',
-                    confirmLabel: 'Reject',
-                    cancelLabel: 'Cancel',
-                    variant: 'danger',
-                })
-                .then(function (ok) {
-                    if (ok) {
-                        runReject();
-                    }
-                });
+            if (window.notify && typeof window.notify.confirm === 'function') {
+                window.notify
+                    .confirm({
+                        title: 'Reject request',
+                        message: 'Are you sure you want to reject this approval request?',
+                        confirmLabel: 'Reject',
+                        cancelLabel: 'Cancel',
+                        variant: 'danger',
+                    })
+                    .then(function (ok) {
+                        if (ok) {
+                            runReject();
+                        }
+                    });
+                return;
+            }
+            if (window.confirm('Reject this approval request?')) {
+                runReject();
+            }
         });
         card.appendChild(rejectBtn);
 
@@ -1509,7 +1130,7 @@
         .then(function(result) {
             const data = result.data || {};
             if (result.ok && data.success) {
-                showToast(data.message || 'Road edit approved successfully.', 'success');
+                showToast(toastApproveSuccess(data), 'success');
                 cleanupRequestLines();
                 if (typeof window.clearDraftLineDrawingFromMap === 'function') {
                     window.clearDraftLineDrawingFromMap();
@@ -1533,12 +1154,23 @@
                         window.applyRiyadhNetworkMutationResponse(data, null);
                     }
                 });
+                try {
+                    window.dispatchEvent(new CustomEvent('pendingRoadLocks:refresh'));
+                } catch (eLock) {}
             } else {
-                showToast('Error: ' + (data.message || 'Approval failed'), 'error');
+                showToast(
+                    (typeof window.safeUserMessage === 'function'
+                        ? window.safeUserMessage(
+                              data,
+                              uiT('toast_couldnt_approve', "Couldn't approve")
+                          )
+                        : uiT('toast_couldnt_approve', "Couldn't approve")),
+                    'error'
+                );
             }
         })
         .catch(function() {
-            showToast('Error approving request', 'error');
+            showToast(uiT('toast_couldnt_approve', "Couldn't approve"), 'error');
         });
     }
 
@@ -1554,19 +1186,30 @@
         })
         .then(function(data) {
             if (data.success) {
-                showToast(data.message || 'Road edit rejected.', 'success');
+                showToast(toastRejectSuccess(data), 'success');
                 cleanupRequestLines();
                 removeApproveRejectButtons();
                 approvalQueue = approvalQueue.filter(function(req) {
                     return req.id !== requestId;
                 });
                 renderApprovalList();
+                try {
+                    window.dispatchEvent(new CustomEvent('pendingRoadLocks:refresh'));
+                } catch (eLock) {}
             } else {
-                showToast('Error: ' + data.message, 'error');
+                showToast(
+                    (typeof window.safeUserMessage === 'function'
+                        ? window.safeUserMessage(
+                              data,
+                              uiT('toast_couldnt_reject', "Couldn't reject")
+                          )
+                        : uiT('toast_couldnt_reject', "Couldn't reject")),
+                    'error'
+                );
             }
         })
-        .catch(function(error) {
-            showToast('Error rejecting request', 'error');
+        .catch(function() {
+            showToast(uiT('toast_couldnt_reject', "Couldn't reject"), 'error');
         });
     }
 
@@ -1604,8 +1247,6 @@
 
     window.refreshApprovalQueue = refreshApprovalQueue;
     window.populateFieldsData = populateFieldsData;
-    window.populateTagsData = populateTagsData;
-    window.populateRelationsData = populateRelationsData;
 
 })();
 

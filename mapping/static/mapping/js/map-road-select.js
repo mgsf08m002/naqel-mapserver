@@ -73,10 +73,6 @@
         ) {
             setTimeout(function () {
                 try {
-                    var editScreenEl = document.getElementById('editFeatureScreen');
-                    if (editScreenEl && editScreenEl.getAttribute('data-geometry-readonly') === 'true') {
-                        return;
-                    }
                     global.roadGeometryEdit.startFromRiyadhContext();
                 } catch (e) {}
             }, 0);
@@ -114,7 +110,14 @@
             }
             var data = await resp.json();
             if (!data || !data.success || !data.road) {
-                return { success: false, message: (data && data.message) || 'Road not found.' };
+                var roadFallback = 'Road not found.';
+                return {
+                    success: false,
+                    message:
+                        typeof window.safeUserMessage === 'function'
+                            ? window.safeUserMessage(data, roadFallback)
+                            : roadFallback,
+                };
             }
 
             var road = mergeTilePropsIntoRoad(data.road, tileProps || null);
@@ -135,9 +138,6 @@
             try {
                 global.dispatchEvent(new CustomEvent('map:selectionChanged'));
             } catch (eNotify) {}
-            if (typeof global.syncClearSelectionToolbar === 'function') {
-                global.syncClearSelectionToolbar();
-            }
 
             return { success: true, road: road };
         } catch (err) {

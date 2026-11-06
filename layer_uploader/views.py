@@ -1,4 +1,5 @@
 import json
+import logging
 
 import fiona
 from django.contrib.auth.decorators import login_required
@@ -6,6 +7,8 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
+
+from config.api_errors import client_message, json_detail_error
 
 from .access import (
     can_access_uploader_review,
@@ -25,6 +28,7 @@ from .constants import BULK_CREATE_BATCH_SIZE, TABLE_PAGE_SIZE_DEFAULT
 from .models import Feature, Layer
 from .presentation import post_upload_map_url, review_page_context, upload_flow_context
 from .services import (
+    LayerPublishFailed,
     apply_uploader_review_action,
     map_preview_statuses_uploader,
     submit_layer,
@@ -32,6 +36,9 @@ from .services import (
 from .shapefile_io import collect_detected_shapefiles, extract_upload_to_temp, find_shapefile_path
 from .shapefile_properties import coerce_feature_properties
 from .utils import coerce_epsg, find_new_features_against_riyadh_roads, simplify_crs
+
+
+logger = logging.getLogger(__name__)
 
 
 def _json_forbidden():
@@ -72,12 +79,18 @@ def _parse_feature_ids(body) -> list[int] | None:
     return ids
 
 
-def _action_error_response(exc: Exception) -> JsonResponse:
+def _action_error_response(request, exc: Exception) -> JsonResponse:
+    """Curated domain errors stay visible; unexpected failures stay opaque."""
     if isinstance(exc, LookupError):
         return JsonResponse({"detail": str(exc)}, status=404)
     if isinstance(exc, ValueError):
         return JsonResponse({"detail": str(exc)}, status=400)
-    return JsonResponse({"detail": str(exc)}, status=400)
+    return json_detail_error(
+        request,
+        exc=exc,
+        status=500,
+        message_key="generic_error",
+    )
 
 
 def _submit_success_response(result) -> JsonResponse:
@@ -89,7 +102,6 @@ def _submit_success_response(result) -> JsonResponse:
             "auto_published": result.auto_published,
             "published_count": result.published_count,
             "tiles_version": result.tiles_version,
-            "errors": result.errors,
             "redirect_url": reverse("success") + "?" + suffix,
         }
     )
@@ -209,6 +221,7 @@ def validate_view(request):
         try:
             new_features_data = find_new_features_against_riyadh_roads(shp_path)
         except Exception as exc:
+            logger.exception("Layer validate against road network failed")
             return render(
                 request,
                 "layer_uploader/validate.html",
@@ -216,7 +229,7 @@ def validate_view(request):
                     request,
                     selected,
                     shp_path,
-                    error=f"Could not compare this layer to the road network: {exc}",
+                    error=client_message(request, "generic_error"),
                 ),
             )
 
@@ -339,7 +352,12 @@ def review_action_view(request, layer_id):
 
     body = _parse_action_body(request)
     if body is None:
-        return JsonResponse({"detail": "Invalid JSON"}, status=400)
+        return json_detail_error(
+            request,
+            status=400,
+            message_key="invalid_server_response",
+            log=False,
+        )
 
     try:
         payload = apply_uploader_review_action(
@@ -348,10 +366,10 @@ def review_action_view(request, layer_id):
             feature_id=_parse_feature_id(body),
             feature_ids=_parse_feature_ids(body),
         )
-    except ValueError as exc:
-        return _action_error_response(exc)
-    except LookupError as exc:
-        return _action_error_response(exc)
+    except (ValueError, LookupError) as exc:
+        return _action_error_response(request, exc)
+    except Exception as exc:
+        return _action_error_response(request, exc)
 
     return JsonResponse(payload)
 
@@ -366,7 +384,21 @@ def submit_layer_view(request, layer_id):
 
     try:
         result = submit_layer(layer, request.user)
+    except LayerPublishFailed as exc:
+        return json_detail_error(
+            request,
+            exc=exc,
+            status=500,
+            message_key="toast_couldnt_submit",
+        )
     except ValueError as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
+    except Exception as exc:
+        return json_detail_error(
+            request,
+            exc=exc,
+            status=500,
+            message_key="toast_couldnt_submit",
+        )
 
     return _submit_success_response(result)

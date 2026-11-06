@@ -27,6 +27,37 @@
             localStorage.setItem(LEGEND_EXPANDED_KEY, expanded ? '1' : '0');
         } catch (e) {}
     }
+
+    function uiT(key, fallback) {
+        if (typeof window.uiT === 'function') {
+            return window.uiT(key, fallback);
+        }
+        return fallback != null ? fallback : key;
+    }
+
+    function escapeHtmlText(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function escapeHtmlAttr(value) {
+        return escapeHtmlText(value).replace(/'/g, '&#39;');
+    }
+
+    /** Escape a localized tip, then splice in trusted HTML for {token} placeholders. */
+    function tipHtml(key, fallback, tokens) {
+        var text = escapeHtmlText(uiT(key, fallback));
+        if (!tokens) {
+            return text;
+        }
+        Object.keys(tokens).forEach(function (token) {
+            text = text.split('{' + token + '}').join(tokens[token]);
+        });
+        return text;
+    }
     var GHOST_SOURCE_ID = 'road-geometry-original-ghost-source';
     var GHOST_LAYER_ID = 'road-geometry-original-ghost-line';
 
@@ -87,21 +118,12 @@
             }
         } catch (e0) {}
 
+        var closureKey = (window.RoadClosure && window.RoadClosure.FEATURE_LABEL) || 'Road Closure';
         var style = null;
         if (typeof window.getVisualizationStyle === 'function') {
-            if (closed) {
-                style = window.getVisualizationStyle(
-                    (window.RoadClosure && window.RoadClosure.FEATURE_LABEL) || 'Road Closure'
-                );
-            }
-            if (!style) {
-                style = window.getVisualizationStyle(label);
-            }
-        }
-        if (!style && window.symbologyCatalog && window.symbologyCatalog.styles_by_label) {
-            var sbl = window.symbologyCatalog.styles_by_label;
-            var closureKey = (window.RoadClosure && window.RoadClosure.FEATURE_LABEL) || 'Road Closure';
-            style = (closed && sbl[closureKey]) ? sbl[closureKey] : (sbl[label] || sbl['Line']);
+            style = closed
+                ? window.getVisualizationStyle(closureKey) || window.getVisualizationStyle(label)
+                : window.getVisualizationStyle(label);
         }
 
         while (host.firstChild) {
@@ -110,26 +132,26 @@
 
         if (!style) {
             var fb = document.createElement('span');
-            fb.className = 'road-geometry-edit-hint__strip-line road-geometry-edit-hint__strip-line--fallback';
+            fb.className = 'rge-legend__line rge-legend__line--fallback';
             host.appendChild(fb);
             return;
         }
 
-        var color = style.lineColor || '#64748b';
+        var color = style.lineColor || '#0f2d53';
         var w = Number(style.lineWidth) || 4;
-        var wSvg = Math.max(2.2, Math.min(9, w * 0.42));
+        var wSvg = Math.max(2, Math.min(7, w * 0.38));
 
         var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('class', 'road-geometry-edit-hint__strip-swatch-svg');
-        svg.setAttribute('viewBox', '0 0 120 16');
+        svg.setAttribute('class', 'rge-legend__swatch-svg');
+        svg.setAttribute('viewBox', '0 0 72 12');
         svg.setAttribute('preserveAspectRatio', 'none');
         svg.setAttribute('aria-hidden', 'true');
 
         var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', '0');
-        line.setAttribute('y1', '8');
-        line.setAttribute('x2', '120');
-        line.setAttribute('y2', '8');
+        line.setAttribute('x1', '2');
+        line.setAttribute('y1', '6');
+        line.setAttribute('x2', '70');
+        line.setAttribute('y2', '6');
         line.setAttribute('stroke', color);
         line.setAttribute('stroke-width', String(wSvg));
         line.setAttribute('stroke-linecap', 'round');
@@ -140,7 +162,7 @@
             var a = Number(dash[0]);
             var b = Number(dash[1]);
             if (isFinite(a) && isFinite(b) && a > 0) {
-                line.setAttribute('stroke-dasharray', a * 0.42 + ' ' + b * 0.42);
+                line.setAttribute('stroke-dasharray', a * 0.35 + ' ' + b * 0.35);
             }
         }
 
@@ -279,11 +301,6 @@
             hintElement.parentNode.removeChild(hintElement);
         }
         hintElement = null;
-        if (mapInstance && mapInstance.getContainer) {
-            try {
-                mapInstance.getContainer().classList.remove('road-geometry-edit-active');
-            } catch (e) {}
-        }
     }
 
     function removeOriginalGhostLayer(mapRef) {
@@ -346,10 +363,10 @@
                 source: GHOST_SOURCE_ID,
                 layout: { 'line-cap': 'round', 'line-join': 'round' },
                 paint: {
-                    'line-color': '#64748b',
-                    'line-width': 2.5,
-                    'line-opacity': 0.55,
-                    'line-dasharray': [1.25, 2]
+                    'line-color': '#94a3b8',
+                    'line-width': 2,
+                    'line-opacity': 0.42,
+                    'line-dasharray': [2.2, 2.4]
                 }
             };
             if (beforeId) {
@@ -366,58 +383,69 @@
         if (!container || !mapInstance) {
             return;
         }
-        try {
-            mapInstance.getContainer().classList.add('road-geometry-edit-active');
-        } catch (e) {}
 
         var expanded = readLegendExpandedDefault();
 
         hintElement = document.createElement('aside');
         hintElement.className =
             'road-geometry-edit-hint' + (expanded ? '' : ' road-geometry-edit-hint--collapsed');
-        hintElement.setAttribute('aria-label', 'Geometry editing guide');
+        hintElement.setAttribute(
+            'aria-label',
+            uiT('reshape_guide_aria', 'Reshape guide')
+        );
 
         var chevronSvg =
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
             '<path d="M6 9l6 6 6-6"/>' +
             '</svg>';
+        var tipAdd = tipHtml('reshape_tip_add', 'Tap {plus} to add a point', {
+            plus: '<span class="rge-tips__plus">+</span>'
+        });
+        var tipRemove = tipHtml(
+            'reshape_tip_remove',
+            '{shift} + click a point to remove',
+            { shift: '<kbd>Shift</kbd>' }
+        );
 
         hintElement.innerHTML =
-            '<div class="road-geometry-edit-hint__panel">' +
-            '<button type="button" class="road-geometry-edit-hint__toggle" aria-expanded="' +
+            '<div class="rge-card">' +
+            '<button type="button" class="rge-card__toggle" aria-expanded="' +
             (expanded ? 'true' : 'false') +
-            '" aria-controls="road-geometry-edit-hint-body" title="Show or hide editing guide">' +
-            '<span class="road-geometry-edit-hint__toggle-main">' +
-            '<span class="road-geometry-edit-hint__titles">' +
-            '<span class="road-geometry-edit-hint__title">Road shape</span>' +
-            '<span class="road-geometry-edit-hint__subtitle">Original vs new</span>' +
+            '" aria-controls="road-geometry-edit-hint-body" title="' +
+            escapeHtmlAttr(uiT('reshape_guide_toggle_title', 'Show or hide reshape tips')) +
+            '">' +
+            '<span class="rge-card__title">' +
+            escapeHtmlText(uiT('tool_reshape_road', 'Reshape')) +
             '</span>' +
-            '</span>' +
-            '<span class="road-geometry-edit-hint__chev">' +
+            '<span class="rge-card__chev" aria-hidden="true">' +
             chevronSvg +
             '</span>' +
             '</button>' +
-            '<div id="road-geometry-edit-hint-body" class="road-geometry-edit-hint__body">' +
-            '<div class="road-geometry-edit-hint__strip">' +
-            '<div class="road-geometry-edit-hint__strip-item">' +
-            '<div class="road-geometry-edit-hint__strip-line-wrap">' +
-            '<span class="road-geometry-edit-hint__strip-line road-geometry-edit-hint__strip-line--ghost"></span>' +
+            '<div id="road-geometry-edit-hint-body" class="rge-card__body">' +
+            '<div class="rge-legend" role="list">' +
+            '<div class="rge-legend__item" role="listitem">' +
+            '<span class="rge-legend__sample"><span class="rge-legend__line rge-legend__line--before"></span></span>' +
+            '<span class="rge-legend__label">' +
+            escapeHtmlText(uiT('reshape_legend_before', 'Before')) +
+            '</span>' +
             '</div>' +
-            '<span class="road-geometry-edit-hint__strip-label">Original</span>' +
-            '</div>' +
-            '<div class="road-geometry-edit-hint__strip-item">' +
-            '<div class="road-geometry-edit-hint__strip-line-wrap">' +
-            '<span id="road-geometry-new-legend-swatch" class="road-geometry-edit-hint__strip-swatch"></span>' +
-            '</div>' +
-            '<span class="road-geometry-edit-hint__strip-label">New</span>' +
+            '<div class="rge-legend__item" role="listitem">' +
+            '<span class="rge-legend__sample" id="road-geometry-new-legend-swatch"></span>' +
+            '<span class="rge-legend__label">' +
+            escapeHtmlText(uiT('reshape_legend_editing', 'Editing')) +
+            '</span>' +
             '</div>' +
             '</div>' +
-            '<p class="road-geometry-edit-hint__note"><strong>Dashed road:</strong> published geometry on the network. <strong>Colored road:</strong> your new shape.</p>' +
-            '<p class="road-geometry-edit-hint__actions-heading">On the map</p>' +
-            '<ul class="road-geometry-edit-hint__list">' +
-            '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--drag" aria-hidden="true"></span><span class="road-geometry-edit-hint__list-text">Drag nodes to reshape the road</span></li>' +
-            '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--plus" aria-hidden="true">+</span><span class="road-geometry-edit-hint__list-text">Click <kbd class="road-geometry-edit-hint__kbd-inline">+</kbd> on a segment to add a node</span></li>' +
-            '<li><span class="road-geometry-edit-hint__ic road-geometry-edit-hint__ic--shift" aria-hidden="true"><kbd class="road-geometry-edit-hint__kbd-chip">Shift</kbd></span><span class="road-geometry-edit-hint__list-text">+click a node to remove it</span></li>' +
+            '<ul class="rge-tips">' +
+            '<li>' +
+            escapeHtmlText(uiT('reshape_tip_drag', 'Drag points to move the road')) +
+            '</li>' +
+            '<li>' +
+            tipAdd +
+            '</li>' +
+            '<li>' +
+            tipRemove +
+            '</li>' +
             '</ul>' +
             '</div>' +
             '</div>';
@@ -426,7 +454,7 @@
 
         paintNewLegendSwatch();
 
-        var toggleBtn = hintElement.querySelector('.road-geometry-edit-hint__toggle');
+        var toggleBtn = hintElement.querySelector('.rge-card__toggle');
         if (toggleBtn) {
             toggleBtn.addEventListener('click', function() {
                 var collapsed = hintElement.classList.toggle('road-geometry-edit-hint--collapsed');
@@ -480,8 +508,7 @@
         var el = document.createElement('div');
         el.className = 'road-vertex-handle';
         el.setAttribute('role', 'button');
-        el.setAttribute('aria-label', 'Road node ' + (markerIndex + 1) + ': drag to move, Shift+click to remove');
-        el.setAttribute('data-vertex-index', String(markerIndex));
+        el.setAttribute('aria-label', 'Point ' + (markerIndex + 1) + '. Drag to move. Shift+click to remove.');
 
         var dot = document.createElement('span');
         dot.className = 'road-vertex-handle__dot';
@@ -495,7 +522,10 @@
             ev.stopPropagation();
             if (!workingCoords || workingCoords.length <= 2) {
                 if (window.notify && typeof window.notify.tryShow === 'function') {
-                    window.notify.tryShow('A road needs at least two vertices.', 'warning');
+                    window.notify.tryShow(
+                        uiT('toast_need_two_points', 'Need at least two points'),
+                        'warning'
+                    );
                 }
                 return;
             }
@@ -512,8 +542,8 @@
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'road-midpoint-handle';
-        btn.title = 'Add vertex on this segment';
-        btn.setAttribute('aria-label', 'Add vertex between points ' + (segIndex + 1) + ' and ' + (segIndex + 2));
+        btn.title = 'Add point';
+        btn.setAttribute('aria-label', 'Add a point on this segment');
 
         var inner = document.createElement('span');
         inner.className = 'road-midpoint-handle__inner';
@@ -540,11 +570,28 @@
     }
 
     function markerBaseOptions() {
-        var o = { pitchAlignment: 'map', rotationAlignment: 'map' };
-        if (typeof maplibregl !== 'undefined' && maplibregl !== null) {
-            return o;
+        return { pitchAlignment: 'map', rotationAlignment: 'map' };
+    }
+
+    function setMidpointHandlesFaded(faded) {
+        midpointMarkers.forEach(function(mm) {
+            try {
+                var elMp = mm.getElement();
+                if (!elMp) {
+                    return;
+                }
+                elMp.classList.toggle('road-midpoint-handle--faded', !!faded);
+            } catch (e) {}
+        });
+    }
+
+    function setMapCursor(cursor) {
+        if (!mapInstance || !mapInstance.getCanvas) {
+            return;
         }
-        return {};
+        try {
+            mapInstance.getCanvas().style.cursor = cursor || '';
+        } catch (e) {}
     }
 
     function rebuildMarkers() {
@@ -558,14 +605,15 @@
             (function(segmentIndex) {
                 var a = workingCoords[segmentIndex];
                 var b = workingCoords[segmentIndex + 1];
-                var midLng = (a[0] + b[0]) / 2;
-                var midLat = (a[1] + b[1]) / 2;
                 var el = createMidpointElement(segmentIndex);
                 var mm = new maplibregl.Marker(Object.assign({
                     element: el,
                     draggable: false
                 }, markerBaseOptions()))
-                    .setLngLat({ lng: midLng, lat: midLat })
+                    .setLngLat({
+                        lng: (a[0] + b[0]) / 2,
+                        lat: (a[1] + b[1]) / 2
+                    })
                     .addTo(mapInstance);
                 midpointMarkers.push(mm);
             })(seg);
@@ -573,32 +621,19 @@
 
         workingCoords.forEach(function(coord, index) {
             var el = createVertexHandleElement(index);
-            var lng = Number(coord[0]);
-            var lat = Number(coord[1]);
             var marker = new maplibregl.Marker(Object.assign({
                 element: el,
                 draggable: true
             }, markerBaseOptions()))
-                .setLngLat({ lng: lng, lat: lat })
+                .setLngLat({ lng: Number(coord[0]), lat: Number(coord[1]) })
                 .addTo(mapInstance);
 
             marker.on('dragstart', function() {
                 recordGeometryEditCheckpoint();
                 el.classList.add('road-vertex-handle--dragging');
-                if (mapInstance && mapInstance.getCanvas) {
-                    try {
-                        mapInstance.getCanvas().style.cursor = 'grabbing';
-                    } catch (eC) {}
-                }
+                setMapCursor('grabbing');
                 cancelScheduledVisualSync();
-                midpointMarkers.forEach(function(mm) {
-                    try {
-                        var elMp = mm.getElement();
-                        if (elMp) {
-                            elMp.classList.add('road-midpoint-handle--faded');
-                        }
-                    } catch (e) {}
-                });
+                setMidpointHandlesFaded(true);
             });
             marker.on('drag', function() {
                 var ll = marker.getLngLat();
@@ -608,24 +643,11 @@
             });
             marker.on('dragend', function() {
                 el.classList.remove('road-vertex-handle--dragging');
-                if (mapInstance && mapInstance.getCanvas) {
-                    try {
-                        mapInstance.getCanvas().style.cursor = '';
-                    } catch (eC2) {}
-                }
+                setMapCursor('');
                 var ll = marker.getLngLat();
                 workingCoords[index][0] = ll.lng;
                 workingCoords[index][1] = ll.lat;
                 cancelScheduledVisualSync();
-                pushMapVisualizationOnly();
-                midpointMarkers.forEach(function(mm) {
-                    try {
-                        var elMp = mm.getElement();
-                        if (elMp) {
-                            elMp.classList.remove('road-midpoint-handle--faded');
-                        }
-                    } catch (e2) {}
-                });
                 pushStateToGlobals();
                 rebuildMarkers();
             });
@@ -638,7 +660,6 @@
         var preserveMvtHide = !!window.__riyadhPostSaveOverlayActive;
         cancelScheduledVisualSync();
         removeEditHint();
-        var rid = roadId;
         var mapRef = mapInstance;
         removeOriginalGhostLayer(mapRef);
         if (!preserveMvtHide) {
@@ -684,10 +705,6 @@
     function startFromRiyadhContext() {
         stop();
 
-        var editScreen = document.getElementById('editFeatureScreen');
-        if (editScreen && editScreen.getAttribute('data-geometry-readonly') === 'true') {
-            return;
-        }
         if (typeof window.isMapEditModeActive === 'function' && !window.isMapEditModeActive()) {
             return;
         }
@@ -695,6 +712,17 @@
         var ctx = window.approvedLineBeingEdited || window.selectedRiyadhRoad;
         if (!ctx || !ctx.is_riyadh_road || !ctx.geometry) {
             return;
+        }
+
+        if (
+            window.PendingRoadLocks &&
+            typeof window.PendingRoadLocks.assertRoadEditable === 'function' &&
+            typeof window.PendingRoadLocks.resolveContextRoadId === 'function'
+        ) {
+            var lockId = window.PendingRoadLocks.resolveContextRoadId(ctx);
+            if (lockId != null && !window.PendingRoadLocks.assertRoadEditable(lockId)) {
+                return;
+            }
         }
 
         mapInstance = getMap();
@@ -705,7 +733,10 @@
         var norm = normalizeGeometry(ctx.geometry);
         if (!norm) {
             if (window.notify && typeof window.notify.tryShow === 'function') {
-                window.notify.tryShow('Cannot edit this road: geometry is missing or unsupported.', 'error');
+                window.notify.tryShow(
+                    uiT('toast_bad_geometry', "Can't edit — bad geometry"),
+                    'error'
+                );
             }
             return;
         }
@@ -713,7 +744,10 @@
         workingCoords = extractEditableCoordsWgs84(norm);
         if (!workingCoords) {
             if (window.notify && typeof window.notify.tryShow === 'function') {
-                window.notify.tryShow('Cannot edit this road: geometry must be WGS84 (lng/lat).', 'error');
+                window.notify.tryShow(
+                    uiT('toast_wrong_coords', "Can't edit — wrong coordinates"),
+                    'error'
+                );
             }
             return;
         }

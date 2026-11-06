@@ -1,24 +1,16 @@
 (function() {
     'use strict';
 
-    const RIYADH_MERGE_TAGS_INTO_FIELDS_SKIP = {
-        name: true,
-        road_closure: true,
-        common_name: true,
-        multilingual_names: true,
-        fclass: true,
-        gid: true,
-        id: true,
-        objectid: true,
-    };
-
-    /** Riyadh road: snapshot missing, unchanged diff, or non-classified pending edit. */
-    const RIYADH_PENDING_BODY_GENERIC =
-        'Your road updates are in the manager review queue. They will appear on the map after approval.';
-
     let currentLineId = null;
     let drawInstance = null;
     let currentFeatureLabel = 'Line';
+
+    function uiT(key, fallback) {
+        if (typeof window.uiT === 'function') {
+            return window.uiT(key, fallback);
+        }
+        return fallback != null ? fallback : key;
+    }
 
     function getRiyadhRoadOriginalSnapshot(editData) {
         if (!editData || !editData.is_riyadh_road || editData.riyadh_road_id == null || !window.riyadhRoadOriginalState) {
@@ -146,8 +138,6 @@
         } catch (e) {}
     }
 
-    const FEATURE_TYPE_REQUIRED_MSG = 'Select a feature type for your road';
-
     function validateFeatureTypeForSave(editData) {
         const typeLabel = (
             editData.current_feature_label ||
@@ -155,7 +145,7 @@
             ''
         ).trim();
         if (!typeLabel || typeLabel.toLowerCase() === 'line') {
-            return FEATURE_TYPE_REQUIRED_MSG;
+            return uiT('toast_pick_road_type', 'Pick a road type');
         }
         return null;
     }
@@ -172,7 +162,9 @@
             typeof window.lineDrawingHandler.clearDraftLineDrawingFromMap === 'function'
         ) {
             window.lineDrawingHandler.clearDraftLineDrawingFromMap();
-        } else if (typeof window.clearDraftLineDrawingFromMap === 'function') {
+            return;
+        }
+        if (typeof window.clearDraftLineDrawingFromMap === 'function') {
             window.clearDraftLineDrawingFromMap();
         }
     }
@@ -193,124 +185,14 @@
 
     function collectFieldsData() {
         const fieldsData = {};
-        const fieldsContainer = document.getElementById('fields-container');
-        
-        if (!fieldsContainer) {
-            return fieldsData;
-        }
-
         const nameEl = document.getElementById('sidebar-feature-name-input');
         if (nameEl) {
             const v = (nameEl.value || '').trim();
             fieldsData.name = v;
+            // Mirror legacy common_name for older review payloads.
             fieldsData.common_name = v;
         }
-
-        const multilingualSections = fieldsContainer.querySelectorAll('[id^="multilingual-"]');
-        fieldsData.multilingual_names = [];
-        multilingualSections.forEach(function(section) {
-            const languageSelect = section.querySelector('select');
-            const nameInput = section.querySelector('input[type="text"]');
-            if (languageSelect && nameInput && languageSelect.value && nameInput.value) {
-                fieldsData.multilingual_names.push({
-                    language: languageSelect.value,
-                    name: nameInput.value
-                });
-            }
-        });
-
-        const allFieldContainers = fieldsContainer.querySelectorAll('[id^="field-"]');
-        allFieldContainers.forEach(function(fieldContainer) {
-            const fieldId = fieldContainer.id.replace('field-', '');
-            const input = fieldContainer.querySelector('input, textarea');
-            
-            if (input) {
-                let fieldKey = fieldId.replace(/-/g, '_');
-                const fieldNameMap = {
-                    'description': 'description',
-                    'fix-me': 'fix_me',
-                    'image': 'image',
-                    'last-checked-date': 'last_checked_date',
-                    'mapillary-image-id': 'mapillary_image_id',
-                    'note': 'note',
-                    'panoramax-image-id': 'panoramax_image_id',
-                    'website': 'website'
-                };
-                
-                if (fieldNameMap[fieldId]) {
-                    fieldsData[fieldNameMap[fieldId]] = input.value || '';
-                } else {
-                    fieldsData[fieldKey] = input.value || '';
-                }
-            }
-        });
-
         return fieldsData;
-    }
-
-    function collectTagsData() {
-        const tagsData = [];
-        const tagsRowsContainer = document.getElementById('tags-rows-container');
-        
-        if (!tagsRowsContainer) {
-            return tagsData;
-        }
-
-        const tagRows = tagsRowsContainer.querySelectorAll('.flex.items-center.gap-2');
-        tagRows.forEach(function(row) {
-            const inputs = row.querySelectorAll('input[type="text"]');
-            if (inputs.length < 2) {
-                return;
-            }
-            const key = (inputs[0].value || '').trim();
-            const value = (inputs[1].value || '').trim();
-            if (!key && !value) {
-                return;
-            }
-            tagsData.push({
-                key: key,
-                value: value
-            });
-        });
-
-        return tagsData;
-    }
-
-    function collectRelationsData() {
-        const relationsData = [];
-        const relationsRowsContainer = document.getElementById('relations-rows-container');
-        
-        if (!relationsRowsContainer) {
-            return relationsData;
-        }
-
-        const relationRows = relationsRowsContainer.querySelectorAll('.space-y-2');
-        relationRows.forEach(function(row) {
-            const parentRow = row.querySelector('.flex.items-center.gap-2');
-            const roleInput = row.querySelector('input[type="text"]:not([readonly])');
-            
-            let parentRelation = 'New Relation';
-            if (parentRow) {
-                const parentInput = parentRow.querySelector('input[readonly]');
-                if (parentInput && parentInput.value) {
-                    parentRelation = parentInput.value;
-                }
-            }
-            
-            if (roleInput && roleInput.value) {
-                relationsData.push({
-                    parent_relation: parentRelation,
-                    role: roleInput.value
-                });
-            } else if (parentRelation !== 'New Relation') {
-                relationsData.push({
-                    parent_relation: parentRelation,
-                    role: ''
-                });
-            }
-        });
-
-        return relationsData;
     }
 
     function collectRoadEditData() {
@@ -355,7 +237,7 @@
         }
         
         if (!geometry) {
-            toast('Unable to get road geometry. Please try again.', 'error');
+            toast(uiT('toast_couldnt_read_geometry', "Couldn't read road geometry"), 'error');
             return null;
         }
 
@@ -388,8 +270,6 @@
         }
 
         const fieldsBase = collectFieldsData();
-        const tagsCollected = collectTagsData();
-        const relationsCollected = collectRelationsData();
 
         let fieldsPayload = Object.assign({}, fieldsBase);
         const labelForFclass = featureLabelToUse || 'Line';
@@ -402,16 +282,6 @@
             }
         }
         if (isRiyadhRoadFlag) {
-            tagsCollected.forEach(function (t) {
-                if (!t) {
-                    return;
-                }
-                const k = t.key != null ? String(t.key).trim() : '';
-                if (!k || RIYADH_MERGE_TAGS_INTO_FIELDS_SKIP[k]) {
-                    return;
-                }
-                fieldsPayload[k] = t.value != null ? t.value : '';
-            });
             fieldsPayload.road_closure = isRoadClosed ? 1 : 0;
         }
 
@@ -420,8 +290,8 @@
             feature_type: featureLabelToUse,
             current_feature_label: featureLabelToUse,
             fields_data: fieldsPayload,
-            tags_data: tagsCollected,
-            relations_data: relationsCollected,
+            tags_data: [],
+            relations_data: [],
             road_closure: isRoadClosed ? 1 : 0,
             is_riyadh_road: isRiyadhRoadFlag,
             riyadh_road_id: riyadhRoadId,
@@ -429,108 +299,116 @@
         };
     }
 
-    function sortedJsonForFields(fields) {
-        const f = fields && typeof fields === 'object' ? fields : {};
-        const keys = Object.keys(f).sort();
-        const out = {};
-        keys.forEach(function (k) {
-            out[k] = f[k];
-        });
-        return JSON.stringify(out);
-    }
+    /** Server request_category → pending-review dialog copy. */
+    const PENDING_REVIEW_COPY = {
+        delete_road: {
+            titleKey: 'review_title_delete',
+            titleFallback: 'Delete sent for review',
+            bodyKey: 'review_body_delete',
+            bodyFallback: 'Waiting for review. The road stays on the map until then.',
+        },
+        new_road: {
+            titleKey: 'review_title_new_road',
+            titleFallback: 'New road sent for review',
+            bodyKey: 'review_body_new_road',
+            bodyFallback: 'Waiting for review. A preview stays on the map until then.',
+        },
+        new_road_geometry: {
+            titleKey: 'review_title_reshape',
+            titleFallback: 'Reshape sent for review',
+            bodyKey: 'review_body_reshape',
+            bodyFallback: 'Waiting for review. It will show on the map once approved.',
+        },
+        add_road_label: {
+            titleKey: 'review_title_add_label',
+            titleFallback: 'New label sent for review',
+            bodyKey: 'review_body_add_label',
+            bodyFallback: 'Waiting for review. It will show on the map once approved.',
+        },
+        change_road_label: {
+            titleKey: 'review_title_change_label',
+            titleFallback: 'Label change sent for review',
+            bodyKey: 'review_body_change_label',
+            bodyFallback: 'Waiting for review. It will show on the map once approved.',
+        },
+        new_feature_type: {
+            titleKey: 'review_title_feature_type',
+            titleFallback: 'Road type change sent for review',
+            bodyKey: 'review_body_feature_type',
+            bodyFallback: 'Waiting for review. It will show on the map once approved.',
+        },
+        road_attribute_edit: {
+            titleKey: 'review_title_attributes',
+            titleFallback: 'Update sent for review',
+            bodyKey: 'review_body_attributes',
+            bodyFallback: 'Waiting for review. It will show on the map once approved.',
+        },
+    };
 
-    /**
-     * Explains what kind of edit is waiting for manager review (non-closure cases).
-     * @param {object} editData - Payload from collectRoadEditData.
-     * @param {{ reviewKind?: string }} meta - e.g. reviewKind 'delete' from delete flow.
-     */
-    function inferPendingReviewBody(editData, meta) {
+    const PENDING_REVIEW_COPY_DEFAULT = {
+        titleKey: 'review_title_generic',
+        titleFallback: 'Edit sent for review',
+        bodyKey: 'review_body_generic',
+        bodyFallback: 'Waiting for review. It will show on the map once approved.',
+    };
+
+    function resolvePendingReviewCategory(meta, editData) {
         meta = meta || {};
-        if (meta.reviewKind === 'delete') {
-            return 'Your road deletion request is in the manager review queue. It will take effect only after approval.';
+        const fromServer = String(meta.requestCategory || '').trim();
+        if (fromServer) {
+            return fromServer;
         }
         if (!editData || !editData.is_riyadh_road) {
-            return 'Your request for a new road has been submitted for manager review. It will appear on the map after approval.';
+            return 'new_road';
         }
-        const snap = getRiyadhRoadOriginalSnapshot(editData);
-        if (!snap) {
-            return RIYADH_PENDING_BODY_GENERIC;
-        }
-        const hasGeom =
-            JSON.stringify(editData.geometry || null) !== JSON.stringify(snap.geometry || null);
-        const hasFeat =
-            String(editData.current_feature_label || editData.feature_type || '').trim() !==
-            String(snap.feature_label || '').trim();
-        const hasAttr =
-            sortedJsonForFields(editData.fields_data) !== sortedJsonForFields(snap.fields_data) ||
-            JSON.stringify(editData.tags_data || []) !== JSON.stringify(snap.tags_data || []);
-        const count = (hasGeom ? 1 : 0) + (hasFeat ? 1 : 0) + (hasAttr ? 1 : 0);
-        if (count === 0) {
-            return RIYADH_PENDING_BODY_GENERIC;
-        }
-        if (count === 1) {
-            if (hasGeom) {
-                return 'Your road shape changes are in the manager review queue. They will appear on the map after approval.';
-            }
-            if (hasFeat) {
-                return 'Your road classification change is in the manager review queue. It will appear on the map after approval.';
-            }
-            return 'Your road attribute updates are in the manager review queue. They will appear on the map after approval.';
-        }
-        if (count === 2) {
-            if (hasGeom && hasFeat) {
-                return 'Your road shape and classification changes are in the manager review queue. They will appear on the map after approval.';
-            }
-            if (hasGeom && hasAttr) {
-                return 'Your road shape and attribute changes are in the manager review queue. They will appear on the map after approval.';
-            }
-            return 'Your road classification and attribute updates are in the manager review queue. They will appear on the map after approval.';
-        }
-        return 'Your road edits are in the manager review queue. They will appear on the map after approval.';
+        return 'road_attribute_edit';
     }
 
-    /**
-     * Minimal dialog after an editor save that entered the manager review queue.
-     * @param {string} bodyText - Message shown in the dialog body.
-     * @param {{ reviewKind?: string }} [meta] - reviewKind 'delete' selects the dialog title.
-     */
-    function openPendingReviewDialog(bodyText, meta) {
-        const m = meta || {};
+    function pendingReviewCopyForCategory(category) {
+        const entry = PENDING_REVIEW_COPY[category] || PENDING_REVIEW_COPY_DEFAULT;
+        return {
+            title: uiT(entry.titleKey, entry.titleFallback),
+            body: uiT(entry.bodyKey, entry.bodyFallback),
+        };
+    }
+
+    function openPendingReviewDialog(category) {
+        const copy = pendingReviewCopyForCategory(category);
+
+        const existing = document.getElementById('pendingReviewDialog');
+        if (existing) {
+            existing.remove();
+        }
 
         const backdrop = document.createElement('div');
+        backdrop.id = 'pendingReviewDialog';
+        backdrop.className = 'msp-review-dialog';
         backdrop.setAttribute('role', 'dialog');
         backdrop.setAttribute('aria-modal', 'true');
         backdrop.setAttribute('aria-labelledby', 'pendingReviewDialogTitle');
-        backdrop.className =
-            'fixed inset-0 z-[120] flex items-center justify-center p-5 sm:p-8 bg-geotrak/30 backdrop-blur-xl supports-[backdrop-filter]:bg-geotrak/25';
 
         const card = document.createElement('div');
-        card.className =
-            'relative w-full max-w-[26rem] rounded-[1.75rem] border border-geotrak-border/80 bg-white px-8 pb-9 pt-10 sm:px-10 sm:pb-10 sm:pt-11 shadow-[0_24px_80px_-20px_rgba(0,0,0,0.14)]';
+        card.className = 'msp-review-dialog__card';
 
-        const eyebrow = document.createElement('p');
-        eyebrow.className =
-            'text-center text-[10px] font-semibold uppercase tracking-[0.28em] text-zinc-400';
-        eyebrow.textContent = 'Pending review';
+        const status = document.createElement('p');
+        status.className = 'msp-review-dialog__status';
+        status.textContent = uiT('review_status', 'Pending review');
 
         const title = document.createElement('h2');
         title.id = 'pendingReviewDialogTitle';
-        title.className =
-            'mt-5 text-center text-[1.65rem] font-semibold leading-[1.2] tracking-[-0.02em] text-geotrak sm:text-[1.75rem]';
-        title.textContent =
-            m.reviewKind === 'delete' ? 'Deletion sent for review' : 'Edit sent for review';
+        title.className = 'msp-review-dialog__title';
+        title.textContent = copy.title;
 
         const message = document.createElement('p');
-        message.className = 'mt-8 text-center text-[15px] leading-[1.65] text-zinc-600';
-        message.textContent = bodyText;
+        message.className = 'msp-review-dialog__body';
+        message.textContent = copy.body;
 
         const doneBtn = document.createElement('button');
         doneBtn.type = 'button';
-        doneBtn.className =
-            'mt-10 w-full rounded-xl bg-geotrak py-[0.9rem] text-[15px] font-semibold text-white antialiased transition-colors hover:bg-geotrak-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-geotrak focus-visible:ring-offset-2';
-        doneBtn.textContent = 'Done';
+        doneBtn.className = 'msp-review-dialog__btn';
+        doneBtn.textContent = uiT('review_done', 'Done');
 
-        card.appendChild(eyebrow);
+        card.appendChild(status);
         card.appendChild(title);
         card.appendChild(message);
         card.appendChild(doneBtn);
@@ -556,6 +434,10 @@
                 dismiss();
             }
         });
+
+        try {
+            doneBtn.focus();
+        } catch (eFocus) {}
     }
 
     function showSaveOutcomeUI(opts) {
@@ -568,13 +450,10 @@
         const closureApplied = !!opts.closureApplied;
         const roadClosure = opts.roadClosure;
         const serverMessage = opts.serverMessage ? String(opts.serverMessage) : '';
-        const editDataForReview = opts.editDataForReview || null;
+        const pendingMeta = opts.pendingReviewMeta || {};
 
         if (autoApproved) {
-            toast(
-                serverMessage || 'Your edit was applied to the live road network.',
-                'success'
-            );
+            toast(uiT('toast_changes_live', 'Changes live'), 'success');
             return;
         }
 
@@ -582,31 +461,29 @@
             if (closureApplied && typeof roadClosure === 'number') {
                 toast(
                     roadClosure === 1
-                        ? 'Road closure is already live for everyone.'
-                        : 'The road is shown as open for everyone.',
+                        ? uiT('toast_road_closed', 'Road closed')
+                        : uiT('toast_road_open', 'Road open'),
                     'success'
                 );
                 return;
             }
-            const inferred = inferPendingReviewBody(editDataForReview, {
-                reviewKind: opts.pendingReviewMeta && opts.pendingReviewMeta.reviewKind
-            });
-            const dialogBody = inferred || serverMessage || RIYADH_PENDING_BODY_GENERIC;
-            openPendingReviewDialog(dialogBody, opts.pendingReviewMeta || {});
+            openPendingReviewDialog(
+                resolvePendingReviewCategory(pendingMeta, opts.editDataForReview || null)
+            );
             return;
         }
 
         if (closureApplied && typeof roadClosure === 'number') {
             toast(
                 roadClosure === 1
-                    ? 'Road closure saved. Nothing else requires review.'
-                    : 'Road reopening saved. Nothing else requires review.',
+                    ? uiT('toast_closure_saved', 'Closure saved')
+                    : uiT('toast_road_reopened', 'Road reopened'),
                 'success'
             );
             return;
         }
 
-        toast(serverMessage || 'Saved.', 'info');
+        toast(serverMessage || uiT('toast_saved', 'Saved'), 'info');
     }
 
     function applySuccessfulSaveSideEffects(editData, pendingSubmitted, saveMeta) {
@@ -616,9 +493,6 @@
         }
         if (typeof window.syncRiyadhGeometryEditToolbarButton === 'function') {
             window.syncRiyadhGeometryEditToolbarButton();
-        }
-        if (typeof window.syncRiyadhRoadDeleteToolbarButton === 'function') {
-            window.syncRiyadhRoadDeleteToolbarButton();
         }
 
         const shouldClearDraftMap =
@@ -631,6 +505,10 @@
             try {
                 clearDraftMapDrawing();
             } catch (e) {}
+        }
+
+        if (typeof window.setRoadLabelFieldEditing === 'function') {
+            window.setRoadLabelFieldEditing(false);
         }
 
         if (window.exitEditModeAfterSuccessfulSave) {
@@ -664,7 +542,10 @@
                 if (!saveBtn.dataset.originalLabel) {
                     saveBtn.dataset.originalLabel = labelSpan.textContent || 'Save';
                 }
-                labelSpan.textContent = active ? 'Saving...' : saveBtn.dataset.originalLabel || 'Save';
+                var savingLabel = (typeof window.uiT === 'function')
+                    ? window.uiT('saving', 'Saving...')
+                    : 'Saving...';
+                labelSpan.textContent = active ? savingLabel : saveBtn.dataset.originalLabel || 'Save';
             }
         }
 
@@ -674,7 +555,14 @@
                     ? window.buildRiyadhRoadDeleteRequestPayload()
                     : null;
             if (!payload) {
-                toast('Select a road to delete.', 'warning');
+                toast(uiT('toast_select_to_delete', 'Select a road to delete'), 'warning');
+                return;
+            }
+            if (
+                window.PendingRoadLocks &&
+                typeof window.PendingRoadLocks.assertRoadEditable === 'function' &&
+                !window.PendingRoadLocks.assertRoadEditable(payload.target_id)
+            ) {
                 return;
             }
             setSavingUi(true);
@@ -692,7 +580,12 @@
                 .then(function (data) {
                     if (!data || !data.success) {
                         toast(
-                            (data && data.message) || 'Failed to submit delete request.',
+                            (typeof window.safeUserMessage === 'function'
+                                ? window.safeUserMessage(
+                                      data,
+                                      uiT('toast_couldnt_delete', "Couldn't delete — try again")
+                                  )
+                                : uiT('toast_couldnt_delete', "Couldn't delete — try again")),
                             'error'
                         );
                         return;
@@ -719,10 +612,7 @@
                     }
 
                     if (autoApproved) {
-                        toast(
-                            data.message || 'Road deleted successfully.',
-                            'success'
-                        );
+                        toast(uiT('toast_road_deleted', 'Road deleted'), 'success');
                         try {
                             window.selectedRiyadhRoad = null;
                             window.approvedLineBeingEdited = null;
@@ -740,8 +630,9 @@
                             closureApplied: false,
                             roadClosure: 0,
                             serverMessage: '',
-                            pendingReviewMeta: { reviewKind: 'delete' },
-                            editDataForReview: null
+                            pendingReviewMeta: {
+                                requestCategory: data.request_category || 'delete_road',
+                            },
                         });
                     }
 
@@ -755,9 +646,12 @@
                             : null,
                         pendingSubmitted
                     );
+                    try {
+                        window.dispatchEvent(new CustomEvent('pendingRoadLocks:refresh'));
+                    } catch (eLock) {}
                 })
                 .catch(function () {
-                    toast('Failed to submit delete request.', 'error');
+                    toast(uiT('toast_couldnt_delete', "Couldn't delete — try again"), 'error');
                 })
                 .finally(finishSaveUi);
             return;
@@ -765,13 +659,34 @@
 
         const editData = collectRoadEditData();
         if (!editData) {
-            toast('Please draw a road on the map before saving.', 'warning');
+            toast(uiT('toast_draw_road_first', 'Draw a road first'), 'warning');
             return;
         }
 
         const featureTypeErr = validateFeatureTypeForSave(editData);
         if (featureTypeErr) {
             toast(featureTypeErr, 'warning');
+            return;
+        }
+
+        // Existing road: block reviewable edits while pending (closure-only still OK).
+        if (
+            editData.is_riyadh_road &&
+            !editData.closure_changed &&
+            window.PendingRoadLocks &&
+            typeof window.PendingRoadLocks.assertRoadEditable === 'function' &&
+            !window.PendingRoadLocks.assertRoadEditable(editData.riyadh_road_id)
+        ) {
+            return;
+        }
+
+        // New draw: block submit near another pending new road (~40m).
+        if (
+            !editData.is_riyadh_road &&
+            window.PendingRoadLocks &&
+            typeof window.PendingRoadLocks.assertNewRoadDrawable === 'function' &&
+            !window.PendingRoadLocks.assertNewRoadDrawable(editData.geometry)
+        ) {
             return;
         }
 
@@ -791,7 +706,12 @@
             .then(function (data) {
                 if (!data || !data.success) {
                     toast(
-                        'Error: ' + (data && data.message ? data.message : 'Failed to save edit request'),
+                        (typeof window.safeUserMessage === 'function'
+                            ? window.safeUserMessage(
+                                  data,
+                                  uiT('toast_couldnt_save', "Couldn't save — try again")
+                              )
+                            : uiT('toast_couldnt_save', "Couldn't save — try again")),
                         'error'
                     );
                     return;
@@ -839,15 +759,37 @@
                     pendingSubmitted: pendingSubmitted,
                     closureApplied: closureApplied,
                     roadClosure: roadClosureFromServer,
-                    serverMessage: data.message || ''
+                    serverMessage: data.message || '',
                 };
                 if (pendingSubmitted) {
                     outcomeOpts.editDataForReview = editData;
+                    outcomeOpts.pendingReviewMeta = {
+                        requestCategory: data.request_category || '',
+                    };
                 }
                 showSaveOutcomeUI(outcomeOpts);
+                if (pendingSubmitted || autoApproved) {
+                    try {
+                        if (
+                            pendingSubmitted &&
+                            editData &&
+                            !editData.is_riyadh_road &&
+                            editData.geometry &&
+                            window.PendingRoadLocks &&
+                            typeof window.PendingRoadLocks.upsertOptimisticNewRoad === 'function'
+                        ) {
+                            window.PendingRoadLocks.upsertOptimisticNewRoad(
+                                editData.geometry,
+                                data.request_id,
+                                data.request_category || 'new_road'
+                            );
+                        }
+                        window.dispatchEvent(new CustomEvent('pendingRoadLocks:refresh'));
+                    } catch (eLock) {}
+                }
             })
             .catch(function () {
-                toast('Error saving edit request. Please try again.', 'error');
+                toast(uiT('toast_couldnt_save', "Couldn't save — try again"), 'error');
             })
             .finally(finishSaveUi);
     }

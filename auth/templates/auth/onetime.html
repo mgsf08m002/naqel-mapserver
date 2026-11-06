@@ -1,191 +1,128 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ ui_language }}" dir="{{ ui_dir }}">
 <head>
     {% include 'auth/includes/geotrak_favicon.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Initial Setup · GeoTrak Maps</title>
+    <title>{{ ui.onetime_title }}</title>
     <link href="{% static 'css/output.css' %}" rel="stylesheet">
     <link href="{% static 'css/responsive.css' %}" rel="stylesheet">
+    <link href="{% static 'auth/css/auth-shell.css' %}" rel="stylesheet">
 </head>
-<body class="bg-white min-h-screen font-sans">
-    <div class="flex min-h-screen">
-        <!-- Left Column - Registration Form -->
-        <div class="auth-page__form-col flex-1 flex flex-col justify-center px-4 sm:px-8 py-8 sm:py-12 bg-white">
-            <div class="mx-auto w-full max-w-sm">
-                <!-- Registration Form -->
-                <div>
-                    <h2 class="text-3xl font-bold text-geotrak mb-2" id="stepTitle"></h2>
-                    <p class="text-geotrak mb-8" id="stepDescription"></p>
-
-                    <form id="registrationForm" class="space-y-6">
-                        {% csrf_token %}
-                        
-                        <!-- Step 0: Welcome Screen -->
-                        <div id="step0" class="step-content">
-                            <div class="text-center">
-                                <h2 class="text-4xl font-bold text-geotrak mb-4 animate-fade-in" id="welcomeTitle">Register the System Admin</h2>
-                                <button 
-                                    type="button"
-                                    id="getStartedButton"
-                                    class="mt-8 bg-geotrak hover:bg-geotrak-hover text-white font-semibold py-3 px-8 rounded-full transition duration-200 focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 animate-fade-in-delay"
-                                >
-                                    Get Started
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- Step 1: Full Name -->
-                        <div id="step1" class="step-content hidden">
-                            <div class="animate-fade-in">
-                                <label for="fullName" class="block text-sm font-medium text-geotrak mb-2">
-                                    Full Name
-                                </label>
-                                <input 
-                                    type="text" 
-                                    id="fullName" 
-                                    name="full_name" 
-                                    required
-                                    placeholder="Enter your full name"
-                                    class="w-full px-4 py-3 border border-geotrak rounded-full focus:ring-2 focus:ring-geotrak focus:border-geotrak outline-none transition"
-                                >
-                            </div>
-                        </div>
-
-                        <!-- Step 2: Email -->
-                        <div id="step2" class="step-content hidden">
-                            <div class="animate-fade-in">
-                                <label for="email" class="block text-sm font-medium text-geotrak mb-2">
-                                    Email Address
-                                </label>
-                                <input 
-                                    type="email" 
-                                    id="email" 
-                                    name="email" 
-                                    required
-                                    placeholder="Enter your email address"
-                                    class="w-full px-4 py-3 border border-geotrak rounded-full focus:ring-2 focus:ring-geotrak focus:border-geotrak outline-none transition"
-                                >
-                            </div>
-                        </div>
-
-                        <!-- Step 3: Password -->
-                        <div id="step3" class="step-content hidden">
-                            <div class="animate-fade-in">
-                                <label for="password" class="block text-sm font-medium text-geotrak mb-2">
-                                    Password
-                                </label>
-                                <input 
-                                    type="password" 
-                                    id="password" 
-                                    name="password" 
-                                    required
-                                    placeholder="Enter your password"
-                                    class="w-full px-4 py-3 border border-geotrak rounded-full focus:ring-2 focus:ring-geotrak focus:border-geotrak outline-none transition"
-                                >
-                                <p class="text-xs text-geotrak mt-2">Password must be at least 8 characters</p>
-                            </div>
-                        </div>
-
-                        <!-- Step 4: Confirm Password -->
-                        <div id="step4" class="step-content hidden">
-                            <div class="animate-fade-in">
-                                <label for="confirmPassword" class="block text-sm font-medium text-geotrak mb-2">
-                                    Confirm Password
-                                </label>
-                                <input 
-                                    type="password" 
-                                    id="confirmPassword" 
-                                    name="confirm_password" 
-                                    required
-                                    placeholder="Confirm your password"
-                                    class="w-full px-4 py-3 border border-geotrak rounded-full focus:ring-2 focus:ring-geotrak focus:border-geotrak outline-none transition"
-                                >
-                            </div>
-                        </div>
-
-                        <!-- Step 5: Thank You Message -->
-                        <div id="step5" class="step-content hidden">
-                            <div class="text-center animate-fade-in">
-                                <div class="mb-6">
-                                    <svg class="w-16 h-16 mx-auto text-geotrak" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                    </svg>
-                                </div>
-                                <h3 class="text-2xl font-bold text-geotrak mb-4">Thank You!</h3>
-                                <p class="text-geotrak mb-4">System Admin account has been created successfully.</p>
-                                <p class="text-sm text-geotrak" id="redirectMessage">Redirecting to login page in 5 seconds...</p>
-                            </div>
-                        </div>
-
-                        <!-- Error Message -->
-                        <div id="errorMessage" class="hidden text-sm text-geotrak bg-gray-100 border border-geotrak p-3 rounded-full"></div>
-
-                        <!-- Navigation Buttons -->
-                        <div id="navigationButtons" class="flex space-x-4 animate-fade-in-delay">
-                            <button 
-                                type="button"
-                                id="prevButton"
-                                class="hidden w-full bg-white hover:bg-gray-100 text-geotrak font-semibold py-3 px-4 rounded-full border border-geotrak transition duration-200 focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2"
-                            >
-                                Previous
-                            </button>
-                            <button 
-                                type="button"
-                                id="nextButton"
-                                class="w-full bg-geotrak hover:bg-geotrak-hover text-white font-semibold py-3 px-4 rounded-full transition duration-200 focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2"
-                            >
-                                Next
-                            </button>
-                            <button 
-                                type="submit"
-                                id="submitButton"
-                                class="hidden w-full bg-geotrak hover:bg-geotrak-hover text-white font-semibold py-3 px-4 rounded-full transition duration-200 focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2"
-                            >
-                                Create Account
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+<body class="font-sans">
+    <div class="auth-shell">
+        <div class="auth-shell__lang">
+            {% include 'auth/includes/language_switcher.html' %}
         </div>
 
-        <!-- Right Column - Logo -->
-        <div class="hidden lg:flex flex-1 bg-geotrak p-12 flex-col justify-center items-center border-l border-geotrak">
-            <div class="flex items-center justify-center">
-                <img src="{% static 'auth/images/geotrak-logo.png' %}" alt="GeoTrak Logo" class="max-w-xs w-full h-auto">
+        <div class="auth-shell__card">
+            <div class="auth-shell__brand">
+                <a href="{% url 'home:landing' %}" class="auth-shell__logo-link" aria-label="{{ ui.home_aria }}">
+                    {% include 'auth/includes/geotrak_logo.html' %}
+                </a>
+                <h1 class="auth-shell__title" id="stepTitle">{{ ui.onetime_welcome }}</h1>
+                <p class="auth-shell__subtitle" id="stepDescription">{{ ui.onetime_welcome_sub }}</p>
+            </div>
+
+            <div class="auth-shell__body">
+                <form id="registrationForm" class="auth-form" novalidate>
+                    {% csrf_token %}
+
+                    <div id="step0" class="step-content">
+                        <button type="button" id="getStartedButton" class="auth-primary-btn">
+                            {{ ui.get_started }}
+                        </button>
+                    </div>
+
+                    <div id="step1" class="step-content hidden">
+                        <div class="auth-field">
+                            <label for="fullName" class="auth-field__label">{{ ui.full_name }}</label>
+                            <input
+                                type="text"
+                                id="fullName"
+                                name="full_name"
+                                required
+                                placeholder="{{ ui.full_name_placeholder }}"
+                                class="auth-field__input"
+                            >
+                        </div>
+                    </div>
+
+                    <div id="step2" class="step-content hidden">
+                        <div class="auth-field">
+                            <label for="email" class="auth-field__label">{{ ui.email_address }}</label>
+                            <input
+                                type="email"
+                                id="email"
+                                name="email"
+                                required
+                                placeholder="{{ ui.email_placeholder }}"
+                                class="auth-field__input"
+                            >
+                        </div>
+                    </div>
+
+                    <div id="step3" class="step-content hidden">
+                        <div class="auth-field">
+                            <label for="password" class="auth-field__label">{{ ui.password }}</label>
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                required
+                                placeholder="{{ ui.password_placeholder }}"
+                                class="auth-field__input"
+                            >
+                            <p class="auth-field__hint">{{ ui.password_min_hint }}</p>
+                        </div>
+                    </div>
+
+                    <div id="step4" class="step-content hidden">
+                        <div class="auth-field">
+                            <label for="confirmPassword" class="auth-field__label">{{ ui.confirm_password }}</label>
+                            <input
+                                type="password"
+                                id="confirmPassword"
+                                name="confirm_password"
+                                required
+                                placeholder="{{ ui.confirm_password_placeholder }}"
+                                class="auth-field__input"
+                            >
+                        </div>
+                    </div>
+
+                    <div id="step5" class="step-content hidden">
+                        <div class="text-center">
+                            <svg class="w-14 h-14 mx-auto text-geotrak mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <p class="auth-field__hint" id="redirectMessage"></p>
+                        </div>
+                    </div>
+
+                    <div id="errorMessage" class="auth-error" role="alert"></div>
+
+                    <div id="navigationButtons" class="auth-btn-row hidden" aria-hidden="true">
+                        <button type="button" id="prevButton" class="auth-secondary-btn hidden">
+                            {{ ui.previous }}
+                        </button>
+                        <button type="button" id="nextButton" class="auth-primary-btn hidden">
+                            {{ ui.next }}
+                        </button>
+                        <button type="submit" id="submitButton" class="auth-primary-btn hidden">
+                            {{ ui.create_account }}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
-    <style>
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        .animate-fade-in {
-            animation: fadeIn 0.6s ease-out forwards;
-            opacity: 0;
-        }
-        .animate-fade-in-delay {
-            animation: fadeIn 0.6s ease-out 0.3s forwards;
-            opacity: 0;
-        }
-        .step-content.animate-step {
-            animation: fadeIn 0.6s ease-out forwards;
-        }
-    </style>
     {% include 'notifications/includes/toast_stack.html' %}
     <script src="{% static 'notifications/js/notifications.js' %}"></script>
     {% include 'notifications/includes/django_messages_script.html' %}
+    {% include 'auth/includes/ui_i18n_script.html' %}
     <script src="{% static 'auth/js/onetime.js' %}"></script>
 </body>
 </html>
-

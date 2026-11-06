@@ -1,5 +1,6 @@
 """Shapefile upload discovery and validation helpers."""
 
+import logging
 import os
 import tempfile
 import zipfile
@@ -8,6 +9,8 @@ from collections import defaultdict
 import fiona
 
 from .utils import simplify_crs
+
+logger = logging.getLogger(__name__)
 
 REQUIRED_EXTENSIONS = frozenset({".shp", ".shx", ".dbf"})
 
@@ -45,8 +48,14 @@ def collect_detected_shapefiles(temp_dir: str) -> list[dict]:
                         "count": len(source),
                     }
                 )
-        except Exception as exc:
-            detected.append({"name": base_name, "error": str(exc)})
+        except Exception:
+            logger.exception("Failed to inspect shapefile %s", base_name)
+            detected.append(
+                {
+                    "name": base_name,
+                    "error": "Couldn't read this shapefile — try again",
+                }
+            )
     return detected
 
 

@@ -1,74 +1,66 @@
 /**
- * GeoTrak toast stack — white card with brand accent typography.
+ * GeoTrak notifications — compact reference-style toasts + confirm dialog.
  */
 
-#geotrakToastStack.geotrak-toast-stack {
+#geotrakToastStack {
+    --toast-stack-top: calc(var(--app-chrome-offset, 5.1rem) + 0.5rem);
     position: fixed;
-    left: 50%;
-    top: var(--toast-stack-top, 5rem);
+    top: var(--toast-stack-top);
+    right: max(0.85rem, var(--app-chrome-pad-x, 0.85rem));
     z-index: 9999;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 0.625rem;
-    width: min(100vw - 2rem, 22.5rem);
-    max-width: min(100vw - 2rem, 22.5rem);
-    transform: translateX(-50%);
+    gap: 0.55rem;
+    width: min(100vw - 1.7rem, 17.5rem);
     pointer-events: none;
 }
 
-#geotrakToastStack.geotrak-toast-stack > .geotrak-toast {
+#geotrakToastStack > .geotrak-toast {
     pointer-events: auto;
 }
 
-/* Screen-reader-only: type label (Success / Error / …) stays for a11y, not shown visually */
-.geotrak-sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-}
-
 .geotrak-toast {
-    --toast-accent: var(--geotrak-brand);
+    --toast-accent: #3b82f6;
     position: relative;
     width: 100%;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     background: #ffffff;
-    color: var(--geotrak-brand);
-    border: 1px solid var(--geotrak-brand-border);
-    border-radius: 14px;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: 8px;
     box-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.8) inset,
-        0 12px 40px rgba(15, 23, 42, 0.1),
-        0 4px 12px rgba(15, 23, 42, 0.06);
+        0 1px 2px rgba(15, 23, 42, 0.04),
+        0 8px 24px rgba(15, 23, 42, 0.08);
     opacity: 0;
-    transform: translateY(-0.625rem) scale(0.99);
+    transform: translate3d(0.75rem, -0.3rem, 0) scale(0.98);
     transition:
-        opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-        transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+        opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.geotrak-toast::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--toast-accent);
 }
 
 .geotrak-toast__main {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.875rem 0.625rem 0.875rem 1rem;
-    min-height: 3rem;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.8rem 0.55rem 0.8rem 0.9rem;
 }
 
-/* Icon only — no filled tile; color is the sole status signal */
 .geotrak-toast__icon-wrap {
     flex-shrink: 0;
-    width: 1.375rem;
-    height: 1.375rem;
+    width: 1.35rem;
+    height: 1.35rem;
+    margin-top: 0.05rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -76,10 +68,8 @@
 }
 
 .geotrak-toast__icon-wrap svg {
-    width: 1.375rem;
-    height: 1.375rem;
-    flex-shrink: 0;
-    stroke-width: 2;
+    width: 1.2rem;
+    height: 1.2rem;
 }
 
 .geotrak-toast__text {
@@ -87,54 +77,58 @@
     min-width: 0;
 }
 
-.geotrak-toast__message {
+.geotrak-toast__title {
     margin: 0;
-    font-size: 0.9375rem;
-    font-weight: 500;
-    line-height: 1.5;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.3;
     letter-spacing: -0.01em;
-    color: var(--geotrak-brand);
+    color: #1e293b;
+}
+
+.geotrak-toast__message {
+    margin: 0.2rem 0 0;
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.4;
+    color: #64748b;
     word-wrap: break-word;
 }
 
 .geotrak-toast__close {
     flex-shrink: 0;
-    align-self: flex-start;
-    margin: -0.125rem 0 0 0;
-    padding: 0.4rem;
+    padding: 0.2rem;
+    margin-top: -0.05rem;
     border: none;
     background: transparent;
-    color: #9ca3af;
-    border-radius: 8px;
+    color: #94a3b8;
+    border-radius: 6px;
     cursor: pointer;
     line-height: 0;
     transition: background 0.15s ease, color 0.15s ease;
 }
 
 .geotrak-toast__close:hover {
-    background: rgba(15, 45, 83, 0.06);
-    color: var(--geotrak-text-muted);
+    background: rgba(15, 23, 42, 0.05);
+    color: #64748b;
 }
 
 .geotrak-toast__close:focus-visible {
-    outline: 2px solid var(--geotrak-brand);
-    outline-offset: 2px;
-    color: var(--geotrak-brand);
+    outline: 2px solid var(--toast-accent);
+    outline-offset: 1px;
+    color: var(--toast-accent);
 }
 
 .geotrak-toast__close svg {
-    width: 1.125rem;
-    height: 1.125rem;
+    width: 0.9rem;
+    height: 0.9rem;
     display: block;
     stroke-width: 2;
 }
 
-/* Neutral timer line — avoids a second loud color strip */
 .geotrak-toast__progress-track {
     height: 2px;
-    background: rgba(15, 45, 83, 0.06);
-    margin: 0;
-    border-radius: 0 0 13px 13px;
+    background: rgba(15, 23, 42, 0.04);
     overflow: hidden;
 }
 
@@ -142,17 +136,14 @@
     height: 100%;
     width: 100%;
     transform-origin: left center;
-    background: rgba(15, 45, 83, 0.22);
+    background: var(--toast-accent);
+    opacity: 0.45;
     transform: scaleX(1);
 }
 
 @keyframes geotrak-toast-progress-shrink {
-    from {
-        transform: scaleX(1);
-    }
-    to {
-        transform: scaleX(0);
-    }
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
 }
 
 .geotrak-toast.show .geotrak-toast__progress-bar {
@@ -162,29 +153,24 @@
 
 .geotrak-toast.show {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
 }
 
 .geotrak-toast.hide {
     opacity: 0;
-    transform: translateY(-0.5rem) scale(0.99);
+    transform: translate3d(0.55rem, -0.2rem, 0) scale(0.98);
 }
 
-/* Refined accent hues — stroke icons only */
 .geotrak-toast[data-type="success"] {
-    --toast-accent: #047857;
+    --toast-accent: #10b981;
 }
 
 .geotrak-toast[data-type="error"] {
-    --toast-accent: #b91c1c;
+    --toast-accent: #ef4444;
 }
 
 .geotrak-toast[data-type="warning"] {
-    --toast-accent: #c2410c;
-}
-
-.geotrak-toast[data-type="info"] {
-    --toast-accent: var(--geotrak-brand);
+    --toast-accent: #f59e0b;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -194,18 +180,31 @@
 
     .geotrak-toast.show .geotrak-toast__progress-bar {
         animation: none !important;
-        opacity: 0.4;
-        transform: scaleX(0.4);
+        opacity: 0.35;
+        transform: scaleX(0.35);
+    }
+
+    .geotrak-confirm,
+    .geotrak-confirm__panel {
+        transition-duration: 0.01ms !important;
     }
 }
 
 @media (max-width: 640px) {
-    #geotrakToastStack.geotrak-toast-stack {
-        left: 1rem;
-        right: 1rem;
+    #geotrakToastStack {
+        left: 0.75rem;
+        right: 0.75rem;
         width: auto;
-        max-width: none;
-        transform: none;
+        max-width: 20rem;
+        margin-left: auto;
+    }
+
+    .geotrak-toast {
+        transform: translate3d(0, -0.45rem, 0) scale(0.98);
+    }
+
+    .geotrak-toast.hide {
+        transform: translate3d(0, -0.3rem, 0) scale(0.98);
     }
 }
 
@@ -213,7 +212,6 @@ body.geotrak-confirm-open {
     overflow: hidden;
 }
 
-/* Confirm dialog — matches toast card aesthetic */
 .geotrak-confirm {
     position: fixed;
     inset: 0;
@@ -235,23 +233,23 @@ body.geotrak-confirm-open {
 .geotrak-confirm__backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(9, 9, 11, 0.32);
-    backdrop-filter: blur(6px);
+    background: rgba(15, 45, 83, 0.28);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
 }
 
 .geotrak-confirm__panel {
     position: relative;
-    width: min(100%, 22.5rem);
-    padding: 1.5rem 1.5rem 1.25rem;
+    width: min(100%, 21.5rem);
+    padding: 1.35rem 1.35rem 1.15rem;
     background: #ffffff;
-    color: var(--geotrak-brand);
-    border: 1px solid var(--geotrak-brand-border);
-    border-radius: 14px;
+    color: #0f2d53;
+    border: 1px solid rgba(15, 45, 83, 0.1);
+    border-radius: 12px;
     box-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.8) inset,
-        0 12px 40px rgba(15, 23, 42, 0.12),
-        0 4px 12px rgba(15, 23, 42, 0.06);
-    transform: translateY(0.5rem) scale(0.99);
+        0 1px 2px rgba(15, 23, 42, 0.04),
+        0 18px 48px rgba(15, 45, 83, 0.12);
+    transform: translateY(0.45rem) scale(0.98);
     transition:
         transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
         opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1);
@@ -265,19 +263,19 @@ body.geotrak-confirm-open {
 
 .geotrak-confirm__title {
     margin: 0;
-    font-size: 1.0625rem;
-    font-weight: 600;
+    font-size: 1rem;
+    font-weight: 700;
     letter-spacing: -0.02em;
     line-height: 1.35;
-    color: var(--geotrak-brand);
+    color: #1e293b;
 }
 
 .geotrak-confirm__message {
-    margin: 0.75rem 0 0;
-    font-size: 0.9375rem;
-    font-weight: 500;
-    line-height: 1.55;
-    color: #4b5563;
+    margin: 0.65rem 0 0;
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #64748b;
     word-wrap: break-word;
 }
 
@@ -285,15 +283,15 @@ body.geotrak-confirm-open {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
-    gap: 0.5rem;
-    margin-top: 1.25rem;
+    gap: 0.45rem;
+    margin-top: 1.15rem;
 }
 
 .geotrak-confirm__btn {
-    min-width: 5.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 9999px;
-    font-size: 0.875rem;
+    min-width: 5.25rem;
+    padding: 0.48rem 0.95rem;
+    border-radius: 8px;
+    font-size: 0.8125rem;
     font-weight: 600;
     line-height: 1.25;
     cursor: pointer;
@@ -301,44 +299,38 @@ body.geotrak-confirm-open {
 }
 
 .geotrak-confirm__btn:focus-visible {
-    outline: 2px solid var(--geotrak-brand);
+    outline: 2px solid #0f2d53;
     outline-offset: 2px;
 }
 
 .geotrak-confirm__btn--cancel {
-    border: 1px solid var(--geotrak-brand-border);
+    border: 1px solid rgba(15, 45, 83, 0.14);
     background: #ffffff;
-    color: var(--geotrak-text-muted);
+    color: #64748b;
 }
 
 .geotrak-confirm__btn--cancel:hover {
-    background: var(--geotrak-brand-subtle);
+    background: #f1f5f9;
+    color: #0f2d53;
 }
 
 .geotrak-confirm__btn--confirm {
-    border: 1px solid var(--geotrak-brand);
-    background: var(--geotrak-brand);
-    color: var(--geotrak-on-brand);
+    border: 1px solid #0f2d53;
+    background: #0f2d53;
+    color: #ffffff;
 }
 
 .geotrak-confirm__btn--confirm:hover {
-    background: var(--geotrak-brand-hover);
-    border-color: var(--geotrak-brand-hover);
+    background: #0c2547;
+    border-color: #0c2547;
 }
 
 .geotrak-confirm[data-variant="danger"] .geotrak-confirm__btn--confirm {
-    border-color: #b91c1c;
-    background: #b91c1c;
+    border-color: #ef4444;
+    background: #ef4444;
 }
 
 .geotrak-confirm[data-variant="danger"] .geotrak-confirm__btn--confirm:hover {
-    background: #991b1b;
-    border-color: #991b1b;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .geotrak-confirm,
-    .geotrak-confirm__panel {
-        transition-duration: 0.01ms !important;
-    }
+    background: #dc2626;
+    border-color: #dc2626;
 }

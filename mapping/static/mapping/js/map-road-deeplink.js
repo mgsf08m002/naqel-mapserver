@@ -39,8 +39,14 @@
         var data = await resp.json();
         if (!resp.ok || !data || !data.success || !data.road) {
             if (global.notify && typeof global.notify.tryShow === 'function') {
+                var fallback =
+                    typeof global.uiT === 'function'
+                        ? global.uiT('toast_couldnt_open_road', "Couldn't open road")
+                        : "Couldn't open road";
                 global.notify.tryShow(
-                    (data && data.message) || 'Could not open that road on the map.',
+                    typeof global.safeUserMessage === 'function'
+                        ? global.safeUserMessage(data, fallback)
+                        : fallback,
                     'error'
                 );
             }

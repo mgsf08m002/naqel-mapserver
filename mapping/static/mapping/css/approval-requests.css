@@ -4,14 +4,14 @@
 #approvalRequestsPanel {
   display: none;
   position: absolute;
-  right: 0;
+  inset-inline-end: 0;
   top: 100%;
   z-index: 50;
   margin-top: 0.5rem;
   flex-direction: column;
   overflow: hidden;
   width: min(100vw - 1.5rem, 22.5rem);
-  max-height: min(36rem, calc(100vh - 6rem));
+  max-height: min(36rem, calc(100vh - var(--app-chrome-offset) - 1.5rem));
   border-radius: 1rem;
   border: 1px solid rgb(228 228 231 / 0.9);
   background: rgb(255 255 255);
@@ -432,17 +432,16 @@
 @media (max-width: 639px) {
   #approvalRequestsPanel {
     position: fixed;
-    left: 0.75rem;
-    right: 0.75rem;
+    inset-inline: 0.75rem;
     top: auto;
     bottom: 0.75rem;
     width: auto;
     max-width: none;
-    max-height: min(75vh, calc(100vh - 5rem));
+    max-height: min(75vh, calc(100vh - var(--app-chrome-offset) - 1rem));
     margin-top: 0;
   }
 
   .approval-panel__list {
-    max-height: min(60vh, calc(100vh - 10rem));
+    max-height: min(60vh, calc(100vh - var(--app-chrome-offset) - 5rem));
   }
 }

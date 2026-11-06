@@ -2,8 +2,6 @@
 <link rel="stylesheet" href="{% static 'notifications/css/notifications.css' %}">
 <div
     id="geotrakToastStack"
-    class="geotrak-toast-stack"
-    style="--toast-stack-top: {{ toast_top|default:'5rem' }};"
     role="region"
     aria-label="Notifications"
 ></div>
@@ -12,7 +10,7 @@
         <div class="geotrak-toast__main">
             <div class="geotrak-toast__icon-wrap" aria-hidden="true"></div>
             <div class="geotrak-toast__text">
-                <p class="geotrak-toast__label geotrak-sr-only"></p>
+                <p class="geotrak-toast__title"></p>
                 <p class="geotrak-toast__message"></p>
             </div>
             <button type="button" class="geotrak-toast__close" aria-label="Dismiss notification">
@@ -32,7 +30,7 @@
     hidden
     aria-hidden="true"
 >
-    <div class="geotrak-confirm__backdrop" data-geotrak-confirm-dismiss tabindex="-1"></div>
+    <div class="geotrak-confirm__backdrop" data-geotrak-confirm-dismiss></div>
     <div
         class="geotrak-confirm__panel"
         role="alertdialog"

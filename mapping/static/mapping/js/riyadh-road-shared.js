@@ -70,6 +70,24 @@
         return null;
     }
 
+    /** Single sidebar Road Label value from fields_data (name, then legacy common_name). */
+    function resolveRoadLabelDisplayValue(fieldsData) {
+        if (!fieldsData || typeof fieldsData !== 'object') {
+            return '';
+        }
+        var n = fieldsData.name != null ? String(fieldsData.name).trim() : '';
+        var c = fieldsData.common_name != null ? String(fieldsData.common_name).trim() : '';
+        return n || c || '';
+    }
+
+    function fillRoadLabelInputFromFields(fieldsData) {
+        var el = document.getElementById('sidebar-feature-name-input');
+        if (!el) {
+            return;
+        }
+        el.value = resolveRoadLabelDisplayValue(fieldsData);
+    }
+
     global.RiyadhRoadShared = {
         RIYADH_FIELD_KEYS_OMIT_FROM_TAGS: RIYADH_FIELD_KEYS_OMIT_FROM_TAGS,
         buildRiyadhRoadTagsFromFields: buildRiyadhRoadTagsFromFields,
@@ -78,6 +96,8 @@
         getRiyadhRoadNetworkId: getRiyadhRoadNetworkId,
         isRiyadhSymbologyFclassMapsReady: isRiyadhSymbologyFclassMapsReady,
         resolveRiyadhFclassForFeatureState: resolveRiyadhFclassForFeatureState,
+        resolveRoadLabelDisplayValue: resolveRoadLabelDisplayValue,
+        fillRoadLabelInputFromFields: fillRoadLabelInputFromFields,
     };
 
     global.resolveRiyadhFclassForFeatureState = resolveRiyadhFclassForFeatureState;

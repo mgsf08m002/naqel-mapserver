@@ -1,9 +1,8 @@
 /**
- * System Admin Registration JavaScript
- * Handles multi-step form flow and registration submission
+ * System Admin registration — multi-step setup flow.
  */
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('registrationForm');
     const errorMessage = document.getElementById('errorMessage');
     const stepTitle = document.getElementById('stepTitle');
@@ -12,103 +11,110 @@ document.addEventListener('DOMContentLoaded', function() {
     const prevButton = document.getElementById('prevButton');
     const submitButton = document.getElementById('submitButton');
     const navigationButtons = document.getElementById('navigationButtons');
-    
+    const getStartedButton = document.getElementById('getStartedButton');
+
     let currentStep = 0;
     const totalSteps = 5;
     let formData = {};
     let redirectCountdown = 5;
 
-    // Step configurations
+    function t(key, vars) {
+        const table = window.UI_I18N || {};
+        let text = table[key] || key;
+        if (vars) {
+            Object.keys(vars).forEach(function (name) {
+                text = text.replace('{' + name + '}', vars[name]);
+            });
+        }
+        return text;
+    }
+
     const steps = {
         0: {
-            title: '',
-            description: '',
-            showNavigation: false
+            title: t('onetime_welcome'),
+            description: t('onetime_welcome_sub'),
         },
         1: {
-            title: 'Enter Full Name',
-            description: 'Please enter your full name to continue.',
+            title: t('step_full_name_title'),
+            description: t('step_full_name_desc'),
             field: 'fullName',
-            validate: () => {
+            validate: function () {
                 const value = document.getElementById('fullName').value.trim();
                 if (!value) {
-                    showError('Full name is required');
+                    showError(t('full_name_required'));
                     return false;
                 }
                 if (value.length < 2) {
-                    showError('Full name must be at least 2 characters');
+                    showError(t('full_name_min'));
                     return false;
                 }
                 return true;
-            }
+            },
         },
         2: {
-            title: 'Enter Email Address',
-            description: 'Please enter your email address.',
+            title: t('step_email_title'),
+            description: t('step_email_desc'),
             field: 'email',
-            validate: () => {
+            validate: function () {
                 const value = document.getElementById('email').value.trim();
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!value) {
-                    showError('Email address is required');
+                    showError(t('email_address_required'));
                     return false;
                 }
                 if (!emailRegex.test(value)) {
-                    showError('Please enter a valid email address');
+                    showError(t('email_invalid'));
                     return false;
                 }
                 return true;
-            }
+            },
         },
         3: {
-            title: 'Enter Password',
-            description: 'Please create a secure password.',
+            title: t('step_password_title'),
+            description: t('step_password_desc'),
             field: 'password',
-            validate: () => {
+            validate: function () {
                 const value = document.getElementById('password').value;
                 if (!value) {
-                    showError('Password is required');
+                    showError(t('password_required'));
                     return false;
                 }
                 if (value.length < 8) {
-                    showError('Password must be at least 8 characters');
+                    showError(t('password_min'));
                     return false;
                 }
                 return true;
-            }
+            },
         },
         4: {
-            title: 'Confirm Password',
-            description: 'Please confirm your password.',
+            title: t('step_confirm_title'),
+            description: t('step_confirm_desc'),
             field: 'confirmPassword',
-            validate: () => {
+            validate: function () {
                 const password = document.getElementById('password').value;
                 const confirmPassword = document.getElementById('confirmPassword').value;
                 if (!confirmPassword) {
-                    showError('Please confirm your password');
+                    showError(t('confirm_password_required'));
                     return false;
                 }
                 if (password !== confirmPassword) {
-                    showError('Passwords do not match');
+                    showError(t('passwords_mismatch'));
                     return false;
                 }
                 return true;
-            }
-        }
+            },
+        },
     };
 
-    // Get Started button handler
-    const getStartedButton = document.getElementById('getStartedButton');
     if (getStartedButton) {
-        getStartedButton.addEventListener('click', function() {
+        getStartedButton.addEventListener('click', function () {
             currentStep = 1;
             showStep(1);
         });
     }
 
-    // Next button handler
     if (nextButton) {
-        nextButton.addEventListener('click', function() {
+        nextButton.addEventListener('click', function () {
             if (validateCurrentStep()) {
                 saveCurrentStepData();
                 if (currentStep < totalSteps - 1) {
@@ -119,9 +125,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Previous button handler
     if (prevButton) {
-        prevButton.addEventListener('click', function() {
+        prevButton.addEventListener('click', function () {
             if (currentStep > 1) {
                 currentStep--;
                 showStep(currentStep);
@@ -129,11 +134,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Form submission handler
     if (form) {
-        form.addEventListener('submit', async function(e) {
+        form.addEventListener('submit', async function (e) {
             e.preventDefault();
-            
             if (currentStep === 4 && validateCurrentStep()) {
                 saveCurrentStepData();
                 await submitRegistration();
@@ -141,148 +144,109 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    /**
-     * Handle Enter key press for form navigation
-     * Step 0: Trigger "Get Started" button
-     * Steps 1-3: Trigger "Next" button (with validation)
-     * Step 4: Trigger "Create Account" submit button
-     * Step 5: No action (thank you screen)
-     */
     function handleEnterKeyPress(e) {
-        // Only handle Enter key
         if (e.key !== 'Enter') {
             return;
         }
-
-        // Prevent default form submission behavior
         e.preventDefault();
 
-        // Handle based on current step
         switch (currentStep) {
             case 0:
-                // Welcome screen: Trigger "Get Started" button
                 if (getStartedButton && !getStartedButton.disabled) {
                     getStartedButton.click();
                 }
                 break;
-
             case 1:
             case 2:
             case 3:
-                // Form input steps: Trigger "Next" button with validation
                 if (nextButton && !nextButton.disabled) {
                     nextButton.click();
                 }
                 break;
-
             case 4:
-                // Final step: Trigger submit button
                 if (submitButton && !submitButton.disabled) {
                     submitButton.click();
                 }
                 break;
-
-            case 5:
-                // Thank you screen: No action
-                break;
-
             default:
                 break;
         }
     }
 
-    // Attach Enter key event listener to document level
-    // This ensures Enter key works throughout the page, including input fields
-    document.addEventListener('keydown', function(e) {
-        // Only handle Enter key when it's relevant to the form
-        // Check if focus is on a form element or button, or on step 0 (welcome screen)
+    document.addEventListener('keydown', function (e) {
         const activeElement = document.activeElement;
         const isFormElement = form && form.contains(activeElement);
         const isGetStartedButton = activeElement === getStartedButton;
-        
         if (isFormElement || isGetStartedButton || currentStep === 0) {
             handleEnterKeyPress(e);
         }
     });
 
-    /**
-     * Show specific step
-     */
     function showStep(step) {
-        // Hide all steps
         for (let i = 0; i <= totalSteps; i++) {
-            const stepElement = document.getElementById(`step${i}`);
+            const stepElement = document.getElementById('step' + i);
             if (stepElement) {
                 stepElement.classList.add('hidden');
             }
         }
 
-        // Show current step with animation
-        const currentStepElement = document.getElementById(`step${step}`);
+        const currentStepElement = document.getElementById('step' + step);
         if (currentStepElement) {
-            // Remove hidden class
             currentStepElement.classList.remove('hidden');
-            // Reset animation by removing and re-adding
-            const animatedContent = currentStepElement.querySelector('.animate-fade-in');
-            if (animatedContent) {
-                animatedContent.style.animation = 'none';
-                setTimeout(() => {
-                    animatedContent.style.animation = '';
-                }, 10);
-            }
         }
 
-        // Update title and description
-        if (step === 0) {
-            stepTitle.textContent = '';
-            stepDescription.textContent = '';
-            navigationButtons.classList.add('hidden');
-        } else if (step < 5) {
+        if (step < 5 && steps[step]) {
             stepTitle.textContent = steps[step].title;
             stepDescription.textContent = steps[step].description;
         } else {
-            stepTitle.textContent = 'Registration Complete';
-            stepDescription.textContent = '';
+            stepTitle.textContent = t('registration_complete');
+            stepDescription.textContent = t('registration_ready');
         }
 
-        // Update navigation buttons
-        if (step === 0) {
+        if (step === 0 || step === 5) {
             navigationButtons.classList.add('hidden');
+            navigationButtons.setAttribute('aria-hidden', 'true');
+            prevButton.classList.add('hidden');
+            nextButton.classList.add('hidden');
+            submitButton.classList.add('hidden');
+            if (step === 5) {
+                startRedirectCountdown();
+            }
         } else if (step === 1) {
+            // Full name: Next only
             prevButton.classList.add('hidden');
             nextButton.classList.remove('hidden');
             submitButton.classList.add('hidden');
             navigationButtons.classList.remove('hidden');
+            navigationButtons.setAttribute('aria-hidden', 'false');
         } else if (step === 4) {
+            // Confirm password: Previous + Create Account
             prevButton.classList.remove('hidden');
             nextButton.classList.add('hidden');
             submitButton.classList.remove('hidden');
             navigationButtons.classList.remove('hidden');
-        } else if (step === 5) {
-            navigationButtons.classList.add('hidden');
-            startRedirectCountdown();
+            navigationButtons.setAttribute('aria-hidden', 'false');
         } else {
+            // Email / password: Previous + Next
             prevButton.classList.remove('hidden');
             nextButton.classList.remove('hidden');
             submitButton.classList.add('hidden');
             navigationButtons.classList.remove('hidden');
+            navigationButtons.setAttribute('aria-hidden', 'false');
         }
 
-        // Focus on current field
         if (step > 0 && step < 5 && steps[step] && steps[step].field) {
             const field = document.getElementById(steps[step].field);
             if (field) {
-                setTimeout(() => field.focus(), 100);
+                setTimeout(function () {
+                    field.focus();
+                }, 100);
             }
         }
 
-        // Hide error message
-        errorMessage.classList.add('hidden');
+        clearError();
     }
 
-    /**
-     * Validate current step
-     */
     function validateCurrentStep() {
         if (steps[currentStep] && steps[currentStep].validate) {
             return steps[currentStep].validate();
@@ -290,9 +254,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return true;
     }
 
-    /**
-     * Save current step data
-     */
     function saveCurrentStepData() {
         if (currentStep === 1) {
             formData.full_name = document.getElementById('fullName').value.trim();
@@ -305,64 +266,61 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    /**
-     * Submit registration
-     */
     async function submitRegistration() {
-        errorMessage.classList.add('hidden');
-        
+        clearError();
+
         const submitBtn = submitButton;
         const originalText = submitBtn.textContent;
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Creating Account...';
-        
+        submitBtn.textContent = t('creating_account');
+
         try {
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-            
             const response = await fetch('/api/onetime/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
+                    'X-CSRFToken': csrfToken,
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(formData),
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
-                // Show success notification
-                const successMsg = data.notification?.message || data.message || 'System Admin created successfully';
-                toastOrFormError(successMsg, 'success');
-                // Move to thank you step
+                toastOrFormError(data.message || t('admin_created'), 'success');
                 currentStep = 5;
                 showStep(5);
             } else {
-                // Show error notification
-                const errorMsg = data.notification?.message || data.message || 'Registration failed. Please try again.';
-                toastOrFormError(errorMsg, 'error');
+                toastOrFormError(
+                    data.message || t('registration_failed'),
+                    'error'
+                );
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
             }
         } catch (error) {
-            // Registration error
-            showError('An error occurred. Please try again.');
+            showError(t('generic_error'));
             submitBtn.disabled = false;
             submitBtn.textContent = originalText;
         }
     }
 
-    /**
-     * Start redirect countdown
-     */
     function startRedirectCountdown() {
         const redirectMessage = document.getElementById('redirectMessage');
-        const countdownInterval = setInterval(() => {
+        if (redirectMessage) {
+            redirectMessage.textContent = t('redirect_login', {
+                seconds: redirectCountdown,
+            });
+        }
+
+        const countdownInterval = setInterval(function () {
             redirectCountdown--;
             if (redirectMessage) {
-                redirectMessage.textContent = `Redirecting to login page in ${redirectCountdown} seconds...`;
+                redirectMessage.textContent = t('redirect_login', {
+                    seconds: redirectCountdown,
+                });
             }
-            
             if (redirectCountdown <= 0) {
                 clearInterval(countdownInterval);
                 window.location.href = '/login/';
@@ -370,28 +328,38 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 1000);
     }
 
-    function toastOrFormError(message, type = 'info') {
+    function safeMsg(message, fallback) {
+        if (typeof window.safeUserMessage === 'function') {
+            return window.safeUserMessage(message, fallback || t('generic_error'));
+        }
+        return message || fallback || t('generic_error');
+    }
+
+    function toastOrFormError(message, type) {
+        var text = safeMsg(message, t('generic_error'));
         if (window.notify && typeof window.notify.tryShow === 'function') {
-            window.notify.tryShow(message, type, undefined, {
+            window.notify.tryShow(text, type, undefined, {
                 onUnavailable: function () {
-                    showError(message);
+                    showError(text);
                 },
             });
         } else {
-            showError(message);
+            showError(text);
         }
     }
 
-    /**
-     * Display error message
-     */
+    function clearError() {
+        if (!errorMessage) return;
+        errorMessage.textContent = '';
+        errorMessage.classList.remove('is-visible');
+    }
+
     function showError(message) {
-        errorMessage.textContent = message;
-        errorMessage.classList.remove('hidden');
+        if (!errorMessage) return;
+        errorMessage.textContent = safeMsg(message, t('generic_error'));
+        errorMessage.classList.add('is-visible');
         errorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    // Initialize welcome screen
     showStep(0);
 });
-

@@ -5,7 +5,8 @@ from __future__ import annotations
 import math
 from decimal import Decimal
 
-# Sidebar controls: name + closure; mirrored UI-only keys excluded from tag rows.
+# Sidebar controls: name + closure. UI-only keys are omitted from tag rows:
+# common_name is a legacy mirror of name; multilingual_names is obsolete payload noise.
 RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS = frozenset({"name", "road_closure"})
 RIYADH_FIELDS_UI_ONLY = frozenset({"common_name", "multilingual_names"})
 RIYADH_FIELDS_OMIT_FROM_TAGS = RIYADH_SIDEBAR_EXCLUSIVE_FIELD_KEYS | RIYADH_FIELDS_UI_ONLY | frozenset({"fclass"})

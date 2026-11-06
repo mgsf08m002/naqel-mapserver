@@ -1,7 +1,7 @@
 /* Review history page (`rh-*` classes) */
 .rh-page {
   margin: -1.5rem;
-  min-height: calc(100vh - 64px);
+  min-height: calc(100vh - var(--app-chrome-offset));
   padding: 0.875rem 1.25rem 1rem;
   background: #fff;
   color: var(--geotrak-brand);
@@ -10,7 +10,7 @@
 .rh-panel {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 64px - 1.75rem);
+  min-height: calc(100vh - var(--app-chrome-offset) - 1.75rem);
   width: 100%;
 }
 

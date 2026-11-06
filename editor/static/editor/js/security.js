@@ -6,7 +6,6 @@
         const newPassword = document.getElementById('new_password');
         const confirmPassword = document.getElementById('confirm_password');
         const matchHint = document.getElementById('matchHint');
-        const notifyNode = document.getElementById('securityNotify');
 
         const sessionsSection = document.getElementById('sessionsSection');
         const sessionsContainer = document.getElementById('sessionsContainer');
@@ -52,21 +51,6 @@
 
         if (newPassword) newPassword.addEventListener('input', updateMatchHint);
         if (confirmPassword) confirmPassword.addEventListener('input', updateMatchHint);
-
-        // Password change notifications
-        if (notifyNode) {
-            const changed = notifyNode.getAttribute('data-password-changed') === 'true';
-            const errorsRaw = notifyNode.getAttribute('data-errors');
-            if (changed) {
-                window.notify.tryShow('Password updated successfully. Please sign in again.', 'success');
-            }
-            if (errorsRaw) {
-                errorsRaw.split('||').forEach(err => {
-                    const trimmed = err.trim();
-                    if (trimmed) window.notify.tryShow(trimmed, 'error');
-                });
-            }
-        }
 
         // Sessions management
         if (!sessionsSection || !sessionsContainer || !sessionsSkeleton || !sessionsEmptyState) {
@@ -210,8 +194,7 @@
 
                 if (!response.ok || !data.success) {
                     if (showToastOnError) {
-                        const msg = data && data.message ? data.message : 'Unable to load sessions.';
-                        window.notify.tryShow(msg, 'error');
+                        window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_load_sessions', "Couldn't load sessions") : "Couldn't load sessions"), 'error');
                     }
                     return;
                 }
@@ -219,7 +202,7 @@
                 renderSessions(data.sessions || []);
             } catch (error) {
                 if (showToastOnError) {
-                    window.notify.tryShow('Unable to load sessions. Please try again.', 'error');
+                    window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_load_sessions', "Couldn't load sessions") : "Couldn't load sessions"), 'error');
                 }
             } finally {
                 if (sessionsSkeleton) {
@@ -231,7 +214,7 @@
         async function terminateSession(sessionKey, rowElement) {
             const csrfToken = getCsrfToken();
             if (!csrfToken) {
-                window.notify.tryShow('CSRF token not found. Please refresh the page.', 'error');
+                window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_refresh_try_again', 'Refresh and try again') : 'Refresh and try again'), 'error');
                 return;
             }
 
@@ -255,7 +238,7 @@
                 const data = await response.json();
 
                 if (response.ok && data.success && data.session_terminated) {
-                    window.notify.tryShow('Session has been logged out successfully.', 'success');
+                    window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_session_ended', 'Session ended') : 'Session ended'), 'success');
                     await loadSessions(false);
 
                     if (data.current_session_terminated) {
@@ -264,11 +247,19 @@
                         }, 800);
                     }
                 } else {
-                    const msg = data && data.message ? data.message : 'Unable to terminate session.';
-                    window.notify.tryShow(msg, 'error');
+                    var termFallback =
+                        typeof window.uiT === 'function'
+                            ? window.uiT('toast_refresh_try_again', 'Refresh and try again')
+                            : 'Refresh and try again';
+                    window.notify.tryShow(
+                        typeof window.safeUserMessage === 'function'
+                            ? window.safeUserMessage(data, termFallback)
+                            : termFallback,
+                        'error'
+                    );
                 }
             } catch (error) {
-                window.notify.tryShow('Unable to terminate session. Please try again.', 'error');
+                window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_refresh_try_again', 'Refresh and try again') : 'Refresh and try again'), 'error');
             } finally {
                 if (rowElement) {
                     rowElement.classList.remove('opacity-60');

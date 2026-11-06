@@ -1,79 +1,83 @@
 {% load static %}
-<div id="basemapControls" class="absolute bottom-6 left-3 z-40 flex flex-col-reverse items-start gap-2">
+<div id="basemapControls" class="absolute bottom-6 start-3 z-40 flex flex-col-reverse items-start gap-2">
     <button
         id="basemapGalleryToggle"
         type="button"
         class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/95 backdrop-blur border border-gray-300 shadow-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        title="Toggle base map"
-        aria-label="Toggle base map"
+        title="{{ ui.basemap_toggle }}"
+        aria-label="{{ ui.basemap_toggle }}"
         aria-expanded="true"
     >
-        <span class="inline-block w-3.5 h-3.5 border border-gray-700 border-b-2 border-r-2 rounded-sm" aria-hidden="true"></span>
+        <svg class="w-4 h-4 text-[#0F2D53]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 2 2 7l10 5 10-5-10-5Z"/>
+            <path d="m2 12 10 5 10-5"/>
+            <path d="m2 17 10 5 10-5"/>
+        </svg>
     </button>
     <div
         id="basemapGallery"
         class="flex flex-col gap-2 bg-white/95 backdrop-blur rounded-xl shadow-xl border border-gray-200 px-3 py-3 w-32"
     >
         <div class="mb-1">
-            <span class="block text-xs font-semibold text-gray-700">Base map</span>
-            <span class="block text-[10px] text-gray-400">Choose background</span>
+            <span class="block text-xs font-semibold text-gray-700">{{ ui.basemap_title }}</span>
+            <span class="block text-[10px] text-gray-400">{{ ui.basemap_subtitle }}</span>
         </div>
-        <div class="flex flex-col gap-2 overflow-y-auto basemap-gallery__scroll max-h-[320px] pr-1">
+        <div class="flex flex-col gap-2 overflow-y-auto basemap-gallery__scroll max-h-[320px] pe-1">
             <button
                 type="button"
                 data-basemap-id="esri-satellite"
-                title="Satellite imagery"
+                title="{{ ui.basemap_satellite_title }}"
                 class="group relative border {% if not maptiler_api_key %}border-blue-500{% else %}border-transparent{% endif %} rounded-lg overflow-hidden cursor-pointer opacity-80"
             >
                 <img
                     src="{% static 'images/maps/satellite.png' %}"
-                    alt="Satellite basemap"
+                    alt="{{ ui.basemap_satellite_alt }}"
                     class="block w-full h-16 object-cover pointer-events-none"
                 />
-                <span class="absolute bottom-1 left-1 right-1 rounded bg-geotrak/60 px-1 py-0.5 text-[10px] font-semibold text-white text-center">Satellite</span>
+                <span class="absolute bottom-1 left-1 right-1 rounded bg-geotrak/60 px-1 py-0.5 text-[10px] font-semibold text-white text-center">{{ ui.basemap_satellite }}</span>
             </button>
 
             {% if maptiler_api_key %}
             <button
                 type="button"
                 data-basemap-id="maptiler-streets"
-                title="Streets"
+                title="{{ ui.basemap_streets }}"
                 class="group relative border border-transparent rounded-lg overflow-hidden cursor-pointer opacity-80 hover:opacity-100 hover:border-blue-300"
             >
                 <img
                     src="{% static 'images/maps/street.png' %}"
-                    alt="Streets basemap"
+                    alt="{{ ui.basemap_streets_alt }}"
                     class="block w-full h-16 object-cover pointer-events-none"
                 />
-                <span class="absolute bottom-1 left-1 right-1 rounded bg-geotrak/60 px-1 py-0.5 text-[10px] font-semibold text-white text-center">Streets</span>
+                <span class="absolute bottom-1 left-1 right-1 rounded bg-geotrak/60 px-1 py-0.5 text-[10px] font-semibold text-white text-center">{{ ui.basemap_streets }}</span>
             </button>
 
             <button
                 type="button"
                 data-basemap-id="maptiler-outdoor"
-                title="Outdoor"
+                title="{{ ui.basemap_outdoor }}"
                 class="group relative border border-transparent rounded-lg overflow-hidden cursor-pointer opacity-80 hover:opacity-100 hover:border-blue-300"
             >
                 <img
                     src="{% static 'images/maps/base.png' %}"
-                    alt="Outdoor basemap"
+                    alt="{{ ui.basemap_outdoor_alt }}"
                     class="block w-full h-16 object-cover pointer-events-none"
                 />
-                <span class="absolute bottom-1 left-1 right-1 rounded bg-geotrak/60 px-1 py-0.5 text-[10px] font-semibold text-white text-center">Outdoor</span>
+                <span class="absolute bottom-1 left-1 right-1 rounded bg-geotrak/60 px-1 py-0.5 text-[10px] font-semibold text-white text-center">{{ ui.basemap_outdoor }}</span>
             </button>
 
             <button
                 type="button"
                 data-basemap-id="maptiler-dark"
-                title="Dark"
+                title="{{ ui.basemap_dark }}"
                 class="group relative border border-transparent rounded-lg overflow-hidden cursor-pointer opacity-80 hover:opacity-100 hover:border-blue-300"
             >
                 <img
                     src="{% static 'images/maps/dark.png' %}"
-                    alt="Dark basemap"
+                    alt="{{ ui.basemap_dark_alt }}"
                     class="block w-full h-16 object-cover pointer-events-none"
                 />
-                <span class="absolute bottom-1 left-1 right-1 rounded bg-geotrak/60 px-1 py-0.5 text-[10px] font-semibold text-white text-center">Dark</span>
+                <span class="absolute bottom-1 left-1 right-1 rounded bg-geotrak/60 px-1 py-0.5 text-[10px] font-semibold text-white text-center">{{ ui.basemap_dark }}</span>
             </button>
             {% endif %}
         </div>

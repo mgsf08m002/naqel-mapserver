@@ -10,6 +10,18 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 import json
 
+from config.api_errors import json_api_error
+from config.ui_strings import t
+from system_admin.password_admin import (
+    create_password_reset_request,
+    find_user_by_login_email,
+    get_client_ip,
+)
+
+
+def _lang(request) -> str:
+    return getattr(request, "ui_language", None) or "en"
+
 
 def has_system_admin():
     """Check if a System Admin (superuser) already exists."""
@@ -25,10 +37,7 @@ def onetime_view(request):
     """Render the one-time system admin registration page."""
     # Redirect to login once a System Admin already exists.
     if has_system_admin():
-        messages.info(
-            request,
-            "A system administrator is already set up. Sign in to continue.",
-        )
+        messages.info(request, t(_lang(request), "admin_already_exists"))
         return redirect("auth:login")
 
     return render(request, "auth/onetime.html")
@@ -36,36 +45,95 @@ def onetime_view(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+def check_login_email_api(request):
+    """Validate that an email belongs to an existing account (login step 1)."""
+    lang = _lang(request)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return json_api_error(
+            request,
+            status=400,
+            message_key="invalid_server_response",
+            log=False,
+            extra={"exists": False},
+        )
+
+    email = (data.get("email") or "").strip()
+    if not email:
+        msg = t(lang, "email_required")
+        return JsonResponse(
+            {
+                "success": False,
+                "exists": False,
+                "message": msg,
+            },
+            status=400,
+        )
+
+    user = find_user_by_login_email(email)
+    if user is None:
+        msg = t(lang, "no_account_email")
+        return JsonResponse(
+            {
+                "success": False,
+                "exists": False,
+                "message": msg,
+            },
+            status=404,
+        )
+
+    if not user.is_active:
+        msg = t(lang, "account_inactive")
+        return JsonResponse(
+            {
+                "success": False,
+                "exists": True,
+                "active": False,
+                "message": msg,
+            },
+            status=403,
+        )
+
+    return JsonResponse(
+        {
+            "success": True,
+            "exists": True,
+            "active": True,
+        },
+        status=200,
+    )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
 def login_api(request):
     """Handle login API request."""
+    lang = _lang(request)
     try:
         data = json.loads(request.body)
         email = data.get('email')
         password = data.get('password')
         
         if not email or not password:
+            msg = t(lang, "email_password_required")
             return JsonResponse({
                 'success': False,
-                'message': 'Email and password are required',
-                'notification': {'message': 'Email and password are required', 'type': 'error'}
+                'message': msg
             }, status=400)
-        
-        # First check if user exists and is inactive (before authentication)
-        try:
-            user_check = User.objects.get(username=email)
-            if not user_check.is_active:
-                # Verify password before showing inactive message (for security)
-                if user_check.check_password(password):
-                    return JsonResponse({
-                        'success': False,
-                        'message': 'Account Inactive: Your account has been deactivated. Please contact the administrator to reactivate your account.',
-                        'notification': {'message': 'Account Inactive: Your account has been deactivated. Please contact the administrator to reactivate your account.', 'type': 'error'}
-                    }, status=403)
-        except User.DoesNotExist:
-            pass  # User doesn't exist, will be caught by authenticate below
-        
-        # Authenticate user (only returns active users by default)
-        user = authenticate(request, username=email, password=password)
+
+        user_check = find_user_by_login_email(email)
+        if user_check is not None and not user_check.is_active:
+            if user_check.check_password(password):
+                msg = t(lang, "account_inactive")
+                return JsonResponse({
+                    'success': False,
+                    'message': msg
+                }, status=403)
+
+        # Authenticate against the resolved username (email login).
+        auth_username = user_check.username if user_check is not None else email
+        user = authenticate(request, username=auth_username, password=password)
         
         if user is not None:
             login(request, user)
@@ -81,15 +149,13 @@ def login_api(request):
             now_iso = timezone.now().isoformat()
             request.session.setdefault("session_created_at", now_iso)
             request.session["last_seen_at"] = now_iso
-            # Check if user needs to set up password (first-time login)
-            if hasattr(user, 'profile') and user.profile.role and not user.profile.password_setup_completed:
-                # Redirect to password setup page
-                if user.profile.role == 'manager':
-                    redirect_url = reverse('auth:password_setup') + '?role=manager'
-                elif user.profile.role == 'editor':
-                    redirect_url = reverse('auth:password_setup') + '?role=editor'
-                else:
-                    redirect_url = '/'
+            # First sign-in: personal password setup before entering the map.
+            if (
+                hasattr(user, "profile")
+                and user.profile.role in ("manager", "editor")
+                and not user.profile.password_setup_completed
+            ):
+                redirect_url = reverse("auth:password_setup")
             # Redirect based on user role
             elif user.is_superuser:
                 redirect_url = reverse('system_admin:map')
@@ -107,41 +173,37 @@ def login_api(request):
                 redirect_url = '/'  # Regular users go to home page
             return JsonResponse({
                 'success': True,
-                'message': 'Login successful',
                 'redirect_url': redirect_url,
-                'notification': {'message': 'Login successful', 'type': 'success'}
             }, status=200)
         else:
+            msg = t(lang, "invalid_credentials")
             return JsonResponse({
                 'success': False,
-                'message': 'Invalid email or password',
-                'notification': {'message': 'Invalid email or password', 'type': 'error'}
+                'message': msg
             }, status=401)
             
     except json.JSONDecodeError:
-        return JsonResponse({
-            'success': False,
-            'message': 'Invalid JSON',
-            'notification': {'message': 'Invalid JSON', 'type': 'error'}
-        }, status=400)
+        return json_api_error(
+            request,
+            status=400,
+            message_key="invalid_server_response",
+            log=False,
+        )
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': str(e),
-            'notification': {'message': str(e), 'type': 'error'}
-        }, status=500)
+        return json_api_error(request, exc=e, status=500, message_key="generic_error")
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def onetime_api(request):
     """Handle System Admin registration API request."""
+    lang = _lang(request)
     # Reject attempts once a System Admin already exists.
     if has_system_admin():
+        msg = t(lang, "admin_route_closed")
         return JsonResponse({
             'success': False,
-            'message': 'System Admin has already been created. This route is no longer accessible.',
-            'notification': {'message': 'System Admin has already been created. This route is no longer accessible.', 'type': 'error'}
+            'message': msg
         }, status=403)
     
     try:
@@ -153,42 +215,42 @@ def onetime_api(request):
         
         # Validation
         if not full_name:
+            msg = t(lang, "full_name_required")
             return JsonResponse({
                 'success': False,
-                'message': 'Full name is required',
-                'notification': {'message': 'Full name is required', 'type': 'error'}
+                'message': msg
             }, status=400)
         if not email:
+            msg = t(lang, "email_required")
             return JsonResponse({
                 'success': False,
-                'message': 'Email is required',
-                'notification': {'message': 'Email is required', 'type': 'error'}
+                'message': msg
             }, status=400)
         if not password:
+            msg = t(lang, "password_required")
             return JsonResponse({
                 'success': False,
-                'message': 'Password is required',
-                'notification': {'message': 'Password is required', 'type': 'error'}
+                'message': msg
             }, status=400)
         if password != confirm_password:
+            msg = t(lang, "passwords_mismatch")
             return JsonResponse({
                 'success': False,
-                'message': 'Passwords do not match',
-                'notification': {'message': 'Passwords do not match', 'type': 'error'}
+                'message': msg
             }, status=400)
         if len(password) < 8:
+            msg = t(lang, "password_min")
             return JsonResponse({
                 'success': False,
-                'message': 'Password must be at least 8 characters',
-                'notification': {'message': 'Password must be at least 8 characters', 'type': 'error'}
+                'message': msg
             }, status=400)
         
         # Check if user already exists
         if User.objects.filter(username=email).exists():
+            msg = t(lang, "user_exists")
             return JsonResponse({
                 'success': False,
-                'message': 'User with this email already exists',
-                'notification': {'message': 'User with this email already exists', 'type': 'error'}
+                'message': msg
             }, status=400)
         
         # Create System Admin user
@@ -207,49 +269,36 @@ def onetime_api(request):
         profile = UserProfile.objects.create(user=user)
         profile.set_account_creation_datetime()
         
+        msg = t(lang, "admin_created")
         return JsonResponse({
             'success': True,
-            'message': 'System Admin created successfully',
-            'notification': {'message': 'System Admin created successfully', 'type': 'success'}
+            'message': msg
         }, status=200)
             
     except json.JSONDecodeError:
-        return JsonResponse({
-            'success': False,
-            'message': 'Invalid JSON',
-            'notification': {'message': 'Invalid JSON', 'type': 'error'}
-        }, status=400)
+        return json_api_error(
+            request,
+            status=400,
+            message_key="invalid_server_response",
+            log=False,
+        )
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': str(e),
-            'notification': {'message': str(e), 'type': 'error'}
-        }, status=500)
+        return json_api_error(
+            request, exc=e, status=500, message_key="registration_failed"
+        )
 
 
-_FORGOT_PASSWORD_ERRORS = {
-    "inactive": "Account is inactive. Contact your administrator.",
-    "not_eligible": (
-        "Password reset requests are only available for manager and editor accounts."
-    ),
-    "pending": (
-        "A reset request is already pending. Please wait for the administrator."
-    ),
-    "cooldown": (
-        "A password reset was recently handled for this account. "
-        "Please try again later or contact your administrator."
-    ),
+_FORGOT_PASSWORD_ERROR_KEYS = {
+    "inactive": "forgot_inactive",
+    "not_eligible": "forgot_not_eligible",
+    "pending": "forgot_pending",
+    "cooldown": "forgot_cooldown",
 }
 
 
 def forgot_password_view(request):
     """Public forgot-password request form (admin-mediated reset)."""
-    from system_admin.password_admin import (
-        create_password_reset_request,
-        find_user_by_login_email,
-        get_client_ip,
-    )
-
+    lang = _lang(request)
     context = {
         "email": "",
         "form_error": "",
@@ -262,12 +311,12 @@ def forgot_password_view(request):
     email = (request.POST.get("email") or "").strip()
     context["email"] = email
     if not email:
-        context["form_error"] = "Email is required."
+        context["form_error"] = t(lang, "forgot_email_required")
         return render(request, "auth/forgot_password.html", context)
 
     user = find_user_by_login_email(email)
     if user is None:
-        context["form_error"] = "No account found for that email."
+        context["form_error"] = t(lang, "forgot_no_account")
         return render(request, "auth/forgot_password.html", context)
 
     req, error_code = create_password_reset_request(
@@ -275,101 +324,82 @@ def forgot_password_view(request):
         requester_ip=get_client_ip(request),
     )
     if error_code:
-        context["form_error"] = _FORGOT_PASSWORD_ERRORS.get(
-            error_code,
-            "Unable to submit the request. Please try again.",
+        context["form_error"] = t(
+            lang,
+            _FORGOT_PASSWORD_ERROR_KEYS.get(error_code, "forgot_unable"),
         )
     elif req is not None:
         context["request_submitted"] = True
-        messages.success(request, "Your password reset request has been submitted.")
+        messages.success(request, t(lang, "forgot_success_toast"))
     else:
-        context["form_error"] = "Unable to submit the request. Please try again."
+        context["form_error"] = t(lang, "forgot_unable")
 
     return render(request, "auth/forgot_password.html", context)
 
 
-@login_required(login_url='/login/')
+def _map_redirect_for_role(role: str):
+    if role == "manager":
+        return redirect("manager:map")
+    if role == "editor":
+        return redirect("editor:map")
+    return redirect("auth:login")
+
+
+@login_required
 def password_setup_view(request):
-    """First-time password setup view for Manager/Editor users."""
-    # Only Manager and Editor roles can use this view.
+    """First-sign-in personal password setup for manager/editor accounts."""
+    lang = _lang(request)
+
     if not hasattr(request.user, "profile") or not request.user.profile.role:
-        messages.error(request, "Please sign in to continue.")
+        messages.error(request, t(lang, "setup_sign_in_required"))
         return redirect("auth:login")
 
-    if request.user.profile.role not in ["manager", "editor"]:
-        messages.error(
-            request,
-            "This setup page is only for manager or editor accounts.",
-        )
+    role = request.user.profile.role
+    if role not in ("manager", "editor"):
+        messages.error(request, t(lang, "setup_role_only"))
         return redirect("auth:login")
-    
-    # If setup is already complete, send the user to the map.
+
     if request.user.profile.password_setup_completed:
-        if request.user.profile.role == 'manager':
-            return redirect('manager:map')
-        elif request.user.profile.role == 'editor':
-            return redirect('editor:map')
-    
+        return _map_redirect_for_role(role)
+
     context = {
-        'role': request.user.profile.role.title(),
+        "setup_welcome": t(lang, "setup_welcome", role=t(lang, f"role_{role}")),
     }
-    
-    if request.method == 'POST':
-        intent = request.POST.get('intent')
-        if intent == 'skip_password_setup':
-            # Mark password setup as completed even when skipped.
+
+    if request.method == "POST":
+        intent = request.POST.get("intent")
+        if intent == "skip_password_setup":
             request.user.profile.password_setup_completed = True
             request.user.profile.save()
+            messages.info(request, t(lang, "setup_skip_toast"))
+            return _map_redirect_for_role(role)
 
-            messages.info(
-                request,
-                "You can set a personal password anytime under Security.",
-            )
-            # Redirect to the appropriate map after skipping.
-            if request.user.profile.role == "manager":
-                return redirect("manager:map")
-            elif request.user.profile.role == "editor":
-                return redirect("editor:map")
-        
-        elif intent == 'set_password':
+        if intent == "set_password":
             errors = []
-            new_password = request.POST.get('new_password', '').strip()
-            confirm_password = request.POST.get('confirm_password', '').strip()
-            
+            new_password = request.POST.get("new_password", "").strip()
+            confirm_password = request.POST.get("confirm_password", "").strip()
+
             if not new_password:
-                errors.append('Password is required.')
+                errors.append(t(lang, "password_required"))
             elif len(new_password) < 8:
-                errors.append('Password must be at least 8 characters long.')
-            
+                errors.append(t(lang, "password_min"))
+
             if new_password != confirm_password:
-                errors.append('Passwords do not match.')
-            
-            if not errors:
-                # Persist the new password.
-                request.user.set_password(new_password)
-                request.user.save()
+                errors.append(t(lang, "passwords_mismatch"))
 
-                # Record that setup has been completed.
-                request.user.profile.password_setup_completed = True
-                request.user.profile.save()
-
-                # Log the user back in with the new password.
-                from django.contrib.auth import login
-
-                login(request, request.user)
-
-                messages.success(request, "Your password has been saved.")
-
-                # Finally redirect to the relevant map view.
-                if request.user.profile.role == "manager":
-                    return redirect("manager:map")
-                elif request.user.profile.role == "editor":
-                    return redirect("editor:map")
-            else:
+            if errors:
                 for err in errors:
                     messages.error(request, err)
-    
-    return render(request, 'auth/password_setup.html', context)
+            else:
+                request.user.set_password(new_password)
+                request.user.save()
+                request.user.profile.password_setup_completed = True
+                request.user.profile.save()
+                login(request, request.user)
+                messages.success(request, t(lang, "setup_saved_toast"))
+                return _map_redirect_for_role(role)
+
+    return render(request, "auth/password_setup.html", context)
 
 
 @login_required

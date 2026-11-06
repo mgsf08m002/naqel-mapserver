@@ -5,12 +5,6 @@ body:has(.users-page) main {
   background: #eef3f8 !important;
 }
 
-body:has(.users-page) header.sticky {
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom-color: rgba(15, 45, 83, 0.06);
-  box-shadow: none;
-}
-
 .users-page {
   --users-navy: #0f2d53;
   --users-navy-soft: #1a3d6b;
@@ -25,7 +19,7 @@ body:has(.users-page) header.sticky {
   --users-shadow: 0 8px 24px rgba(15, 45, 83, 0.05);
   --users-radius: 20px;
   color: var(--users-navy);
-  min-height: calc(100vh - 64px);
+  min-height: calc(100vh - var(--app-chrome-offset));
   padding: 28px 32px 36px;
 }
 

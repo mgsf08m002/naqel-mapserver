@@ -1,0 +1,40 @@
+/**
+ * HTTP error pages — extends auth-shell chrome.
+ */
+
+.error-page__card {
+  max-width: 26rem;
+}
+
+.error-page__code {
+  margin: 0 0 0.85rem;
+  font-size: clamp(2.75rem, 8vw, 3.75rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: #0f2d53;
+  opacity: 0.92;
+}
+
+.error-page .auth-shell__subtitle {
+  max-width: 22rem;
+  margin-inline: auto;
+}
+
+.error-page__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.error-page__actions .auth-primary-btn,
+.error-page__actions .auth-secondary-btn {
+  text-decoration: none;
+}
+
+.error-page__actions .auth-secondary-btn {
+  width: 100%;
+  min-height: 3rem;
+  border-radius: 9999px;
+}

@@ -141,11 +141,11 @@
                 applyFilters();
             } else {
                 hideLoading();
-                window.notify.tryShow('Failed to load users: ' + data.message, 'error');
+                window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_load', "Couldn't load") : "Couldn't load"), 'error');
             }
         } catch (error) {
             hideLoading();
-            window.notify.tryShow('Error loading users: ' + error.message, 'error');
+            window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_load', "Couldn't load") : "Couldn't load"), 'error');
         }
     }
 

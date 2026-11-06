@@ -51,7 +51,12 @@
             renderUserDetails(data.user);
             elements.userDetails?.classList.remove('is-hidden');
         } catch (error) {
-            showError(error.message || 'Failed to load user information. Please try again.');
+            var fallback = 'Failed to load user information. Please try again.';
+            showError(
+                typeof window.safeUserMessage === 'function'
+                    ? window.safeUserMessage(error, fallback)
+                    : fallback
+            );
         } finally {
             elements.loadingState?.classList.add('is-hidden');
         }

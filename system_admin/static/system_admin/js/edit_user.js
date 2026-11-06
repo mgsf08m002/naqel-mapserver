@@ -19,7 +19,12 @@
         accountStatusSelect.addEventListener('change', function() {
             syncStatusDot(this.value);
             if (this.value === 'inactive' && window.notify && typeof window.notify.tryShow === 'function') {
-                window.notify.tryShow('Setting account status to Inactive will prevent this user from logging in.', 'warning');
+                window.notify.tryShow(
+                    (typeof window.uiT === 'function'
+                        ? window.uiT('toast_inactive_users', "Inactive users can't sign in")
+                        : "Inactive users can't sign in"),
+                    'warning'
+                );
             }
         });
     });

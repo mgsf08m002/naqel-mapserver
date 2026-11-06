@@ -1001,11 +1001,13 @@
                 if (requestId !== featureListRequestId) {
                     return;
                 }
+                var loadFallback =
+                    typeof window.uiT === 'function'
+                        ? window.uiT('toast_couldnt_load', "Couldn't load")
+                        : "Couldn't load";
                 featureListEl.innerHTML =
-                    '<p class="lr-feature-empty">Could not load features. ' +
-                    escapeHtml(err.message || 'Try again.') +
-                    '</p>';
-                window.notify.tryShow('Failed to load features for the panel.', 'error');
+                    '<p class="lr-feature-empty">' + escapeHtml(loadFallback) + '</p>';
+                window.notify.tryShow(loadFallback, 'error');
             });
     }
 
@@ -1020,7 +1022,12 @@
                 return refreshAfterMutation({ preserveScroll: true, silent: true });
             })
             .catch(function (err) {
-                window.notify.tryShow(err.message || failureLabel, 'error');
+                window.notify.tryShow(
+                    typeof window.safeUserMessage === 'function'
+                        ? window.safeUserMessage(err, failureLabel)
+                        : failureLabel,
+                    'error'
+                );
             });
     }
 
@@ -2104,7 +2111,7 @@
                 syncMapFeatureLayers();
             })
             .catch(function () {
-                window.notify.tryShow('Failed to load review data.', 'error');
+                window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_load', "Couldn't load") : "Couldn't load"), 'error');
             });
     }
 
@@ -2128,7 +2135,7 @@
             statusFilterEl.addEventListener('change', function () {
                 statusFilter = statusFilterEl.value || '';
                 loadFeatureList().catch(function () {
-                    window.notify.tryShow('Failed to load features.', 'error');
+                    window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_load', "Couldn't load") : "Couldn't load"), 'error');
                 });
             });
         }
@@ -2146,7 +2153,12 @@
                 return refreshAfterMutation({ preserveScroll: true, silent: true });
             })
             .catch(function (err) {
-                window.notify.tryShow(err.message || errorMessage, 'error');
+                window.notify.tryShow(
+                    typeof window.safeUserMessage === 'function'
+                        ? window.safeUserMessage(err, errorMessage)
+                        : errorMessage,
+                    'error'
+                );
             });
     }
 
@@ -2159,12 +2171,12 @@
                 if (!stagedIds.length) {
                     return;
                 }
-                runBulkAction('nominate_selected', 'Could not approve selected features', {
+                runBulkAction('nominate_selected', (typeof window.uiT === 'function' ? window.uiT('toast_couldnt_approve', "Couldn't approve") : "Couldn't approve"), {
                     feature_ids: stagedIds,
                 });
                 return;
             }
-            runBulkAction('nominate_all', 'Could not approve all features');
+            runBulkAction('nominate_all', (typeof window.uiT === 'function' ? window.uiT('toast_couldnt_approve', "Couldn't approve") : "Couldn't approve"));
         });
     }
     if (btnBulkReject) {
@@ -2174,12 +2186,12 @@
                 if (!stagedIds.length) {
                     return;
                 }
-                runBulkAction('reject_selected', 'Could not reject selected features', {
+                runBulkAction('reject_selected', (typeof window.uiT === 'function' ? window.uiT('toast_couldnt_reject', "Couldn't reject") : "Couldn't reject"), {
                     feature_ids: stagedIds,
                 });
                 return;
             }
-            runBulkAction('reject_all', 'Could not reject all features');
+            runBulkAction('reject_all', (typeof window.uiT === 'function' ? window.uiT('toast_couldnt_reject', "Couldn't reject") : "Couldn't reject"));
         });
     }
 
@@ -2214,7 +2226,16 @@
                 }
             })
             .catch(function (err) {
-                window.notify.tryShow(err.message || 'Could not submit layer', 'error');
+                var submitFallback =
+                    typeof window.uiT === 'function'
+                        ? window.uiT('toast_couldnt_submit', "Couldn't submit")
+                        : "Couldn't submit";
+                window.notify.tryShow(
+                    typeof window.safeUserMessage === 'function'
+                        ? window.safeUserMessage(err, submitFallback)
+                        : submitFallback,
+                    'error'
+                );
             });
     }
 
@@ -2225,9 +2246,9 @@
             const nominatedCount = nominatedEl ? parseInt(nominatedEl.textContent, 10) : 0;
             if (!nominatedCount || Number.isNaN(nominatedCount)) {
                 window.notify.tryShow(
-                    uploadAppliesImmediately
-                        ? 'Approve at least one road before publishing.'
-                        : 'Approve at least one road before submitting.',
+                    (typeof window.uiT === 'function'
+                        ? window.uiT('toast_approve_one_road', 'Approve at least one road')
+                        : 'Approve at least one road'),
                     'warning'
                 );
                 return;

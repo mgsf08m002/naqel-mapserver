@@ -22,11 +22,14 @@ def get_client_ip(request) -> str | None:
 
 
 def find_user_by_login_email(email: str) -> User | None:
-    """GeoTrak stores login identity as User.username (= email)."""
+    """Resolve a user by login email (username first, then email field)."""
     email = (email or "").strip()
     if not email:
         return None
-    return User.objects.filter(username__iexact=email).first()
+    user = User.objects.filter(username__iexact=email).first()
+    if user is not None:
+        return user
+    return User.objects.filter(email__iexact=email).first()
 
 
 def is_password_reset_eligible(user: User) -> tuple[bool, str]:

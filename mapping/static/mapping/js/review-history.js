@@ -221,9 +221,7 @@
             })
             .then(function (result) {
                 if (!result.ok || !result.data || !result.data.success) {
-                    throw new Error(
-                        (result.data && result.data.message) || 'Could not load review history.'
-                    );
+                    throw new Error('load_failed');
                 }
                 var items = result.data.requests || [];
                 if (!items.length) {
@@ -232,9 +230,16 @@
                 }
                 showList(items);
             })
-            .catch(function (err) {
-                showEmpty(err.message || 'Could not load review history.');
+            .catch(function () {
+                var emptyMsg =
+                    typeof window.uiT === 'function'
+                        ? window.uiT('toast_couldnt_load', "Couldn't load")
+                        : "Couldn't load";
+                showEmpty(emptyMsg);
                 if (countEl) countEl.hidden = true;
+                if (window.notify && typeof window.notify.tryShow === 'function') {
+                    window.notify.tryShow(emptyMsg, 'error');
+                }
             });
     }
 

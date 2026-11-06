@@ -64,7 +64,7 @@
     function zoomToGeometry(geometry) {
         var map = getMap();
         if (!map || !geometry) {
-            notify('Map is still loading. Try again in a moment.', 'error');
+            notify((typeof global.uiT === 'function' ? global.uiT('toast_map_loading', 'Map still loading') : 'Map still loading'), 'error');
             return;
         }
         var bounds = bboxFromGeometry(geometry);
@@ -129,9 +129,16 @@
         });
         var data = await resp.json();
         if (!resp.ok || !data) {
+            var searchFallback =
+                typeof global.uiT === 'function'
+                    ? global.uiT('toast_search_unavailable', 'Search is temporarily unavailable')
+                    : 'Search is temporarily unavailable';
             return {
                 success: false,
-                message: (data && data.message) || 'Search failed.',
+                message:
+                    typeof global.safeUserMessage === 'function'
+                        ? global.safeUserMessage(data, searchFallback)
+                        : searchFallback,
                 results: [],
             };
         }
@@ -146,7 +153,7 @@
             zoomToGeometry(result.geometry);
         }
         if (typeof global.openRiyadhRoadById !== 'function') {
-            notify('Map is still loading. Try again in a moment.', 'error');
+            notify((typeof global.uiT === 'function' ? global.uiT('toast_map_loading', 'Map still loading') : 'Map still loading'), 'error');
             return;
         }
         var opened = await global.openRiyadhRoadById(
@@ -155,7 +162,16 @@
             { enterEditMode: false }
         );
         if (!opened.success) {
-            notify(opened.message || 'Could not open that road.', 'error');
+            var openFallback =
+                typeof global.uiT === 'function'
+                    ? global.uiT('toast_couldnt_open_road', "Couldn't open road")
+                    : "Couldn't open road";
+            notify(
+                typeof global.safeUserMessage === 'function'
+                    ? global.safeUserMessage(opened, openFallback)
+                    : openFallback,
+                'error'
+            );
         }
     }
 
@@ -404,7 +420,18 @@
                 }
                 if (!data.success) {
                     renderResults([]);
-                    setStatus(data.message || 'Search failed.');
+                    var searchFailFallback =
+                        typeof global.uiT === 'function'
+                            ? global.uiT(
+                                  'toast_search_unavailable',
+                                  'Search is temporarily unavailable'
+                              )
+                            : 'Search is temporarily unavailable';
+                    var failMsg =
+                        typeof global.safeUserMessage === 'function'
+                            ? global.safeUserMessage(data, searchFailFallback)
+                            : searchFailFallback;
+                    setStatus(failMsg);
                     return;
                 }
                 var items = data.results || [];
@@ -416,7 +443,14 @@
             } catch (e) {
                 if (reqId === activeRequest) {
                     renderResults([]);
-                    setStatus('Search failed.');
+                    setStatus(
+                        typeof global.uiT === 'function'
+                            ? global.uiT(
+                                  'toast_search_unavailable',
+                                  'Search is temporarily unavailable'
+                              )
+                            : 'Search is temporarily unavailable'
+                    );
                 }
             }
         }

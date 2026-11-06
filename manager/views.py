@@ -105,8 +105,7 @@ def upload_profile_image_view(request):
     if not hasattr(request.user, 'profile') or request.user.profile.role != 'manager':
         return JsonResponse({
             'success': False,
-            'message': 'Unauthorized',
-            'notification': {'message': 'Unauthorized', 'type': 'error'}
+            'message': 'Unauthorized'
         }, status=403)
     
     if request.method == 'POST' and request.FILES.get('profile_image'):
@@ -118,15 +117,13 @@ def upload_profile_image_view(request):
         profile.save()
         return JsonResponse({
             'success': True,
-            'message': 'Profile image uploaded successfully',
-            'image_url': profile.profile_image.url,
-            'notification': {'message': 'Profile image uploaded successfully', 'type': 'success'}
+            'message': 'Photo updated',
+            'image_url': profile.profile_image.url
         })
     
     return JsonResponse({
         'success': False,
-        'message': 'No image provided',
-        'notification': {'message': 'No image provided', 'type': 'error'}
+        'message': 'No image provided'
     }, status=400)
 
 
@@ -137,8 +134,7 @@ def remove_profile_image_view(request):
     if not hasattr(request.user, 'profile') or request.user.profile.role != 'manager':
         return JsonResponse({
             'success': False,
-            'message': 'Unauthorized',
-            'notification': {'message': 'Unauthorized', 'type': 'error'}
+            'message': 'Unauthorized'
         }, status=403)
     
     if request.method == 'POST':
@@ -150,20 +146,17 @@ def remove_profile_image_view(request):
                 profile.save()
             return JsonResponse({
                 'success': True,
-                'message': 'Profile image removed successfully',
-                'notification': {'message': 'Profile image removed successfully', 'type': 'success'}
+                'message': 'Photo removed'
             })
         except UserProfile.DoesNotExist:
             return JsonResponse({
                 'success': True,
-                'message': 'Profile image removed successfully',
-                'notification': {'message': 'Profile image removed successfully', 'type': 'success'}
+                'message': 'Photo removed'
             })
     
     return JsonResponse({
         'success': False,
-        'message': 'Invalid request',
-        'notification': {'message': 'Invalid request', 'type': 'error'}
+        'message': 'Invalid request'
     }, status=400)
 
 

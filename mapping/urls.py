@@ -20,6 +20,11 @@ urlpatterns = [
         name='list_manager_review_history',
     ),
     path('api/pending-requests/', views.list_pending_requests, name='list_pending_requests'),
+    path(
+        'api/pending-road-locks/',
+        views.list_pending_road_locks,
+        name='pending_road_locks',
+    ),
     path('api/request/<int:request_id>/', views.get_edit_request_details, name='get_request_details'),
     path('api/request/<int:request_id>/approve/', views.approve_edit_request, name='approve_request'),
     path('api/request/<int:request_id>/reject/', views.reject_edit_request, name='reject_request'),

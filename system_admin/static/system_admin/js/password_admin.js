@@ -49,11 +49,11 @@
                 try {
                     await navigator.clipboard.writeText(text);
                     if (window.notify) {
-                        window.notify.success('Password copied.');
+                        window.notify.success((typeof window.uiT === 'function' ? window.uiT('toast_copied', 'Copied') : 'Copied'));
                     }
                 } catch {
                     if (window.notify) {
-                        window.notify.error('Could not copy password.');
+                        window.notify.error((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_copy', "Couldn't copy") : "Couldn't copy"));
                     }
                 }
             });

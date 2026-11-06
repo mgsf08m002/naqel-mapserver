@@ -35,11 +35,9 @@ window.__geotrakLoadSymbologyCatalog = function __geotrakLoadSymbologyCatalog() 
                     throw new Error('Invalid symbology catalog payload');
                 }
                 window.symbologyCatalog = catalog;
-                window.__geotrakSymbologyCatalogLastError = null;
                 return catalog;
             })
             .catch(function (err) {
-                window.__geotrakSymbologyCatalogLastError = err;
                 window.__geotrakSymbologyCatalogPromise = undefined;
                 throw err;
             });
@@ -347,6 +345,7 @@ if (drawInstance) {
 }
 
 const COORDINATE_DECIMALS = 6;
+let lastStatusLngLat = null;
 
 function formatCoordinate(value) {
     if (typeof value !== 'number' || Number.isNaN(value)) {
@@ -355,25 +354,65 @@ function formatCoordinate(value) {
     return value.toFixed(COORDINATE_DECIMALS);
 }
 
-function updateCoordinateDisplay(lngLat) {
+function formatStatusZoom(value) {
+    if (typeof value !== 'number' || Number.isNaN(value)) {
+        return null;
+    }
+    return (Math.round(value * 10) / 10).toFixed(1);
+}
+
+function statusLabel(key, fallback) {
+    return (typeof window.uiT === 'function') ? window.uiT(key, fallback) : fallback;
+}
+
+function updateMapStatusDisplay(lngLat) {
     const el = document.getElementById('coordinatesDisplay');
-    if (!el || !lngLat) {
+    if (!el) {
         return;
     }
 
-    const lng = formatCoordinate(lngLat.lng);
-    const lat = formatCoordinate(lngLat.lat);
-    if (!lng || !lat) {
+    if (lngLat && typeof lngLat.lng === 'number' && typeof lngLat.lat === 'number') {
+        lastStatusLngLat = lngLat;
+    }
+
+    const parts = [];
+    if (lastStatusLngLat) {
+        const lng = formatCoordinate(lastStatusLngLat.lng);
+        const lat = formatCoordinate(lastStatusLngLat.lat);
+        if (lng && lat) {
+            parts.push(`${statusLabel('lon', 'Lon')}: ${lng}`);
+            parts.push(`${statusLabel('lat', 'Lat')}: ${lat}`);
+        }
+    }
+
+    try {
+        const zoom = formatStatusZoom(map.getZoom());
+        if (zoom) {
+            parts.push(`${statusLabel('zoom', 'Zoom')}: ${zoom}`);
+        }
+    } catch (e) {}
+
+    if (!parts.length) {
         return;
     }
 
-    el.textContent = `Lon: ${lng}, Lat: ${lat}`;
+    el.textContent = parts.join(' · ');
     el.classList.remove('hidden');
 }
 
+function refreshMapStatusDisplay() {
+    try {
+        updateMapStatusDisplay(lastStatusLngLat || map.getCenter());
+    } catch (e) {}
+}
+
 map.on('mousemove', (e) => {
-    updateCoordinateDisplay(e.lngLat);
+    updateMapStatusDisplay(e.lngLat);
 });
+
+map.on('zoom', refreshMapStatusDisplay);
+map.on('moveend', refreshMapStatusDisplay);
+map.once('load', refreshMapStatusDisplay);
 
 
 map.on('load', () => {
@@ -396,7 +435,8 @@ map.on('load', () => {
             const SOURCE_LAYER = 'riyadh_roads';
             const HOVER_NONE_ID = -999999;
             const ROAD_CLOSURE_ICON_LAYER_ID = 'riyadh-roads-closure-icons';
-            const CLOSURE_ICON_IMAGE_ID = 'road-closure-no-entry';
+            const CLOSURE_ICON_IMAGE_ID =
+                (window.RoadClosure && window.RoadClosure.ICON_IMAGE_ID) || 'road-closure-no-entry';
             /** Progressive reveal: majors always; medium from z11; local streets from z13. */
             const RIYADH_FCLASS_MAJOR = [
                 'motorway', 'motorway_link', 'trunk', 'trunk_link',
@@ -485,22 +525,8 @@ map.on('load', () => {
                 ];
             }
 
-            function deriveBilingualLabelValues(labelText) {
-                const raw = String(labelText || '').trim();
-                if (!raw) {
-                    return { name_en: '', name_ar: '' };
-                }
-                const hasArabic = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(raw);
-                const hasLatin = /[A-Za-z]/.test(raw);
-                if (hasArabic && !hasLatin) {
-                    return { name_en: '', name_ar: raw };
-                }
-                return { name_en: raw, name_ar: '' };
-            }
-            window.deriveRiyadhBilingualLabelValues = deriveBilingualLabelValues;
-
             // Layout text-field cannot use feature-state; labels come from MVT props only.
-            function buildRiyadhLabelFieldExpression(tileField, fallbackFields) {
+            function buildRiyadhLabelCoalesceExpression(tileField, fallbackFields) {
                 const coalesce = ['coalesce', ['get', tileField]];
                 if (fallbackFields && fallbackFields.length) {
                     fallbackFields.forEach(function(f) {
@@ -508,20 +534,15 @@ map.on('load', () => {
                     });
                 }
                 coalesce.push('');
-                return ['to-string', coalesce];
+                return coalesce;
             }
 
-            function loadSvgAsHtmlImage(url) {
-                return new Promise(function(resolve, reject) {
-                    const img = new Image();
-                    img.onload = function() {
-                        resolve(img);
-                    };
-                    img.onerror = function() {
-                        reject(new Error('Failed to load ' + url));
-                    };
-                    img.src = url;
-                });
+            function buildRiyadhLabelFieldExpression(tileField, fallbackFields) {
+                return ['to-string', buildRiyadhLabelCoalesceExpression(tileField, fallbackFields)];
+            }
+
+            function buildRiyadhLabelNamedFilter(tileField, fallbackFields) {
+                return ['!=', ['to-string', buildRiyadhLabelCoalesceExpression(tileField, fallbackFields)], ''];
             }
 
             function riyadhClosureIconOpacityWhenBasemapRoadHidden(roadIdToHide, hidden, isClosedExpr) {
@@ -553,75 +574,50 @@ map.on('load', () => {
                     } catch (eOp) {}
                     return;
                 }
-                const mapEl = document.getElementById('map');
-                const rel =
-                    (mapEl && mapEl.getAttribute('data-closure-icon-url')) ||
-                    '/static/mapping/images/road-closure-no-entry.svg';
-                const url = new URL(rel, window.location.href).href;
-                loadSvgAsHtmlImage(url)
-                    .then(function(image) {
-                        if (image && typeof image.decode === 'function') {
-                            return image.decode().then(function() {
-                                return image;
-                            }).catch(function() {
-                                return image;
-                            });
+                const ensureImage =
+                    window.RoadClosure && typeof window.RoadClosure.ensureMapImage === 'function'
+                        ? window.RoadClosure.ensureMapImage(map)
+                        : Promise.resolve(false);
+                ensureImage.then(function (ok) {
+                    if (!ok || !map.getStyle() || map.getLayer(ROAD_CLOSURE_ICON_LAYER_ID)) {
+                        return;
+                    }
+                    if (!map.getSource(SOURCE_ID) || map.getLayer(ROAD_CLOSURE_ICON_LAYER_ID)) {
+                        return;
+                    }
+                    let vis = 'visible';
+                    try {
+                        if (
+                            map.getLayer(STYLED_LAYER_ID) &&
+                            map.getLayoutProperty(STYLED_LAYER_ID, 'visibility') === 'none'
+                        ) {
+                            vis = 'none';
                         }
-                        return image;
-                    })
-                    .catch(function() {
-                        return null;
-                    })
-                    .then(function(image) {
-                        if (!image || !map.getStyle()) {
-                            return;
-                        }
-                        if (map.getLayer(ROAD_CLOSURE_ICON_LAYER_ID)) {
-                            return;
-                        }
-                        try {
-                            if (!map.hasImage(CLOSURE_ICON_IMAGE_ID)) {
-                                map.addImage(CLOSURE_ICON_IMAGE_ID, image);
-                            }
-                        } catch (eImg) {
-                            return;
-                        }
-                        if (!map.getSource(SOURCE_ID) || map.getLayer(ROAD_CLOSURE_ICON_LAYER_ID)) {
-                            return;
-                        }
-                        let vis = 'visible';
-                        try {
-                            if (
-                                map.getLayer(STYLED_LAYER_ID) &&
-                                map.getLayoutProperty(STYLED_LAYER_ID, 'visibility') === 'none'
-                            ) {
-                                vis = 'none';
-                            }
-                        } catch (eVis) {}
-                        map.addLayer({
-                            id: ROAD_CLOSURE_ICON_LAYER_ID,
-                            type: 'symbol',
-                            source: SOURCE_ID,
-                            'source-layer': SOURCE_LAYER,
-                            layout: {
-                                'icon-image': CLOSURE_ICON_IMAGE_ID,
-                                'icon-size': 0.22,
-                                'symbol-placement': 'line',
-                                'symbol-spacing': 96,
-                                'icon-rotation-alignment': 'map',
-                                'icon-pitch-alignment': 'map',
-                                'icon-allow-overlap': true,
-                                'icon-ignore-placement': true,
-                                visibility: vis,
-                            },
-                            paint: {
-                                'icon-opacity': ['case', isClosedExpr, 1, 0],
-                            },
-                        });
-                        try {
-                            reapplyRiyadhRoadLayerPaintStates();
-                        } catch (eRe) {}
+                    } catch (eVis) {}
+                    map.addLayer({
+                        id: ROAD_CLOSURE_ICON_LAYER_ID,
+                        type: 'symbol',
+                        source: SOURCE_ID,
+                        'source-layer': SOURCE_LAYER,
+                        layout: {
+                            'icon-image': CLOSURE_ICON_IMAGE_ID,
+                            'icon-size': 0.22,
+                            'symbol-placement': 'line',
+                            'symbol-spacing': 96,
+                            'icon-rotation-alignment': 'map',
+                            'icon-pitch-alignment': 'map',
+                            'icon-allow-overlap': true,
+                            'icon-ignore-placement': true,
+                            visibility: vis,
+                        },
+                        paint: {
+                            'icon-opacity': ['case', isClosedExpr, 1, 0],
+                        },
                     });
+                    try {
+                        reapplyRiyadhRoadLayerPaintStates();
+                    } catch (eRe) {}
+                });
             }
 
             window.__riyadhRoadDbFclassById = window.__riyadhRoadDbFclassById || {};
@@ -669,19 +665,17 @@ map.on('load', () => {
                 } catch (eClr) {}
             };
 
-            function normalizeRiyadhDbClosureForTiles(raw) {
-                if (raw === 1 || raw === '1' || raw === true) {
-                    return 1;
-                }
-                return 0;
-            }
-
             window.applyRiyadhRoadDbClosureFromDatabase = function(roadId, closureRaw) {
                 const idNum = roadId != null ? parseInt(String(roadId), 10) : NaN;
                 if (Number.isNaN(idNum)) {
                     return;
                 }
-                const v = normalizeRiyadhDbClosureForTiles(closureRaw);
+                const v =
+                    window.RoadClosure && typeof window.RoadClosure.toTileValue === 'function'
+                        ? window.RoadClosure.toTileValue(closureRaw)
+                        : closureRaw === 1 || closureRaw === '1' || closureRaw === true
+                          ? 1
+                          : 0;
                 window.__riyadhRoadDbClosureById[String(idNum)] = v;
                 try {
                     if (!map.getSource(SOURCE_ID)) {
@@ -1489,18 +1483,8 @@ map.on('load', () => {
                 const englishText = buildRiyadhLabelFieldExpression(cfg.english.field);
                 // Fall back to OSM `name` when name_ar is empty (common in dump).
                 const arabicText = buildRiyadhLabelFieldExpression(cfg.arabic.field, ['name']);
-                const namedFilter = function (field, fallbackFields) {
-                    const coalesce = ['coalesce', ['get', field]];
-                    if (fallbackFields && fallbackFields.length) {
-                        fallbackFields.forEach(function(f) {
-                            coalesce.push(['get', f]);
-                        });
-                    }
-                    coalesce.push('');
-                    return ['!=', ['to-string', coalesce], ''];
-                };
-                const enFilter = namedFilter(cfg.english.field);
-                const arFilter = namedFilter(cfg.arabic.field, ['name']);
+                const enFilter = buildRiyadhLabelNamedFilter(cfg.english.field);
+                const arFilter = buildRiyadhLabelNamedFilter(cfg.arabic.field, ['name']);
 
                 const commonLayout = {
                     'symbol-placement': cfg.placement === 'line' ? 'line' : 'line-center',

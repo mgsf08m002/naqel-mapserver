@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="{{ ui_language }}" dir="{{ ui_dir }}" class="h-full">
 <head>
     {% include 'auth/includes/geotrak_favicon.html' %}
     <meta charset="UTF-8">
@@ -11,67 +11,65 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body class="bg-white min-h-screen font-sans flex flex-col h-screen overflow-hidden" data-user-role="editor">
-    <!-- Header -->
-    <header class="bg-white/95 backdrop-blur-sm border-b border-gray-200/50 sticky top-0 z-20 shadow-sm flex-shrink-0">
-        <div class="flex items-center justify-between gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-3 max-w-[1920px] mx-auto">
-            <!-- Left Section: Edit Button -->
-            <div class="flex items-center flex-1 justify-start min-w-0">
+    <div class="app-chrome">
+        <header class="app-header">
+        <div class="app-header__bar">
+            <div class="app-header__slot app-header__slot--start">
                 {% if user.is_authenticated %}
                     {% if user.is_superuser or user_profile.role == 'manager' or user_profile.role == 'editor' %}
                         {% if request.resolver_match.url_name == 'map' %}
-                        <button 
-                            id="editButton" 
-                            class="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-geotrak border border-geotrak rounded-full bg-white hover:bg-gray-100 active:bg-gray-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white focus:outline-none focus:ring-2 focus:ring-geotrak focus:ring-offset-2 shadow-sm"
+                        <button
+                            id="editButton"
+                            type="button"
+                            class="app-header-btn app-header-btn--outline"
                             disabled
                         >
-                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <svg class="app-header-btn__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                             </svg>
-                            <span class="hidden sm:inline">Edit</span>
+                            <span class="hidden sm:inline">{{ ui.edit }}</span>
                         </button>
                         {% endif %}
                     {% endif %}
                 {% endif %}
             </div>
-            
-            <!-- Center Section: Logo -->
-            <div class="flex items-center flex-shrink-0 px-1">
-                <a href="{% url 'editor:map' %}" class="inline-flex items-center transition-transform duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-200 focus:ring-offset-2 rounded-lg p-1">
-                    {% include 'auth/includes/geotrak_header_logo.html' %}
+
+            <div class="app-header__slot app-header__slot--center">
+                <a href="{% url 'editor:map' %}" class="app-header__logo">
+                    {% include 'auth/includes/geotrak_logo.html' %}
                 </a>
             </div>
-            
-            <!-- Right Section: User Info -->
-            <div class="flex items-center flex-1 justify-end space-x-1 sm:space-x-2 min-w-0">
-                <!-- User Avatar & Dropdown -->
+
+            <div class="app-header__slot app-header__slot--end">
+                {% include 'auth/includes/language_switcher.html' %}
                 <div class="relative">
-                    <button id="userMenuBtn" class="flex items-center space-x-2 p-1.5 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-200">
-                        <div id="headerAvatar" class="w-8 h-8 rounded-full bg-geotrak text-white flex items-center justify-center font-medium text-sm flex-shrink-0 overflow-hidden">
+                    <button id="userMenuBtn" type="button" class="app-header-user">
+                        <div id="headerAvatar" class="w-8 h-8 rounded-lg bg-geotrak text-white flex items-center justify-center font-medium text-sm flex-shrink-0 overflow-hidden">
                             {% if user_profile.profile_image %}
-                            <img id="headerAvatarImage" src="{{ user_profile.profile_image.url }}" alt="Profile" class="w-full h-full object-cover">
+                            <img id="headerAvatarImage" src="{{ user_profile.profile_image.url }}" alt="{{ ui.profile }}" class="w-full h-full object-cover">
                             <span id="headerAvatarInitials" class="hidden">{{ user.first_name|first|default:user.username|first|upper }}</span>
                             {% else %}
-                            <img id="headerAvatarImage" src="" alt="Profile" class="hidden w-full h-full object-cover">
+                            <img id="headerAvatarImage" src="" alt="{{ ui.profile }}" class="hidden w-full h-full object-cover">
                             <span id="headerAvatarInitials">{{ user.first_name|first|default:user.username|first|upper }}</span>
                             {% endif %}
                         </div>
-                        <div class="hidden md:flex flex-col items-start mr-1">
-                            <span class="text-sm font-semibold text-geotrak leading-tight">{{ user.get_full_name|default:user.username }}</span>
-                            <span class="text-xs text-gray-400 leading-tight">{{ user.email }}</span>
+                        <div class="hidden md:flex flex-col items-start min-w-0 pe-0.5">
+                            <span class="text-sm font-semibold text-geotrak leading-tight truncate max-w-[10rem]">{{ user.get_full_name|default:user.username }}</span>
+                            <span class="text-xs text-gray-400 leading-tight truncate max-w-[10rem]">{{ user.email }}</span>
                         </div>
-                        <svg id="userMenuIcon" class="w-4 h-4 text-gray-500 hidden md:block transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg id="userMenuIcon" class="w-4 h-4 text-gray-500 hidden md:block transition-transform shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
-                    <div id="userMenu" class="hidden absolute right-0 mt-1.5 w-[min(calc(100vw-1.5rem),16rem)] sm:w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-1.5 z-50">
+                    <div id="userMenu" class="hidden absolute end-0 mt-1.5 w-[min(calc(100vw-1.5rem),16rem)] sm:w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-1.5 z-50">
                         <div class="px-3 py-2.5 border-b border-gray-100 bg-gray-50">
-                            <div class="flex items-center space-x-2.5">
-                                <div id="dropdownAvatar" class="w-8 h-8 rounded-full bg-geotrak text-white flex items-center justify-center font-medium text-xs flex-shrink-0 overflow-hidden">
+                            <div class="flex items-center gap-2.5">
+                                <div id="dropdownAvatar" class="w-8 h-8 rounded-lg bg-geotrak text-white flex items-center justify-center font-medium text-xs flex-shrink-0 overflow-hidden">
                                     {% if user_profile.profile_image %}
-                                    <img id="dropdownAvatarImage" src="{{ user_profile.profile_image.url }}" alt="Profile" class="w-full h-full object-cover">
+                                    <img id="dropdownAvatarImage" src="{{ user_profile.profile_image.url }}" alt="{{ ui.profile }}" class="w-full h-full object-cover">
                                     <span id="dropdownAvatarInitials" class="hidden">{{ user.first_name|first|default:user.username|first|upper }}</span>
                                     {% else %}
-                                    <img id="dropdownAvatarImage" src="" alt="Profile" class="hidden w-full h-full object-cover">
+                                    <img id="dropdownAvatarImage" src="" alt="{{ ui.profile }}" class="hidden w-full h-full object-cover">
                                     <span id="dropdownAvatarInitials">{{ user.first_name|first|default:user.username|first|upper }}</span>
                                     {% endif %}
                                 </div>
@@ -82,42 +80,42 @@
                             </div>
                         </div>
                         <!-- Navigation Items -->
-                        <a href="{% url 'editor:map' %}" id="menu-map" class="menu-item w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2.5">
+                        <a href="{% url 'editor:map' %}" id="menu-map" class="menu-item w-full text-start px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2.5">
                             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
                             </svg>
-                            <span class="flex-1">Map</span>
+                            <span class="flex-1">{{ ui.map }}</span>
                         </a>
                         {% if user_profile.can_access_account_information %}
-                        <a href="{% url 'editor:account_information' %}" id="menu-account-info" class="menu-item w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2.5">
+                        <a href="{% url 'editor:account_information' %}" id="menu-account-info" class="menu-item w-full text-start px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2.5">
                             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                             </svg>
-                            <span class="flex-1">Account Information</span>
+                            <span class="flex-1">{{ ui.account_information }}</span>
                         </a>
                         {% endif %}
                         {% if user_profile.can_access_security %}
-                        <a href="{% url 'editor:security' %}" id="menu-security" class="menu-item w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2.5">
+                        <a href="{% url 'editor:security' %}" id="menu-security" class="menu-item w-full text-start px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2.5">
                             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                             </svg>
-                            <span class="flex-1">Security</span>
+                            <span class="flex-1">{{ ui.security }}</span>
                         </a>
                         {% endif %}
                         {% if user.is_superuser or user_profile.can_access_my_edits %}
-                        <a href="{% url 'editor:my_edits' %}" id="menu-my-edits" class="menu-item w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2.5">
+                        <a href="{% url 'editor:my_edits' %}" id="menu-my-edits" class="menu-item w-full text-start px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2.5">
                             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
                             </svg>
-                            <span class="flex-1">My Edits</span>
+                            <span class="flex-1">{{ ui.my_edits }}</span>
                         </a>
                         {% endif %}
                         {% if user_profile.can_access_layer_uploader %}
-                        <a href="{% url 'upload' %}" id="menu-layer-uploader" class="menu-item w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2.5">
+                        <a href="{% url 'upload' %}" id="menu-layer-uploader" class="menu-item w-full text-start px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2.5">
                             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
                             </svg>
-                            <span class="flex-1">Layer Uploader</span>
+                            <span class="flex-1">{{ ui.layer_uploader }}</span>
                         </a>
                         {% endif %}
                         {% if user_profile.can_access_account_information or user_profile.can_access_security or user_profile.can_access_layer_uploader or user_profile.can_access_my_edits %}
@@ -125,19 +123,20 @@
                         {% endif %}
                         <form method="post" action="{% url 'auth:logout' %}">
                             {% csrf_token %}
-                            <button type="submit" class="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2.5">
+                            <button type="submit" class="w-full text-start px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2.5">
                                 <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                                 </svg>
-                                <span class="flex-1">Logout</span>
+                                <span class="flex-1">{{ ui.logout }}</span>
                             </button>
                         </form>
                     </div>
                 </div>
             </div>
         </div>
-    </header>
-    
+        </header>
+    </div>
+
     <!-- Main Content -->
     <main class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 {% block main_class %}{% endblock %}">
         {% block content_wrapper %}
@@ -146,7 +145,7 @@
         </div>
         {% endblock %}
     </main>
-    
+
     {% include 'notifications/includes/toast_stack.html' %}
 
     <style>
@@ -159,9 +158,10 @@
             background-color: #e5e7eb !important;
         }
     </style>
-    
+
     <script src="{% static 'notifications/js/notifications.js' %}"></script>
     {% include 'notifications/includes/django_messages_script.html' %}
+    {% include 'auth/includes/ui_i18n_script.html' %}
     <script src="{% static 'editor/js/header.js' %}"></script>
     {% block extra_js %}{% endblock %}
     {% if request.resolver_match.url_name == 'map' %}

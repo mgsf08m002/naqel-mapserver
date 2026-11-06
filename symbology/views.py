@@ -3,7 +3,7 @@ from django.views.decorators.http import require_GET
 
 from mapping.riyadh_fclass import merged_riyadh_fclass_payload_for_catalog
 
-from .catalog_service import get_catalog
+from .feature_catalog import get_catalog
 from .labeling_config import get_road_labeling_config
 
 
@@ -23,4 +23,3 @@ def symbology_catalog(request):
     response["Access-Control-Allow-Origin"] = "*"
     response["Cache-Control"] = "no-store, max-age=0"
     return response
-

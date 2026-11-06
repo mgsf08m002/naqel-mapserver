@@ -1,3 +1,4 @@
+from config.api_errors import json_api_error
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_http_methods
@@ -35,6 +36,15 @@ from .edit_list_query import (
     parse_review_history_scope,
 )
 from .presentation import has_my_edits_access, user_edits_apply_immediately, user_is_manager
+from .pending_road_locks import (
+    PENDING_NEW_ROAD_LOCK_MESSAGE,
+    PENDING_ROAD_DELETE_LOCK_MESSAGE,
+    PENDING_ROAD_LOCK_MESSAGE,
+    find_pending_edit_for_riyadh_road,
+    find_pending_new_road_same_path,
+    pending_edit_blocks_reviewable_change,
+    serialize_pending_road_locks,
+)
 from .approval_categories import (
     EDIT_TYPE_DELETE,
     create_pending_road_edit_request,
@@ -81,7 +91,7 @@ RIYADH_REMOTE_FIELD_KEYS = frozenset(
     }
 )
 # save_line_edit_request: sidebar must not use the generic default "Line" placeholder.
-FEATURE_TYPE_REQUIRED_FOR_SAVE_MSG = "Select a feature type for your road"
+FEATURE_TYPE_REQUIRED_FOR_SAVE_MSG = "Pick a road type"
 ARABIC_CHAR_PATTERN = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
 LATIN_CHAR_PATTERN = re.compile(r"[A-Za-z]")
 
@@ -344,10 +354,12 @@ def riyadh_road_search(request):
                 }
             )
     except Exception as exc:
-        logger.warning("Riyadh road search failed: %s", exc)
-        return JsonResponse(
-            {"success": False, "message": "Search is temporarily unavailable.", "results": []},
+        return json_api_error(
+            request,
+            exc=exc,
             status=500,
+            message_key="toast_search_unavailable",
+            extra={"results": []},
         )
 
     return JsonResponse({"success": True, "results": results})
@@ -750,12 +762,11 @@ def save_line_edit_request(request):
                 closure_tiles_version = publish_riyadh_tiles_version()
             except Exception as e:
                 logger.warning("Immediate road closure update failed: %s", e)
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "message": f"Could not update road closure on the network: {str(e)}",
-                    },
+                return json_api_error(
+                    request,
+                    exc=e,
                     status=500,
+                    message_key="toast_couldnt_save",
                 )
 
         if is_riyadh_road and road:
@@ -779,6 +790,33 @@ def save_line_edit_request(request):
             "is_riyadh_road": is_riyadh_road,
             "riyadh_road_id": riyadh_road_id_int,
         }
+
+        # One pending review per road. Closure-only updates stay allowed.
+        if is_riyadh_road and riyadh_road_id_int is not None and road is not None:
+            would_need_review = _riyadh_needs_manager_review(
+                fields_data,
+                tags_data,
+                relations_data,
+                road,
+                geometry_changed,
+                closure_changed,
+            )
+            blocking = pending_edit_blocks_reviewable_change(
+                riyadh_road_id=riyadh_road_id_int,
+                road=road,
+                geometry_changed=bool(geometry_changed),
+                needs_manager_review=bool(would_need_review),
+            )
+            if blocking:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": PENDING_ROAD_LOCK_MESSAGE,
+                        "pending_locked": True,
+                        "pending_request_id": blocking.id,
+                    },
+                    status=409,
+                )
 
         if applies_immediately:
             edit_request = create_pending_road_edit_request(
@@ -807,19 +845,18 @@ def save_line_edit_request(request):
                     edit_request.delete()
                 except Exception:
                     pass
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "message": f"Failed to apply approved edit to remote network: {str(e)}",
-                    },
+                return json_api_error(
+                    request,
+                    exc=e,
                     status=500,
+                    message_key="toast_couldnt_save",
                 )
 
             response_geometry_changed = bool(geometry_changed) or not is_riyadh_road
             return JsonResponse(
                 {
                     "success": True,
-                    "message": "Your edit was applied to the live road network.",
+                    "message": "Changes live",
                     "request_id": created_request_id,
                     "auto_approved": True,
                     "pending_submitted": False,
@@ -836,14 +873,27 @@ def save_line_edit_request(request):
             )
 
         if not is_riyadh_road:
+            # Editors only reach here; managers/admins already returned above.
+            conflicting = find_pending_new_road_same_path(normalized_geometry)
+            if conflicting is not None:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": PENDING_NEW_ROAD_LOCK_MESSAGE,
+                        "pending_request_id": conflicting.id,
+                        "pending_new_road_locked": True,
+                    },
+                    status=409,
+                )
             edit_request = create_pending_road_edit_request(
                 road=None, **edit_request_create_kwargs
             )
             return JsonResponse(
                 {
                     "success": True,
-                    "message": "Your road edit has been submitted for manager review.",
+                    "message": "Sent for review",
                     "request_id": edit_request.id,
+                    "request_category": edit_request.request_category or "new_road",
                     "auto_approved": False,
                     "pending_submitted": True,
                     "closure_applied": False,
@@ -875,7 +925,7 @@ def save_line_edit_request(request):
             return JsonResponse(
                 {
                     "success": True,
-                    "message": "Road closure and attributes are up to date. Nothing else requires review.",
+                    "message": "Saved",
                     "auto_approved": False,
                     "pending_submitted": False,
                     "closure_applied": bool(closure_changed),
@@ -888,15 +938,12 @@ def save_line_edit_request(request):
             road=road, **edit_request_create_kwargs
         )
 
-        pending_message = "Your edit has been submitted for manager review."
-        if closure_changed:
-            pending_message += " Road closure is already live if you changed it."
-
         return JsonResponse(
             {
                 "success": True,
-                "message": pending_message,
+                "message": "Sent for review",
                 "request_id": edit_request.id,
+                "request_category": edit_request.request_category or "road_attribute_edit",
                 "auto_approved": False,
                 "pending_submitted": True,
                 "closure_applied": bool(closure_changed),
@@ -906,20 +953,18 @@ def save_line_edit_request(request):
         )
 
     except json.JSONDecodeError:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": "Invalid JSON data",
-            },
+        return json_api_error(
+            request,
             status=400,
+            message_key="invalid_server_response",
+            log=False,
         )
     except Exception as e:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": f"Error saving edit request: {str(e)}",
-            },
+        return json_api_error(
+            request,
+            exc=e,
             status=500,
+            message_key="toast_couldnt_save",
         )
 
 
@@ -1320,6 +1365,18 @@ def create_delete_request(request):
                 status=404,
             )
 
+        blocking = find_pending_edit_for_riyadh_road(target_gid_int, road=road)
+        if blocking:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": PENDING_ROAD_DELETE_LOCK_MESSAGE,
+                    "pending_locked": True,
+                    "pending_request_id": blocking.id,
+                },
+                status=409,
+            )
+
         geometry = _get_riyadh_road_geometry_wgs84(getattr(road, "gid", target_gid_int))
         feature_label = feature_label_from_riyadh_fclass(getattr(road, "fclass", None))
         current_feature_label = feature_label
@@ -1371,22 +1428,22 @@ def create_delete_request(request):
             delete_request.approve(request.user)
             auto_approved = True
         except Exception as e:
-            return JsonResponse(
-                {
-                    "success": False,
-                    "message": f"Failed to apply delete to remote network: {str(e)}",
-                },
+            return json_api_error(
+                request,
+                exc=e,
                 status=500,
+                message_key="toast_couldnt_delete",
             )
 
     payload = {
         "success": True,
         "message": (
-            "Delete request submitted."
+            "Delete sent for review"
             if not auto_approved
-            else "Delete request approved and applied."
+            else "Road deleted"
         ),
         "request_id": delete_request.id,
+        "request_category": delete_request.request_category or "delete_road",
         "auto_approved": auto_approved,
         "pending_submitted": not auto_approved,
     }
@@ -1427,12 +1484,12 @@ def list_my_edit_requests(request):
             }
         )
     except Exception as e:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": f"Error fetching edit history: {str(e)}",
-            },
+        return json_api_error(
+            request,
+            exc=e,
             status=500,
+            message_key="toast_couldnt_load",
+            extra={"requests": []},
         )
 
 
@@ -1476,16 +1533,38 @@ def list_manager_review_history(request):
             }
         )
     except Exception as e:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": f"Error fetching review history: {str(e)}",
-            },
+        return json_api_error(
+            request,
+            exc=e,
             status=500,
+            message_key="toast_couldnt_load",
+            extra={"requests": []},
         )
 
 
 @login_required
+@require_http_methods(["GET"])
+def list_pending_road_locks(request):
+    """
+    Pending-review road locks for map highlight + client edit gates.
+
+    Available to any authenticated map user (editor / manager / admin).
+    """
+    try:
+        payload = serialize_pending_road_locks()
+        return JsonResponse({"success": True, **payload})
+    except Exception as e:
+        return json_api_error(
+            request,
+            exc=e,
+            status=500,
+            message_key="toast_couldnt_load",
+            extra={"roads": [], "new_roads": []},
+        )
+
+
+@login_required
+@require_http_methods(["GET"])
 def list_pending_requests(request):
     """Return pending editor submissions for the manager approval queue."""
     if not user_is_manager(request.user):
@@ -1550,10 +1629,13 @@ def list_pending_requests(request):
         })
         
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Error fetching requests: {str(e)}'
-        }, status=500)
+        return json_api_error(
+            request,
+            exc=e,
+            status=500,
+            message_key="toast_couldnt_load",
+            extra={"requests": []},
+        )
 
 
 @login_required
@@ -1610,12 +1692,11 @@ def get_edit_request_details(request, request_id):
         )
 
     except Exception as e:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": f"Error fetching request details: {str(e)}",
-            },
+        return json_api_error(
+            request,
+            exc=e,
             status=500,
+            message_key="toast_couldnt_load_request",
         )
 
 
@@ -1645,7 +1726,7 @@ def approve_edit_request(request, request_id):
             return JsonResponse(
                 {
                     "success": True,
-                    "message": "Layer upload approved and published to the road network",
+                    "message": "Layer published",
                     **live_mutation_flags(geometry_changed=True),
                     **network_mutation_payload(
                         remote_road_id=remote_road_id,
@@ -1695,9 +1776,9 @@ def approve_edit_request(request, request_id):
         )
         edit_request.approve(request.user)
 
-        message = "Road edit approved successfully"
+        message = "Approved"
         if deleted_road_id is not None:
-            message = "Delete request approved; road removed from the network"
+            message = "Road deleted"
 
         approve_geometry_changed = geometry_changed or (
             remote_road_id is not None
@@ -1721,12 +1802,11 @@ def approve_edit_request(request, request_id):
         )
 
     except Exception as e:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": f"Error approving request: {str(e)}",
-            },
+        return json_api_error(
+            request,
+            exc=e,
             status=500,
+            message_key="toast_couldnt_approve",
         )
 
 
@@ -1749,21 +1829,23 @@ def reject_edit_request(request, request_id):
             edit_request.reject(request.user)
             return JsonResponse({
                 'success': True,
-                'message': 'Layer upload rejected',
+                'message': 'Layer rejected',
             })
 
         edit_request.reject(request.user)
 
         return JsonResponse({
             'success': True,
-            'message': 'Road edit rejected',
+            'message': 'Rejected',
         })
         
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Error rejecting request: {str(e)}'
-        }, status=500)
+        return json_api_error(
+            request,
+            exc=e,
+            status=500,
+            message_key="toast_couldnt_reject",
+        )
 
 
 @login_required
@@ -1891,10 +1973,9 @@ def get_riyadh_road_details(request, road_gid):  # URL segment; value is tile ne
 
         return JsonResponse({"success": True, "road": payload})
     except Exception as e:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": f"Error fetching Riyadh road details: {str(e)}",
-            },
+        return json_api_error(
+            request,
+            exc=e,
             status=500,
+            message_key="toast_couldnt_open_road",
         )

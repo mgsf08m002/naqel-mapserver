@@ -13,15 +13,23 @@
     var drawListenersBound = false;
     var initRetryCount = 0;
 
+    // Active linestring draw: per-vertex undo, collapsed to one step on finish.
+    var drawSessionBaseState = null;
+    var drawSessionUndoCount = 0;
+    var resumeLinestringAfterApply = false;
+
     function getDrawInstance() {
-        if (typeof drawInstance !== 'undefined' && drawInstance) {
-            return drawInstance;
-        }
         if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getDrawInstance === 'function') {
-            return window.lineDrawingHandler.getDrawInstance();
+            var fromHandler = window.lineDrawingHandler.getDrawInstance();
+            if (fromHandler) {
+                return fromHandler;
+            }
         }
         if (typeof draw !== 'undefined' && draw && typeof draw.getTerraDrawInstance === 'function') {
             return draw.getTerraDrawInstance();
+        }
+        if (typeof drawInstance !== 'undefined' && drawInstance) {
+            return drawInstance;
         }
         return null;
     }
@@ -30,30 +38,325 @@
         return typeof window.isMapEditModeActive === 'function' && window.isMapEditModeActive();
     }
 
-    function filterDrawableFeatures(snapshot) {
-        if (!Array.isArray(snapshot)) {
-            return [];
+    function getDrawMode() {
+        var instance = getDrawInstance();
+        if (!instance || typeof instance.getMode !== 'function') {
+            return null;
         }
-        return snapshot.filter(function(feature) {
-            var props = feature && feature.properties;
-            if (!props) {
-                return true;
-            }
-            return !props.midPoint && !props.selectionPoint;
-        });
+        try {
+            return instance.getMode();
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function isLinestringDrawing() {
+        return getDrawMode() === 'linestring';
     }
 
     function cloneState(state) {
         return JSON.parse(JSON.stringify(state));
     }
 
+    function samePosition(a, b) {
+        return !!a && !!b && a[0] === b[0] && a[1] === b[1];
+    }
+
+    function getLinestringMode(drawApi) {
+        if (!drawApi) {
+            return null;
+        }
+        if (drawApi._mode && drawApi._mode.mode === 'linestring') {
+            return drawApi._mode;
+        }
+        if (drawApi._modes && drawApi._modes.linestring) {
+            return drawApi._modes.linestring;
+        }
+        return null;
+    }
+
+    function normalizeCommittedLineCoords(coords) {
+        if (!Array.isArray(coords) || coords.length === 0) {
+            return null;
+        }
+        var next = cloneState(coords);
+        // Terra Draw createLine seeds the first click as [p, p].
+        if (next.length === 1) {
+            next = [next[0], next[0]];
+        }
+        return next;
+    }
+
+    function isFirstClickCommittedCoords(coords) {
+        return !!coords && coords.length === 2 && samePosition(coords[0], coords[1]);
+    }
+
+    function listLineStringFeatures(features) {
+        if (!Array.isArray(features)) {
+            return [];
+        }
+        return features.filter(function(feature) {
+            return !!(feature && feature.geometry && feature.geometry.type === 'LineString');
+        });
+    }
+
+    function findResumeLineFeature(features, currentId) {
+        var lines = listLineStringFeatures(features);
+
+        // Live draw: only the current feature may be resumed.
+        if (currentId != null) {
+            for (var i = 0; i < lines.length; i++) {
+                if (lines[i].id === currentId) {
+                    return lines[i];
+                }
+            }
+            return null;
+        }
+
+        // After cleanUp (redo of first vertex): restore the line missing from the store.
+        var existingIds = {};
+        var drawApi = getDrawInstance();
+        if (drawApi && typeof drawApi.getSnapshot === 'function') {
+            try {
+                listLineStringFeatures(drawApi.getSnapshot()).forEach(function(feature) {
+                    if (feature.id != null) {
+                        existingIds[String(feature.id)] = true;
+                    }
+                });
+            } catch (eSnap) {}
+        }
+
+        var missing = null;
+        lines.forEach(function(feature) {
+            if (feature.id != null && !existingIds[String(feature.id)]) {
+                missing = feature;
+            }
+        });
+        return missing || (lines.length ? lines[lines.length - 1] : null);
+    }
+
+    function deleteModePoint(mode, idKey) {
+        if (!mode || mode[idKey] == null) {
+            return;
+        }
+        if (mode.store && typeof mode.store.delete === 'function') {
+            try {
+                mode.store.delete([mode[idKey]]);
+            } catch (eDelete) {}
+        }
+        mode[idKey] = undefined;
+    }
+
+    function clearLinestringGuidancePoints(mode) {
+        deleteModePoint(mode, 'snappedPointId');
+        deleteModePoint(mode, 'closingPointId');
+    }
+
+    function scrubOrphanLinestringPoints(drawApi, mode) {
+        if (!drawApi || typeof drawApi.getSnapshot !== 'function' || typeof drawApi.removeFeatures !== 'function') {
+            return;
+        }
+
+        var keep = {};
+        if (mode) {
+            if (mode.currentId != null) {
+                keep[String(mode.currentId)] = true;
+            }
+            if (mode.closingPointId != null) {
+                keep[String(mode.closingPointId)] = true;
+            }
+            if (mode.snappedPointId != null) {
+                keep[String(mode.snappedPointId)] = true;
+            }
+        }
+
+        var orphans = [];
+        try {
+            drawApi.getSnapshot().forEach(function(feature) {
+                if (!feature || !feature.geometry || feature.geometry.type !== 'Point' || feature.id == null) {
+                    return;
+                }
+                if (keep[String(feature.id)]) {
+                    return;
+                }
+                var props = feature.properties || {};
+                if (props.mode && props.mode !== 'linestring') {
+                    return;
+                }
+                orphans.push(feature.id);
+            });
+        } catch (eSnap) {
+            return;
+        }
+
+        if (orphans.length) {
+            try {
+                drawApi.removeFeatures(orphans);
+            } catch (eRemove) {}
+        }
+    }
+
+    function placeClosingPointAtTip(mode, tip) {
+        if (!mode || !tip || !mode.store || typeof mode.store.create !== 'function') {
+            return;
+        }
+        deleteModePoint(mode, 'closingPointId');
+        try {
+            var created = mode.store.create([
+                {
+                    geometry: { type: 'Point', coordinates: cloneState(tip) },
+                    properties: { mode: mode.mode || 'linestring' }
+                }
+            ]);
+            mode.closingPointId = Array.isArray(created) ? created[0] : created;
+        } catch (eCreate) {
+            mode.closingPointId = undefined;
+        }
+        if (typeof mode.setCursor === 'function' && mode.cursors && mode.cursors.close) {
+            try {
+                mode.setCursor(mode.cursors.close);
+            } catch (eCursor) {}
+        }
+    }
+
+    function syncLinestringModeCounters(mode, coords) {
+        if (!mode) {
+            return;
+        }
+        if (isFirstClickCommittedCoords(coords)) {
+            mode.currentCoordinate = 1;
+        } else {
+            mode.currentCoordinate = Math.max(2, coords.length - 1);
+        }
+        if (typeof mode.setDrawing === 'function' && mode.state !== 'drawing') {
+            try {
+                mode.setDrawing();
+            } catch (eDrawState) {}
+        }
+    }
+
+    function setLinestringCommittedGeometry(mode, coords) {
+        if (!mode || !coords) {
+            return false;
+        }
+
+        // Drop snap / closing markers first so undo never leaves a ghost point.
+        clearLinestringGuidancePoints(mode);
+
+        var firstClick = isFirstClickCommittedCoords(coords);
+        var tip = coords[coords.length - 1];
+
+        if (typeof mode.updateGeometries === 'function') {
+            mode.updateGeometries(coords, undefined, 'commit');
+        } else if (mode.currentId && mode.store && typeof mode.store.updateGeometry === 'function') {
+            mode.store.updateGeometry([
+                {
+                    id: mode.currentId,
+                    geometry: { type: 'LineString', coordinates: coords }
+                }
+            ]);
+            mode.lastCommitedCoordinates = cloneState(coords);
+        } else {
+            return false;
+        }
+
+        syncLinestringModeCounters(mode, coords);
+        if (!firstClick) {
+            placeClosingPointAtTip(mode, tip);
+        }
+        return true;
+    }
+
+    /**
+     * Keep Terra Draw's in-progress linestring session alive across undo/redo.
+     * clear()+addFeatures()+setMode('linestring') finishes the feature and breaks continue-draw.
+     */
+    function applyInProgressLinestringState(drawApi, targetFeatures) {
+        var mode = getLinestringMode(drawApi);
+        if (!mode) {
+            return false;
+        }
+
+        var resumeFeature = findResumeLineFeature(targetFeatures, mode.currentId);
+        var resumeCoords = resumeFeature
+            ? normalizeCommittedLineCoords(
+                  resumeFeature.geometry && resumeFeature.geometry.coordinates
+              )
+            : null;
+
+        if (!resumeCoords) {
+            if (mode.currentId != null && typeof mode.cleanUp === 'function') {
+                mode.cleanUp();
+            } else {
+                clearLinestringGuidancePoints(mode);
+            }
+            scrubOrphanLinestringPoints(drawApi, mode);
+            return true;
+        }
+
+        var applied = false;
+        if (mode.currentId != null) {
+            applied = setLinestringCommittedGeometry(mode, resumeCoords);
+        } else if (mode.store && typeof mode.store.create === 'function') {
+            try {
+                var created = mode.store.create([
+                    {
+                        geometry: { type: 'LineString', coordinates: resumeCoords },
+                        properties: { mode: 'linestring' }
+                    }
+                ]);
+                mode.currentId = Array.isArray(created) ? created[0] : created;
+                mode.lastCommitedCoordinates = cloneState(resumeCoords);
+                syncLinestringModeCounters(mode, resumeCoords);
+                if (!isFirstClickCommittedCoords(resumeCoords)) {
+                    placeClosingPointAtTip(mode, resumeCoords[resumeCoords.length - 1]);
+                }
+                applied = mode.currentId != null;
+            } catch (eCreate) {
+                return false;
+            }
+        }
+
+        if (applied) {
+            scrubOrphanLinestringPoints(drawApi, mode);
+        }
+        return applied;
+    }
+
     function captureTerraDrawState() {
-        var draw = getDrawInstance();
-        if (!draw || typeof draw.getSnapshot !== 'function') {
+        var drawApi = getDrawInstance();
+        if (!drawApi || typeof drawApi.getSnapshot !== 'function') {
             return [];
         }
         try {
-            return cloneState(filterDrawableFeatures(draw.getSnapshot()));
+            var features = listLineStringFeatures(drawApi.getSnapshot());
+            var lineMode = getLinestringMode(drawApi);
+
+            // Persist committed vertices only (ignore live rubber-band cursor point).
+            if (
+                lineMode &&
+                lineMode.currentId != null &&
+                Array.isArray(lineMode.lastCommitedCoordinates) &&
+                lineMode.lastCommitedCoordinates.length > 0
+            ) {
+                var committed = cloneState(lineMode.lastCommitedCoordinates);
+                features = features.map(function(feature) {
+                    if (!feature || feature.id !== lineMode.currentId) {
+                        return feature;
+                    }
+                    return {
+                        type: feature.type || 'Feature',
+                        id: feature.id,
+                        geometry: {
+                            type: 'LineString',
+                            coordinates: committed
+                        },
+                        properties: feature.properties || { mode: 'linestring' }
+                    };
+                });
+            }
+
+            return cloneState(features);
         } catch (e) {
             return [];
         }
@@ -80,36 +383,47 @@
         return JSON.stringify(a) === JSON.stringify(b);
     }
 
+    function countLineVertices(state) {
+        var features = state && Array.isArray(state.terradraw) ? state.terradraw : [];
+        var total = 0;
+        features.forEach(function(feature) {
+            if (
+                feature &&
+                feature.geometry &&
+                feature.geometry.type === 'LineString' &&
+                Array.isArray(feature.geometry.coordinates)
+            ) {
+                total += feature.geometry.coordinates.length;
+            }
+        });
+        return total;
+    }
+
     function applyTerraDrawState(features) {
-        var draw = getDrawInstance();
-        if (!draw) {
+        var drawApi = getDrawInstance();
+        if (!drawApi) {
             return;
         }
 
         var target = Array.isArray(features) ? cloneState(features) : [];
+        var resumeDraw = resumeLinestringAfterApply;
 
         try {
-            var mode = typeof draw.getMode === 'function' ? draw.getMode() : null;
-            if (mode && mode !== 'static' && mode !== 'select' && typeof draw.setMode === 'function') {
-                draw.setMode('select');
+            if (resumeDraw && applyInProgressLinestringState(drawApi, target)) {
+                return;
             }
 
-            if (typeof draw.clear === 'function') {
-                draw.clear();
-            } else {
-                var current = filterDrawableFeatures(draw.getSnapshot());
-                current.forEach(function(feature) {
-                    if (!feature || feature.id == null) {
-                        return;
-                    }
-                    if (typeof draw.removeFeatures === 'function') {
-                        draw.removeFeatures([feature.id]);
-                    }
-                });
+            var modeName = typeof drawApi.getMode === 'function' ? drawApi.getMode() : null;
+            if (modeName && modeName !== 'static' && modeName !== 'select' && typeof drawApi.setMode === 'function') {
+                drawApi.setMode('select');
             }
 
-            if (target.length > 0 && typeof draw.addFeatures === 'function') {
-                draw.addFeatures(target);
+            if (typeof drawApi.clear === 'function') {
+                drawApi.clear();
+            }
+
+            if (target.length > 0 && typeof drawApi.addFeatures === 'function') {
+                drawApi.addFeatures(target);
             }
         } catch (e) {}
     }
@@ -135,6 +449,7 @@
             lastCommittedState = captureFullState();
         } finally {
             isApplying = false;
+            resumeLinestringAfterApply = false;
         }
     }
 
@@ -144,20 +459,64 @@
         }
     }
 
+    function pushUndoState(state) {
+        if (!state) {
+            return false;
+        }
+        if (undoStack.length > 0 && statesEqual(undoStack[undoStack.length - 1], state)) {
+            return false;
+        }
+        undoStack.push(cloneState(state));
+        trimStack(undoStack);
+        redoStack = [];
+        syncUndoRedoButtons();
+        return true;
+    }
+
     function recordBeforeEdit() {
         if (isApplying || !isEditModeActive()) {
             return;
         }
+        pushUndoState(captureFullState());
+    }
 
-        var current = captureFullState();
-        if (undoStack.length > 0 && statesEqual(undoStack[undoStack.length - 1], current)) {
+    function beginDrawSession() {
+        if (!isEditModeActive()) {
+            return;
+        }
+        flushChangeBurst();
+        drawSessionBaseState = captureFullState();
+        drawSessionUndoCount = 0;
+        lastCommittedState = cloneState(drawSessionBaseState);
+        syncUndoRedoButtons();
+    }
+
+    function collapseDrawSessionOnFinish() {
+        if (drawSessionBaseState == null && drawSessionUndoCount === 0) {
+            lastCommittedState = captureFullState();
+            syncUndoRedoButtons();
             return;
         }
 
-        undoStack.push(current);
-        trimStack(undoStack);
+        while (drawSessionUndoCount > 0 && undoStack.length > 0) {
+            undoStack.pop();
+            drawSessionUndoCount--;
+        }
+
+        if (drawSessionBaseState) {
+            pushUndoState(drawSessionBaseState);
+        }
+
+        drawSessionBaseState = null;
+        drawSessionUndoCount = 0;
+        lastCommittedState = captureFullState();
         redoStack = [];
         syncUndoRedoButtons();
+    }
+
+    function abandonDrawSession() {
+        drawSessionBaseState = null;
+        drawSessionUndoCount = 0;
     }
 
     function undo() {
@@ -165,9 +524,15 @@
             return;
         }
 
+        flushChangeBurst();
+        resumeLinestringAfterApply = isLinestringDrawing();
+
         redoStack.push(captureFullState());
         trimStack(redoStack);
         var previous = undoStack.pop();
+        if (drawSessionUndoCount > 0) {
+            drawSessionUndoCount--;
+        }
         applyFullState(previous);
         syncUndoRedoButtons();
     }
@@ -177,10 +542,15 @@
             return;
         }
 
+        flushChangeBurst();
+        resumeLinestringAfterApply = isLinestringDrawing();
+
         undoStack.push(captureFullState());
         trimStack(undoStack);
-        var next = redoStack.pop();
-        applyFullState(next);
+        if (drawSessionBaseState != null) {
+            drawSessionUndoCount++;
+        }
+        applyFullState(redoStack.pop());
         syncUndoRedoButtons();
     }
 
@@ -198,11 +568,9 @@
     }
 
     function syncUndoRedoButtons() {
-        var undoBtn = document.getElementById('undoBtn');
-        var redoBtn = document.getElementById('redoBtn');
         var editActive = isEditModeActive();
-        setButtonState(undoBtn, editActive && undoStack.length > 0);
-        setButtonState(redoBtn, editActive && redoStack.length > 0);
+        setButtonState(document.getElementById('undoBtn'), editActive && undoStack.length > 0);
+        setButtonState(document.getElementById('redoBtn'), editActive && redoStack.length > 0);
     }
 
     function clearHistory() {
@@ -210,6 +578,7 @@
         redoStack = [];
         lastCommittedState = null;
         changeBurstOpen = false;
+        abandonDrawSession();
         if (changeDebounceTimer) {
             clearTimeout(changeDebounceTimer);
             changeDebounceTimer = null;
@@ -219,6 +588,7 @@
 
     function onEditModeEntered() {
         lastCommittedState = captureFullState();
+        abandonDrawSession();
         syncUndoRedoButtons();
     }
 
@@ -226,18 +596,53 @@
         clearHistory();
     }
 
+    function flushChangeBurst() {
+        if (changeDebounceTimer) {
+            clearTimeout(changeDebounceTimer);
+            changeDebounceTimer = null;
+        }
+        if (changeBurstOpen) {
+            changeBurstOpen = false;
+            lastCommittedState = captureFullState();
+        }
+    }
+
+    function handleLinestringVertexChange() {
+        var current = captureFullState();
+        var prevCount = countLineVertices(lastCommittedState);
+        var currCount = countLineVertices(current);
+
+        // Rubber-band updates keep the same committed vertex count.
+        if (currCount <= prevCount) {
+            return;
+        }
+
+        if (drawSessionBaseState == null) {
+            beginDrawSession();
+            prevCount = countLineVertices(lastCommittedState);
+            if (currCount <= prevCount) {
+                return;
+            }
+        }
+
+        if (lastCommittedState && pushUndoState(lastCommittedState)) {
+            drawSessionUndoCount++;
+        }
+        lastCommittedState = current;
+    }
+
     function handleTerraDrawChange() {
         if (isApplying || !isEditModeActive()) {
             return;
         }
 
+        if (isLinestringDrawing()) {
+            handleLinestringVertexChange();
+            return;
+        }
+
         if (!changeBurstOpen) {
-            var preState = lastCommittedState || captureFullState();
-            if (undoStack.length === 0 || !statesEqual(undoStack[undoStack.length - 1], preState)) {
-                undoStack.push(cloneState(preState));
-                trimStack(undoStack);
-                redoStack = [];
-            }
+            pushUndoState(lastCommittedState || captureFullState());
             changeBurstOpen = true;
         }
 
@@ -252,23 +657,19 @@
         }, DEBOUNCE_MS);
     }
 
-    function bindDrawListeners(draw) {
-        if (!draw || drawListenersBound) {
+    function bindDrawListeners(drawApi) {
+        if (!drawApi || drawListenersBound || typeof drawApi.on !== 'function') {
             return;
         }
 
         drawListenersBound = true;
-
-        if (typeof draw.on === 'function') {
-            draw.on('change', handleTerraDrawChange);
-            draw.on('finish', function() {
-                if (isApplying || !isEditModeActive()) {
-                    return;
-                }
-                lastCommittedState = captureFullState();
-                syncUndoRedoButtons();
-            });
-        }
+        drawApi.on('change', handleTerraDrawChange);
+        drawApi.on('finish', function() {
+            if (isApplying || !isEditModeActive()) {
+                return;
+            }
+            collapseDrawSessionOnFinish();
+        });
     }
 
     function setupButtonListeners() {
@@ -309,8 +710,7 @@
             }
 
             var key = (event.key || '').toLowerCase();
-            var meta = event.ctrlKey || event.metaKey;
-            if (!meta || key !== 'z') {
+            if (!(event.ctrlKey || event.metaKey) || key !== 'z') {
                 return;
             }
 
@@ -331,9 +731,9 @@
         setupButtonListeners();
         setupKeyboardShortcuts();
 
-        var draw = getDrawInstance();
-        if (draw) {
-            bindDrawListeners(draw);
+        var drawApi = getDrawInstance();
+        if (drawApi) {
+            bindDrawListeners(drawApi);
             syncUndoRedoButtons();
             return;
         }
@@ -351,11 +751,8 @@
     }
 
     window.mapEditUndo = {
-        undo: undo,
-        redo: redo,
         recordBeforeEdit: recordBeforeEdit,
-        clearHistory: clearHistory,
-        syncButtons: syncUndoRedoButtons,
+        beginDrawSession: beginDrawSession,
         onEditModeEntered: onEditModeEntered,
         onEditModeExited: onEditModeExited
     };

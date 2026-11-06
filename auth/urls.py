@@ -10,6 +10,7 @@ urlpatterns = [
     path('forgot-password/', views.forgot_password_view, name='forgot_password'),
     path('password-setup/', views.password_setup_view, name='password_setup'),
     path('api/login/', views.login_api, name='login_api'),
+    path('api/login/check-email/', views.check_login_email_api, name='check_login_email_api'),
     path('api/onetime/', views.onetime_api, name='onetime_api'),
 ]
 

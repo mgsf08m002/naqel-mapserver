@@ -36,6 +36,8 @@
     /** GeoJSON overlay symbology core (closure draft / typed feature paint). */
     var OVERLAY_GRADIENT_LAYER_ID = 'selected-road-overlay-gradient';
     var OVERLAY_LINE_LAYER_ID = 'selected-road-overlay-line';
+    /** No-entry icons along draft/post-save closure GeoJSON overlay (tiles still have old state). */
+    var OVERLAY_CLOSURE_ICONS_LAYER_ID = 'selected-road-overlay-closure-icons';
 
     function normalizeDash(lineDasharray) {
         return lineDasharray && Array.isArray(lineDasharray) ? lineDasharray : [1, 0];
@@ -195,7 +197,6 @@
         RING_OPACITY: RING_OPACITY,
         OUTLINE_BLUR: OUTLINE_BLUR,
         RING_BLUR: RING_BLUR,
-        GEOJSON_CASING_WIDTH: GEOJSON_CASING_WIDTH,
         GEOJSON_CORE_WIDTH: GEOJSON_CORE_WIDTH,
         GEOJSON_CORE_OPACITY: GEOJSON_CORE_OPACITY,
         SELECTION_LINE_LAYOUT: SELECTION_LINE_LAYOUT,
@@ -206,6 +207,7 @@
         OVERLAY_RING_LAYER_ID: OVERLAY_RING_LAYER_ID,
         OVERLAY_GRADIENT_LAYER_ID: OVERLAY_GRADIENT_LAYER_ID,
         OVERLAY_LINE_LAYER_ID: OVERLAY_LINE_LAYER_ID,
+        OVERLAY_CLOSURE_ICONS_LAYER_ID: OVERLAY_CLOSURE_ICONS_LAYER_ID,
         riyadhTileOutlineWidthExpression: riyadhTileOutlineWidthExpression,
         riyadhTileRingWidthExpression: riyadhTileRingWidthExpression,
         casingWidthFromCore: casingWidthFromCore,

@@ -1,180 +1,225 @@
 /**
- * Login Page JavaScript
- * Handles form submission and Google sign-in functionality
+ * Login — email check first, then password sign-in.
  */
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const loginForm = document.getElementById('loginForm');
     const errorMessage = document.getElementById('errorMessage');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const passwordStep = document.getElementById('passwordStep');
+    const continueBtn = document.getElementById('loginContinueBtn');
+
+    let emailVerified = false;
+
+    function t(key) {
+        const table = window.UI_I18N || {};
+        return table[key] || key;
+    }
+
+    showQueryParamNotices();
+
+    function safeMsg(message, fallback) {
+        if (typeof window.safeUserMessage === 'function') {
+            return window.safeUserMessage(message, fallback || t('generic_error'));
+        }
+        return message || fallback || t('generic_error');
+    }
 
     function showNotification(message, type = 'info') {
+        var text = safeMsg(message, t('generic_error'));
         if (window.notify && typeof window.notify.tryShow === 'function') {
-            window.notify.tryShow(message, type, undefined, {
+            window.notify.tryShow(text, type, undefined, {
                 onUnavailable: function () {
-                    showError(message);
+                    showError(text);
                 },
             });
         } else {
-            showError(message);
+            showError(text);
         }
     }
 
-    /**
-     * Handle Enter key press to submit login form
-     * This ensures Enter key works consistently when focus is on email or password fields
-     */
-    function handleEnterKeyPress(e) {
-        // Only handle Enter key
-        if (e.key !== 'Enter') {
-            return;
-        }
-
-        // Only trigger if focus is on form elements
-        const activeElement = document.activeElement;
-        const isFormElement = loginForm && loginForm.contains(activeElement);
-        
-        if (isFormElement && loginForm) {
-            // Prevent default form submission to use our custom handler
-            e.preventDefault();
-            
-            // Trigger form submission by clicking submit button or calling submit
-            const submitBtn = loginForm.querySelector('button[type="submit"]');
-            if (submitBtn && !submitBtn.disabled) {
-                submitBtn.click();
-            }
-        }
+    function showError(message) {
+        if (!errorMessage) return;
+        errorMessage.textContent = safeMsg(message, t('generic_error'));
+        errorMessage.classList.add('is-visible');
     }
 
-    document.addEventListener('keydown', handleEnterKeyPress);
+    function clearError() {
+        if (!errorMessage) return;
+        errorMessage.textContent = '';
+        errorMessage.classList.remove('is-visible');
+    }
 
-    // Handle form submission
-    if (loginForm) {
-        loginForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            // Hide previous error messages
-            errorMessage.classList.add('hidden');
-            
-            // Get form data
-            const formData = new FormData(loginForm);
-            const email = formData.get('email');
-            const password = formData.get('password');
-            
-            // Basic validation
-            if (!email || !password) {
-                showNotification('Please enter both email and password', 'error');
+    function setBusy(btn, busy, busyLabel, idleLabel) {
+        if (!btn) return;
+        btn.disabled = !!busy;
+        btn.textContent = busy ? busyLabel : idleLabel;
+    }
+
+    function resetToEmailStep() {
+        emailVerified = false;
+        if (passwordStep) passwordStep.hidden = true;
+        if (passwordInput) {
+            passwordInput.value = '';
+            passwordInput.removeAttribute('required');
+        }
+        if (continueBtn) continueBtn.textContent = t('continue');
+        if (emailInput) emailInput.readOnly = false;
+        clearError();
+    }
+
+    function revealPasswordStep() {
+        emailVerified = true;
+        if (passwordStep) passwordStep.hidden = false;
+        if (passwordInput) {
+            passwordInput.setAttribute('required', 'required');
+            passwordInput.focus();
+        }
+        if (emailInput) emailInput.readOnly = true;
+        if (continueBtn) continueBtn.textContent = t('sign_in');
+    }
+
+    function getCsrfToken() {
+        const input = document.querySelector('[name=csrfmiddlewaretoken]');
+        return input ? input.value : '';
+    }
+
+    function showQueryParamNotices() {
+        function run() {
+            if (!window.notify) {
+                setTimeout(run, 50);
                 return;
             }
-            
-            // Disable submit button
-            const submitBtn = loginForm.querySelector('button[type="submit"]');
-            const originalText = submitBtn.textContent;
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Signing in...';
-            
-            try {
-                // Get CSRF token
-                const csrfTokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
-                if (!csrfTokenInput) {
-                    showNotification('CSRF token not found. Please refresh the page.', 'error');
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = originalText;
-                    return;
+
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('email_changed') === '1') {
+                window.notify.info(t('notice_email_changed'));
+            }
+            if (params.get('password_changed') === '1') {
+                window.notify.info(t('notice_password_changed'));
+            }
+            if (params.get('no_permission') === '1') {
+                const permissionType = params.get('permission_type');
+                let message = t('notice_no_permission');
+                if (permissionType === 'dashboard') {
+                    message = t('notice_no_permission_dashboard');
+                } else if (permissionType === 'account_information') {
+                    message = t('notice_no_permission_account');
+                } else if (permissionType === 'security') {
+                    message = t('notice_no_permission_security');
+                } else if (permissionType === 'layer_uploader') {
+                    message = t('notice_no_permission_uploader');
+                } else if (permissionType === 'my_edits') {
+                    message = t('notice_no_permission_edits');
                 }
-                const csrfToken = csrfTokenInput.value;
-                
-                // Send login request
-                const response = await fetch('/api/login/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    },
-                    body: JSON.stringify({
-                        email: email,
-                        password: password
-                    })
-                });
-                
-                // Parse response
-                let data;
-                try {
-                    data = await response.json();
-                } catch (parseError) {
-                    // If response is not JSON, show generic error
-                    showNotification('Invalid response from server. Please try again.', 'error');
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = originalText;
-                    return;
-                }
-                
-                if (data.success) {
-                    // Show success notification
-                    const successMessage = data.message || data.notification?.message || 'Login successful';
-                    showNotification(successMessage, 'success');
-                    
-                    // Redirect on success - use redirect_url from API if provided
-                    setTimeout(() => {
-                        window.location.href = data.redirect_url || '/';
-                    }, 500);
-                } else {
-                    // Show error notification
-                    // Prioritize notification object if available, then message, then default
-                    let errorMsg = 'Login failed. Please try again.';
-                    let notificationType = 'error';
-                    
-                    // Extract message from notification object or message field
-                    if (data.notification) {
-                        if (data.notification.message) {
-                            errorMsg = data.notification.message;
-                        }
-                        if (data.notification.type) {
-                            notificationType = data.notification.type;
-                        }
-                    }
-                    
-                    // Fallback to message field if notification object doesn't have message
-                    if (!data.notification || !data.notification.message) {
-                        if (data.message) {
-                            errorMsg = data.message;
-                        }
-                    }
-                    
-                    // Ensure error type for inactive accounts (403 status)
-                    if (response.status === 403) {
-                        notificationType = 'error';
-                    }
-                    
-                    showNotification(errorMsg, notificationType);
-                    
-                    // Re-enable submit button on error
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = originalText;
-                }
-            } catch (error) {
-                // Login error
-                
-                // Show generic error notification
-                showNotification('An error occurred. Please try again.', 'error');
-                
-                // Re-enable submit button on error
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
+                window.notify.error(message);
+            }
+            if (params.get('signed_out') === '1') {
+                window.notify.info(t('notice_signed_out'));
+            }
+            if (params.get('session_ended') === '1') {
+                window.notify.warning(t('notice_session_ended'));
+            }
+        }
+        run();
+    }
+
+    if (emailInput) {
+        emailInput.addEventListener('input', function () {
+            if (emailVerified) {
+                resetToEmailStep();
             }
         });
     }
 
+    async function validateEmail(email) {
+        const response = await fetch('/api/login/check-email/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+            },
+            body: JSON.stringify({ email: email }),
+        });
 
-    /**
-     * Display error message
-     * @param {string} message - Error message to display
-     */
-    function showError(message) {
-        errorMessage.textContent = message;
-        errorMessage.classList.remove('hidden');
-        
-        // Scroll to error message
-        errorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (err) {
+            throw new Error(t('invalid_server_response'));
+        }
+
+        if (!data.success) {
+            throw new Error(data.message || t('unable_verify_email'));
+        }
+
+        return data;
+    }
+
+    async function signIn(email, password) {
+        const response = await fetch('/api/login/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+            },
+            body: JSON.stringify({ email: email, password: password }),
+        });
+
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (err) {
+            throw new Error(t('invalid_server_response'));
+        }
+
+        if (!data.success) {
+            throw new Error(data.message || t('login_failed'));
+        }
+
+        return data;
+    }
+
+    if (loginForm) {
+        loginForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            clearError();
+
+            const email = ((emailInput && emailInput.value) || '').trim();
+            if (!email) {
+                showNotification(t('enter_email'), 'error');
+                return;
+            }
+
+            if (!emailVerified) {
+                setBusy(continueBtn, true, t('checking'), t('continue'));
+                try {
+                    await validateEmail(email);
+                    revealPasswordStep();
+                } catch (err) {
+                    showNotification(err.message || t('unable_verify_email'), 'error');
+                } finally {
+                    setBusy(continueBtn, false, t('checking'), t('continue'));
+                }
+                return;
+            }
+
+            const password = passwordInput ? passwordInput.value : '';
+            if (!password) {
+                showNotification(t('enter_password'), 'error');
+                return;
+            }
+
+            setBusy(continueBtn, true, t('signing_in'), t('sign_in'));
+            try {
+                const data = await signIn(email, password);
+                // Redirect is enough — no success toast flash.
+                window.location.href = data.redirect_url || '/';
+            } catch (err) {
+                showNotification(err.message || t('login_failed'), 'error');
+                setBusy(continueBtn, false, t('signing_in'), t('sign_in'));
+            }
+        });
     }
 });
-

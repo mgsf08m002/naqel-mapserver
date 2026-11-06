@@ -3,8 +3,15 @@
 
     const REQUIRED_ZOOM_LEVEL = 16;
     const EDIT_BUTTON_ID = 'editButton';
-    const EDIT_MODE_TOAST = 'Turn on Edit Mode first, then you can make changes.';
     const MAX_RETRY_ATTEMPTS = 50;
+    const MAP_ZOOM_GATE_OPACITY = '0.85';
+
+    function uiT(key, fallback) {
+        if (typeof window.uiT === 'function') {
+            return window.uiT(key, fallback);
+        }
+        return fallback != null ? fallback : key;
+    }
 
     let retryCount = 0;
     let isEditModeActive = false;
@@ -16,6 +23,105 @@
     let editToolbar = null;
     let zoomOverlay = null;
     let zoomInBtn = null;
+    let zoomOverlayCurrentEl = null;
+    let zoomOverlayRequiredEl = null;
+
+    function getMapZoom() {
+        try {
+            return map.getZoom();
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function isZoomSufficient(zoom) {
+        return typeof zoom === 'number' && zoom >= REQUIRED_ZOOM_LEVEL;
+    }
+
+    function formatZoomLevel(value) {
+        if (typeof value !== 'number' || Number.isNaN(value)) {
+            return '—';
+        }
+        return (Math.round(value * 10) / 10).toFixed(1);
+    }
+
+    function getMapLibreContainer() {
+        try {
+            return map && map.getContainer ? map.getContainer() : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function setMapLibreInteractive(enabled) {
+        const container = getMapLibreContainer();
+        if (!container) {
+            return;
+        }
+        container.style.opacity = enabled ? '1' : MAP_ZOOM_GATE_OPACITY;
+        container.style.pointerEvents = enabled ? 'auto' : 'none';
+        container.style.transition = 'opacity 0.3s ease-in-out';
+    }
+
+    function setZoomOverlayVisible(visible) {
+        if (!zoomOverlay) {
+            return;
+        }
+        zoomOverlay.classList.toggle('hidden', !visible);
+        zoomOverlay.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    }
+
+    function syncZoomOverlayLevels(currentZoom) {
+        const zoom = typeof currentZoom === 'number' ? currentZoom : getMapZoom();
+        if (zoomOverlayCurrentEl) {
+            zoomOverlayCurrentEl.textContent = formatZoomLevel(zoom);
+        }
+        if (zoomOverlayRequiredEl) {
+            zoomOverlayRequiredEl.textContent = formatZoomLevel(REQUIRED_ZOOM_LEVEL);
+        }
+    }
+
+    function refreshZoomGate() {
+        if (!isEditModeActive || !zoomOverlay) {
+            return;
+        }
+
+        const currentZoom = getMapZoom();
+        const ok = isZoomSufficient(currentZoom);
+        syncZoomOverlayLevels(currentZoom);
+        setZoomOverlayVisible(!ok);
+        setMapLibreInteractive(ok);
+    }
+
+    function hideZoomGate() {
+        setZoomOverlayVisible(false);
+        setMapLibreInteractive(true);
+    }
+
+    function syncEditButtonZoomState() {
+        const currentZoom = getMapZoom();
+        if (currentZoom == null || !editButton) {
+            return;
+        }
+
+        const ok = isZoomSufficient(currentZoom);
+        editButton.disabled = !ok;
+        editButton.setAttribute('aria-disabled', ok ? 'false' : 'true');
+        if (isEditModeActive) {
+            refreshZoomGate();
+        }
+    }
+
+    function zoomToEditLevel() {
+        if (!map) {
+            return;
+        }
+        map.easeTo({
+            center: map.getCenter(),
+            zoom: REQUIRED_ZOOM_LEVEL,
+            duration: 800
+        });
+    }
 
     function initEditMode() {
         editButton = document.getElementById(EDIT_BUTTON_ID);
@@ -37,24 +143,23 @@
         editToolbar = document.getElementById('editToolbar');
         zoomOverlay = document.getElementById('zoomOverlay');
         zoomInBtn = document.getElementById('zoomInBtn');
+        zoomOverlayCurrentEl = document.getElementById('zoomOverlayCurrent');
+        zoomOverlayRequiredEl = document.getElementById('zoomOverlayRequired');
+        syncZoomOverlayLevels(getMapZoom());
 
         setupEventListeners();
-        updateButtonState();
+        syncEditButtonZoomState();
     }
 
     function setupEventListeners() {
         editButton.addEventListener('click', handleEditButtonClick);
-        map.on('zoom', updateButtonState);
-        map.on('zoomend', handleZoomEnd);
-        map.on('load', updateButtonState);
+        map.on('zoom', syncEditButtonZoomState);
+        map.on('zoomend', syncEditButtonZoomState);
+        map.on('load', syncEditButtonZoomState);
 
-        const pointBtn = document.getElementById('pointToolBtn');
         const lineBtn = document.getElementById('lineToolBtn');
-        const areaBtn = document.getElementById('areaToolBtn');
-        if (pointBtn) pointBtn.addEventListener('click', function() { selectTool('point'); });
-        if (lineBtn) lineBtn.addEventListener('click', function() { selectTool('line'); });
-        if (areaBtn) areaBtn.addEventListener('click', function() { selectTool('area'); });
-        if (zoomInBtn) zoomInBtn.addEventListener('click', handleZoomIn);
+        if (lineBtn) lineBtn.addEventListener('click', activateDrawRoadTool);
+        if (zoomInBtn) zoomInBtn.addEventListener('click', zoomToEditLevel);
     }
 
     function handleEditButtonClick(event) {
@@ -77,7 +182,7 @@
         if (window.managerApprovalReviewActive) {
             return;
         }
-        updateButtonText('Exit Edit Mode');
+        updateButtonText(uiT('exit_edit_mode', 'Exit Edit Mode'));
         if (typeof window.initMapSidePanelChrome === 'function') {
             window.initMapSidePanelChrome();
         }
@@ -96,15 +201,8 @@
         if (typeof window.refreshRiyadhGeometryEditToolbar === 'function') {
             window.refreshRiyadhGeometryEditToolbar();
         }
-        if (map && map.getContainer()) {
-            map.getContainer().style.opacity = '1';
-            map.getContainer().style.transition = 'opacity 0.3s ease-in-out';
-        }
         setTimeout(function() {
-            if (map && map.resize) {
-                map.resize();
-            }
-            checkZoomLevel();
+            refreshZoomGate();
             ensureSidePanelInitialContent();
             if (typeof window.syncRoadPanelEditModeUI === 'function') {
                 window.syncRoadPanelEditModeUI();
@@ -124,22 +222,18 @@
         const hasContent = searchResults.innerHTML.trim().length > 0;
         if (!hasContent) {
             searchResults.style.display = 'block';
-            searchResults.innerHTML = '<p class="text-xs text-gray-400 px-1 py-4">Type above to search feature types, or draw a road on the map to choose from the list.</p>';
+            searchResults.innerHTML = '<p class="msp-empty">' + uiT('feature_search_empty', 'Type to search feature types, or draw a road on the map first.') + '</p>';
         }
     }
 
     function exitEditMode() {
-        updateButtonText('Edit');
+        updateButtonText(uiT('edit', 'Edit'));
         if (sidePanel) {
             const editScreen = document.getElementById('editFeatureScreen');
             const sidePanelContent = document.getElementById('sidePanelContent');
             const hasContent = editScreen || (sidePanelContent && sidePanelContent.children.length > 0);
-            if (!hasContent) {
-                if (typeof window.applyMapSidePanelOpen === 'function') {
-                    window.applyMapSidePanelOpen(false);
-                } else {
-                    sidePanel.classList.add('-translate-x-full');
-                }
+            if (!hasContent && typeof window.applyMapSidePanelOpen === 'function') {
+                window.applyMapSidePanelOpen(false);
             }
         }
         if (editToolbar) {
@@ -154,84 +248,15 @@
         if (typeof window.hideRiyadhGeometryEditToolbar === 'function') {
             window.hideRiyadhGeometryEditToolbar();
         }
-        if (zoomOverlay) {
-            zoomOverlay.classList.add('hidden');
-        }
-        if (map && map.getContainer()) {
-            map.getContainer().style.opacity = '1';
-            map.getContainer().style.pointerEvents = 'auto';
-            map.getContainer().style.transition = 'opacity 0.3s ease-in-out';
-        }
+        hideZoomGate();
         currentTool = null;
-        updateToolButtons();
+        updateDrawRoadToolButton();
         if (typeof window.syncRoadPanelEditModeUI === 'function') {
             window.syncRoadPanelEditModeUI();
         }
         if (window.mapEditUndo && typeof window.mapEditUndo.onEditModeExited === 'function') {
             window.mapEditUndo.onEditModeExited();
         }
-    }
-
-    function updateButtonState() {
-        try {
-            const currentZoom = map.getZoom();
-            const isZoomSufficient = currentZoom >= REQUIRED_ZOOM_LEVEL;
-
-            if (isZoomSufficient) {
-                editButton.disabled = false;
-                editButton.setAttribute('aria-disabled', 'false');
-            } else {
-                editButton.disabled = true;
-                editButton.setAttribute('aria-disabled', 'true');
-                if (isEditModeActive) {
-                    checkZoomLevel();
-                }
-            }
-        } catch (error) {}
-    }
-
-    function handleZoomEnd() {
-        updateButtonState();
-
-        if (isEditModeActive) {
-            checkZoomLevel();
-        }
-    }
-
-    function checkZoomLevel() {
-        if (!isEditModeActive || !zoomOverlay) {
-            return;
-        }
-
-        const currentZoom = map.getZoom();
-        const isZoomSufficient = currentZoom >= REQUIRED_ZOOM_LEVEL;
-
-        if (isZoomSufficient) {
-            zoomOverlay.classList.add('hidden');
-            if (map.getContainer()) {
-                map.getContainer().style.opacity = '1';
-                map.getContainer().style.pointerEvents = 'auto';
-                map.getContainer().style.transition = 'opacity 0.3s ease-in-out';
-            }
-        } else {
-            zoomOverlay.classList.remove('hidden');
-            if (map.getContainer()) {
-                map.getContainer().style.opacity = '0.85';
-                map.getContainer().style.pointerEvents = 'none';
-                map.getContainer().style.transition = 'opacity 0.3s ease-in-out';
-            }
-        }
-    }
-
-    function handleZoomIn() {
-        if (!map) return;
-
-        const currentCenter = map.getCenter();
-        map.easeTo({
-            center: currentCenter,
-            zoom: REQUIRED_ZOOM_LEVEL,
-            duration: 800
-        });
     }
 
     function updateButtonText(text) {
@@ -241,54 +266,35 @@
         }
     }
 
-    function selectTool(tool) {
-        currentTool = tool;
-        updateToolButtons();
+    function activateDrawRoadTool() {
+        currentTool = 'line';
+        updateDrawRoadToolButton();
         let terraDrawInstance = null;
-        if (typeof drawInstance !== 'undefined' && drawInstance) {
-            terraDrawInstance = drawInstance;
-        } else if (typeof draw !== 'undefined' && draw && typeof draw.getTerraDrawInstance === 'function') {
+        if (window.lineDrawingHandler && typeof window.lineDrawingHandler.getDrawInstance === 'function') {
+            terraDrawInstance = window.lineDrawingHandler.getDrawInstance();
+        }
+        if (!terraDrawInstance && typeof draw !== 'undefined' && draw && typeof draw.getTerraDrawInstance === 'function') {
             terraDrawInstance = draw.getTerraDrawInstance();
         }
-
         if (!terraDrawInstance) {
             return;
         }
-        const modeMap = {
-            point: 'point',
-            line: 'linestring',
-            area: 'polygon'
-        };
-
-        const terraDrawMode = modeMap[tool];
-        if (!terraDrawMode) {
-            return;
-        }
-
         try {
-            terraDrawInstance.setMode(terraDrawMode);
+            terraDrawInstance.setMode('linestring');
         } catch (error) {}
+        if (window.mapEditUndo && typeof window.mapEditUndo.beginDrawSession === 'function') {
+            window.mapEditUndo.beginDrawSession();
+        }
     }
 
-    function updateToolButtons() {
-        const pointBtn = document.getElementById('pointToolBtn');
+    function updateDrawRoadToolButton() {
         const lineBtn = document.getElementById('lineToolBtn');
-        const areaBtn = document.getElementById('areaToolBtn');
-        [pointBtn, lineBtn, areaBtn].forEach(function(btn) {
-            if (btn) {
-                btn.classList.remove('bg-gray-200', 'ring-2', 'ring-geotrak');
-                btn.classList.add('hover:bg-gray-100');
-            }
-        });
-        const activeBtn =
-            currentTool === 'point' ? pointBtn :
-            currentTool === 'line' ? lineBtn :
-            currentTool === 'area' ? areaBtn : null;
-
-        if (activeBtn) {
-            activeBtn.classList.add('bg-gray-200', 'ring-2', 'ring-geotrak');
-            activeBtn.classList.remove('hover:bg-gray-100');
+        if (!lineBtn) {
+            return;
         }
+        const active = currentTool === 'line';
+        lineBtn.classList.toggle('is-active', active);
+        lineBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
     }
 
     function autoEnterEditModeOnRoadSelection() {
@@ -298,20 +304,14 @@
         if (!editButton || typeof map === 'undefined' || !map) {
             return;
         }
-        let z;
-        try {
-            z = map.getZoom();
-        } catch (e) {
-            return;
-        }
-        if (z < REQUIRED_ZOOM_LEVEL) {
+        if (!isZoomSufficient(getMapZoom())) {
             return;
         }
         if (isEditModeActive) {
             if (typeof window.refreshRiyadhGeometryEditToolbar === 'function') {
                 window.refreshRiyadhGeometryEditToolbar();
             }
-            checkZoomLevel();
+            refreshZoomGate();
             return;
         }
         isEditModeActive = true;
@@ -338,7 +338,7 @@
 
     window.promptEnableEditMode = function() {
         if (window.notify && typeof window.notify.tryShow === 'function') {
-            window.notify.tryShow(EDIT_MODE_TOAST, 'info');
+            window.notify.tryShow(uiT('edit_mode_required', 'Turn on Edit Mode first, then you can make changes.'), 'info');
         }
     };
 

@@ -7,51 +7,48 @@
     ></div>
     <aside
         id="editSidePanel"
-        class="map-sidebar map-sidebar-root absolute left-0 top-0 bottom-0 w-80 max-w-[min(100%,20rem)] z-50 flex flex-col min-h-0 min-w-0 -translate-x-full transition-transform duration-300 ease-out bg-white text-geotrak antialiased shadow-[2px_0_20px_rgba(0,0,0,0.06)]"
+        class="map-sidebar-root msp-root absolute left-0 top-0 bottom-0 z-50 flex flex-col min-h-0 min-w-0 -translate-x-full transition-transform duration-300 ease-out antialiased"
         role="complementary"
-        aria-label="Map details"
+        aria-label="{{ ui.map_details_aria }}"
     >
-        <div class="map-sidebar__chrome flex items-center justify-between gap-2 px-4 py-3 border-b border-geotrak-border bg-white shrink-0">
-            <div class="min-w-0">
-                <p class="text-[13px] font-semibold text-geotrak tracking-tight">Details</p>
-                <p class="text-[11px] text-zinc-500 mt-0.5 leading-snug">Features &amp; attributes</p>
+        <div class="msp-chrome shrink-0">
+            <div class="msp-chrome__text">
+                <h1 class="msp-chrome__title">{{ ui.details }}</h1>
             </div>
             <button
                 type="button"
                 id="sidePanelCollapseBtn"
-                class="hidden map-sidebar__collapse flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-geotrak-border bg-white text-geotrak shadow-sm transition hover:bg-geotrak-subtle hover:border-geotrak-border focus:outline-none focus-visible:ring-2 focus-visible:ring-geotrak focus-visible:ring-offset-2"
-                title="Hide panel"
+                class="hidden msp-icon-btn"
+                title="{{ ui.hide_panel }}"
+                aria-label="{{ ui.hide_panel }}"
                 aria-expanded="true"
                 aria-controls="editSidePanel"
             >
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                 </svg>
             </button>
         </div>
-        <div id="sidePanelInner" class="map-sidebar__body flex flex-col flex-1 min-h-0 min-w-0 bg-geotrak-subtle/80 border-r border-geotrak-border/90">
-            <div class="px-4 py-3 border-b border-geotrak-border bg-white shrink-0">
-                <h2 class="text-sm font-semibold text-geotrak">Feature type</h2>
-                <p class="text-[11px] text-zinc-500 mt-1 leading-snug">Search or choose below, then fill attributes and save.</p>
-            </div>
-            <div class="px-4 py-3 border-b border-geotrak-border bg-white shrink-0">
-                <label for="featureSearch" class="block text-[11px] font-medium text-zinc-600 mb-2">Search features</label>
+        <div id="sidePanelInner" class="msp-body flex flex-col flex-1 min-h-0 min-w-0">
+            <div class="msp-picker shrink-0">
+                <p class="msp-eyebrow">{{ ui.choose_a_type }}</p>
+                <h2 class="msp-picker__title">{{ ui.feature_type }}</h2>
+                <p class="msp-picker__help">{{ ui.feature_type_help }}</p>
+                <label for="featureSearch" class="msp-field__label">{{ ui.search }}</label>
                 <input
                     type="text"
                     id="featureSearch"
-                    placeholder="e.g. Motorway, Path, Fence"
-                    class="map-sidebar-input w-full px-3 py-2.5 bg-white border border-geotrak-border rounded-lg text-geotrak placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-geotrak focus:border-transparent text-sm"
+                    placeholder="{{ ui.feature_search_placeholder }}"
+                    class="msp-input"
                     autocomplete="off"
                 >
             </div>
-            <div id="sidePanelScrollArea" class="flex-1 overflow-y-auto overflow-x-hidden px-4 py-3 min-h-0">
-                <div id="sidePanelContent" class="space-y-4">
-                    <div id="featureSearchResults" class="space-y-1 min-h-[120px]">
-                        <p class="text-xs text-zinc-500 px-1 py-4 leading-relaxed">Type above to search feature types, or draw a road on the map to choose from the list.</p>
+            <div id="sidePanelScrollArea" class="msp-scroll flex-1 min-h-0">
+                <div id="sidePanelContent" class="msp-picker-list">
+                    <div id="featureSearchResults" class="msp-empty">
+                        <p>{{ ui.feature_search_empty }}</p>
                     </div>
-                    <div id="linePanelContent" class="space-y-3" style="display: none;">
-                        <!-- Road editor sidebar sections injected by line-drawing.js -->
-                    </div>
+                    <div id="linePanelContent" class="space-y-2" style="display: none;"></div>
                 </div>
             </div>
         </div>
@@ -59,11 +56,12 @@
     <button
         type="button"
         id="sidePanelExpandTab"
-        class="hidden fixed left-0 top-1/2 z-[52] -translate-y-1/2 rounded-r-lg border border-l-0 border-geotrak-border bg-white px-2.5 py-4 text-[11px] font-semibold uppercase tracking-wide text-geotrak shadow-md transition hover:bg-geotrak-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-geotrak"
+        class="hidden fixed left-0 top-1/2 z-[52] -translate-y-1/2 rounded-r-xl border border-l-0 border-[#d7dee8] bg-white px-2.5 py-4 text-[11px] font-semibold uppercase tracking-wide text-[#0F2D53] shadow-md transition hover:bg-[#F3F6FA] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0F2D53]"
         aria-expanded="false"
         aria-controls="editSidePanel"
-        title="Show details panel"
+        title="{{ ui.show_details_panel }}"
+        aria-label="{{ ui.show_details_panel }}"
     >
-        Details
+        {{ ui.details }}
     </button>
-    <div id="mapContainer" class="w-full h-full relative transition-all duration-300 ease-in-out min-h-0">
+    <div id="mapContainer" class="w-full h-full relative min-h-0">

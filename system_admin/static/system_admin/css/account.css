@@ -15,14 +15,8 @@ body:has(.account-page) main {
   background: #eef3f8 !important;
 }
 
-body:has(.account-page) header.sticky {
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom-color: rgba(15, 45, 83, 0.06);
-  box-shadow: none;
-}
-
 .account-page {
-  min-height: calc(100vh - 64px);
+  min-height: calc(100vh - var(--app-chrome-offset));
   padding: 36px 24px 48px;
 }
 

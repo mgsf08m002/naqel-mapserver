@@ -9,6 +9,7 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.db.models import F
+from config.api_errors import json_api_error
 from .account import render_account_page
 from .models import PasswordChangeEvent, PasswordResetRequest, UserProfile
 from .password_admin import (
@@ -260,7 +261,7 @@ def add_user_view(request):
                 
                 messages.success(
                     request,
-                    f"User {full_name} has been added successfully as {role.title()}.",
+                    f"User added as {role.title()}.",
                 )
             else:
                 for err in errors:
@@ -359,7 +360,7 @@ def edit_user_view(request, user_id=None):
             user_to_edit.username = email
             user_to_edit.is_active = account_status == 'active'
             user_to_edit.save()
-            messages.success(request, f'User {full_name} has been updated successfully.')
+            messages.success(request, f'User updated.')
         else:
             for err in errors:
                 messages.error(request, err)
@@ -430,7 +431,7 @@ def delete_user_view(request, user_id=None):
                     user_to_delete.delete()
                     messages.success(
                         request,
-                        f'User {user_full_name} ({user_email}) has been deleted successfully.',
+                        f'User deleted.',
                     )
 
     return render(request, 'system_admin/delete_user.html', context)
@@ -522,8 +523,7 @@ def change_user_password_view(request):
                     context['temporary_password'] = new_password
                     messages.success(
                         request,
-                        'Temporary password set. Share it with the user out-of-band; '
-                        'they will be asked to set a personal password on next sign-in.',
+                        'Temporary password set. Share it with the user.',
                     )
 
     return render(request, 'system_admin/change_password.html', context)
@@ -584,7 +584,7 @@ def password_requests_view(request):
                 context['temporary_password'] = new_password
                 messages.success(
                     request,
-                    'Password reset. Share the temporary password with the user out-of-band.',
+                    'Password reset. Share the temporary password with the user.',
                 )
 
     context['pending_requests'] = (
@@ -601,8 +601,7 @@ def upload_profile_image_view(request):
     if not request.user.is_superuser:
         return JsonResponse({
             'success': False,
-            'message': 'Unauthorized',
-            'notification': {'message': 'Unauthorized', 'type': 'error'}
+            'message': 'Unauthorized'
         }, status=403)
     
     if request.method == 'POST' and request.FILES.get('profile_image'):
@@ -614,15 +613,13 @@ def upload_profile_image_view(request):
         profile.save()
         return JsonResponse({
             'success': True,
-            'message': 'Profile image uploaded successfully',
-            'image_url': profile.profile_image.url,
-            'notification': {'message': 'Profile image uploaded successfully', 'type': 'success'}
+            'message': 'Photo updated',
+            'image_url': profile.profile_image.url
         })
     
     return JsonResponse({
         'success': False,
-        'message': 'No image provided',
-        'notification': {'message': 'No image provided', 'type': 'error'}
+        'message': 'No image provided'
     }, status=400)
 
 
@@ -632,8 +629,7 @@ def remove_profile_image_view(request):
     if not request.user.is_superuser:
         return JsonResponse({
             'success': False,
-            'message': 'Unauthorized',
-            'notification': {'message': 'Unauthorized', 'type': 'error'}
+            'message': 'Unauthorized'
         }, status=403)
     
     if request.method == 'POST':
@@ -645,20 +641,17 @@ def remove_profile_image_view(request):
                 profile.save()
             return JsonResponse({
                 'success': True,
-                'message': 'Profile image removed successfully',
-                'notification': {'message': 'Profile image removed successfully', 'type': 'success'}
+                'message': 'Photo removed'
             })
         except UserProfile.DoesNotExist:
             return JsonResponse({
                 'success': True,
-                'message': 'Profile image removed successfully',
-                'notification': {'message': 'Profile image removed successfully', 'type': 'success'}
+                'message': 'Photo removed'
             })
     
     return JsonResponse({
         'success': False,
-        'message': 'Invalid request',
-        'notification': {'message': 'Invalid request', 'type': 'error'}
+        'message': 'Invalid request'
     }, status=400)
 
 
@@ -758,11 +751,13 @@ def users_api_view(request):
             'users': users_data
         })
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': str(e),
-            'users': []
-        }, status=500)
+        return json_api_error(
+            request,
+            exc=e,
+            status=500,
+            message_key="toast_couldnt_load",
+            extra={"users": []},
+        )
 
 
 @login_required(login_url='/login/')
@@ -821,11 +816,13 @@ def user_detail_api_view(request, user_id):
             'user': None
         }, status=404)
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': str(e),
-            'user': None
-        }, status=500)
+        return json_api_error(
+            request,
+            exc=e,
+            status=500,
+            message_key="toast_couldnt_load",
+            extra={"user": None},
+        )
 
 
 def _permission_subject(user_id):
@@ -908,7 +905,7 @@ def grant_permission_view(request, user_id):
         request,
         user_id,
         'system_admin/grant_permission.html',
-        'Permissions have been granted successfully to {}.',
+        'Permissions granted to {}.',
     )
 
 
@@ -918,7 +915,7 @@ def check_permission_view(request, user_id):
         request,
         user_id,
         'system_admin/check_permission.html',
-        'Permissions have been updated successfully for {}.',
+        'Permissions updated for {}.',
     )
 
 
@@ -947,7 +944,13 @@ def permissions_api_view(request):
             })
         return JsonResponse({'success': True, 'users': users_data})
     except Exception as e:
-        return JsonResponse({'success': False, 'message': str(e), 'users': []}, status=500)
+        return json_api_error(
+            request,
+            exc=e,
+            status=500,
+            message_key="toast_couldnt_load",
+            extra={"users": []},
+        )
 
 
 @login_required(login_url='/login/')

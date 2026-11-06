@@ -2,18 +2,18 @@
     id="clearSelectionToolbar"
     class="map-clear-selection-toolbar"
     role="toolbar"
-    aria-label="Selection actions"
+    aria-label="{{ ui.selection_actions }}"
     hidden
 >
     <button
         type="button"
         id="clearSelectionBtn"
         class="map-clear-selection-toolbar__btn"
-        aria-label="Clear selection"
+        aria-label="{{ ui.clear_selection }}"
     >
         <svg class="map-clear-selection-toolbar__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
         </svg>
-        <span class="map-clear-selection-toolbar__label">Clear selection</span>
+        <span class="map-clear-selection-toolbar__label">{{ ui.clear_selection }}</span>
     </button>
 </div>

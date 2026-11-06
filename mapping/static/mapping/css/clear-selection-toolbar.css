@@ -15,7 +15,7 @@
 
 /* Fallback offset when edit toolbar is open (JS sets exact top from measured height). */
 #mapContainer.map-edit-toolbar-active .map-clear-selection-toolbar {
-    top: 6.25rem;
+    top: 5.1rem;
 }
 
 #layer-review-root .map-clear-selection-toolbar {

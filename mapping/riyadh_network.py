@@ -43,7 +43,7 @@ def symbology_sync_version_ms() -> int:
         if path.is_file():
             stamps.append(int(path.stat().st_mtime * 1000))
     try:
-        from symbology.catalog_service import get_catalog
+        from symbology.feature_catalog import get_catalog
 
         catalog_version = get_catalog().get("version")
         if catalog_version is not None:

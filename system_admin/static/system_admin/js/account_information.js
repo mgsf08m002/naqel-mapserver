@@ -130,7 +130,7 @@
 
         const openCropModal = (file) => {
             if (typeof Cropper === 'undefined' || !cropModal || !cropImage) {
-                window.notify.tryShow('Image cropper failed to load.', 'error');
+                window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_load', "Couldn't load") : "Couldn't load"), 'error');
                 return;
             }
             selectedFile = file;
@@ -168,7 +168,7 @@
             });
             canvas.toBlob((blob) => {
                 if (!blob) {
-                    window.notify.tryShow('Failed to crop image.', 'error');
+                    window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_update_photo', "Couldn't update photo") : "Couldn't update photo"), 'error');
                     return;
                 }
                 const formData = new FormData();
@@ -193,12 +193,12 @@
                             updatePhotoState(true, data.image_url);
                             closeCropModalHandler();
                             window.notify.tryShow(
-                                data.notification?.message || data.message || 'Profile photo uploaded successfully.',
+                                (typeof window.uiT === 'function' ? window.uiT('toast_photo_updated', 'Photo updated') : 'Photo updated'),
                                 'success'
                             );
                         } else {
                             window.notify.tryShow(
-                                data.notification?.message || data.message || 'Failed to upload photo.',
+                                (typeof window.uiT === 'function' ? window.uiT('toast_couldnt_update_photo', "Couldn't update photo") : "Couldn't update photo"),
                                 'error'
                             );
                         }
@@ -208,7 +208,7 @@
                             saveCrop.disabled = false;
                             saveCrop.textContent = 'Save Crop';
                         }
-                        window.notify.tryShow('Failed to upload photo. Please try again.', 'error');
+                        window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_update_photo', "Couldn't update photo") : "Couldn't update photo"), 'error');
                     });
             }, 'image/jpeg', 0.95);
         };
@@ -219,7 +219,7 @@
             const file = fileInput.files && fileInput.files[0];
             if (!file) return;
             if (!file.type.startsWith('image/')) {
-                window.notify.tryShow('Please select an image file.', 'error');
+                window.notify.tryShow('Pick an image file.', 'error');
                 fileInput.value = '';
                 return;
             }
@@ -242,18 +242,18 @@
                             fileInput.value = '';
                             updatePhotoState(false);
                             window.notify.tryShow(
-                                data.notification?.message || data.message || 'Profile photo removed.',
+                                (typeof window.uiT === 'function' ? window.uiT('toast_photo_removed', 'Photo removed') : 'Photo removed'),
                                 'success'
                             );
                         } else {
                             window.notify.tryShow(
-                                data.notification?.message || data.message || 'Failed to remove photo.',
+                                (typeof window.uiT === 'function' ? window.uiT('toast_couldnt_update_photo', "Couldn't update photo") : "Couldn't update photo"),
                                 'error'
                             );
                         }
                     })
                     .catch(() => {
-                        window.notify.tryShow('Failed to remove photo. Please try again.', 'error');
+                        window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_update_photo', "Couldn't update photo") : "Couldn't update photo"), 'error');
                     });
             });
         }

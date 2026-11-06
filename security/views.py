@@ -5,6 +5,8 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 import json
 
+from config.api_errors import json_api_error
+
 
 def _get_client_ip(request):
     """Best-effort client IP extraction without adding external dependencies."""
@@ -90,12 +92,12 @@ def active_sessions_api(request):
             }
         )
     except Exception as exc:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": str(exc),
-            },
+        return json_api_error(
+            request,
+            exc=exc,
             status=500,
+            message_key="toast_couldnt_load_sessions",
+            extra={"sessions": []},
         )
 
 
@@ -164,11 +166,10 @@ def terminate_session_api(request):
 
         return JsonResponse(response_payload)
     except Exception as exc:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": str(exc),
-            },
+        return json_api_error(
+            request,
+            exc=exc,
             status=500,
+            message_key="toast_refresh_try_again",
         )
 

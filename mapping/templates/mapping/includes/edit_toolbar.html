@@ -1,0 +1,99 @@
+{# Floating edit-mode command dock — flat white #}
+<div id="editToolbar" class="map-edit-dock hidden" role="toolbar" aria-label="{{ ui.edit }}">
+    <div class="map-edit-dock__bar">
+        <div class="map-edit-dock__cluster map-edit-dock__cluster--modes" role="group" aria-label="{{ ui.tool_draw_road }}">
+            <button
+                type="button"
+                id="lineToolBtn"
+                class="map-edit-dock__mode"
+                title="{{ ui.tool_draw_road }}"
+                aria-pressed="false"
+            >
+                <svg class="map-edit-dock__icon" fill="currentColor" aria-hidden="true">
+                    <use xlink:href="#iD-icon-line"></use>
+                </svg>
+                <span class="map-edit-dock__mode-label">{{ ui.tool_draw_road }}</span>
+            </button>
+
+            <div id="riyadhGeometryEditToolbarGroup" class="map-edit-dock__mode-wrap hidden">
+                <button
+                    type="button"
+                    id="riyadhGeometryEditToggleBtn"
+                    class="map-edit-dock__mode"
+                    title="{{ ui.tool_reshape_road_title }}"
+                    aria-pressed="false"
+                >
+                    <svg class="map-edit-dock__icon" fill="currentColor" aria-hidden="true">
+                        <use xlink:href="#iD-icon-shape-edit"></use>
+                    </svg>
+                    <span id="riyadhGeometryEditToggleLabel" class="map-edit-dock__mode-label">{{ ui.tool_reshape_road }}</span>
+                </button>
+            </div>
+        </div>
+
+        <span class="map-edit-dock__divider" aria-hidden="true"></span>
+
+        <div class="map-edit-dock__cluster map-edit-dock__cluster--history" role="group" aria-label="{{ ui.undo }} / {{ ui.redo }}">
+            <button
+                type="button"
+                id="undoBtn"
+                class="map-edit-dock__hist"
+                title="{{ ui.undo }}"
+                aria-label="{{ ui.undo }}"
+            >
+                <svg class="map-edit-dock__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
+                </svg>
+                <span class="map-edit-dock__hist-label">{{ ui.undo }}</span>
+            </button>
+            <button
+                type="button"
+                id="redoBtn"
+                class="map-edit-dock__hist"
+                title="{{ ui.redo }}"
+                aria-label="{{ ui.redo }}"
+            >
+                <svg class="map-edit-dock__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"></path>
+                </svg>
+                <span class="map-edit-dock__hist-label">{{ ui.redo }}</span>
+            </button>
+        </div>
+    </div>
+
+    <button
+        type="button"
+        id="saveBtn"
+        class="map-edit-dock__save"
+        title="{{ ui.save }}"
+    >
+        <svg class="map-edit-dock__save-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.25" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span class="map-edit-dock__save-label">{{ ui.save }}</span>
+    </button>
+</div>
+
+<div id="zoomOverlay" class="map-edit-zoom-overlay hidden" aria-hidden="true">
+    <div class="map-edit-zoom-overlay__card" role="dialog" aria-modal="true" aria-labelledby="zoomOverlayTitle" aria-describedby="zoomOverlayBody">
+        <svg class="map-edit-zoom-overlay__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"></path>
+        </svg>
+        <h3 id="zoomOverlayTitle" class="map-edit-zoom-overlay__title">{{ ui.zoom_in_to_edit }}</h3>
+        <p id="zoomOverlayBody" class="map-edit-zoom-overlay__body">{{ ui.zoom_in_to_edit_body }}</p>
+        <div class="map-edit-zoom-overlay__levels" aria-live="polite">
+            <div class="map-edit-zoom-overlay__level">
+                <span class="map-edit-zoom-overlay__level-label">{{ ui.zoom_current }}</span>
+                <span id="zoomOverlayCurrent" class="map-edit-zoom-overlay__level-value">—</span>
+            </div>
+            <div class="map-edit-zoom-overlay__level-divider" aria-hidden="true"></div>
+            <div class="map-edit-zoom-overlay__level">
+                <span class="map-edit-zoom-overlay__level-label">{{ ui.zoom_required }}</span>
+                <span id="zoomOverlayRequired" class="map-edit-zoom-overlay__level-value">—</span>
+            </div>
+        </div>
+        <button type="button" id="zoomInBtn" class="map-edit-zoom-overlay__btn">
+            {{ ui.zoom_to_edit_level }}
+        </button>
+    </div>
+</div>

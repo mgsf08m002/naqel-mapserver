@@ -7,13 +7,6 @@ body:has(.permissions-form) main {
   background: #eef3f8 !important;
 }
 
-body:has(.permissions-page) header.sticky,
-body:has(.permissions-form) header.sticky {
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom-color: rgba(15, 45, 83, 0.06);
-  box-shadow: none;
-}
-
 .permissions-page,
 .permissions-form {
   --perm-navy: #0f2d53;
@@ -28,7 +21,7 @@ body:has(.permissions-form) header.sticky {
 }
 
 .permissions-page {
-  min-height: calc(100vh - 64px);
+  min-height: calc(100vh - var(--app-chrome-offset));
   padding: 40px 32px 56px;
 }
 
@@ -378,7 +371,7 @@ body:has(.permissions-form) header.sticky {
 }
 
 .permissions-form {
-  min-height: calc(100vh - 64px);
+  min-height: calc(100vh - var(--app-chrome-offset));
   padding: 40px 32px 56px;
   display: flex;
   justify-content: center;

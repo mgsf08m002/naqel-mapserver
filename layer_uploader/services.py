@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from django.contrib.auth.models import AbstractBaseUser
@@ -265,6 +265,10 @@ def refresh_layer_completion(layer: Layer) -> None:
         layer.save(update_fields=["status", "completed_at"])
 
 
+class LayerPublishFailed(Exception):
+    """All nominated features failed to publish to the road network."""
+
+
 @dataclass
 class LayerSubmitResult:
     """Outcome of uploader submit (editor → queue, or manager → auto-publish)."""
@@ -273,7 +277,6 @@ class LayerSubmitResult:
     auto_published: bool = False
     published_count: int = 0
     tiles_version: int | None = None
-    errors: list[str] = field(default_factory=list)
 
 
 def _discard_unnominated_staged_features(layer: Layer) -> None:
@@ -306,7 +309,7 @@ def _auto_publish_manager_self_upload(
 
     features = list(nominated)
     published_ids: list[float] = []
-    errors: list[str] = []
+    failed_count = 0
     for feature in features:
         snapshot = layer_upload_feature_snapshot(feature)
         try:
@@ -318,11 +321,14 @@ def _auto_publish_manager_self_upload(
                 remote_road_id=remote_id,
                 reviewer=submitter,
             )
-        except Exception as exc:
-            errors.append(str(exc))
+        except Exception:
+            failed_count += 1
+            logger.exception(
+                "Auto-publish failed for feature %s", getattr(feature, "pk", None)
+            )
 
-    if errors and not published_ids:
-        raise ValueError(errors[0])
+    if failed_count and not published_ids:
+        raise LayerPublishFailed()
 
     layer.submitted_at = timezone.now()
     # Close out the upload: drop any leftover staged/rejected rows.
@@ -336,7 +342,6 @@ def _auto_publish_manager_self_upload(
         auto_published=True,
         published_count=len(published_ids),
         tiles_version=publish_riyadh_tiles_version() if published_ids else None,
-        errors=errors,
     )
 
 

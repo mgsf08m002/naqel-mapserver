@@ -62,6 +62,7 @@ ALLOWED_HOSTS = [
 # Security flags: production should set these to True behind HTTPS.
 SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", not DEBUG)
 CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", not DEBUG)
+CSRF_FAILURE_VIEW = "home.error_views.csrf_failure"
 SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", False if DEBUG else True)
 # Behind the shared Nginx: trust its X-Forwarded-Proto. Nginx always overwrites the header.
 # GeoTrak (:8000) and GeoLayers (:8081) share a host, and cookies ignore ports, so each
@@ -96,6 +97,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'config.ui_locale.UiLocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -167,6 +169,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'config.ui_locale.ui_locale',
                 'system_admin.context_processors.user_profile',
                 'mapping.context_processors.maptiler_api_key',
                 'mapping.context_processors.riyadh_roads_tile_url',

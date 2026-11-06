@@ -8,7 +8,13 @@ from mapping.riyadh_fclass import RIYADH_FCLASS_TO_LABEL
 
 
 class LineStyle(TypedDict, total=False):
-    """Style definition for a linear feature type used by the frontend."""
+    """
+    Style definition for a linear feature type.
+
+    Map paint / SVG previews currently use lineColor, lineWidth, and lineDasharray.
+    glow* and marker* remain part of the catalog schema (symbology.json) so style
+    rows stay complete and stable for clients.
+    """
 
     lineColor: str
     glowColor: str
