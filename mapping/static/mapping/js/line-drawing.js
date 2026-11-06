@@ -323,8 +323,7 @@
 
         if (open) {
             mapSidePanelOpenedOnce = true;
-            sp.classList.remove('-translate-x-full');
-            sp.style.setProperty('transform', 'translateX(0)', 'important');
+            sp.classList.remove('msp-is-closed');
             syncMapSidePanelBackdrop(true);
             if (collapseBtn) {
                 collapseBtn.classList.remove('hidden');
@@ -337,8 +336,7 @@
             return;
         }
 
-        sp.classList.add('-translate-x-full');
-        sp.style.removeProperty('transform');
+        sp.classList.add('msp-is-closed');
         syncMapSidePanelBackdrop(false);
         if (collapseBtn) {
             collapseBtn.classList.add('hidden');
@@ -960,7 +958,7 @@
 
     /**
      * SVG previews: feature symbology only (color / width / dash).
-     * Cyan selection casing is map interaction state — never part of the preview.
+     * Cyan selection casing is map interaction state - never part of the preview.
      */
     function appendSvgFeatureSymbologyPath(svg, pathData, style, svgDasharray, strokeScale) {
         if (!svg || !pathData || !style) {
@@ -1086,7 +1084,8 @@
         if (!container) {
             return;
         }
-        const text = message || 'Loading style…';
+        const text =
+            message || uiT('symbology_loading_style', 'Loading style…');
         container.innerHTML = '';
 
         const wrapper = document.createElement('div');
@@ -1832,14 +1831,17 @@
                 return;
             }
 
-            // Drawn line preview (TerraDraw) — will no-op if no line is selected.
+            // Drawn line preview (TerraDraw) - will no-op if no line is selected.
             updateLineVisualization();
 
             // If nothing is selected, show a placeholder instead of an empty card.
             if (!currentLineId) {
                 const svgContainer = document.getElementById('lineVisualizationSVG');
                 if (svgContainer) {
-                    renderPreviewPlaceholder(svgContainer, 'Select a line to preview');
+                    renderPreviewPlaceholder(
+                        svgContainer,
+                        uiT('symbology_select_line', 'Select a line to preview')
+                    );
                 }
             }
         }
@@ -1891,14 +1893,20 @@
         
         const normalizedGeometry = normalizeToLineStringGeometry(geometry);
         if (!normalizedGeometry) {
-            renderPreviewPlaceholder(svgContainer, 'No preview available');
+            renderPreviewPlaceholder(
+                svgContainer,
+                uiT('symbology_no_preview', 'No preview available')
+            );
             return;
         }
 
         try {
             const coordinates = normalizedGeometry.coordinates;
             if (!coordinates || coordinates.length < 2) {
-                renderPreviewPlaceholder(svgContainer, 'No preview available');
+                renderPreviewPlaceholder(
+                    svgContainer,
+                    uiT('symbology_no_preview', 'No preview available')
+                );
                 return;
             }
 
@@ -1960,7 +1968,10 @@
             const labelToUse = featureLabel || getCurrentFeatureLabel();
             const style = getEffectiveVisualizationStyle(labelToUse);
             if (!style) {
-                renderPreviewPlaceholder(svgContainer, 'Loading symbology…');
+                renderPreviewPlaceholder(
+                    svgContainer,
+                    uiT('symbology_loading', 'Loading symbology…')
+                );
                 rerenderOnCatalogLoaded(function() {
                     updateLineVisualizationFromGeometry(geometry, featureLabel);
                 });
@@ -2047,7 +2058,10 @@
 
             const style = getEffectiveVisualizationStyle(currentFeatureLabel);
             if (!style) {
-                renderPreviewPlaceholder(svgContainer, 'Loading symbology…');
+                renderPreviewPlaceholder(
+                    svgContainer,
+                    uiT('symbology_loading', 'Loading symbology…')
+                );
                 rerenderOnCatalogLoaded(function() {
                     updateLineVisualization();
                 });
@@ -2641,10 +2655,17 @@
         if (!document.getElementById('editFeatureScreen')) {
             return false;
         }
+        // Manager approval review is always read-only in the side panel.
+        if (window.managerApprovalReviewActive) {
+            return true;
+        }
         return typeof window.isMapEditModeActive === 'function' && !window.isMapEditModeActive();
     }
 
     function requireMapEditModeForChange() {
+        if (window.managerApprovalReviewActive) {
+            return false;
+        }
         if (!isRoadPanelViewOnly()) {
             return true;
         }
@@ -2663,7 +2684,7 @@
             if (!isRoadPanelViewOnly()) {
                 return;
             }
-            // Symbology enlarge is view-only safe — never gate behind Edit Mode.
+            // Symbology enlarge is view-only safe - never gate behind Edit Mode.
             if (e.target.closest('.msp-hero__zoom, [data-symbology-zoom], .msp-lightbox, .msp-lightbox__close, .msp-lightbox__stage')) {
                 return;
             }
@@ -2997,7 +3018,10 @@
         visualizationContainer.className = 'map-feature-type-symbology-preview msp-hero__preview';
         visualizationContainer.style.width = '100%';
         visualizationContainer.style.height = '68px';
-        visualizationContainer.setAttribute('title', 'Feature type preview');
+        visualizationContainer.setAttribute(
+            'title',
+            uiT('feature_type_preview_title', 'Feature type preview')
+        );
         previewWrap.appendChild(visualizationContainer);
 
         const zoomBtn = document.createElement('button');
@@ -3188,8 +3212,6 @@
             }
             ctx.fields_data = ctx.fields_data && typeof ctx.fields_data === 'object' ? ctx.fields_data : {};
             ctx.fields_data.name = v;
-            // Keep legacy common_name mirrored for older payloads / clients.
-            ctx.fields_data.common_name = v;
         });
     }
 
@@ -3420,7 +3442,10 @@
             const featureLabel = getCurrentFeatureLabel();
             const style = getEffectiveVisualizationStyle(featureLabel);
             if (!style) {
-                renderPreviewPlaceholder(container, 'Loading symbology…');
+                renderPreviewPlaceholder(
+                    container,
+                    uiT('symbology_loading', 'Loading symbology…')
+                );
                 rerenderOnCatalogLoaded(function() {
                     renderFeatureTypeVisualization(container, coordinates, options);
                 });
@@ -4024,6 +4049,7 @@
         updateFeatureTypeVisualization: updateFeatureTypeVisualization,
         updateRiyadhRoadVisualization: updateRiyadhRoadVisualization,
         showRiyadhRoadAsLineFeature: showRiyadhRoadAsLineFeature,
+        showEditFeatureScreen: showEditFeatureScreen,
         refreshAfterUndoRedo: refreshAfterUndoRedo,
         clearDraftLineDrawingFromMap: clearDraftLineDrawingFromMap,
     };
@@ -4031,6 +4057,7 @@
     window.getVisualizationStyle = getVisualizationStyle;
     window.syncRoadClosureStateAfterPersist = syncRoadClosureStateAfterPersist;
     window.clearDraftLineDrawingFromMap = clearDraftLineDrawingFromMap;
+    window.hideSelectedOverlayPaint = hideSelectedOverlayPaint;
 
     function populateRoadLabelFieldsFromData(fieldsData) {
         if (!fieldsData) {

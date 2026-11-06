@@ -1,4 +1,5 @@
-from config.api_errors import json_api_error
+from config.api_errors import client_message, json_api_error
+from config.ui_strings import t
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_http_methods
@@ -6,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.gis.geos import GEOSGeometry, MultiLineString, LineString
 from django.db import connections
+from django.utils import timezone
 from decimal import Decimal
 import json
 import logging
@@ -26,6 +28,7 @@ from .approval_api import (
     serialize_approval_request_detail,
     serialize_approval_request_list_item,
     serialize_edit_request_list,
+    serialize_editor_outcome_notification_item,
     serialize_manager_review_history_item,
     serialize_my_edit_request_item,
 )
@@ -33,13 +36,9 @@ from .edit_list_query import (
     apply_my_edits_filters,
     apply_review_history_filters,
     filter_editor_submissions,
-    parse_review_history_scope,
 )
 from .presentation import has_my_edits_access, user_edits_apply_immediately, user_is_manager
 from .pending_road_locks import (
-    PENDING_NEW_ROAD_LOCK_MESSAGE,
-    PENDING_ROAD_DELETE_LOCK_MESSAGE,
-    PENDING_ROAD_LOCK_MESSAGE,
     find_pending_edit_for_riyadh_road,
     find_pending_new_road_same_path,
     pending_edit_blocks_reviewable_change,
@@ -90,10 +89,18 @@ RIYADH_REMOTE_FIELD_KEYS = frozenset(
         "road_closure",
     }
 )
-# save_line_edit_request: sidebar must not use the generic default "Line" placeholder.
-FEATURE_TYPE_REQUIRED_FOR_SAVE_MSG = "Pick a road type"
 ARABIC_CHAR_PATTERN = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
 LATIN_CHAR_PATTERN = re.compile(r"[A-Za-z]")
+
+
+def _lang(request) -> str:
+    return getattr(request, "ui_language", None) or "en"
+
+
+def _msg(request, key: str, **kwargs) -> str:
+    if kwargs:
+        return t(_lang(request), key, **kwargs)
+    return client_message(request, key)
 
 # ST_LineMerge can return GeometryCollection EMPTY for invalid/degenerate MultiLineStrings;
 # ST_AsGeoJSON then fails the whole query (500). Prefer valid line extract + transform.
@@ -179,14 +186,14 @@ RIYADH_ROAD_SEARCH_DEFAULT_LIMIT = 12
 RIYADH_ROAD_SEARCH_MAX_LIMIT = 20
 
 
-def _riyadh_road_display_name(name_en, name_ar, name=""):
-    """Preferred label for search results and UI (EN, then AR, then legacy name)."""
-    return (
-        (name_en or "").strip()
-        or (name_ar or "").strip()
-        or (name or "").strip()
-        or "Unnamed road"
-    )
+def _riyadh_road_display_name(name_en, name_ar, name="", language="en"):
+    """Preferred label for UI: AR-first when Arabic UI, else EN-first. Empty if unnamed."""
+    name_en = (name_en or "").strip()
+    name_ar = (name_ar or "").strip()
+    name = (name or "").strip()
+    if (language or "en").startswith("ar"):
+        return name_ar or name_en or name
+    return name_en or name_ar or name
 
 
 def _parse_riyadh_road_geometry_geojson(geometry_geojson):
@@ -273,8 +280,10 @@ def riyadh_road_search(request):
         return JsonResponse(
             {
                 "success": False,
-                "message": (
-                    f"Enter at least {RIYADH_ROAD_SEARCH_MIN_QUERY_LEN} characters to search."
+                "message": _msg(
+                    request,
+                    "road_search_min_chars",
+                    n=RIYADH_ROAD_SEARCH_MIN_QUERY_LEN,
                 ),
                 "results": [],
             },
@@ -349,7 +358,9 @@ def riyadh_road_search(request):
                     "id": int(road_id),
                     "name_en": name_en or "",
                     "name_ar": name_ar or "",
-                    "display_name": _riyadh_road_display_name(name_en, name_ar, name),
+                    "display_name": _riyadh_road_display_name(
+                        name_en, name_ar, name, language=_lang(request)
+                    ),
                     "geometry": geometry,
                 }
             )
@@ -411,7 +422,7 @@ def _geometry_looks_like_wgs84(geometry):
         # transform it.
         return seen > 0
     except Exception:
-        # Never treat an error as "already WGS84" — in doubt, transform.
+        # Never treat an error as "already WGS84" - in doubt, transform.
         return False
 
 
@@ -477,7 +488,7 @@ def _get_riyadh_road_geometry_wgs84(road_identifier):
         if gid is None:
             return None
 
-        # Same PostGIS path as labels/details — avoids ORM transform failures
+        # Same PostGIS path as labels/details - avoids ORM transform failures
         # on edge MultiLineStrings from the Geofabrik import.
         try:
             with connections["riyadh_roads"].cursor() as cursor:
@@ -656,7 +667,7 @@ def save_line_edit_request(request):
             return JsonResponse(
                 {
                     "success": False,
-                    "message": "Geometry is required",
+                    "message": _msg(request, "toast_geometry_required"),
                 },
                 status=400,
             )
@@ -687,11 +698,11 @@ def save_line_edit_request(request):
 
         try:
             _validate_line_geojson_for_edit(normalized_geometry)
-        except ValueError as ve:
+        except ValueError:
             return JsonResponse(
                 {
                     "success": False,
-                    "message": str(ve),
+                    "message": _msg(request, "toast_invalid_geometry"),
                 },
                 status=400,
             )
@@ -712,7 +723,7 @@ def save_line_edit_request(request):
             return JsonResponse(
                 {
                     "success": False,
-                    "message": FEATURE_TYPE_REQUIRED_FOR_SAVE_MSG,
+                    "message": _msg(request, "toast_pick_road_type"),
                 },
                 status=400,
             )
@@ -726,7 +737,7 @@ def save_line_edit_request(request):
                 return JsonResponse(
                     {
                         "success": False,
-                        "message": "Riyadh road not found after update.",
+                        "message": _msg(request, "road_not_found"),
                     },
                     status=404,
                 )
@@ -745,7 +756,7 @@ def save_line_edit_request(request):
                 return JsonResponse(
                     {
                         "success": False,
-                        "message": "Could not load original road geometry for this feature.",
+                        "message": _msg(request, "toast_couldnt_load_geometry"),
                     },
                     status=404,
                 )
@@ -811,7 +822,7 @@ def save_line_edit_request(request):
                 return JsonResponse(
                     {
                         "success": False,
-                        "message": PENDING_ROAD_LOCK_MESSAGE,
+                        "message": _msg(request, "pending_road_locked"),
                         "pending_locked": True,
                         "pending_request_id": blocking.id,
                     },
@@ -856,7 +867,7 @@ def save_line_edit_request(request):
             return JsonResponse(
                 {
                     "success": True,
-                    "message": "Changes live",
+                    "message": _msg(request, "toast_changes_live"),
                     "request_id": created_request_id,
                     "auto_approved": True,
                     "pending_submitted": False,
@@ -879,7 +890,7 @@ def save_line_edit_request(request):
                 return JsonResponse(
                     {
                         "success": False,
-                        "message": PENDING_NEW_ROAD_LOCK_MESSAGE,
+                        "message": _msg(request, "pending_new_road_locked"),
                         "pending_request_id": conflicting.id,
                         "pending_new_road_locked": True,
                     },
@@ -891,7 +902,7 @@ def save_line_edit_request(request):
             return JsonResponse(
                 {
                     "success": True,
-                    "message": "Sent for review",
+                    "message": _msg(request, "toast_sent_for_review"),
                     "request_id": edit_request.id,
                     "request_category": edit_request.request_category or "new_road",
                     "auto_approved": False,
@@ -908,7 +919,7 @@ def save_line_edit_request(request):
                 return JsonResponse(
                     {
                         "success": False,
-                        "message": "Riyadh road not found after update.",
+                        "message": _msg(request, "road_not_found"),
                     },
                     status=404,
                 )
@@ -925,7 +936,7 @@ def save_line_edit_request(request):
             return JsonResponse(
                 {
                     "success": True,
-                    "message": "Saved",
+                    "message": _msg(request, "toast_saved"),
                     "auto_approved": False,
                     "pending_submitted": False,
                     "closure_applied": bool(closure_changed),
@@ -941,7 +952,7 @@ def save_line_edit_request(request):
         return JsonResponse(
             {
                 "success": True,
-                "message": "Sent for review",
+                "message": _msg(request, "toast_sent_for_review"),
                 "request_id": edit_request.id,
                 "request_category": edit_request.request_category or "road_attribute_edit",
                 "auto_approved": False,
@@ -1174,7 +1185,7 @@ def _riyadh_extra_fields_require_review(fields_data) -> bool:
     fd = fields_data or {}
     for k, v in fd.items():
         # Underscore keys are internal snapshots (e.g. _original_feature_label),
-        # not user attribute edits — same rule as approval_categories.
+        # not user attribute edits - same rule as approval_categories.
         if (
             str(k).startswith("_")
             or k in RIYADH_REMOTE_FIELD_KEYS
@@ -1312,7 +1323,7 @@ def create_delete_request(request):
         return JsonResponse(
             {
                 "success": False,
-                "message": "Invalid JSON data",
+                "message": _msg(request, "toast_invalid_json"),
             },
             status=400,
         )
@@ -1324,7 +1335,7 @@ def create_delete_request(request):
         return JsonResponse(
             {
                 "success": False,
-                "message": "Invalid target_type. Use 'riyadh_road'.",
+                "message": _msg(request, "toast_invalid_target_type"),
             },
             status=400,
         )
@@ -1335,7 +1346,7 @@ def create_delete_request(request):
         return JsonResponse(
             {
                 "success": False,
-                "message": "Invalid or missing target_id.",
+                "message": _msg(request, "toast_invalid_target_id"),
             },
             status=400,
         )
@@ -1360,7 +1371,7 @@ def create_delete_request(request):
             return JsonResponse(
                 {
                     "success": False,
-                    "message": "Target Riyadh road not found for delete request.",
+                    "message": _msg(request, "toast_delete_road_not_found"),
                 },
                 status=404,
             )
@@ -1370,7 +1381,7 @@ def create_delete_request(request):
             return JsonResponse(
                 {
                     "success": False,
-                    "message": PENDING_ROAD_DELETE_LOCK_MESSAGE,
+                    "message": _msg(request, "pending_road_locked"),
                     "pending_locked": True,
                     "pending_request_id": blocking.id,
                 },
@@ -1390,7 +1401,7 @@ def create_delete_request(request):
         return JsonResponse(
             {
                 "success": False,
-                "message": "Target not found.",
+                "message": _msg(request, "toast_target_not_found"),
             },
             status=404,
         )
@@ -1399,7 +1410,7 @@ def create_delete_request(request):
         return JsonResponse(
             {
                 "success": False,
-                "message": "Target geometry is missing and cannot be deleted.",
+                "message": _msg(request, "toast_delete_geometry_missing"),
             },
             status=400,
         )
@@ -1410,7 +1421,7 @@ def create_delete_request(request):
         status="pending",
         edit_type=EDIT_TYPE_DELETE,
         geometry=_ensure_wgs84_geometry(geometry, source_srid=3857),
-        current_feature_label=current_feature_label or "Unnamed Road",
+        current_feature_label=current_feature_label or "",
         fields_data=fields_data,
         tags_data=tags_data,
         relations_data=relations_data,
@@ -1438,9 +1449,9 @@ def create_delete_request(request):
     payload = {
         "success": True,
         "message": (
-            "Delete sent for review"
+            _msg(request, "toast_delete_sent_for_review")
             if not auto_approved
-            else "Road deleted"
+            else _msg(request, "toast_road_deleted")
         ),
         "request_id": delete_request.id,
         "request_category": delete_request.request_category or "delete_road",
@@ -1459,7 +1470,7 @@ def list_my_edit_requests(request):
         return JsonResponse(
             {
                 "success": False,
-                "message": "You do not have permission to view My Edits.",
+                "message": _msg(request, "msg_me_no_permission"),
             },
             status=403,
         )
@@ -1473,14 +1484,14 @@ def list_my_edit_requests(request):
 
         qs = apply_my_edits_filters(qs, request)
         requests = list(qs[:EDIT_LIST_LIMIT])
-        items = serialize_edit_request_list(requests, serialize_my_edit_request_item)
+        items = serialize_edit_request_list(
+            requests, serialize_my_edit_request_item, language=_lang(request)
+        )
 
         return JsonResponse(
             {
                 "success": True,
                 "requests": items,
-                "count": len(items),
-                "limit": EDIT_LIST_LIMIT,
             }
         )
     except Exception as e:
@@ -1500,7 +1511,7 @@ def list_manager_review_history(request):
         return JsonResponse(
             {
                 "success": False,
-                "message": "Only managers can access review history.",
+                "message": _msg(request, "msg_rh_managers_only"),
             },
             status=403,
         )
@@ -1512,24 +1523,22 @@ def list_manager_review_history(request):
                     status__in=["approved", "rejected"],
                 )
             )
-            .select_related("requester", "requester__profile", "reviewed_by")
+            .select_related("requester")
             .order_by("-reviewed_at", "-created_at")
         )
 
-        scope = parse_review_history_scope(request)
         qs = apply_review_history_filters(qs, request, request.user)
         requests = list(qs[:EDIT_LIST_LIMIT])
         items = serialize_edit_request_list(
-            requests, serialize_manager_review_history_item
+            requests,
+            serialize_manager_review_history_item,
+            language=_lang(request),
         )
 
         return JsonResponse(
             {
                 "success": True,
                 "requests": items,
-                "count": len(items),
-                "limit": EDIT_LIST_LIMIT,
-                "scope": scope,
             }
         )
     except Exception as e:
@@ -1570,7 +1579,7 @@ def list_pending_requests(request):
     if not user_is_manager(request.user):
         return JsonResponse({
             'success': False,
-            'message': 'Only managers can access the approval queue.',
+            'message': _msg(request, 'msg_approval_managers_only'),
         }, status=403)
     
     try:
@@ -1594,32 +1603,20 @@ def list_pending_requests(request):
 
         requests_data = []
         for req in requests:
-            profile = getattr(req.requester, "profile", None)
-            profile_image_url = (
-                profile.profile_image.url if profile and profile.profile_image else None
-            )
-
-            geometry = _ensure_wgs84_geometry(req.geometry, source_srid=3857)
-
-            orig_geom = (
-                _ensure_wgs84_geometry(req.original_geometry, source_srid=3857)
-                if req.original_geometry
-                else None
-            )
-
             road = (
                 roads_by_id.get(int(req.riyadh_road_id))
                 if req.riyadh_road_id is not None
                 else None
             )
-
+            profile = getattr(req.requester, "profile", None)
+            profile_image_url = (
+                profile.profile_image.url if profile and profile.profile_image else None
+            )
             requests_data.append(
                 serialize_approval_request_list_item(
                     req,
                     road=road,
                     profile_image_url=profile_image_url,
-                    geometry_wgs84=geometry,
-                    original_geometry_wgs84=orig_geom,
                 )
             )
         
@@ -1644,7 +1641,7 @@ def get_edit_request_details(request, request_id):
     if not user_is_manager(request.user):
         return JsonResponse({
             'success': False,
-            'message': 'Only managers can access the approval queue.',
+            'message': _msg(request, 'msg_approval_managers_only'),
         }, status=403)
     
     try:
@@ -1654,7 +1651,7 @@ def get_edit_request_details(request, request_id):
             return JsonResponse(
                 {
                     "success": False,
-                    "message": "Approval request not found for the given id.",
+                    "message": _msg(request, "msg_approval_not_found"),
                 },
                 status=404,
             )
@@ -1708,7 +1705,7 @@ def approve_edit_request(request, request_id):
     if not user_is_manager(request.user):
         return JsonResponse({
             'success': False,
-            'message': 'Only managers can approve items in the approval queue.',
+            'message': _msg(request, 'msg_approve_managers_only'),
         }, status=403)
     
     try:
@@ -1726,7 +1723,7 @@ def approve_edit_request(request, request_id):
             return JsonResponse(
                 {
                     "success": True,
-                    "message": "Layer published",
+                    "message": _msg(request, "toast_layer_published"),
                     **live_mutation_flags(geometry_changed=True),
                     **network_mutation_payload(
                         remote_road_id=remote_road_id,
@@ -1776,9 +1773,12 @@ def approve_edit_request(request, request_id):
         )
         edit_request.approve(request.user)
 
-        message = "Approved"
-        if deleted_road_id is not None:
-            message = "Road deleted"
+        message = _msg(
+            request,
+            "toast_road_deleted"
+            if deleted_road_id is not None
+            else "toast_approved",
+        )
 
         approve_geometry_changed = geometry_changed or (
             remote_road_id is not None
@@ -1810,6 +1810,28 @@ def approve_edit_request(request, request_id):
         )
 
 
+def _parse_rejection_payload(request) -> tuple[str | None, JsonResponse | None]:
+    """Return (reason, error_response). Empty reason is valid when no_reason is true."""
+    try:
+        raw = request.body.decode("utf-8") if request.body else "{}"
+        data = json.loads(raw or "{}")
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    no_reason = bool(data.get("no_reason"))
+    reason = (data.get("reason") or "").strip()
+    if not no_reason and not reason:
+        return None, JsonResponse(
+            {
+                "success": False,
+                "message": _msg(request, "reject_reason_required"),
+            },
+            status=400,
+        )
+    return ("" if no_reason else reason), None
+
+
 @login_required
 @require_http_methods(["POST"])
 @csrf_exempt
@@ -1818,25 +1840,33 @@ def reject_edit_request(request, request_id):
     if not user_is_manager(request.user):
         return JsonResponse({
             'success': False,
-            'message': 'Only managers can reject items in the approval queue.',
+            'message': _msg(request, 'msg_reject_managers_only'),
         }, status=403)
+
+    reason, err = _parse_rejection_payload(request)
+    if err is not None:
+        return err
     
     try:
         edit_request = get_object_or_404(LineEditRequest, id=request_id, status='pending')
 
         if is_layer_upload_request(edit_request):
             reject_layer_upload_edit_request(edit_request)
-            edit_request.reject(request.user)
+            edit_request.reject(
+                request.user, reason=reason, language=_lang(request)
+            )
             return JsonResponse({
                 'success': True,
-                'message': 'Layer rejected',
+                'message': _msg(request, 'toast_layer_rejected'),
             })
 
-        edit_request.reject(request.user)
+        edit_request.reject(
+            request.user, reason=reason, language=_lang(request)
+        )
 
         return JsonResponse({
             'success': True,
-            'message': 'Rejected',
+            'message': _msg(request, 'toast_rejected'),
         })
         
     except Exception as e:
@@ -1846,6 +1876,40 @@ def reject_edit_request(request, request_id):
             status=500,
             message_key="toast_couldnt_reject",
         )
+
+
+@login_required
+@require_http_methods(["GET"])
+def list_editor_outcome_notifications(request):
+    """Unread approve/reject outcomes for the signed-in editor's header bell."""
+    outcomes = LineEditRequest.objects.filter(
+        requester=request.user,
+        status__in=("approved", "rejected"),
+        outcome_read_at__isnull=True,
+    ).order_by("-reviewed_at", "-id")[:50]
+    items = serialize_edit_request_list(
+        outcomes,
+        serialize_editor_outcome_notification_item,
+        language=_lang(request),
+    )
+    return JsonResponse({"success": True, "notifications": items, "count": len(items)})
+
+
+@login_required
+@require_http_methods(["POST"])
+@csrf_exempt
+def mark_editor_outcome_notification_read(request, request_id):
+    """Mark one approve/reject outcome as read for the requesting editor."""
+    edit_request = get_object_or_404(
+        LineEditRequest,
+        id=request_id,
+        requester=request.user,
+        status__in=("approved", "rejected"),
+    )
+    if edit_request.outcome_read_at is None:
+        edit_request.outcome_read_at = timezone.now()
+        edit_request.save(update_fields=["outcome_read_at", "updated_at"])
+    return JsonResponse({"success": True})
 
 
 @login_required
@@ -1879,13 +1943,13 @@ def get_riyadh_road_details(request, road_gid):  # URL segment; value is tile ne
         return JsonResponse(
             {
                 "success": False,
-                "message": "Riyadh road not found for the given id.",
+                "message": _msg(request, "road_not_found"),
             },
             status=404,
         )
 
     try:
-        # Prefer PostGIS ST_AsGeoJSON (same path as labels) — avoids ORM/transform
+        # Prefer PostGIS ST_AsGeoJSON (same path as labels) - avoids ORM/transform
         # failures on edge MultiLineStrings from the Geofabrik import.
         geometry = None
         try:
@@ -1925,7 +1989,9 @@ def get_riyadh_road_details(request, road_gid):  # URL segment; value is tile ne
             road_closure_int = 0
 
         name_en_db, name_ar_db = _get_riyadh_road_bilingual_names_by_gid(getattr(road, "gid", None))
-        display_label = name_en_db or name_ar_db or (road.name or "").strip()
+        display_label = _riyadh_road_display_name(
+            name_en_db, name_ar_db, getattr(road, "name", "") or "", language=_lang(request)
+        )
 
         fields_data = {
             "gid": getattr(road, "gid", None),

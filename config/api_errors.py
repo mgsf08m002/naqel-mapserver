@@ -2,7 +2,7 @@
 Centralized API error responses.
 
 Unexpected exceptions are logged server-side. Clients only receive curated,
-user-facing copy — never str(exc), tracebacks, or driver/SQL text.
+user-facing copy - never str(exc), tracebacks, or driver/SQL text.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from config.ui_strings import t
 logger = logging.getLogger(__name__)
 
 DEFAULT_MESSAGE_KEY = "generic_error"
-DEFAULT_FALLBACK = "Something went wrong — try again"
+DEFAULT_FALLBACK = "Something went wrong. Try again."
 
 
 def client_message(request=None, key: str = DEFAULT_MESSAGE_KEY, fallback: str | None = None) -> str:

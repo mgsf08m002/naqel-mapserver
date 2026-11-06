@@ -1,4 +1,4 @@
-# GeoTrak Maps — production app container (image only, no source bind-mount).
+# GeoTrak Maps - production app container (image only, no source bind-mount).
 #
 # Requires ../geo_infra (PostGIS, Martin, Nginx) to be running first:
 #   cd ../geo_infra && docker compose up -d

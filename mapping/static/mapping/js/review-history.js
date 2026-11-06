@@ -24,6 +24,24 @@
     var activeStatus = '';
     var activeCategories = [];
 
+    var CAT_FALLBACKS = {
+        layer_upload: 'Layer Upload',
+        delete_road: 'Delete Road',
+        new_road: 'New Road',
+        add_road_label: 'Add Road Label',
+        change_road_label: 'Change Road Label',
+        new_road_geometry: 'New Road Geometry',
+        new_feature_type: 'New Feature Type',
+        road_attribute_edit: 'Road Attribute Edit'
+    };
+
+    function uiT(key, fallback) {
+        if (typeof window.uiT === 'function') {
+            return window.uiT(key, fallback);
+        }
+        return fallback != null ? fallback : key;
+    }
+
     function escapeHtml(s) {
         if (s == null) return '';
         return String(s)
@@ -35,14 +53,46 @@
 
     function formatDate(iso) {
         if (typeof window.formatRiyadhDateTime === 'function') {
-            return window.formatRiyadhDateTime(iso, '—');
+            return window.formatRiyadhDateTime(iso, '-');
         }
-        return iso || '—';
+        return iso || '-';
     }
 
     function submitterLabel(item) {
-        if (!item.requester) return '—';
-        return item.requester.name || item.requester.username;
+        if (!item.requester) return '-';
+        return item.requester.name || item.requester.username || '-';
+    }
+
+    function categoryLabel(item) {
+        var key = String(item.request_category || '').trim();
+        var fallback =
+            item.request_category_label ||
+            CAT_FALLBACKS[key] ||
+            uiT('rh_edit_fallback', 'Edit');
+        if (!key) {
+            return fallback;
+        }
+        return uiT('approval_cat_' + key, fallback);
+    }
+
+    function statusLabel(status) {
+        if (status === 'rejected') {
+            return uiT('rh_status_rejected', 'Rejected');
+        }
+        if (status === 'approved') {
+            return uiT('rh_status_approved', 'Approved');
+        }
+        return status;
+    }
+
+    function rejectionReasonText(item) {
+        if (item.status !== 'rejected') {
+            return '';
+        }
+        if (item.no_reason || !String(item.rejection_reason || '').trim()) {
+            return uiT('reject_no_reason', 'No reason');
+        }
+        return String(item.rejection_reason).trim();
     }
 
     function startDateValue() {
@@ -83,7 +133,10 @@
 
     function updateCount(count) {
         if (!countEl || !countValueEl) return;
-        countValueEl.textContent = String(count);
+        countValueEl.textContent = uiT('rh_count', '{n} edits').replace(
+            '{n}',
+            String(count)
+        );
         countEl.hidden = false;
     }
 
@@ -129,38 +182,77 @@
 
     function buildRow(item) {
         var clickable = item.can_open_on_map && item.map_road_id != null;
-        var title = item.road_name || item.current_feature_label || 'Unnamed Road';
+        var title =
+            String(item.road_name || '').trim() ||
+            uiT('unnamed_road', 'Unnamed Road');
         var status = item.status || 'approved';
+        var featureType = String(item.current_feature_label || '').trim();
+        if (featureType && typeof window.displayFeatureTypeLabel === 'function') {
+            featureType = window.displayFeatureTypeLabel(featureType);
+        }
         var subtitle = item.shapefile_name
-            ? 'Layer: ' + item.shapefile_name
-            : (item.current_feature_label || '');
+            ? uiT('rh_layer_prefix', 'Layer: {name}').replace(
+                  '{name}',
+                  String(item.shapefile_name)
+              )
+            : featureType;
+        var reason = rejectionReasonText(item);
 
         var row = document.createElement('div');
         row.className = 'rh-row' + (clickable ? ' is-clickable' : '');
         row.setAttribute('role', clickable ? 'button' : 'row');
         if (clickable) {
             row.setAttribute('tabindex', '0');
-            row.setAttribute('aria-label', 'Open approved road on map: ' + title);
+            row.setAttribute(
+                'aria-label',
+                uiT('rh_open_road_aria', 'Open approved road on map: {name}').replace(
+                    '{name}',
+                    title
+                )
+            );
         }
 
         row.innerHTML =
             '<div class="rh-row__road-cell">' +
-            '<span class="rh-row__road">' + escapeHtml(title) + '</span>' +
+            '<span class="rh-row__road">' +
+            escapeHtml(title) +
+            '</span>' +
             (subtitle && subtitle !== title
                 ? '<span class="rh-row__sub">' + escapeHtml(subtitle) + '</span>'
                 : '') +
             '</div>' +
-            '<span class="rh-row__type">' + escapeHtml(item.request_category_label || 'Edit') + '</span>' +
-            '<span class="rh-row__status rh-row__status--' + escapeHtml(status) + '">' +
-            escapeHtml(status) +
+            '<span class="rh-row__type">' +
+            escapeHtml(categoryLabel(item)) +
             '</span>' +
-            '<span class="rh-row__date">' + formatDate(item.created_at) + '</span>' +
-            '<span class="rh-row__submitter">' + escapeHtml(submitterLabel(item)) + '</span>';
+            '<div class="rh-row__status-cell">' +
+            '<span class="rh-row__status rh-row__status--' +
+            escapeHtml(status) +
+            '">' +
+            escapeHtml(statusLabel(status)) +
+            '</span>' +
+            (reason
+                ? '<span class="rh-row__reason" dir="auto" title="' +
+                  escapeHtml(reason) +
+                  '">' +
+                  escapeHtml(reason) +
+                  '</span>'
+                : '') +
+            '</div>' +
+            '<span class="rh-row__date">' +
+            formatDate(item.created_at) +
+            '</span>' +
+            '<span class="rh-row__submitter">' +
+            escapeHtml(submitterLabel(item)) +
+            '</span>';
 
         if (clickable) {
             function goToMap() {
                 var sep = mapBaseUrl.indexOf('?') >= 0 ? '&' : '?';
-                window.location.href = mapBaseUrl + sep + 'road=' + encodeURIComponent(String(item.map_road_id));
+                window.location.href =
+                    mapBaseUrl +
+                    sep +
+                    'road=' +
+                    encodeURIComponent(String(item.map_road_id));
             }
             row.addEventListener('click', goToMap);
             row.addEventListener('keydown', function (e) {
@@ -216,16 +308,13 @@
                 }
                 var items = result.data.requests || [];
                 if (!items.length) {
-                    showEmpty('No edits match these filters.');
+                    showEmpty(uiT('rh_empty', 'No edits match these filters.'));
                     return;
                 }
                 showList(items);
             })
             .catch(function () {
-                var emptyMsg =
-                    typeof window.uiT === 'function'
-                        ? window.uiT('toast_couldnt_load', "Couldn't load")
-                        : "Couldn't load";
+                var emptyMsg = uiT('toast_couldnt_load', "Couldn't load");
                 showEmpty(emptyMsg);
                 if (countEl) countEl.hidden = true;
                 if (window.notify && typeof window.notify.tryShow === 'function') {

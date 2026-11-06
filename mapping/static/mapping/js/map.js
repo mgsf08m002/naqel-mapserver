@@ -109,7 +109,6 @@ const BASEMAP_DEFINITIONS = (() => {
     const definitions = [
         {
             id: 'esri-satellite',
-            label: 'Satellite',
             sourceId: 'basemap-esri-satellite-source',
             layerId: 'basemap-esri-satellite-layer',
             tileUrl: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -124,7 +123,6 @@ const BASEMAP_DEFINITIONS = (() => {
         definitions.push(
             {
                 id: 'maptiler-streets',
-                label: 'Streets',
                 sourceId: 'basemap-maptiler-streets-source',
                 layerId: 'basemap-maptiler-streets-layer',
                 tileUrl: `${maptilerBaseUrl}/streets-v2/256/{z}/{x}/{y}.png?key=${MAPTILER_API_KEY}`,
@@ -133,7 +131,6 @@ const BASEMAP_DEFINITIONS = (() => {
             },
             {
                 id: 'maptiler-outdoor',
-                label: 'Outdoor',
                 sourceId: 'basemap-maptiler-outdoor-source',
                 layerId: 'basemap-maptiler-outdoor-layer',
                 tileUrl: `${maptilerBaseUrl}/outdoor-v2/256/{z}/{x}/{y}.png?key=${MAPTILER_API_KEY}`,
@@ -142,7 +139,6 @@ const BASEMAP_DEFINITIONS = (() => {
             },
             {
                 id: 'maptiler-dark',
-                label: 'Dark',
                 sourceId: 'basemap-maptiler-dark-source',
                 layerId: 'basemap-maptiler-dark-layer',
                 tileUrl: `${maptilerBaseUrl}/darkmatter/256/{z}/{x}/{y}.png?key=${MAPTILER_API_KEY}`,
@@ -200,7 +196,7 @@ const map = new maplibregl.Map({
     },
 });
 
-/** MapLibre instance for other scripts. Do not use `window.map` — the #map div id shadows it. */
+/** MapLibre instance for other scripts. Do not use `window.map` - the #map div id shadows it. */
 window.geotrakMaplibreMap = map;
 
 function setBasemapVisibility(targetId) {
@@ -318,6 +314,59 @@ if (isEditingEnabled) {
 
     drawInstance = draw.getTerraDrawInstance();
 }
+
+(function localizeMapLibreControlChrome() {
+    function uiT(key, fallback) {
+        if (typeof window.uiT === 'function') {
+            return window.uiT(key, fallback);
+        }
+        return fallback != null ? fallback : key;
+    }
+    const titleMap = {
+        'Zoom in': uiT('map_zoom_in', 'Zoom in'),
+        'Zoom out': uiT('map_zoom_out', 'Zoom out'),
+        'Reset bearing to north': uiT('map_reset_bearing', 'Reset bearing to north'),
+        'Find my location': uiT('map_find_location', 'Find my location'),
+        'Enter fullscreen': uiT('map_enter_fullscreen', 'Enter fullscreen'),
+        'Exit fullscreen': uiT('map_exit_fullscreen', 'Exit fullscreen'),
+        'Toggle attribution': uiT('map_toggle_attribution', 'Toggle attribution'),
+        Point: uiT('map_draw_point', 'Point'),
+        Linestring: uiT('map_draw_linestring', 'Linestring'),
+        Polygon: uiT('map_draw_polygon', 'Polygon'),
+        Rectangle: uiT('map_draw_rectangle', 'Rectangle'),
+        Circle: uiT('map_draw_circle', 'Circle'),
+        Freehand: uiT('map_draw_freehand', 'Freehand'),
+        'Angled rectangle': uiT('map_draw_angled_rectangle', 'Angled rectangle'),
+        Sensor: uiT('map_draw_sensor', 'Sensor'),
+        Sector: uiT('map_draw_sector', 'Sector'),
+        Select: uiT('map_draw_select', 'Select'),
+        'Delete selection': uiT('map_draw_delete_selection', 'Delete selection'),
+        Delete: uiT('map_draw_delete', 'Delete'),
+        Download: uiT('map_draw_download', 'Download'),
+    };
+    function apply() {
+        const root = map.getContainer();
+        if (!root) return;
+        root.querySelectorAll(
+            '.maplibregl-ctrl button[title], .maplibregl-ctrl button[aria-label], .maplibregl-ctrl-attrib-button'
+        ).forEach(function (btn) {
+            const title = btn.getAttribute('title');
+            const aria = btn.getAttribute('aria-label');
+            if (title && titleMap[title]) {
+                btn.setAttribute('title', titleMap[title]);
+            }
+            if (aria && titleMap[aria]) {
+                btn.setAttribute('aria-label', titleMap[aria]);
+            }
+        });
+    }
+    apply();
+    map.once('load', apply);
+    document.addEventListener('fullscreenchange', apply);
+    map.getContainer().addEventListener('click', function () {
+        requestAnimationFrame(apply);
+    });
+})();
 let selectedFeature = null;
 window.currentlySelectedItem = null;
 window.currentlySelectedItemType = null; // 'terradraw-line'
@@ -397,7 +446,7 @@ function updateMapStatusDisplay(lngLat) {
         return;
     }
 
-    el.textContent = parts.join(' · ');
+    el.textContent = parts.join(' - ');
     el.classList.remove('hidden');
 }
 
@@ -858,7 +907,7 @@ map.on('load', () => {
 
             /** Hide neutral public underlay for closed roads (styled layer draws closure dashes). */
             function buildPublicLayerOpacityExpression(draftHiddenRoadId) {
-                // Opacity uses case/feature match only — zoom cannot nest inside case.
+                // Opacity uses case/feature match only - zoom cannot nest inside case.
                 const closedExpr = riyadhRoadClosureExpr;
                 const whenOpen =
                     closedExpr != null ? ['case', closedExpr, 0, 1] : 1;
@@ -1230,7 +1279,7 @@ map.on('load', () => {
                         }
                     });
 
-                    // Hover highlight (subtle) — under selection casing.
+                    // Hover highlight (subtle) - under selection casing.
                     if (!map.getLayer(HOVER_LAYER_ID)) {
                         map.addLayer({
                             id: HOVER_LAYER_ID,
@@ -1251,7 +1300,7 @@ map.on('load', () => {
                         });
                     }
 
-                    // Selection casing (under cyan core): white outline + soft cyan ring — shared across all roads.
+                    // Selection casing (under cyan core): white outline + soft cyan ring - shared across all roads.
                     if (!map.getLayer(OUTLINE_LAYER_ID)) {
                         map.addLayer({
                             id: OUTLINE_LAYER_ID,

@@ -7,7 +7,7 @@
 #
 # Quick start (production compose):
 #   cd ../geo_infra && docker compose up -d
-#   cp .env.prod .env          # on VPS only — locally .env already exists
+#   cp .env.prod .env          # on VPS only - locally .env already exists
 #   docker compose -f docker-compose.prod.yml up -d --build
 #
 # Local live-reload: docker compose up -d --build

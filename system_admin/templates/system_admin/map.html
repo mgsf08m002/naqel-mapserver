@@ -1,7 +1,7 @@
 {% extends 'system_admin/base.html' %}
 {% load static %}
 
-{% block title %}Map · System Admin · GeoTrak Maps{% endblock %}
+{% block title %}{{ ui.map }} - {{ ui.role_system_admin }} - {{ ui.brand_name }}{% endblock %}
 
 {% block main_class %}relative overflow-hidden{% endblock %}
 
@@ -10,7 +10,7 @@
 <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css' />
 <script src='https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js'></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.css"/>
-<link rel="stylesheet" href="{% static 'mapping/css/line-styles.css' %}"/>
+<link rel="stylesheet" href="{% static 'mapping/css/line-styles.css' %}?v=search-ui-2"/>
 <link rel="stylesheet" href="{% static 'mapping/css/clear-selection-toolbar.css' %}"/>
 <script src="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.umd.js"></script>
 <svg style="display: none;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
@@ -58,7 +58,7 @@
 <script src="{% static 'mapping/js/riyadh-tiles-reload.js' %}"></script>
 <script src="{% static 'mapping/js/map.js' %}"></script>
 <script src="{% static 'mapping/js/map-road-select.js' %}"></script>
-<script src="{% static 'mapping/js/map-road-search.js' %}"></script>
+<script src="{% static 'mapping/js/map-road-search.js' %}?v=search-ui-2"></script>
 <script src="{% static 'mapping/js/map-road-deeplink.js' %}"></script>
 <script src="{% static 'mapping/js/geometry-normalize.js' %}"></script>
 <script src="{% static 'mapping/js/line-drawing.js' %}"></script>

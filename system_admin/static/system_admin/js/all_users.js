@@ -150,14 +150,14 @@
             const response = await fetch('/system-admin/api/users/');
             const data = await response.json().catch(function() { return null; });
             if (!response.ok || !data) {
-                showError(t('all_users_load_failed', "Couldn't load users — try again"));
+                showError(t('all_users_load_failed', "Couldn't load users. Try again."));
                 return;
             }
 
             state.users = data.users || [];
             applyFilters();
         } catch (error) {
-            showError(t('all_users_load_failed', "Couldn't load users — try again"));
+            showError(t('all_users_load_failed', "Couldn't load users. Try again."));
         } finally {
             elements.loadingState?.classList.add('is-hidden');
         }
@@ -376,7 +376,7 @@
     }
 
     function formatCreated(user) {
-        return user.created_display || '—';
+        return user.created_display || '-';
     }
 
     function getUserInitials(user) {

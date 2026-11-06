@@ -1,4 +1,4 @@
-# GeoTrak Maps — local development (bind-mounts source for live edits).
+# GeoTrak Maps - local development (bind-mounts source for live edits).
 #
 # PostgreSQL/PostGIS, Martin and Nginx live in the shared stack ../geo_infra.
 # Start it first (creates the external `geo_shared` network):

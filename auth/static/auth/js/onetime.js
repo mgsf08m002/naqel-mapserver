@@ -1,5 +1,5 @@
 /**
- * System Admin registration — multi-step setup flow.
+ * System Admin registration - multi-step setup flow.
  */
 
 document.addEventListener('DOMContentLoaded', function () {

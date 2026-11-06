@@ -40,7 +40,7 @@
 
     function formatZoomLevel(value) {
         if (typeof value !== 'number' || Number.isNaN(value)) {
-            return '—';
+            return '-';
         }
         return (Math.round(value * 10) / 10).toFixed(1);
     }
@@ -104,12 +104,24 @@
             return;
         }
 
-        const ok = isZoomSufficient(currentZoom);
+        const reviewing = !!window.managerApprovalReviewActive;
+        const ok = !reviewing && isZoomSufficient(currentZoom);
         editButton.disabled = !ok;
         editButton.setAttribute('aria-disabled', ok ? 'false' : 'true');
+        editButton.classList.toggle('is-review-locked', reviewing);
         if (isEditModeActive) {
             refreshZoomGate();
         }
+    }
+
+    function forceExitMapEditModeForReview() {
+        if (!isEditModeActive) {
+            syncEditButtonZoomState();
+            return;
+        }
+        isEditModeActive = false;
+        exitEditMode();
+        syncEditButtonZoomState();
     }
 
     function zoomToEditLevel() {
@@ -169,6 +181,15 @@
             return;
         }
 
+        // During manager approval review the map is view-only - never enter edit.
+        if (window.managerApprovalReviewActive) {
+            if (isEditModeActive) {
+                isEditModeActive = false;
+                exitEditMode();
+            }
+            return;
+        }
+
         isEditModeActive = !isEditModeActive;
 
         if (isEditModeActive) {
@@ -180,6 +201,7 @@
 
     function enterEditMode() {
         if (window.managerApprovalReviewActive) {
+            isEditModeActive = false;
             return;
         }
         updateButtonText(uiT('exit_edit_mode', 'Exit Edit Mode'));
@@ -332,11 +354,18 @@
         exitEditMode();
     };
 
+    window.forceExitMapEditModeForReview = forceExitMapEditModeForReview;
+
+    window.syncEditButtonReviewState = syncEditButtonZoomState;
+
     window.isMapEditModeActive = function() {
         return isEditModeActive;
     };
 
     window.promptEnableEditMode = function() {
+        if (window.managerApprovalReviewActive) {
+            return;
+        }
         if (window.notify && typeof window.notify.tryShow === 'function') {
             window.notify.tryShow(uiT('edit_mode_required', 'Turn on Edit Mode first, then you can make changes.'), 'info');
         }

@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from django.contrib.gis.db import models as gis_models
 import json
+import re
 
 
 class LineEditRequest(models.Model):
@@ -99,6 +100,26 @@ class LineEditRequest(models.Model):
         blank=True,
         help_text="Tile/network id after approval (for map deep links)",
     )
+    rejection_reason = models.TextField(
+        blank=True,
+        default="",
+        help_text="Legacy single rejection note (kept in sync with the typed language).",
+    )
+    rejection_reason_en = models.TextField(
+        blank=True,
+        default="",
+        help_text="English rejection note for editors using the English UI.",
+    )
+    rejection_reason_ar = models.TextField(
+        blank=True,
+        default="",
+        help_text="Arabic rejection note for editors using the Arabic UI.",
+    )
+    outcome_read_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the editor dismissed the approve/reject outcome notification.",
+    )
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -125,26 +146,73 @@ class LineEditRequest(models.Model):
         return f'{self.requester.username} - {category} - {self.status} ({stamp})'
     
     def get_requester_role(self):
-        """Get the role of the requester."""
+        """Return a stable role key for client i18n (role_* ui strings)."""
         if self.requester.is_superuser:
-            return 'System Admin'
+            return 'system_admin'
         profile = getattr(self.requester, 'profile', None)
-        if profile and profile.role:
-            return profile.role.title()
-        return 'User'
+        role = getattr(profile, 'role', None) if profile else None
+        if role in ('manager', 'editor', 'viewer', 'system_admin'):
+            return role
+        return 'user'
     
+    @staticmethod
+    def _reason_looks_arabic(text: str) -> bool:
+        return bool(re.search(r"[\u0600-\u06FF]", text or ""))
+
+    def clear_rejection_reasons(self):
+        self.rejection_reason = ""
+        self.rejection_reason_en = ""
+        self.rejection_reason_ar = ""
+
+    def set_rejection_reason(self, reason: str = "", language: str = "en"):
+        """Store a rejection note in the EN or AR bucket (script + UI language)."""
+        text = (reason or "").strip()
+        self.rejection_reason = text
+        self.rejection_reason_en = ""
+        self.rejection_reason_ar = ""
+        if not text:
+            return
+        looks_ar = self._reason_looks_arabic(text)
+        ui_ar = (language or "en").startswith("ar")
+        if looks_ar or (ui_ar and not text.isascii()):
+            self.rejection_reason_ar = text
+        else:
+            self.rejection_reason_en = text
+
+    def rejection_reason_for(self, language: str = "en") -> str:
+        """Return the rejection note for the viewer's UI language (no script crossover)."""
+        en = (self.rejection_reason_en or "").strip()
+        ar = (self.rejection_reason_ar or "").strip()
+        legacy = (self.rejection_reason or "").strip()
+        legacy_ar = self._reason_looks_arabic(legacy)
+        if (language or "en").startswith("ar"):
+            if ar:
+                return ar
+            if legacy and legacy_ar:
+                return legacy
+            return en or (legacy if legacy and not legacy_ar else "")
+        if en:
+            return en
+        if legacy and not legacy_ar:
+            return legacy
+        return ""
+
     def approve(self, reviewer):
         """Approve the edit request."""
         self.status = 'approved'
         self.reviewed_at = timezone.now()
         self.reviewed_by = reviewer
+        self.clear_rejection_reasons()
+        self.outcome_read_at = None
         self.save()
     
-    def reject(self, reviewer):
-        """Reject the edit request."""
+    def reject(self, reviewer, reason='', language='en'):
+        """Reject the edit request. Empty reason means the manager chose No reason."""
         self.status = 'rejected'
         self.reviewed_at = timezone.now()
         self.reviewed_by = reviewer
+        self.set_rejection_reason(reason, language=language)
+        self.outcome_read_at = None
         self.save()
 
     def save(self, *args, **kwargs):

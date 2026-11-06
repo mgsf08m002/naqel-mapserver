@@ -5,9 +5,12 @@
     {% include 'auth/includes/geotrak_favicon.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Editor · GeoTrak Maps{% endblock %}</title>
+    <title>{% block title %}{{ ui.role_editor }} - {{ ui.brand_name }}{% endblock %}</title>
     <link href="{% static 'css/output.css' %}" rel="stylesheet">
-    <link href="{% static 'css/responsive.css' %}" rel="stylesheet">
+    <link href="{% static 'css/responsive.css' %}?v=resp-6" rel="stylesheet">
+    {% if user_profile.role == 'editor' %}
+    <link href="{% static 'mapping/css/editor-outcome-notifications.css' %}?v=outcome-7" rel="stylesheet">
+    {% endif %}
     {% block extra_css %}{% endblock %}
 </head>
 <body class="bg-white min-h-screen font-sans flex flex-col h-screen overflow-hidden" data-user-role="editor">
@@ -41,6 +44,28 @@
             </div>
 
             <div class="app-header__slot app-header__slot--end">
+                {% if user_profile.role == 'editor' %}
+                <div class="relative" id="editorOutcomeBellWrap">
+                    <button
+                        type="button"
+                        id="editorOutcomeBell"
+                        class="app-header-icon-btn relative"
+                        aria-expanded="false"
+                        aria-controls="editorOutcomePanel"
+                        aria-label="{{ ui.outcome_notifications }}"
+                    >
+                        <svg class="h-[1.2rem] w-[1.2rem]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                        </svg>
+                        <span
+                            id="editorOutcomeBellBadge"
+                            class="editor-outcome-bell__badge"
+                            aria-hidden="true"
+                        >0</span>
+                    </button>
+                    {% include 'editor/includes/outcome_notifications_dropdown.html' %}
+                </div>
+                {% endif %}
                 {% include 'auth/includes/language_switcher.html' %}
                 <div class="relative">
                     <button id="userMenuBtn" type="button" class="app-header-user">
@@ -163,6 +188,9 @@
     {% include 'notifications/includes/django_messages_script.html' %}
     {% include 'auth/includes/ui_i18n_script.html' %}
     <script src="{% static 'editor/js/header.js' %}"></script>
+    {% if user_profile.role == 'editor' %}
+    <script src="{% static 'mapping/js/editor-outcome-notifications.js' %}?v=outcome-7"></script>
+    {% endif %}
     {% block extra_js %}{% endblock %}
     {% if request.resolver_match.url_name == 'map' %}
     <script src="{% static 'mapping/js/edit-button.js' %}"></script>

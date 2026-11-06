@@ -162,12 +162,21 @@ def terminate_session_api(request):
         try:
             payload = json.loads(request.body.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
-            return JsonResponse({"success": False, "message": "Invalid JSON data."}, status=400)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": t(_ui_lang(request), "toast_invalid_json"),
+                },
+                status=400,
+            )
 
         session_key = payload.get("session_key")
         if not session_key:
             return JsonResponse(
-                {"success": False, "message": "Session key is required."},
+                {
+                    "success": False,
+                    "message": t(_ui_lang(request), "msg_sec_session_key_required"),
+                },
                 status=400,
             )
 
@@ -188,7 +197,7 @@ def terminate_session_api(request):
             return JsonResponse(
                 {
                     "success": False,
-                    "message": "You are not allowed to terminate this session.",
+                    "message": t(_ui_lang(request), "msg_sec_terminate_forbidden"),
                 },
                 status=403,
             )

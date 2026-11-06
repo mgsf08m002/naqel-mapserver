@@ -122,7 +122,7 @@ def authorize_tile_request(request, original_uri: str) -> TileDecision:
 
     raw_token = extract_raw_token(request, query_string)
     if raw_token:
-        # Never memoize token decisions — revoke/expiry must apply immediately.
+        # Never memoize token decisions - revoke/expiry must apply immediately.
         token = TileAccessToken.objects.filter(token_hash=hash_token(raw_token)).first()
         if token is None:
             return TileDecision(403, "unknown token")

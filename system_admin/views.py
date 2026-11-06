@@ -710,7 +710,7 @@ def password_requests_view(request):
     for item in pending_qs:
         role = getattr(getattr(item.user, 'profile', None), 'role', None)
         item.role_display = _password_role_label(role, lang)
-        item.requested_display = _format_users_datetime(item.requested_at, lang) or '—'
+        item.requested_display = _format_users_datetime(item.requested_at, lang) or '-'
         pending_rows.append(item)
 
     context['pending_requests'] = pending_rows

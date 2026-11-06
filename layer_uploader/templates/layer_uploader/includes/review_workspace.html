@@ -4,7 +4,7 @@
     {% include 'mapping/includes/basemap_gallery.html' %}
     {% include 'mapping/includes/clear_selection_toolbar.html' %}
     {% if review_large_layer %}
-    <p class="lr-map-hint" aria-live="polite">Large layer — roads load for the current view.</p>
+    <p class="lr-map-hint" aria-live="polite">Large layer. Roads load for the current view.</p>
     {% endif %}
   </div>
 
@@ -14,7 +14,7 @@
         <div class="lr-panel-head">
           <h2 class="lr-panel-title">Features</h2>
           <div class="lr-panel-head-actions">
-            <span id="lr-feature-count" class="lr-panel-count">—</span>
+            <span id="lr-feature-count" class="lr-panel-count">-</span>
             {% if not can_submit %}
             <a id="btn-finish" href="{% url 'success' %}?submitted=1" class="lr-btn-finish">Done</a>
             {% endif %}
@@ -33,10 +33,10 @@
           </div>
         </div>
         <div class="lr-panel-stats" aria-live="polite">
-          <span class="lr-stat">Total <strong id="lr-cnt-total">—</strong></span>
-          <span class="lr-stat lr-stat--staged">New <strong id="lr-cnt-staged">—</strong></span>
-          <span class="lr-stat lr-stat--nominated">Approved <strong id="lr-cnt-nominated">—</strong></span>
-          <span class="lr-stat lr-stat--rejected">Rejected <strong id="lr-cnt-rejected_upload">—</strong></span>
+          <span class="lr-stat">Total <strong id="lr-cnt-total">-</strong></span>
+          <span class="lr-stat lr-stat--staged">New <strong id="lr-cnt-staged">-</strong></span>
+          <span class="lr-stat lr-stat--nominated">Approved <strong id="lr-cnt-nominated">-</strong></span>
+          <span class="lr-stat lr-stat--rejected">Rejected <strong id="lr-cnt-rejected_upload">-</strong></span>
         </div>
       </header>
       <div id="lr-feature-list" class="lr-feature-list" role="list"></div>

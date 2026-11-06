@@ -4,7 +4,7 @@
 {% block title %}{{ ui.view_user_doc_title }}{% endblock %}
 
 {% block extra_css %}
-<link href="{% static 'system_admin/css/users.css' %}?v=ar-rtl-2" rel="stylesheet">
+<link href="{% static 'system_admin/css/users.css' %}?v=users-resp-2" rel="stylesheet">
 {% endblock %}
 
 {% block content_wrapper %}
@@ -35,14 +35,14 @@
                     </div>
                     <div>
                         <h2 class="view-user-profile__name">
-                            <span id="userFullName">—</span>
+                            <span id="userFullName">-</span>
                             <span class="view-user-verified" aria-label="{{ ui.view_user_verified }}" title="{{ ui.view_user_verified }}">
                                 <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path d="M12 2l1.7 1.1 1.95-.55.7 1.9 1.9.7-.55 1.95L21 9.8l-1.1 1.7 1.1 1.7-2.3 1.1.55 1.95-1.9.7-.7 1.9-1.95-.55L12 22l-1.7-1.1-1.95.55-.7-1.9-1.9-.7.55-1.95L3 13.2l1.1-1.7L3 9.8l2.3-1.1-.55-1.95 1.9-.7.7-1.9 1.95.55L12 2zm-1.1 13.2l5.3-5.3-1.4-1.4-3.9 3.9-1.8-1.8-1.4 1.4 3.2 3.2z"></path>
                                 </svg>
                             </span>
                         </h2>
-                        <p id="userEmail" class="view-user-profile__email">—</p>
+                        <p id="userEmail" class="view-user-profile__email">-</p>
                         <div class="view-user-profile__badges">
                             <span class="all-users-role">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

@@ -2,7 +2,7 @@
  * Shared toast + confirm UI (`window.notify`).
  *
  * Also exposes ``window.safeUserMessage`` so technical / unexpected errors
- * never reach the UI — only curated copy (or a localized fallback).
+ * never reach the UI - only curated copy (or a localized fallback).
  */
 (function () {
     'use strict';
@@ -73,9 +73,9 @@
 
     function defaultSafeFallback() {
         if (typeof window.uiT === 'function') {
-            return window.uiT('generic_error', 'Something went wrong — try again');
+            return window.uiT('generic_error', 'Something went wrong. Try again.');
         }
-        return 'Something went wrong — try again';
+        return 'Something went wrong. Try again.';
     }
 
     /**
@@ -251,11 +251,21 @@
                   ? options
                   : {};
         var message = opts.message != null ? String(opts.message) : '';
-        var title = opts.title != null ? String(opts.title) : 'Confirm';
+        var t = function (key, fallback) {
+            return typeof window.uiT === 'function'
+                ? window.uiT(key, fallback)
+                : fallback;
+        };
+        var title =
+            opts.title != null ? String(opts.title) : t('confirm', 'Confirm');
         var confirmLabel =
-            opts.confirmLabel != null ? String(opts.confirmLabel) : 'Confirm';
+            opts.confirmLabel != null
+                ? String(opts.confirmLabel)
+                : t('confirm', 'Confirm');
         var cancelLabel =
-            opts.cancelLabel != null ? String(opts.cancelLabel) : 'Cancel';
+            opts.cancelLabel != null
+                ? String(opts.cancelLabel)
+                : t('cancel', 'Cancel');
         var isDanger = opts.variant === 'danger';
 
         if (!this._ensureConfirmDom()) {

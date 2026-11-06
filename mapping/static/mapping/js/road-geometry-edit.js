@@ -508,7 +508,13 @@
         var el = document.createElement('div');
         el.className = 'road-vertex-handle';
         el.setAttribute('role', 'button');
-        el.setAttribute('aria-label', 'Point ' + (markerIndex + 1) + '. Drag to move. Shift+click to remove.');
+        el.setAttribute(
+            'aria-label',
+            uiT(
+                'reshape_point_aria',
+                'Point {n}. Drag to move. Shift+click to remove.'
+            ).replace('{n}', String(markerIndex + 1))
+        );
 
         var dot = document.createElement('span');
         dot.className = 'road-vertex-handle__dot';
@@ -542,8 +548,11 @@
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'road-midpoint-handle';
-        btn.title = 'Add point';
-        btn.setAttribute('aria-label', 'Add a point on this segment');
+        btn.title = uiT('reshape_add_point', 'Add point');
+        btn.setAttribute(
+            'aria-label',
+            uiT('reshape_add_point_aria', 'Add a point on this segment')
+        );
 
         var inner = document.createElement('span');
         inner.className = 'road-midpoint-handle__inner';
@@ -734,7 +743,7 @@
         if (!norm) {
             if (window.notify && typeof window.notify.tryShow === 'function') {
                 window.notify.tryShow(
-                    uiT('toast_bad_geometry', "Can't edit — bad geometry"),
+                    uiT('toast_bad_geometry', "Can't edit this geometry."),
                     'error'
                 );
             }
@@ -745,7 +754,7 @@
         if (!workingCoords) {
             if (window.notify && typeof window.notify.tryShow === 'function') {
                 window.notify.tryShow(
-                    uiT('toast_wrong_coords', "Can't edit — wrong coordinates"),
+                    uiT('toast_wrong_coords', "Can't edit. Coordinates look wrong."),
                     'error'
                 );
             }

@@ -1,4 +1,4 @@
-/* Security — open hub layout (no outer card shell) */
+/* Security - open hub layout (no outer card shell) */
 
 body:has(.security-page) {
   --sec-navy: #0f2d53;
@@ -58,7 +58,7 @@ body:has(.security-page) main {
   max-width: 36rem;
 }
 
-/* Hero — floating premium panel on open canvas */
+/* Hero - floating premium panel on open canvas */
 .security-hero {
   position: relative;
   display: flex;
@@ -164,7 +164,7 @@ body:has(.security-page) main {
   color: var(--sec-muted);
 }
 
-/* Sections — individual floating surfaces */
+/* Sections - individual floating surfaces */
 .security-section {
   margin-top: 20px;
   padding: 24px 26px 26px;
@@ -228,7 +228,7 @@ body:has(.security-page) main {
   color: var(--sec-text);
 }
 
-/* Password fields — Users form language (no broken Arabic letter-spacing) */
+/* Password fields - Users form language (no broken Arabic letter-spacing) */
 .security-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -388,7 +388,7 @@ body:has(.security-page) main {
   pointer-events: none;
 }
 
-/* Sessions — reference layout */
+/* Sessions - reference layout */
 .security-section--sessions {
   padding: 22px 24px 24px;
 }

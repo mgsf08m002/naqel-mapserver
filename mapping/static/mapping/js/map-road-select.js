@@ -90,7 +90,13 @@
         var enterEditMode = opts.enterEditMode === true;
         var idNum = roadId != null ? parseInt(String(roadId), 10) : NaN;
         if (!idNum || Number.isNaN(idNum)) {
-            return { success: false, message: 'Invalid road id.' };
+            return {
+                success: false,
+                message:
+                    typeof global.uiT === 'function'
+                        ? global.uiT('road_invalid_id', 'Invalid road id.')
+                        : 'Invalid road id.',
+            };
         }
 
         if (typeof global.setRiyadhRoadSelectedId === 'function') {
@@ -106,11 +112,20 @@
                 headers: { 'Content-Type': 'application/json' },
             });
             if (!resp.ok) {
-                return { success: false, message: 'Road not found.' };
+                return {
+                    success: false,
+                    message:
+                        typeof global.uiT === 'function'
+                            ? global.uiT('road_not_found', 'Road not found.')
+                            : 'Road not found.',
+                };
             }
             var data = await resp.json();
             if (!data || !data.success || !data.road) {
-                var roadFallback = 'Road not found.';
+                var roadFallback =
+                    typeof global.uiT === 'function'
+                        ? global.uiT('road_not_found', 'Road not found.')
+                        : 'Road not found.';
                 return {
                     success: false,
                     message:
@@ -141,7 +156,16 @@
 
             return { success: true, road: road };
         } catch (err) {
-            return { success: false, message: 'Could not load road details.' };
+            return {
+                success: false,
+                message:
+                    typeof global.uiT === 'function'
+                        ? global.uiT(
+                              'road_load_failed',
+                              'Could not load road details.'
+                          )
+                        : 'Could not load road details.',
+            };
         }
     }
 

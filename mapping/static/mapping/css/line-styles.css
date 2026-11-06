@@ -17,7 +17,7 @@
     letter-spacing: 0.06em;
 }
 
-/* Sidebar symbology previews (SVG mini-maps) — feature style only, no selection casing */
+/* Sidebar symbology previews (SVG mini-maps) - feature style only, no selection casing */
 .map-feature-type-symbology-preview svg,
 #lineVisualizationSVG svg {
     display: block;
@@ -29,24 +29,26 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
-/* Reshape guide: map-left, beside the left-docked side panel (EN + AR). */
+/* Reshape guide: beside the start-docked side panel (EN + AR). */
 .road-geometry-edit-hint {
     position: absolute;
-    left: 0.75rem;
+    inset-inline-start: 0.75rem;
+    inset-inline-end: auto;
+    left: auto;
     right: auto;
     bottom: 3rem;
     z-index: 46;
     width: min(15.5rem, calc(100% - 1.5rem));
     pointer-events: auto;
-    transition: left 0.3s ease-out;
+    transition: inset-inline-start 0.3s ease-out;
 }
 
 #mapPageShell:has(#sidePanelExpandTab:not(.hidden)) .road-geometry-edit-hint {
-    left: 3.25rem;
+    inset-inline-start: 3.25rem;
 }
 
-#mapPageShell:has(#editSidePanel:not(.-translate-x-full)) .road-geometry-edit-hint {
-    left: calc(var(--msp-width, 19rem) + 0.75rem);
+#mapPageShell:has(#editSidePanel:not(.msp-is-closed)) .road-geometry-edit-hint {
+    inset-inline-start: calc(var(--msp-width, 19rem) + 0.75rem);
     width: min(15.5rem, calc(100% - var(--msp-width, 19rem) - 1.5rem));
 }
 
@@ -229,7 +231,7 @@
     color: #0f2d53;
 }
 
-/* —— Reshape map handles —— */
+/* --- Reshape map handles --- */
 .road-vertex-handle {
     display: flex;
     align-items: center;
@@ -365,7 +367,7 @@ svg[data-terra-draw] line {
 }
 
 /* -------------------------------------------------------------------------
-   Map side panel (msp) — Permissions-inspired product inspector
+   Map side panel (msp) - Permissions-inspired product inspector
    ------------------------------------------------------------------------- */
 #mapPageShell {
     --msp-width: 19rem;
@@ -893,7 +895,7 @@ svg[data-terra-draw] line {
     display: none !important;
 }
 
-/* —— Edit mode command dock (flat white) —— */
+/* --- Edit mode command dock (flat white) --- */
 .map-edit-dock {
     --dock-ink: #0f2d53;
     --dock-muted: #5b6b82;
@@ -1083,22 +1085,14 @@ svg[data-terra-draw] line {
     white-space: nowrap;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
+    /* Labels are hidden by responsive.css; keep compact spacing only. */
     .map-edit-dock {
         gap: 0.4rem;
     }
 
     .map-edit-dock__mode {
         padding: 0 0.5rem;
-    }
-
-    .map-edit-dock__mode-label,
-    .map-edit-dock__save-label {
-        font-size: 0.68rem;
-    }
-
-    .map-edit-dock__hist-label {
-        font-size: 0.56rem;
     }
 }
 

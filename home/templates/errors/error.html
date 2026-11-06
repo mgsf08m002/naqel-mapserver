@@ -8,31 +8,14 @@
     <meta name="robots" content="noindex, nofollow">
     <title>{{ error_doc_title }}</title>
     <link href="{% static 'css/output.css' %}" rel="stylesheet">
-    <link href="{% static 'css/responsive.css' %}" rel="stylesheet">
+    <link href="{% static 'css/responsive.css' %}?v=resp-4" rel="stylesheet">
     <link href="{% static 'auth/css/auth-shell.css' %}" rel="stylesheet">
     <link href="{% static 'auth/css/error-page.css' %}" rel="stylesheet">
 </head>
 <body class="font-sans">
     <div class="auth-shell error-page">
         <div class="auth-shell__lang">
-            <nav class="ui-lang-switcher" aria-label="{{ ui.language }}">
-                <form method="post" action="{% url 'set_ui_language' %}" class="ui-lang-switcher__form">
-                    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
-                    <input type="hidden" name="next" value="{{ language_next }}">
-                    <div class="ui-lang-switcher__track">
-                        {% for lang in ui_languages %}
-                        <button
-                            type="submit"
-                            name="language"
-                            value="{{ lang.code }}"
-                            class="ui-lang-switcher__btn{% if lang.active %} is-active{% endif %}"
-                            {% if lang.active %}aria-current="true"{% endif %}
-                            title="{{ lang.label }}"
-                        >{{ lang.short }}</button>
-                        {% endfor %}
-                    </div>
-                </form>
-            </nav>
+            {% include 'auth/includes/language_switcher.html' %}
         </div>
 
         <div class="auth-shell__card error-page__card">

@@ -5,9 +5,9 @@
     {% include 'auth/includes/geotrak_favicon.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}System Admin · GeoTrak Maps{% endblock %}</title>
+    <title>{% block title %}{{ ui.role_system_admin }} - {{ ui.brand_name }}{% endblock %}</title>
     <link href="{% static 'css/output.css' %}" rel="stylesheet">
-    <link href="{% static 'css/responsive.css' %}" rel="stylesheet">
+    <link href="{% static 'css/responsive.css' %}?v=resp-6" rel="stylesheet">
     {% block extra_css %}{% endblock %}
 </head>
 <body class="bg-white min-h-screen font-sans flex flex-col h-screen overflow-hidden" data-user-role="system_admin">

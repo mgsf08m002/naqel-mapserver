@@ -2078,7 +2078,7 @@
         const nameClass = name ? 'lr-feature-card__name' : 'lr-feature-card__name lr-feature-card__name--empty';
         const nameText = name || 'Unnamed road';
         const osmId = f.osm_id != null ? String(f.osm_id).trim() : '';
-        const osmText = osmId || '—';
+        const osmText = osmId || '-';
         return (
             '<span class="lr-feature-card__label">Road Name</span>' +
             '<span class="' +

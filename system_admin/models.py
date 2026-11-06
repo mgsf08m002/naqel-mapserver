@@ -80,7 +80,7 @@ class PasswordResetRequest(models.Model):
 
     def __str__(self):
         stamp = format_riyadh(self.requested_at, "%Y-%m-%d")
-        return f"{self.user.username} — {self.status} ({stamp})"
+        return f"{self.user.username} - {self.status} ({stamp})"
 
 
 class PasswordChangeEvent(models.Model):

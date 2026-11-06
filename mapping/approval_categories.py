@@ -163,7 +163,7 @@ def _detect_geometry_change(req) -> bool:
 
 
 def _detect_attribute_change(req, road, fields_data: dict) -> bool:
-    """Tags, relations, or Add field values — not geometry, feature type, or road label."""
+    """Tags, relations, or Add field values - not geometry, feature type, or road label."""
     if req.relations_data:
         return True
     if _extra_fields_require_review(fields_data):

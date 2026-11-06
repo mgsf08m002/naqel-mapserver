@@ -1,16 +1,21 @@
 /**
- * Centered auth shell — shared by login, onetime setup, forgot password,
+ * Centered auth shell - shared by login, onetime setup, forgot password,
  * and first-login personal password setup.
  */
 
 .auth-shell {
   position: relative;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2.5rem 1.5rem 3rem;
+  padding:
+    max(2.5rem, env(safe-area-inset-top, 0px))
+    max(1.5rem, env(safe-area-inset-right, 0px))
+    max(3rem, env(safe-area-inset-bottom, 0px))
+    max(1.5rem, env(safe-area-inset-left, 0px));
   background-color: #ffffff;
   background-image:
     radial-gradient(
@@ -35,8 +40,8 @@
 
 .auth-shell__lang {
   position: absolute;
-  top: 1.15rem;
-  inset-inline-end: 1.15rem;
+  top: max(1.15rem, env(safe-area-inset-top, 0px));
+  inset-inline-end: max(1.15rem, env(safe-area-inset-right, 0px));
   z-index: 10;
 }
 
@@ -118,7 +123,7 @@
   text-align: start;
 }
 
-/* Method chooser — compact side-by-side pills */
+/* Method chooser - compact side-by-side pills */
 .auth-method-stack {
   display: flex;
   flex-direction: row;
@@ -221,7 +226,7 @@
   gap: 0.55rem;
 }
 
-/* Shared form rhythm — field → error → action across all auth pages */
+/* Shared form rhythm - field → error → action across all auth pages */
 .auth-form {
   display: flex;
   flex-direction: column;
@@ -474,9 +479,13 @@
   gap: 1.4rem;
 }
 
-@media (max-width: 420px) {
+@media (max-width: 480px) {
   .auth-shell {
-    padding: 2rem 1.15rem 2.5rem;
+    padding:
+      max(2rem, env(safe-area-inset-top, 0px))
+      max(1.15rem, env(safe-area-inset-right, 0px))
+      max(2.5rem, env(safe-area-inset-bottom, 0px))
+      max(1.15rem, env(safe-area-inset-left, 0px));
   }
 
   .auth-shell__title {
@@ -485,5 +494,18 @@
 
   .auth-shell__brand {
     margin-bottom: 1.85rem;
+  }
+
+  .auth-method-stack {
+    flex-direction: column;
+  }
+
+  .auth-method-or {
+    align-self: center;
+  }
+
+  .auth-method-btn {
+    width: 100%;
+    flex: none;
   }
 }

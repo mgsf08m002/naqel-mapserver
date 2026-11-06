@@ -1,16 +1,16 @@
 <div id="approvalRequestsPanel">
     <header class="approval-panel__header">
         <div class="approval-panel__title-row">
-            <h2 class="approval-panel__title">Approvals</h2>
+            <h2 class="approval-panel__title">{{ ui.approvals_title }}</h2>
             <span id="approvalRequestsPanelCount" class="approval-panel__count" data-count="0" aria-hidden="true"></span>
         </div>
-        <p id="approvalRequestsPanelSummary" class="approval-panel__summary">Nothing pending review</p>
+        <p id="approvalRequestsPanelSummary" class="approval-panel__summary">{{ ui.approval_summary_none }}</p>
     </header>
     <div
         id="approvalRequestsFilterBar"
         class="approval-panel__filters approval-filter-scroll"
         role="toolbar"
-        aria-label="Filter approval requests by type"
+        aria-label="{{ ui.approval_filter_aria }}"
     >
         <div class="approval-filter-track">
             {% include 'mapping/includes/approval_filter_chips.html' %}

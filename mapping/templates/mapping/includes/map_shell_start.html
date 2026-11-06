@@ -1,4 +1,4 @@
-{# Opens #mapPageShell, sidebar, expand tab, and #mapContainer — close with map_shell_end.html #}
+{# Opens #mapPageShell, sidebar, expand tab, and #mapContainer - close with map_shell_end.html #}
 <div id="mapPageShell" class="w-full h-full relative min-h-0">
     <div
         id="mapSidePanelBackdrop"
@@ -7,7 +7,7 @@
     ></div>
     <aside
         id="editSidePanel"
-        class="map-sidebar-root msp-root absolute left-0 top-0 bottom-0 z-50 flex flex-col min-h-0 min-w-0 -translate-x-full transition-transform duration-300 ease-out antialiased"
+        class="map-sidebar-root msp-root msp-is-closed absolute top-0 bottom-0 z-50 flex flex-col min-h-0 min-w-0 transition-transform duration-300 ease-out antialiased"
         role="complementary"
         aria-label="{{ ui.map_details_aria }}"
     >
@@ -56,7 +56,7 @@
     <button
         type="button"
         id="sidePanelExpandTab"
-        class="hidden fixed left-0 top-1/2 z-[52] -translate-y-1/2 rounded-r-xl border border-l-0 border-[#d7dee8] bg-white px-2.5 py-4 text-[11px] font-semibold uppercase tracking-wide text-[#0F2D53] shadow-md transition hover:bg-[#F3F6FA] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0F2D53]"
+        class="msp-expand-tab hidden fixed top-1/2 z-[52] -translate-y-1/2 border border-[#d7dee8] bg-white px-2.5 py-4 text-[11px] font-semibold uppercase tracking-wide text-[#0F2D53] shadow-md transition hover:bg-[#F3F6FA] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0F2D53]"
         aria-expanded="false"
         aria-controls="editSidePanel"
         title="{{ ui.show_details_panel }}"

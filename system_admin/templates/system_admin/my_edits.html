@@ -1,8 +1,6 @@
 {% extends 'system_admin/base.html' %}
 
-{% block title %}My Edits · System Admin · GeoTrak Maps{% endblock %}
-
-{% block page_title %}My Edits{% endblock %}
+{% block title %}{{ ui.my_edits }} - {{ ui.role_system_admin }} - {{ ui.brand_name }}{% endblock %}
 
 {% block content %}
 {% include 'mapping/includes/my_edits_content.html' %}

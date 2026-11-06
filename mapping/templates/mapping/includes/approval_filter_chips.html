@@ -1,4 +1,4 @@
-<button type="button" data-approval-filter="all" class="approval-filter-btn" aria-pressed="true">All</button>
+<button type="button" data-approval-filter="all" class="approval-filter-btn" aria-pressed="true">{{ ui.filter_all }}</button>
 {% for key, label in edit_filter_categories %}
 <button type="button" data-approval-filter="{{ key }}" class="approval-filter-btn" aria-pressed="false">{{ label }}</button>
 {% endfor %}

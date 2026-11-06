@@ -1,6 +1,6 @@
 {% load static %}
 <img
     src="{% if ui_language == 'ar' %}{% static 'auth/images/geotrak-logo-ar.png' %}{% else %}{% static 'auth/images/geotrak-logo-en.png' %}{% endif %}"
-    alt="{% if ui_language == 'ar' %}جيو تراك خرائط{% else %}GeoTrak Maps{% endif %}"
+    alt="{{ ui.brand_name }}"
     class="geotrak-logo-on-light h-7 sm:h-9 w-auto max-w-[100px] sm:max-w-[160px] object-contain"
 >

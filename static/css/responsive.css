@@ -1,6 +1,8 @@
 /**
- * Responsive layout overrides.
- * Breakpoints: sm 640px, md 768px, data-layout 900px.
+ * Shared responsive overrides (chrome, map overlays, layer flow).
+ * Breakpoints: xs 479px, sm 640px, md 768px, lg 1024px.
+ * Me/Rh card layouts: my-edits.css / review-history.css.
+ * Users table cards: system_admin/css/users.css.
  */
 
 :root {
@@ -322,6 +324,39 @@ html[dir="rtl"] body > main > * {
   direction: rtl;
 }
 
+/* Side panel docks to inline-start (left in LTR, right in RTL). */
+#editSidePanel.map-sidebar-root {
+  inset-inline-start: 0;
+  inset-inline-end: auto;
+  left: auto;
+  right: auto;
+  transform: translateX(0);
+}
+
+#editSidePanel.map-sidebar-root.msp-is-closed {
+  transform: translateX(-100%);
+}
+
+html[dir="rtl"] #editSidePanel.map-sidebar-root.msp-is-closed {
+  transform: translateX(100%);
+}
+
+.msp-expand-tab {
+  inset-inline-start: 0;
+  inset-inline-end: auto;
+  left: auto;
+  right: auto;
+  border-inline-start: 0;
+  border-start-end-radius: 0.75rem;
+  border-end-end-radius: 0.75rem;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+
+html[dir="rtl"] #sidePanelCollapseBtn svg {
+  transform: scaleX(-1);
+}
+
 /* Floating header: panel cut below chrome, overlays map; toolbar/search clear header */
 body:has(.app-chrome) #editSidePanel.map-sidebar-root {
   top: var(--app-chrome-offset);
@@ -333,6 +368,12 @@ body:has(.app-chrome) #editSidePanel.map-sidebar-root {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.7) inset,
     8px 0 36px rgba(15, 45, 83, 0.1);
+}
+
+html[dir="rtl"] body:has(.app-chrome) #editSidePanel.map-sidebar-root {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    -8px 0 36px rgba(15, 45, 83, 0.1);
 }
 
 body:has(.app-chrome) #editToolbar {
@@ -347,11 +388,7 @@ body:has(.app-chrome) #mapContainer.map-edit-toolbar-active .map-clear-selection
   top: calc(var(--app-chrome-offset) + 5.1rem);
 }
 
-body:has(.app-chrome) .map-road-search {
-  top: calc(var(--app-chrome-offset) + 0.35rem);
-}
-
-/* —— Map sidebar backdrop (mobile) —— */
+/* --- Map sidebar backdrop (mobile) --- */
 #mapSidePanelBackdrop {
   opacity: 0;
   pointer-events: none;
@@ -382,12 +419,13 @@ body:has(.app-chrome) .map-road-search {
   }
 }
 
-/* —— Map edit toolbar —— */
+/* --- Map edit toolbar --- */
 @media (max-width: 639px) {
   body:has(.app-chrome) #editToolbar.map-edit-dock {
     top: calc(var(--app-chrome-offset) + 0.35rem);
-    left: 0.5rem;
-    right: 0.5rem;
+    inset-inline: 0.5rem;
+    left: auto;
+    right: auto;
     transform: none;
     max-width: none;
     justify-content: flex-start;
@@ -426,10 +464,9 @@ body:has(.app-chrome) .map-road-search {
     top: calc(var(--app-chrome-offset) + 4.25rem);
   }
 
-  /* Keep map-left / side-panel offset; only lift above mobile chrome. */
+  /* Lift reshape tip above mobile edit dock; keep start-edge docking from line-styles. */
   #mapContainer.map-edit-toolbar-active .road-geometry-edit-hint {
     bottom: 4.5rem;
-    right: auto;
     width: min(15.5rem, calc(100% - 1rem));
   }
 
@@ -455,11 +492,14 @@ body:has(.app-chrome) .map-road-search {
   }
 }
 
-/* —— Basemap gallery —— */
+/* --- Basemap gallery --- */
 @media (max-width: 639px) {
   #basemapControls {
     bottom: 0.75rem;
-    left: 0.5rem;
+    inset-inline-start: 0.5rem;
+    inset-inline-end: auto;
+    left: auto;
+    right: auto;
   }
 
   #basemapGallery {
@@ -472,7 +512,7 @@ body:has(.app-chrome) .map-road-search {
   }
 }
 
-/* —— Clear selection toolbar —— */
+/* --- Clear selection toolbar --- */
 @media (max-width: 639px) {
   .map-clear-selection-toolbar__label {
     display: none;
@@ -483,95 +523,39 @@ body:has(.app-chrome) .map-road-search {
   }
 }
 
-/* —— Road search —— */
-@media (max-width: 639px) {
-  .map-road-search {
-    top: 0.5rem;
-    right: 0.5rem;
+/* --- Header density on very small phones --- */
+@media (max-width: 479px) {
+  .app-header__bar {
+    column-gap: 0.4rem;
+    padding: 0.45rem 0.55rem;
+    min-height: 3.25rem;
   }
 
-  .map-road-search-overlay {
-    padding: 1rem;
-  }
-}
-
-/* —— Data tables: card layout below 900px —— */
-@media (max-width: 900px) {
-  .me-table__head,
-  .rh-table__head {
-    display: none;
+  .app-header__slot--end {
+    gap: 0.3rem;
   }
 
-  .me-table__body,
-  .rh-table__body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+  .app-header__logo {
+    padding: 0.1rem 0.15rem;
   }
 
-  .me-row,
-  .rh-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 0.35rem 0.75rem;
-    align-items: center;
-    min-width: 0;
-    padding: 0.75rem;
-    border: 1px solid #e4e4e7;
-    border-radius: 0.5rem;
-    background: #fafafa;
+  .app-header__logo img,
+  .app-header__logo svg {
+    max-height: 1.55rem;
+    width: auto;
   }
 
-  .me-row {
-    grid-template-areas:
-      "road road"
-      "type status"
-      "date reviewer";
+  .ui-lang-switcher__btn {
+    padding: 0.32rem 0.45rem;
+    font-size: 0.625rem;
   }
 
-  .rh-row {
-    grid-template-areas:
-      "road road"
-      "type status"
-      "date submitter";
-  }
-
-  .me-row__road-cell,
-  .rh-row__road-cell {
-    grid-area: road;
-  }
-
-  .me-row__type,
-  .rh-row__type {
-    grid-area: type;
-  }
-
-  .me-row__status,
-  .rh-row__status {
-    grid-area: status;
-    justify-self: end;
-  }
-
-  .me-row__date,
-  .rh-row__date {
-    grid-area: date;
-  }
-
-  .me-row__reviewer,
-  .rh-row__submitter {
-    justify-self: end;
-    text-align: right;
-  }
-
-  .me-row__reviewer {
-    grid-area: reviewer;
-  }
-
-  .rh-row__submitter {
-    grid-area: submitter;
+  .app-header-btn {
+    padding: 0.4rem;
   }
 }
 
+/* --- My Edits / Review History density (cards are in feature CSS) --- */
 @media (max-width: 639px) {
   .me-page,
   .rh-page {
@@ -588,10 +572,9 @@ body:has(.app-chrome) .map-road-search {
   .rh-filter-chips {
     grid-template-columns: 1fr 1fr;
   }
-
 }
 
-/* —— Layer review workspace —— */
+/* --- Layer review workspace --- */
 @media (max-width: 767px) {
   #layer-review-root .lr-workspace {
     flex-direction: column;
@@ -607,7 +590,7 @@ body:has(.app-chrome) .map-road-search {
     max-width: none;
     flex: 1 1 auto;
     min-height: 0;
-    border-left: 0;
+    border-inline-start: 0;
     border-top: 1px solid #e5e7eb;
   }
 
@@ -646,7 +629,16 @@ body:has(.app-chrome) .map-road-search {
   }
 }
 
-/* —— Layer upload flow —— */
+/* --- Layer upload flow --- */
+@media (max-width: 767px) {
+  .lu-progress__label {
+    font-size: 0.5625rem;
+    white-space: normal;
+    line-height: 1.2;
+    max-width: 4.75rem;
+  }
+}
+
 @media (max-width: 639px) {
   .lu-flow-shell {
     padding: 0.625rem 0.75rem 0.75rem;
@@ -657,9 +649,6 @@ body:has(.app-chrome) .map-road-search {
   }
 
   .lu-progress__label {
-    font-size: 0.5625rem;
-    white-space: normal;
-    line-height: 1.2;
     max-width: 4.5rem;
   }
 

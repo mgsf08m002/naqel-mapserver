@@ -1,4 +1,4 @@
-/* Layer upload flow — full-width, flat sections (no cards) */
+/* Layer upload flow - full-width, flat sections (no cards) */
 
 .lu-error {
   margin: 0 0 0.75rem;
@@ -22,7 +22,7 @@
   min-height: calc(100vh - var(--app-chrome-offset) - 1.75rem);
 }
 
-/* —— Header + progress —— */
+/* --- Header + progress --- */
 .lu-flow-head {
   display: grid;
   gap: 1rem;
@@ -131,7 +131,7 @@
   color: #52525b;
 }
 
-/* —— Two-column layout —— */
+/* --- Two-column layout --- */
 .lu-layout {
   display: grid;
   gap: 1.25rem;
@@ -161,7 +161,7 @@
 
 @media (min-width: 900px) {
   .lu-layout:not(.lu-layout--single) .lu-main {
-    padding-right: 1.5rem;
+    padding-inline-end: 1.5rem;
   }
 }
 
@@ -171,12 +171,12 @@
 
 @media (min-width: 900px) {
   .lu-layout:not(.lu-layout--single) .lu-aside {
-    padding-left: 1.5rem;
-    border-left: 1px solid #e4e4e7;
+    padding-inline-start: 1.5rem;
+    border-inline-start: 1px solid #e4e4e7;
   }
 }
 
-/* —— Form fills column —— */
+/* --- Form fills column --- */
 .lu-form {
   display: flex;
   flex-direction: column;
@@ -184,7 +184,7 @@
   min-height: 0;
 }
 
-/* —— File picker —— */
+/* --- File picker --- */
 .lu-picker {
   display: flex;
   flex-direction: column;
@@ -258,7 +258,7 @@
   color: #a1a1aa;
 }
 
-/* —— Selected files —— */
+/* --- Selected files --- */
 .lu-picker-filled {
   display: flex;
   flex-direction: column;
@@ -425,7 +425,7 @@
   outline-offset: 1px;
 }
 
-/* —— Aside tips —— */
+/* --- Aside tips --- */
 .lu-tips__title {
   margin: 0 0 0.875rem;
   font-size: 0.6875rem;
@@ -471,7 +471,7 @@
   color: var(--geotrak-text-muted);
 }
 
-/* —— Actions —— */
+/* --- Actions --- */
 .lu-actions {
   display: flex;
   flex-wrap: wrap;
@@ -529,7 +529,7 @@ a.lu-actions__primary {
   border-top: 0;
 }
 
-/* —— Success page (done step only) —— */
+/* --- Success page (done step only) --- */
 .lu-layout--success {
   flex: 1;
   min-height: 0;
@@ -567,7 +567,7 @@ a.lu-actions__primary {
   margin: 0;
 }
 
-/* —— Detected layers —— */
+/* --- Detected layers --- */
 .lu-detected {
   margin-top: 1.25rem;
   padding-top: 1.25rem;
@@ -720,7 +720,7 @@ a.lu-actions__primary {
   margin-top: 0.5rem;
 }
 
-/* —— Layer details —— */
+/* --- Layer details --- */
 .lu-details__head {
   margin: 0 0 0.75rem;
   font-size: 0.6875rem;
@@ -774,7 +774,7 @@ a.lu-actions__primary {
   word-break: break-word;
 }
 
-/* —— Validate overlay —— */
+/* --- Validate overlay --- */
 .lu-validate-overlay {
   position: fixed;
   inset: 0;

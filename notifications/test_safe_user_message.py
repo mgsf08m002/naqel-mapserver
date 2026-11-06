@@ -65,13 +65,13 @@ class SafeUserMessageContractTests(SimpleTestCase):
 
     def test_allows_curated_copy(self):
         samples = [
-            "Couldn't save — try again",
+            "Couldn't save. Try again.",
             "This road is waiting for review",
             "Pick a road type",
             "Changes live",
             "Geometry could not be parsed or projected for storage.",
-            "Something went wrong — try again",
-            "تعذّر الحفظ — حاول مرة أخرى",
+            "Something went wrong. Try again.",
+            "تعذّر الحفظ. حاول مرة أخرى.",
             "الطريق بانتظار المراجعة",
         ]
         for sample in samples:

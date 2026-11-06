@@ -28,5 +28,15 @@ urlpatterns = [
     path('api/request/<int:request_id>/', views.get_edit_request_details, name='get_request_details'),
     path('api/request/<int:request_id>/approve/', views.approve_edit_request, name='approve_request'),
     path('api/request/<int:request_id>/reject/', views.reject_edit_request, name='reject_request'),
+    path(
+        'api/editor-outcome-notifications/',
+        views.list_editor_outcome_notifications,
+        name='list_editor_outcome_notifications',
+    ),
+    path(
+        'api/editor-outcome-notifications/<int:request_id>/read/',
+        views.mark_editor_outcome_notification_read,
+        name='mark_editor_outcome_notification_read',
+    ),
 ]
 

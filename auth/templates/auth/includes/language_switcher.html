@@ -1,7 +1,7 @@
 <nav class="ui-lang-switcher" aria-label="{{ ui.language }}">
     <form method="post" action="{% url 'set_ui_language' %}" class="ui-lang-switcher__form">
         {% csrf_token %}
-        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <input type="hidden" name="next" value="{% if language_next %}{{ language_next }}{% else %}{{ request.get_full_path }}{% endif %}">
         <div class="ui-lang-switcher__track">
             {% for lang in ui_languages %}
             <button

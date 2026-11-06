@@ -1325,5 +1325,195 @@ class ManagerReviewHistoryApiTests(TestCase):
         )
         item = serialize_manager_review_history_item(req)
         self.assertEqual(item["requester"]["username"], "rh_editor")
+        self.assertNotIn("role", item["requester"])
+        self.assertNotIn("reviewer", item)
+        self.assertNotIn("reviewed_at", item)
         self.assertTrue(item["can_open_on_map"])
         self.assertEqual(item["map_road_id"], 42)
+        self.assertFalse(item["no_reason"])
+        self.assertEqual(item["rejection_reason"], "")
+
+        rejected = LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="rejected",
+            request_category="new_road",
+            rejection_reason="",
+            reviewed_by=self.manager,
+        )
+        rejected_item = serialize_manager_review_history_item(rejected)
+        self.assertTrue(rejected_item["no_reason"])
+        self.assertEqual(rejected_item["rejection_reason"], "")
+
+        reasoned = LineEditRequest.objects.create(
+            requester=self.editor,
+            geometry=self.geom,
+            status="rejected",
+            request_category="new_road",
+            rejection_reason="Needs clearer geometry",
+            reviewed_by=self.manager,
+        )
+        reasoned_item = serialize_manager_review_history_item(reasoned)
+        self.assertFalse(reasoned_item["no_reason"])
+        self.assertEqual(reasoned_item["rejection_reason"], "Needs clearer geometry")
+
+
+class EditorOutcomeNotificationTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.editor = user_model.objects.create_user(
+            username="outcome_editor",
+            email="outcome_editor@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=self.editor,
+            role="editor",
+            password_setup_completed=True,
+            can_access_my_edits=True,
+        )
+        self.other = user_model.objects.create_user(
+            username="outcome_other",
+            email="outcome_other@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=self.other,
+            role="editor",
+            password_setup_completed=True,
+            can_access_my_edits=True,
+        )
+        self.manager = user_model.objects.create_user(
+            username="outcome_mgr",
+            email="outcome_mgr@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=self.manager,
+            role="manager",
+            password_setup_completed=True,
+            can_access_my_edits=True,
+        )
+        self.client = Client()
+        self.geom = {"type": "LineString", "coordinates": [[46.68, 24.71], [46.69, 24.72]]}
+
+    def _pending(self, requester=None):
+        return LineEditRequest.objects.create(
+            requester=requester or self.editor,
+            geometry=self.geom,
+            status="pending",
+            request_category="new_road",
+            current_feature_label="Primary",
+            fields_data={"name": "Outcome Rd"},
+        )
+
+    def test_reject_requires_reason_or_no_reason(self):
+        pending = self._pending()
+        self.client.force_login(self.manager)
+        response = self.client.post(
+            reverse("mapping:reject_request", args=[pending.id]),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, "pending")
+
+    def test_reject_with_reason_stores_note(self):
+        pending = self._pending()
+        self.client.force_login(self.manager)
+        response = self.client.post(
+            reverse("mapping:reject_request", args=[pending.id]),
+            data=json.dumps({"reason": "Needs clearer geometry"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, "rejected")
+        self.assertEqual(pending.rejection_reason, "Needs clearer geometry")
+        self.assertIsNone(pending.outcome_read_at)
+
+    def test_reject_with_no_reason_flag(self):
+        pending = self._pending()
+        self.client.force_login(self.manager)
+        response = self.client.post(
+            reverse("mapping:reject_request", args=[pending.id]),
+            data=json.dumps({"no_reason": True}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, "rejected")
+        self.assertEqual(pending.rejection_reason, "")
+
+    def test_list_returns_only_unread_requester_outcomes(self):
+        approved = self._pending()
+        approved.approve(self.manager)
+        approved.published_road_id = 99
+        approved.save(update_fields=["published_road_id"])
+
+        rejected = self._pending()
+        rejected.reject(self.manager, reason="Overlap")
+
+        read_row = self._pending()
+        read_row.approve(self.manager)
+        read_row.outcome_read_at = read_row.reviewed_at
+        read_row.save(update_fields=["outcome_read_at"])
+
+        other = self._pending(requester=self.other)
+        other.approve(self.manager)
+
+        pending = self._pending()
+
+        self.client.force_login(self.editor)
+        response = self.client.get(reverse("mapping:list_editor_outcome_notifications"))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["count"], 2)
+        ids = {row["id"] for row in payload["notifications"]}
+        self.assertEqual(ids, {approved.id, rejected.id})
+        self.assertNotIn(pending.id, ids)
+        self.assertNotIn(read_row.id, ids)
+        self.assertNotIn(other.id, ids)
+
+        rejected_item = next(
+            row for row in payload["notifications"] if row["id"] == rejected.id
+        )
+        self.assertEqual(rejected_item["status"], "rejected")
+        self.assertEqual(rejected_item["rejection_reason"], "Overlap")
+        self.assertFalse(rejected_item["no_reason"])
+
+    def test_mark_read_clears_from_list(self):
+        approved = self._pending()
+        approved.approve(self.manager)
+        approved.published_road_id = 55
+        approved.save(update_fields=["published_road_id"])
+
+        self.client.force_login(self.editor)
+        before = self.client.get(reverse("mapping:list_editor_outcome_notifications")).json()
+        self.assertEqual(before["count"], 1)
+
+        response = self.client.post(
+            reverse(
+                "mapping:mark_editor_outcome_notification_read",
+                args=[approved.id],
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+        after = self.client.get(reverse("mapping:list_editor_outcome_notifications")).json()
+        self.assertEqual(after["count"], 0)
+        approved.refresh_from_db()
+        self.assertIsNotNone(approved.outcome_read_at)
+
+    def test_mark_read_other_users_request_404(self):
+        approved = self._pending(requester=self.other)
+        approved.approve(self.manager)
+        self.client.force_login(self.editor)
+        response = self.client.post(
+            reverse(
+                "mapping:mark_editor_outcome_notification_read",
+                args=[approved.id],
+            )
+        )
+        self.assertEqual(response.status_code, 404)

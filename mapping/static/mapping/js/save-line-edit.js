@@ -187,10 +187,7 @@
         const fieldsData = {};
         const nameEl = document.getElementById('sidebar-feature-name-input');
         if (nameEl) {
-            const v = (nameEl.value || '').trim();
-            fieldsData.name = v;
-            // Mirror legacy common_name for older review payloads.
-            fieldsData.common_name = v;
+            fieldsData.name = (nameEl.value || '').trim();
         }
         return fieldsData;
     }
@@ -483,7 +480,7 @@
             return;
         }
 
-        toast(serverMessage || uiT('toast_saved', 'Saved'), 'info');
+        toast(uiT('toast_saved', 'Saved'), 'info');
     }
 
     function applySuccessfulSaveSideEffects(editData, pendingSubmitted, saveMeta) {
@@ -527,7 +524,9 @@
                 saveBtn.disabled = false;
                 const labelSpan = saveBtn.querySelector('span');
                 if (labelSpan) {
-                    labelSpan.textContent = saveBtn.dataset.originalLabel || 'Save';
+                    labelSpan.textContent =
+                        saveBtn.dataset.originalLabel ||
+                        uiT('save', 'Save');
                 }
             }
         }
@@ -540,12 +539,13 @@
             const labelSpan = saveBtn.querySelector('span');
             if (labelSpan) {
                 if (!saveBtn.dataset.originalLabel) {
-                    saveBtn.dataset.originalLabel = labelSpan.textContent || 'Save';
+                    saveBtn.dataset.originalLabel =
+                        labelSpan.textContent || uiT('save', 'Save');
                 }
-                var savingLabel = (typeof window.uiT === 'function')
-                    ? window.uiT('saving', 'Saving...')
-                    : 'Saving...';
-                labelSpan.textContent = active ? savingLabel : saveBtn.dataset.originalLabel || 'Save';
+                var savingLabel = uiT('saving', 'Saving...');
+                labelSpan.textContent = active
+                    ? savingLabel
+                    : saveBtn.dataset.originalLabel || uiT('save', 'Save');
             }
         }
 
@@ -583,9 +583,9 @@
                             (typeof window.safeUserMessage === 'function'
                                 ? window.safeUserMessage(
                                       data,
-                                      uiT('toast_couldnt_delete', "Couldn't delete — try again")
+                                      uiT('toast_couldnt_delete', "Couldn't delete. Try again.")
                                   )
-                                : uiT('toast_couldnt_delete', "Couldn't delete — try again")),
+                                : uiT('toast_couldnt_delete', "Couldn't delete. Try again.")),
                             'error'
                         );
                         return;
@@ -651,7 +651,7 @@
                     } catch (eLock) {}
                 })
                 .catch(function () {
-                    toast(uiT('toast_couldnt_delete', "Couldn't delete — try again"), 'error');
+                    toast(uiT('toast_couldnt_delete', "Couldn't delete. Try again."), 'error');
                 })
                 .finally(finishSaveUi);
             return;
@@ -709,9 +709,9 @@
                         (typeof window.safeUserMessage === 'function'
                             ? window.safeUserMessage(
                                   data,
-                                  uiT('toast_couldnt_save', "Couldn't save — try again")
+                                  uiT('toast_couldnt_save', "Couldn't save. Try again.")
                               )
-                            : uiT('toast_couldnt_save', "Couldn't save — try again")),
+                            : uiT('toast_couldnt_save', "Couldn't save. Try again.")),
                         'error'
                     );
                     return;
@@ -789,7 +789,7 @@
                 }
             })
             .catch(function () {
-                toast(uiT('toast_couldnt_save', "Couldn't save — try again"), 'error');
+                toast(uiT('toast_couldnt_save', "Couldn't save. Try again."), 'error');
             })
             .finally(finishSaveUi);
     }

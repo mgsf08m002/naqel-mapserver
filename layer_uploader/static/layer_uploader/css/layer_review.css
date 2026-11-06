@@ -1,4 +1,4 @@
-/* Layer review — full-height map workspace with features panel */
+/* Layer review - full-height map workspace with features panel */
 
 body:has(#layer-review-root.lr-shell) main {
   overflow: hidden;
@@ -32,7 +32,7 @@ body:has(#layer-review-root.lr-shell) main {
   color: var(--lr-fg);
 }
 
-/* —— Workspace —— */
+/* --- Workspace --- */
 #layer-review-root .lr-workspace {
   flex: 1;
   min-height: 0;
@@ -89,17 +89,17 @@ body:has(#layer-review-root.lr-shell) main {
   white-space: nowrap;
 }
 
-/* —— Features panel —— */
+/* --- Features panel --- */
 #layer-review-root .lr-features-panel {
   flex-shrink: 0;
   align-self: stretch;
   min-height: 0;
   width: var(--lr-features-panel-width);
-  max-width: 42vw;
+  max-width: min(42vw, 22rem);
   display: flex;
   flex-direction: column;
   background: #fff;
-  border-left: 1px solid var(--lr-border);
+  border-inline-start: 1px solid var(--lr-border);
 }
 
 #layer-review-root .lr-features-panel__body {
@@ -280,7 +280,7 @@ body:has(#layer-review-root.lr-shell) main {
   box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.04);
 }
 
-/* —— Feature cards —— */
+/* --- Feature cards --- */
 #layer-review-root .lr-feature-card {
   flex: 0 0 auto;
   border: 1px solid var(--lr-border);
@@ -403,7 +403,7 @@ body:has(#layer-review-root.lr-shell) main {
   font-style: italic;
 }
 
-/* —— Badges —— */
+/* --- Badges --- */
 #layer-review-root .lr-badge {
   display: inline-flex;
   align-items: center;
@@ -435,7 +435,7 @@ body:has(#layer-review-root.lr-shell) main {
   border-color: #f77e7e;
 }
 
-/* —— Actions & buttons —— */
+/* --- Actions & buttons --- */
 #layer-review-root .lr-action-btn {
   display: inline-flex;
   align-items: center;

@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'mapping/css/review-history.css' %}">
+<link rel="stylesheet" href="{% static 'mapping/css/review-history.css' %}?v=rh-resp-2">
 
 <div class="rh-page" id="review-history-root"
      data-api-url="{{ review_history_api_url }}"
@@ -7,78 +7,78 @@
     <div class="rh-panel">
         <header class="rh-head">
             <div class="rh-head__text">
-                <h1 class="rh-head__title">Review history</h1>
-                <p class="rh-head__sub">Browse approved and rejected edits from editors. Approved roads open on the map.</p>
+                <h1 class="rh-head__title">{{ ui.review_history }}</h1>
+                <p class="rh-head__sub">{{ ui.rh_subtitle }}</p>
             </div>
             <p class="rh-head__count" id="review-history-count" hidden>
-                <span id="review-history-count-value">0</span> edits
+                <span id="review-history-count-value">0</span>
             </p>
         </header>
 
         <div class="rh-layout">
             <div class="rh-main" aria-live="polite">
-                <div id="review-history-loading" class="rh-placeholder">Loading review history…</div>
+                <div id="review-history-loading" class="rh-placeholder">{{ ui.rh_loading }}</div>
 
                 <div id="review-history-empty" class="rh-placeholder rh-placeholder--empty" hidden>
-                    <p>No edits match these filters.</p>
+                    <p>{{ ui.rh_empty }}</p>
                 </div>
 
                 <div id="review-history-list" class="rh-table" hidden>
                     <div class="rh-table__head">
-                        <span>Road</span>
-                        <span>Type</span>
-                        <span>Status</span>
-                        <span>Submitted</span>
-                        <span>Submitter</span>
+                        <span>{{ ui.rh_col_road }}</span>
+                        <span>{{ ui.rh_col_type }}</span>
+                        <span>{{ ui.rh_col_status }}</span>
+                        <span>{{ ui.rh_col_submitted }}</span>
+                        <span>{{ ui.rh_col_submitter }}</span>
                     </div>
                     <div id="review-history-table-body" class="rh-table__body"></div>
                 </div>
             </div>
 
-            <aside class="rh-filters" aria-label="Filters">
+            <aside class="rh-filters" aria-label="{{ ui.rh_filters_aria }}">
                 <div class="rh-filter-panel">
                     <div class="rh-filter-panel__head">
-                        <h2 class="rh-filter-panel__title">Filters</h2>
-                        <button type="button" id="review-history-clear-filters" class="rh-clear" hidden>Reset</button>
+                        <h2 class="rh-filter-panel__title">{{ ui.rh_filters }}</h2>
+                        <button type="button" id="review-history-clear-filters" class="rh-clear" hidden>{{ ui.rh_reset }}</button>
                     </div>
 
                     <section class="rh-filter-block">
-                        <h3 class="rh-filter-block__label">Scope</h3>
-                        <div class="rh-filter-chips" id="review-history-scope" role="tablist" aria-label="Review scope">
-                            <button type="button" class="rh-chip is-active" data-scope="all">Overall</button>
-                            <button type="button" class="rh-chip" data-scope="mine">My reviews</button>
+                        <h3 class="rh-filter-block__label">{{ ui.rh_scope }}</h3>
+                        <div class="rh-filter-chips" id="review-history-scope" role="tablist" aria-label="{{ ui.rh_scope_aria }}">
+                            <button type="button" class="rh-chip is-active" data-scope="all">{{ ui.rh_scope_overall }}</button>
+                            <button type="button" class="rh-chip" data-scope="mine">{{ ui.rh_scope_mine }}</button>
                         </div>
                     </section>
 
                     <section class="rh-filter-block">
-                        <h3 class="rh-filter-block__label">Submitted date</h3>
+                        <h3 class="rh-filter-block__label">{{ ui.rh_submitted_date }}</h3>
                         <div class="rh-filter-block__dates">
                             <label class="rh-date-field">
-                                <span class="rh-date-field__label">From</span>
-                                <input type="date" id="review-history-start-date" class="rh-date" aria-label="Start date">
+                                <span class="rh-date-field__label">{{ ui.rh_date_from }}</span>
+                                <input type="date" id="review-history-start-date" class="rh-date" aria-label="{{ ui.rh_start_date_aria }}">
                             </label>
                             <label class="rh-date-field">
-                                <span class="rh-date-field__label">To</span>
-                                <input type="date" id="review-history-end-date" class="rh-date" aria-label="End date">
+                                <span class="rh-date-field__label">{{ ui.rh_date_to }}</span>
+                                <input type="date" id="review-history-end-date" class="rh-date" aria-label="{{ ui.rh_end_date_aria }}">
                             </label>
                         </div>
                     </section>
 
                     <section class="rh-filter-block">
-                        <h3 class="rh-filter-block__label">Status</h3>
-                        <div class="rh-filter-chips" id="review-history-status-filters" role="tablist" aria-label="Filter by status">
-                            <button type="button" class="rh-chip is-active" data-status="">All</button>
-                            <button type="button" class="rh-chip" data-status="approved">Approved</button>
-                            <button type="button" class="rh-chip" data-status="rejected">Rejected</button>
+                        <h3 class="rh-filter-block__label">{{ ui.rh_status }}</h3>
+                        <div class="rh-filter-chips" id="review-history-status-filters" role="tablist" aria-label="{{ ui.rh_status_aria }}">
+                            <button type="button" class="rh-chip is-active" data-status="">{{ ui.rh_status_all }}</button>
+                            <button type="button" class="rh-chip" data-status="approved">{{ ui.rh_status_approved }}</button>
+                            <button type="button" class="rh-chip" data-status="rejected">{{ ui.rh_status_rejected }}</button>
                         </div>
                     </section>
 
                     <section class="rh-filter-block">
                         <div class="rh-filter-block__head">
-                            <h3 class="rh-filter-block__label">Road type</h3>
-                            <span class="rh-filter-block__hint">Multi-select</span>
+                            <h3 class="rh-filter-block__label">{{ ui.rh_road_type }}</h3>
+                            <span class="rh-filter-block__hint">{{ ui.rh_multi_select }}</span>
                         </div>
-                        <div class="rh-filter-chips rh-filter-chips--wrap" id="review-history-category-filters" aria-label="Filter by road type">
+                        <div class="rh-filter-chips rh-filter-chips--wrap" id="review-history-category-filters" aria-label="{{ ui.rh_road_type_aria }}">
                             {% include 'mapping/includes/edit_filter_category_chips.html' with chip_class='rh-chip' %}
                         </div>
                     </section>
@@ -88,4 +88,4 @@
     </div>
 </div>
 
-<script src="{% static 'mapping/js/review-history.js' %}" defer></script>
+<script src="{% static 'mapping/js/review-history.js' %}?v=rh-i18n-1" defer></script>

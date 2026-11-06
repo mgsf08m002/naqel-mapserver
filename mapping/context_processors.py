@@ -2,6 +2,8 @@
 
 from django.conf import settings
 
+from config.ui_strings import t
+
 from .approval_categories import EDIT_FILTER_CATEGORIES
 from .riyadh_network import riyadh_tiles_absolute_url
 
@@ -20,4 +22,11 @@ def riyadh_roads_tile_url(request):
 
 def edit_filter_categories(request):
     """Shared road-type filter labels for list pages and the manager approval queue."""
-    return {"edit_filter_categories": EDIT_FILTER_CATEGORIES}
+    lang = getattr(request, "ui_language", None) or "en"
+    localized = []
+    for key, en_label in EDIT_FILTER_CATEGORIES:
+        text = t(lang, f"approval_filter_{key}")
+        if text == f"approval_filter_{key}":
+            text = en_label
+        localized.append((key, text))
+    return {"edit_filter_categories": tuple(localized)}

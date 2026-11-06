@@ -1,5 +1,5 @@
 /**
- * Login — email check first, then password sign-in.
+ * Login - email check first, then password sign-in.
  */
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function () {
             setBusy(continueBtn, true, t('signing_in'), t('sign_in'));
             try {
                 const data = await signIn(email, password);
-                // Redirect is enough — no success toast flash.
+                // Redirect is enough - no success toast flash.
                 window.location.href = data.redirect_url || '/';
             } catch (err) {
                 showNotification(err.message || t('login_failed'), 'error');

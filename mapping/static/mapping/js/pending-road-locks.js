@@ -1,6 +1,6 @@
 /**
  * Pending-review road locks: labeled map highlight + edit gates until approve/reject.
- * Uses window.geotrakMaplibreMap (never window.map — that is the #map HTMLElement).
+ * Uses window.geotrakMaplibreMap (never window.map - that is the #map HTMLElement).
  */
 (function (global) {
     'use strict';
@@ -26,6 +26,8 @@
     var refreshTimer = null;
     var loadPromise = null;
     var mapHooked = false;
+    /** When manager is reviewing one request, mute the global pending overlay so compare lines stay clear. */
+    var focusedReviewActive = false;
 
     function uiT(key, fallback) {
         if (typeof global.uiT === 'function') {
@@ -282,7 +284,7 @@
 
     function labelForKind(kind) {
         if (kind === 'new') {
-            return uiT('pending_map_label_new', 'Pending · new road');
+            return uiT('pending_map_label_new', 'Pending: new road');
         }
         return uiT('pending_map_label', 'Pending review');
     }
@@ -340,8 +342,23 @@
         return { type: 'FeatureCollection', features: features };
     }
 
+    function setPendingLayersVisibility(map, visible) {
+        if (!map) {
+            return;
+        }
+        var vis = visible ? 'visible' : 'none';
+        [LAYER_CASING_ID, LAYER_LINE_ID, LAYER_LABEL_ID].forEach(function (id) {
+            if (!map.getLayer(id)) {
+                return;
+            }
+            try {
+                map.setLayoutProperty(id, 'visibility', vis);
+            } catch (eVis) {}
+        });
+    }
+
     function bringPendingLayersToFront(map) {
-        if (!map || typeof map.moveLayer !== 'function') {
+        if (!map || typeof map.moveLayer !== 'function' || focusedReviewActive) {
             return;
         }
         [LAYER_CASING_ID, LAYER_LINE_ID, LAYER_LABEL_ID].forEach(function (id) {
@@ -351,6 +368,21 @@
                 } catch (eMove) {}
             }
         });
+    }
+
+    function setFocusedReviewActive(active) {
+        focusedReviewActive = !!active;
+        var map = getMap();
+        if (!map) {
+            return;
+        }
+        if (!ensureMapLayers(map) && !map.getLayer(LAYER_LINE_ID)) {
+            return;
+        }
+        setPendingLayersVisibility(map, !focusedReviewActive);
+        if (!focusedReviewActive) {
+            bringPendingLayersToFront(map);
+        }
     }
 
     function ensureMapLayers(map) {
@@ -433,6 +465,7 @@
                     },
                 });
             }
+            setPendingLayersVisibility(map, !focusedReviewActive);
             bringPendingLayersToFront(map);
             return true;
         } catch (eLayer) {
@@ -450,6 +483,7 @@
             if (src && typeof src.setData === 'function') {
                 src.setData(buildFeatureCollection());
             }
+            setPendingLayersVisibility(map, !focusedReviewActive);
             bringPendingLayersToFront(map);
         } catch (eSet) {}
     }
@@ -458,7 +492,9 @@
         var screen = document.getElementById('editFeatureScreen');
         var toolbar = document.getElementById('editToolbar');
         var banner = document.getElementById('pendingRoadLockBanner');
-        var locked = isSelectedRoadLocked();
+        // Manager focused review already owns the UX - don't stack the editor lock banner.
+        var locked =
+            !global.managerApprovalReviewActive && isSelectedRoadLocked();
 
         if (toolbar) {
             toolbar.classList.toggle('is-pending-locked', locked);
@@ -599,6 +635,7 @@
                 syncMapLayers();
                 return;
             }
+            setPendingLayersVisibility(map, !focusedReviewActive);
             bringPendingLayersToFront(map);
         });
     }
@@ -629,12 +666,12 @@
     }
 
     global.PendingRoadLocks = {
-        refresh: refresh,
         isRoadLocked: isRoadLocked,
         assertRoadEditable: assertRoadEditable,
         assertNewRoadDrawable: assertNewRoadDrawable,
         resolveContextRoadId: resolveContextRoadId,
         syncPendingBanner: syncPendingBanner,
         upsertOptimisticNewRoad: upsertOptimisticNewRoad,
+        setFocusedReviewActive: setFocusedReviewActive,
     };
 })(typeof window !== 'undefined' ? window : this);

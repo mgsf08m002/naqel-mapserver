@@ -1,7 +1,7 @@
 """Single source of truth for Asia/Riyadh (Saudi Arabia) wall-clock time.
 
 Storage stays UTC via Django USE_TZ=True. Every user-facing date/time and every
-Saudi calendar boundary must go through these helpers — nowhere else should
+Saudi calendar boundary must go through these helpers - nowhere else should
 hard-code a timezone name.
 """
 

@@ -1,6 +1,6 @@
 /**
  * Shared Asia/Riyadh (Saudi Arabia) display helpers for the browser.
- * Absolute wall-clock formatting must always use this module — never the
+ * Absolute wall-clock formatting must always use this module - never the
  * browser's local timezone.
  *
  * Locale follows the UI language on <html lang="en|ar">.

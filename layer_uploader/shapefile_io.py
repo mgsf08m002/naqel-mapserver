@@ -53,7 +53,7 @@ def collect_detected_shapefiles(temp_dir: str) -> list[dict]:
             detected.append(
                 {
                     "name": base_name,
-                    "error": "Couldn't read this shapefile — try again",
+                    "error": "Couldn't read this shapefile. Try again.",
                 }
             )
     return detected

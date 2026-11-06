@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'mapping/css/my-edits.css' %}">
+<link rel="stylesheet" href="{% static 'mapping/css/my-edits.css' %}?v=me-resp-2">
 
 <div class="me-page" id="my-edits-root"
      data-api-url="{{ my_edits_api_url }}"
@@ -7,75 +7,75 @@
     <div class="me-panel">
         <header class="me-head">
             <div class="me-head__text">
-                <h1 class="me-head__title">My edits</h1>
-                <p class="me-head__sub">Track submissions from the map and layer uploader. Approved edits open on the map.</p>
+                <h1 class="me-head__title">{{ ui.my_edits }}</h1>
+                <p class="me-head__sub">{{ ui.me_subtitle }}</p>
             </div>
             <p class="me-head__count" id="my-edits-count" hidden>
-                <span id="my-edits-count-value">0</span> edits
+                <span id="my-edits-count-value">0</span>
             </p>
         </header>
 
         <div class="me-layout">
             <div class="me-main" aria-live="polite">
-                <div id="my-edits-loading" class="me-placeholder">Loading your edits…</div>
+                <div id="my-edits-loading" class="me-placeholder">{{ ui.me_loading }}</div>
 
                 <div id="my-edits-empty" class="me-placeholder me-placeholder--empty" hidden>
-                    <p>No edits match these filters.</p>
+                    <p>{{ ui.me_empty }}</p>
                 </div>
 
                 <div id="my-edits-list" class="me-table" hidden>
                     <div class="me-table__head">
-                        <span>Road</span>
-                        <span>Type</span>
-                        <span>Status</span>
-                        <span>Submitted</span>
-                        <span>Reviewer</span>
+                        <span>{{ ui.me_col_road }}</span>
+                        <span>{{ ui.me_col_type }}</span>
+                        <span>{{ ui.me_col_status }}</span>
+                        <span>{{ ui.me_col_submitted }}</span>
+                        <span>{{ ui.me_col_reviewer }}</span>
                     </div>
                     <div id="my-edits-table-body" class="me-table__body"></div>
                 </div>
             </div>
 
-            <aside class="me-filters" aria-label="Filters">
+            <aside class="me-filters" aria-label="{{ ui.me_filters_aria }}">
                 <div class="me-filter-panel">
                     <div class="me-filter-panel__head">
-                        <h2 class="me-filter-panel__title">Filters</h2>
-                        <button type="button" id="my-edits-clear-filters" class="me-clear" hidden>Reset</button>
+                        <h2 class="me-filter-panel__title">{{ ui.me_filters }}</h2>
+                        <button type="button" id="my-edits-clear-filters" class="me-clear" hidden>{{ ui.me_reset }}</button>
                     </div>
 
                     <section class="me-filter-block">
-                        <h3 class="me-filter-block__label">Submitted date</h3>
+                        <h3 class="me-filter-block__label">{{ ui.me_submitted_date }}</h3>
                         <div class="me-filter-block__dates">
                             <label class="me-date-field">
-                                <span class="me-date-field__label">From</span>
-                                <input type="date" id="my-edits-start-date" class="me-date" aria-label="Start date">
+                                <span class="me-date-field__label">{{ ui.me_date_from }}</span>
+                                <input type="date" id="my-edits-start-date" class="me-date" aria-label="{{ ui.me_start_date_aria }}">
                             </label>
                             <label class="me-date-field">
-                                <span class="me-date-field__label">To</span>
-                                <input type="date" id="my-edits-end-date" class="me-date" aria-label="End date">
+                                <span class="me-date-field__label">{{ ui.me_date_to }}</span>
+                                <input type="date" id="my-edits-end-date" class="me-date" aria-label="{{ ui.me_end_date_aria }}">
                             </label>
                         </div>
                     </section>
 
                     <section class="me-filter-block">
-                        <h3 class="me-filter-block__label">Status</h3>
-                        <div class="me-filter-chips" id="my-edits-status-filters" role="tablist" aria-label="Filter by status">
-                            <button type="button" class="me-chip is-active" data-status="">All</button>
+                        <h3 class="me-filter-block__label">{{ ui.me_status }}</h3>
+                        <div class="me-filter-chips" id="my-edits-status-filters" role="tablist" aria-label="{{ ui.me_status_aria }}">
+                            <button type="button" class="me-chip is-active" data-status="">{{ ui.me_status_all }}</button>
                             {% if my_edits_show_pending_rejected_filters %}
-                            <button type="button" class="me-chip" data-status="pending">Pending</button>
+                            <button type="button" class="me-chip" data-status="pending">{{ ui.me_status_pending }}</button>
                             {% endif %}
-                            <button type="button" class="me-chip" data-status="approved">Approved</button>
+                            <button type="button" class="me-chip" data-status="approved">{{ ui.me_status_approved }}</button>
                             {% if my_edits_show_pending_rejected_filters %}
-                            <button type="button" class="me-chip" data-status="rejected">Rejected</button>
+                            <button type="button" class="me-chip" data-status="rejected">{{ ui.me_status_rejected }}</button>
                             {% endif %}
                         </div>
                     </section>
 
                     <section class="me-filter-block">
                         <div class="me-filter-block__head">
-                            <h3 class="me-filter-block__label">Road type</h3>
-                            <span class="me-filter-block__hint">Multi-select</span>
+                            <h3 class="me-filter-block__label">{{ ui.me_road_type }}</h3>
+                            <span class="me-filter-block__hint">{{ ui.me_multi_select }}</span>
                         </div>
-                        <div class="me-filter-chips me-filter-chips--wrap" id="my-edits-category-filters" aria-label="Filter by road type">
+                        <div class="me-filter-chips me-filter-chips--wrap" id="my-edits-category-filters" aria-label="{{ ui.me_road_type_aria }}">
                             {% include 'mapping/includes/edit_filter_category_chips.html' with chip_class='me-chip' %}
                         </div>
                     </section>
@@ -85,4 +85,4 @@
     </div>
 </div>
 
-<script src="{% static 'mapping/js/my-edits.js' %}" defer></script>
+<script src="{% static 'mapping/js/my-edits.js' %}?v=me-i18n-1" defer></script>

@@ -1,7 +1,7 @@
 {% extends 'manager/base.html' %}
 {% load static %}
 
-{% block title %}Map · Manager · GeoTrak Maps{% endblock %}
+{% block title %}{{ ui.map }} - {{ ui.role_manager }} - {{ ui.brand_name }}{% endblock %}
 
 {% block main_class %}relative overflow-hidden{% endblock %}
 
@@ -10,9 +10,9 @@
 <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css' />
 <script src='https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js'></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.css"/>
-<link rel="stylesheet" href="{% static 'mapping/css/line-styles.css' %}"/>
+<link rel="stylesheet" href="{% static 'mapping/css/line-styles.css' %}?v=search-ui-2"/>
 <link rel="stylesheet" href="{% static 'mapping/css/clear-selection-toolbar.css' %}"/>
-<link rel="stylesheet" href="{% static 'mapping/css/approval-requests.css' %}"/>
+<link rel="stylesheet" href="{% static 'mapping/css/approval-requests.css' %}?v=approval-clean-2"/>
 <script src="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.umd.js"></script>
 <svg style="display: none;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
     <symbol id="iD-icon-line" viewBox="0 0 24 24">
@@ -59,15 +59,15 @@
 <script src="{% static 'mapping/js/riyadh-tiles-reload.js' %}"></script>
 <script src="{% static 'mapping/js/map.js' %}"></script>
 <script src="{% static 'mapping/js/map-road-select.js' %}"></script>
-<script src="{% static 'mapping/js/map-road-search.js' %}"></script>
+<script src="{% static 'mapping/js/map-road-search.js' %}?v=search-ui-2"></script>
 <script src="{% static 'mapping/js/map-road-deeplink.js' %}"></script>
 <script src="{% static 'mapping/js/geometry-normalize.js' %}"></script>
-<script src="{% static 'mapping/js/line-drawing.js' %}"></script>
+<script src="{% static 'mapping/js/line-drawing.js' %}?v=approval-clean-1"></script>
 <script src="{% static 'mapping/js/road-geometry-edit.js' %}"></script>
 <script src="{% static 'mapping/js/map-edit-undo.js' %}"></script>
-<script src="{% static 'mapping/js/save-line-edit.js' %}"></script>
-<script src="{% static 'mapping/js/pending-road-locks.js' %}"></script>
-<script src="{% static 'mapping/js/approval-requests.js' %}"></script>
+<script src="{% static 'mapping/js/save-line-edit.js' %}?v=approval-clean-1"></script>
+<script src="{% static 'mapping/js/pending-road-locks.js' %}?v=approval-clean-1"></script>
+<script src="{% static 'mapping/js/approval-requests.js' %}?v=approval-clean-2"></script>
 <script src="{% static 'mapping/js/map-clear-selection.js' %}"></script>
 {% endblock %}
 

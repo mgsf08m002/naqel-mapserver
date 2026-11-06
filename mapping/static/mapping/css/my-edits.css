@@ -53,7 +53,7 @@
   color: var(--geotrak-brand);
 }
 
-/* —— Two-column layout —— */
+/* --- Two-column layout --- */
 .me-layout {
   display: grid;
   gap: 1.25rem;
@@ -86,7 +86,7 @@
   }
 }
 
-/* —— Filter panel (right column) —— */
+/* --- Filter panel (right column) --- */
 .me-filter-panel {
   background: #fafafa;
   border: 1px solid #e4e4e7;
@@ -256,7 +256,7 @@
 .me-table__head,
 .me-row {
   display: grid;
-  grid-template-columns: minmax(10rem, 2.2fr) minmax(5.5rem, 1fr) minmax(4.5rem, 0.65fr) minmax(7rem, 1fr) minmax(6rem, 0.9fr);
+  grid-template-columns: minmax(10rem, 2.2fr) minmax(5.5rem, 1fr) minmax(5.5rem, 0.95fr) minmax(7rem, 1fr) minmax(6rem, 0.9fr);
   gap: 0.5rem 0.75rem;
   align-items: center;
   padding: 0.45rem 0.25rem;
@@ -321,6 +321,13 @@
   color: #52525b;
 }
 
+.me-row__status-cell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
 .me-row__status {
   font-size: 0.625rem;
   font-weight: 700;
@@ -328,9 +335,24 @@
   text-transform: uppercase;
 }
 
+html[dir='rtl'] .me-row__status {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .me-row__status--pending { color: #b45309; }
 .me-row__status--approved { color: #047857; }
 .me-row__status--rejected { color: #be123c; }
+
+.me-row__reason {
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #71717a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .me-row__date,
 .me-row__reviewer {
@@ -339,4 +361,50 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Card layout must live here so it wins over the desktop grid above. */
+@media (max-width: 900px) {
+  .me-table__head {
+    display: none;
+  }
+
+  .me-table__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .me-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "road road"
+      "type status"
+      "date reviewer";
+    gap: 0.35rem 0.75rem;
+    align-items: center;
+    min-width: 0;
+    padding: 0.75rem;
+    border: 1px solid #e4e4e7;
+    border-radius: 0.5rem;
+    background: #fafafa;
+  }
+
+  .me-row__road-cell { grid-area: road; }
+  .me-row__type { grid-area: type; }
+  .me-row__status-cell {
+    grid-area: status;
+    justify-self: end;
+  }
+  .me-row__date { grid-area: date; }
+  .me-row__reviewer {
+    grid-area: reviewer;
+    justify-self: end;
+    text-align: end;
+  }
+
+  .me-row__reason {
+    white-space: normal;
+  }
 }

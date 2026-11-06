@@ -5,15 +5,15 @@
     let approvalQueue = [];
     let approvalFilterKey = 'all';
 
-    const APPROVAL_ACTION_LABELS = {
-        layer_upload: 'Review on map',
-        delete_road: 'Review deletion',
-        new_road: 'Review new road',
-        new_road_geometry: 'Review geometry',
-        new_feature_type: 'Review feature type',
-        add_road_label: 'Review label',
-        change_road_label: 'Review label',
-        road_attribute_edit: 'Review attributes'
+    const APPROVAL_CAT_FALLBACKS = {
+        layer_upload: 'Layer Upload',
+        delete_road: 'Delete Road',
+        new_road: 'New Road',
+        add_road_label: 'Add Road Label',
+        change_road_label: 'Change Road Label',
+        new_road_geometry: 'New Road Geometry',
+        new_feature_type: 'New Feature Type',
+        road_attribute_edit: 'Road Attribute Edit'
     };
 
     const ROW_CHEVRON_SVG =
@@ -34,37 +34,59 @@
         }
     }
 
-    function toastApproveSuccess(data) {
+    function findQueuedRequest(requestId) {
+        for (var i = 0; i < approvalQueue.length; i++) {
+            if (String(approvalQueue[i].id) === String(requestId)) {
+                return approvalQueue[i];
+            }
+        }
+        return null;
+    }
+
+    function toastApproveSuccess(data, requestId) {
         if (data && data.deleted_road_id != null) {
             return uiT('toast_road_deleted', 'Road deleted');
         }
-        const msg = data && data.message ? String(data.message) : '';
-        if (/layer/i.test(msg)) {
+        var req = findQueuedRequest(requestId);
+        if (req && req.request_category === 'layer_upload') {
             return uiT('toast_layer_published', 'Layer published');
         }
         return uiT('toast_approved', 'Approved');
     }
 
-    function toastRejectSuccess(data) {
-        const msg = data && data.message ? String(data.message) : '';
-        if (/layer/i.test(msg)) {
+    function toastRejectSuccess(data, requestId) {
+        var req = findQueuedRequest(requestId);
+        if (req && req.request_category === 'layer_upload') {
             return uiT('toast_layer_rejected', 'Layer rejected');
         }
         return uiT('toast_rejected', 'Rejected');
     }
 
     function approvalEmptyHtml() {
-        return `
-            <div class="approval-empty">
-                <div class="approval-empty__icon">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                </div>
-                <p class="approval-empty__title">You're all caught up</p>
-                <p class="approval-empty__text">No editor submissions need your review right now.</p>
-            </div>
-        `;
+        return (
+            '<div class="approval-empty">' +
+            '<div class="approval-empty__icon">' +
+            '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">' +
+            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>' +
+            '</svg></div>' +
+            '<p class="approval-empty__title">' +
+            uiT('approval_empty_title', "You're all caught up") +
+            '</p>' +
+            '<p class="approval-empty__text">' +
+            uiT(
+                'approval_empty_text',
+                'No editor submissions need your review right now.'
+            ) +
+            '</p></div>'
+        );
+    }
+
+    function categoryLabel(key, fallback) {
+        const fb =
+            fallback ||
+            APPROVAL_CAT_FALLBACKS[key] ||
+            APPROVAL_CAT_FALLBACKS.road_attribute_edit;
+        return uiT('approval_cat_' + (key || 'road_attribute_edit'), fb);
     }
 
     function formatRequestTime(isoString) {
@@ -76,14 +98,14 @@
         const diffMs = now - date;
         const diffMins = Math.floor(diffMs / 60000);
         if (diffMins < 1) {
-            return 'Just now';
+            return uiT('time_just_now', 'Just now');
         }
         if (diffMins < 60) {
-            return diffMins + 'm ago';
+            return uiT('time_minutes_ago', '{n}m ago').replace('{n}', String(diffMins));
         }
         const diffHours = Math.floor(diffMins / 60);
         if (diffHours < 24) {
-            return diffHours + 'h ago';
+            return uiT('time_hours_ago', '{n}h ago').replace('{n}', String(diffHours));
         }
         if (typeof window.formatRiyadhDate === 'function' && typeof window.formatRiyadhClock === 'function') {
             return window.formatRiyadhDate(isoString) + ', ' + window.formatRiyadhClock(isoString);
@@ -91,18 +113,76 @@
         return '';
     }
 
-    function approvalCategoryClass(categoryKey) {
-        const key = categoryKey || 'road_attribute_edit';
-        return 'approval-cat--' + key;
+    function requesterInitials(name) {
+        const parts = String(name || '')
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+        if (!parts.length) {
+            return 'U';
+        }
+        if (parts.length === 1) {
+            return parts[0].slice(0, 2).toUpperCase();
+        }
+        return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+    }
+
+    function buildRequesterAvatarHtml(request, className) {
+        const classes = String(className || 'approval-avatar').trim();
+        const name = String(
+            request.requester_name || uiT('unknown_user', 'Unknown')
+        );
+        const imageUrl = request.profile_image_url
+            ? String(request.profile_image_url).trim()
+            : '';
+        if (imageUrl) {
+            return (
+                '<span class="' +
+                classes +
+                ' approval-avatar--photo" aria-hidden="true">' +
+                '<img src="' +
+                escapeHtml(imageUrl) +
+                '" alt="">' +
+                '</span>'
+            );
+        }
+        return (
+            '<span class="' +
+            classes +
+            '" aria-hidden="true">' +
+            escapeHtml(requesterInitials(name)) +
+            '</span>'
+        );
+    }
+
+    function approvalRowTitle(request, typeMeta) {
+        const named = String(request.road_name || '').trim();
+        if (named) {
+            return named;
+        }
+        if (typeMeta && typeMeta.key === 'layer_upload' && request.shapefile_name) {
+            return String(request.shapefile_name).trim();
+        }
+        return uiT('unnamed_road', 'Unnamed Road');
+    }
+
+    function featureTypeDisplayLabel(request) {
+        const raw = String(request.current_feature_label || '').trim();
+        if (!raw) {
+            return '';
+        }
+        if (typeof window.displayFeatureTypeLabel === 'function') {
+            return window.displayFeatureTypeLabel(raw);
+        }
+        return raw;
     }
 
     function getRequestTypeMeta(request) {
         const categoryKey = request.request_category || 'road_attribute_edit';
         return {
             key: categoryKey,
-            label: request.request_category_label || 'Road Attribute Edit',
-            categoryClass: approvalCategoryClass(categoryKey),
-            actionLabel: APPROVAL_ACTION_LABELS[categoryKey] || 'Review'
+            label: categoryLabel(categoryKey, request.request_category_label),
+            categoryClass: 'approval-cat--' + categoryKey
         };
     }
 
@@ -110,7 +190,7 @@
         if (approvalFilterKey === 'all') {
             return approvalQueue;
         }
-        return approvalQueue.filter(function(request) {
+        return approvalQueue.filter(function (request) {
             return (request.request_category || '') === approvalFilterKey;
         });
     }
@@ -120,11 +200,17 @@
         if (!bar) {
             return;
         }
-        bar.querySelectorAll('[data-approval-filter]').forEach(function(btn) {
-            const key = btn.getAttribute('data-approval-filter');
-            const active = key === approvalFilterKey;
+        bar.querySelectorAll('[data-approval-filter]').forEach(function (btn) {
+            const active =
+                (btn.getAttribute('data-approval-filter') || 'all') ===
+                approvalFilterKey;
             btn.setAttribute('aria-pressed', active ? 'true' : 'false');
         });
+    }
+
+    function isApprovalPanelOpen() {
+        const panel = document.getElementById('approvalRequestsPanel');
+        return !!(panel && panel.classList.contains('approval-panel--open'));
     }
 
     function setApprovalPanelOpen(open) {
@@ -133,40 +219,115 @@
         if (!panel) {
             return;
         }
-        if (open) {
-            panel.classList.add('approval-panel--open');
-            if (bell) {
-                bell.setAttribute('aria-expanded', 'true');
-            }
-            syncApprovalUI();
-        } else {
-            panel.classList.remove('approval-panel--open');
-            if (bell) {
-                bell.setAttribute('aria-expanded', 'false');
-            }
-            // Closing the bell list must not cancel an in-progress map review.
-            syncApprovalUI();
+        panel.classList.toggle('approval-panel--open', !!open);
+        if (bell) {
+            bell.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        // Closing the list must not cancel an in-progress map review.
+        syncApprovalUI();
+    }
+
+    function metaLineHtml(label, valueHtml, valueModifier) {
+        if (!valueHtml) {
+            return '';
+        }
+        const valueClass = valueModifier
+            ? 'approval-row__meta-value ' + valueModifier
+            : 'approval-row__meta-value';
+        return (
+            '<div class="approval-row__meta-line">' +
+            '<span class="approval-row__meta-label">' +
+            escapeHtml(label) +
+            '</span>' +
+            '<span class="' +
+            valueClass +
+            '">' +
+            valueHtml +
+            '</span></div>'
+        );
+    }
+
+    function setFocusedPendingLocksMuted(muted) {
+        if (
+            window.PendingRoadLocks &&
+            typeof window.PendingRoadLocks.setFocusedReviewActive === 'function'
+        ) {
+            try {
+                window.PendingRoadLocks.setFocusedReviewActive(!!muted);
+            } catch (eMute) {}
         }
     }
 
-    function isApprovalPanelOpen() {
-        const panel = document.getElementById('approvalRequestsPanel');
-        return panel && panel.classList.contains('approval-panel--open');
+    function clearReviewBasemapHide() {
+        if (typeof window.setRiyadhRoadBasemapHiddenForClosureOverlay === 'function') {
+            try {
+                window.setRiyadhRoadBasemapHiddenForClosureOverlay(null, false);
+            } catch (eBase) {}
+        }
     }
 
-    function setManagerReviewMode(active) {
+    function hideReviewedRoadOnBasemap(request) {
+        if (!request || !request.geometry_changed) {
+            clearReviewBasemapHide();
+            return;
+        }
+        const rid =
+            request.riyadh_road_id != null
+                ? request.riyadh_road_id
+                : request.road_id != null
+                  ? request.road_id
+                  : null;
+        if (rid == null || rid === '') {
+            clearReviewBasemapHide();
+            return;
+        }
+        if (typeof window.setRiyadhRoadBasemapHiddenForClosureOverlay === 'function') {
+            try {
+                window.setRiyadhRoadBasemapHiddenForClosureOverlay(rid, true);
+            } catch (eHide) {}
+        }
+        if (typeof window.hideSelectedOverlayPaint === 'function') {
+            try {
+                window.hideSelectedOverlayPaint();
+            } catch (eSel) {}
+        }
+    }
+
+    function setManagerReviewMode(active, request) {
         window.managerApprovalReviewActive = Boolean(active);
-        const editToolbar = document.getElementById('editToolbar');
-        if (editToolbar && active) {
-            editToolbar.classList.add('hidden');
+        document.body.classList.toggle('manager-review-dock-active', Boolean(active));
+        setFocusedPendingLocksMuted(active);
+        if (active) {
+            if (typeof window.forceExitMapEditModeForReview === 'function') {
+                window.forceExitMapEditModeForReview();
+            }
+            const editToolbar = document.getElementById('editToolbar');
+            if (editToolbar) {
+                editToolbar.classList.add('hidden');
+            }
+            if (typeof window.hideRiyadhGeometryEditToolbar === 'function') {
+                window.hideRiyadhGeometryEditToolbar();
+            }
+            if (request) {
+                hideReviewedRoadOnBasemap(request);
+            }
+        } else {
+            clearReviewBasemapHide();
+            if (typeof window.syncEditButtonReviewState === 'function') {
+                window.syncEditButtonReviewState();
+            }
         }
-        if (active && typeof window.hideRiyadhGeometryEditToolbar === 'function') {
-            window.hideRiyadhGeometryEditToolbar();
+        if (typeof window.syncRoadPanelEditModeUI === 'function') {
+            window.syncRoadPanelEditModeUI();
         }
-    }
-
-    function hideEditToolbarsForReview() {
-        setManagerReviewMode(true);
+        if (
+            window.PendingRoadLocks &&
+            typeof window.PendingRoadLocks.syncPendingBanner === 'function'
+        ) {
+            try {
+                window.PendingRoadLocks.syncPendingBanner();
+            } catch (eBanner) {}
+        }
     }
 
     function wireApprovalDropdown() {
@@ -221,106 +382,166 @@
 
     function buildApprovalRow(request) {
         const typeMeta = getRequestTypeMeta(request);
-        const featureLabel = String(request.current_feature_label || 'Unnamed Road');
-        const requesterName = String(request.requester_name || 'Unknown');
-        const requesterRole = String(request.requester_role || 'Editor');
+        const title = approvalRowTitle(request, typeMeta);
+        const featureType = featureTypeDisplayLabel(request);
+        const requesterName = String(
+            request.requester_name || uiT('unknown_user', 'Unknown')
+        );
+        const requesterEmail = String(request.requester_email || '').trim();
+        const roleRaw = String(request.requester_role || 'Editor');
+        const requesterRole = uiT(
+            'role_' + roleRaw.toLowerCase().replace(/\s+/g, '_'),
+            roleRaw
+        );
         const timeLabel = formatRequestTime(request.created_at);
-        const shapefileLine =
-            typeMeta.key === 'layer_upload' && request.shapefile_name
-                ? '<div class="approval-row__meta-line">' +
-                  '<span class="approval-row__meta-label">Shapefile:</span>' +
-                  '<span class="approval-row__meta-value">' + escapeHtml(String(request.shapefile_name)) + '</span>' +
-                  '</div>'
-                : '';
+        const shapefileName = String(request.shapefile_name || '').trim();
+        const showShapefileMeta =
+            typeMeta.key === 'layer_upload' &&
+            shapefileName &&
+            shapefileName !== title;
+
+        const userValueHtml =
+            buildRequesterAvatarHtml(request, 'approval-avatar approval-avatar--sm') +
+            '<span class="approval-row__user-name">' +
+            escapeHtml(requesterName) +
+            '</span>';
+
+        const editTypeValueHtml =
+            '<span class="approval-row__type-dot" aria-hidden="true"></span>' +
+            escapeHtml(typeMeta.label);
 
         const card = document.createElement('article');
         card.className = 'approval-row ' + typeMeta.categoryClass;
         card.setAttribute('data-request-id', request.id);
-        card.setAttribute('data-request-category', typeMeta.key);
         card.setAttribute('role', 'button');
         card.setAttribute('tabindex', '0');
-        card.setAttribute('aria-label', typeMeta.actionLabel + ': ' + featureLabel);
+        card.setAttribute('aria-label', typeMeta.label + ': ' + title);
         card.innerHTML =
             '<div class="approval-row__body">' +
             '<div class="approval-row__headline">' +
-            '<span class="approval-row__title">' + escapeHtml(featureLabel) + '</span>' +
-            '<time class="approval-row__time" datetime="' + escapeHtml(String(request.created_at || '')) + '">' +
+            '<span class="approval-row__title">' +
+            escapeHtml(title) +
+            '</span>' +
+            '<time class="approval-row__time" datetime="' +
+            escapeHtml(String(request.created_at || '')) +
+            '">' +
             escapeHtml(timeLabel) +
             '</time></div>' +
             '<div class="approval-row__meta">' +
-            '<div class="approval-row__meta-line">' +
-            '<span class="approval-row__meta-label">User:</span>' +
-            '<span class="approval-row__meta-value">' + escapeHtml(requesterName) + '</span>' +
-            '</div>' +
-            '<div class="approval-row__meta-line">' +
-            '<span class="approval-row__meta-label">Role:</span>' +
-            '<span class="approval-row__meta-value">' + escapeHtml(requesterRole) + '</span>' +
-            '</div>' +
-            '<div class="approval-row__meta-line">' +
-            '<span class="approval-row__meta-label">Edit Type:</span>' +
-            '<span class="approval-row__meta-value approval-row__meta-value--type">' +
-            '<span class="approval-row__type-dot" aria-hidden="true"></span>' +
-            escapeHtml(typeMeta.label) +
-            '</span></div>' +
-            shapefileLine +
+            metaLineHtml(
+                uiT('approval_meta_user', 'User'),
+                userValueHtml,
+                'approval-row__meta-value--user'
+            ) +
+            metaLineHtml(
+                uiT('approval_meta_email', 'Email'),
+                requesterEmail ? escapeHtml(requesterEmail) : ''
+            ) +
+            metaLineHtml(
+                uiT('approval_meta_role', 'Role'),
+                escapeHtml(requesterRole)
+            ) +
+            metaLineHtml(
+                uiT('approval_meta_edit_type', 'Edit type'),
+                editTypeValueHtml,
+                'approval-row__meta-value--type'
+            ) +
+            metaLineHtml(
+                uiT('feature_type', 'Feature type'),
+                featureType ? escapeHtml(featureType) : ''
+            ) +
+            metaLineHtml(
+                uiT('approval_meta_shapefile', 'Shapefile'),
+                showShapefileMeta ? escapeHtml(shapefileName) : ''
+            ) +
             '</div></div>' +
-            '<span class="approval-row__chevron" aria-hidden="true">' + ROW_CHEVRON_SVG + '</span>';
+            '<span class="approval-row__chevron" aria-hidden="true">' +
+            ROW_CHEVRON_SVG +
+            '</span>';
 
-        card.addEventListener('click', function() {
+        function openRow() {
             openApprovalRequest(request.id);
-        });
-        card.addEventListener('keydown', function(event) {
+        }
+        card.addEventListener('click', openRow);
+        card.addEventListener('keydown', function (event) {
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
-                openApprovalRequest(request.id);
+                openRow();
             }
         });
 
         return card;
     }
 
+    function approvalBellAriaLabel(count) {
+        if (count === 0) {
+            return uiT('approval_bell_zero', '0 approval requests');
+        }
+        if (count === 1) {
+            return uiT('approval_bell_one', '1 approval request');
+        }
+        return uiT('approval_bell_many', '{n} approval requests').replace(
+            '{n}',
+            String(count)
+        );
+    }
+
+    function approvalSummaryText(count, shown) {
+        if (count === 0) {
+            return uiT('approval_summary_none', 'Nothing pending review');
+        }
+        if (approvalFilterKey !== 'all' && shown !== count) {
+            return uiT('approval_summary_filtered', 'Showing {shown} of {count}')
+                .replace('{shown}', String(shown))
+                .replace('{count}', String(count));
+        }
+        if (count === 1) {
+            return uiT(
+                'approval_summary_one',
+                '1 submission awaiting review'
+            );
+        }
+        return uiT(
+            'approval_summary_many',
+            '{n} submissions awaiting review'
+        ).replace('{n}', String(count));
+    }
+
     function syncApprovalUI() {
         const count = approvalQueue.length;
-        const summary = document.getElementById('approvalRequestsPanelSummary');
-        const countPill = document.getElementById('approvalRequestsPanelCount');
-        const badge = document.getElementById('approvalRequestsBellBadge');
-        const bell = document.getElementById('approvalRequestsBell');
-        const filterBar = document.getElementById('approvalRequestsFilterBar');
-        const filtered = getFilteredApprovalQueue();
-        const shown = filtered.length;
+        const shown = getFilteredApprovalQueue().length;
+        const panelOpen = isApprovalPanelOpen();
 
+        const countPill = document.getElementById('approvalRequestsPanelCount');
         if (countPill) {
             countPill.textContent = count > 0 ? String(count) : '';
             countPill.setAttribute('data-count', String(count));
         }
+
+        const badge = document.getElementById('approvalRequestsBellBadge');
         if (badge) {
             badge.textContent = String(count);
-            badge.classList.toggle('approval-bell__badge--clear', count === 0);
-            badge.classList.toggle('approval-bell__badge--pending', count > 0);
-        }
-        if (bell) {
-            const label = count === 0
-                ? '0 approval requests'
-                : count === 1
-                    ? '1 approval request'
-                    : count + ' approval requests';
-            bell.setAttribute('aria-label', label);
+            badge.hidden = count === 0;
         }
 
-        if (summary) {
-            if (count === 0) {
-                summary.textContent = 'Nothing pending review';
-            } else if (approvalFilterKey !== 'all' && shown !== count) {
-                summary.textContent = 'Showing ' + shown + ' of ' + count;
-            } else if (count === 1) {
-                summary.textContent = '1 submission awaiting review';
-            } else {
-                summary.textContent = count + ' submissions awaiting review';
-            }
+        const bell = document.getElementById('approvalRequestsBell');
+        if (bell) {
+            bell.setAttribute('aria-label', approvalBellAriaLabel(count));
         }
+
+        const summary = document.getElementById('approvalRequestsPanelSummary');
+        if (summary) {
+            summary.textContent = approvalSummaryText(count, shown);
+        }
+
+        const filterBar = document.getElementById('approvalRequestsFilterBar');
         if (filterBar) {
-            filterBar.classList.toggle('approval-panel__filters--visible', count > 0 && isApprovalPanelOpen());
-            if (count > 0 && isApprovalPanelOpen()) {
+            const showFilters = count > 0 && panelOpen;
+            filterBar.classList.toggle(
+                'approval-panel__filters--visible',
+                showFilters
+            );
+            if (showFilters) {
                 syncApprovalFilterBar();
             }
         }
@@ -427,73 +648,6 @@
         };
     }
 
-    function toRad(d) {
-        return d * Math.PI / 180;
-    }
-
-    function haversineMeters(a, b) {
-        const R = 6371000;
-        const dLat = toRad(b[1] - a[1]);
-        const dLon = toRad(b[0] - a[0]);
-        const la1 = toRad(a[1]);
-        const la2 = toRad(b[1]);
-        const h = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-            + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
-    }
-
-    function projectPointOnSegmentPlanar(p, a, b) {
-        const x = p[0];
-        const y = p[1];
-        const x1 = a[0];
-        const y1 = a[1];
-        const x2 = b[0];
-        const y2 = b[1];
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-        if (dx === 0 && dy === 0) {
-            return [x1, y1];
-        }
-        let t = ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy);
-        t = Math.max(0, Math.min(1, t));
-        return [x1 + t * dx, y1 + t * dy];
-    }
-
-    function minDistPointToPolylineMeters(p, lineCoords) {
-        let minD = Infinity;
-        for (let i = 0; i < lineCoords.length - 1; i++) {
-            const proj = projectPointOnSegmentPlanar(p, lineCoords[i], lineCoords[i + 1]);
-            const d = haversineMeters(p, proj);
-            minD = Math.min(minD, d);
-        }
-        return minD;
-    }
-
-    /** Segments of the proposed line whose midpoints move more than thresholdMeters from the original */
-    function buildChangedSegmentsGeoJson(beforeCoords, afterCoords, thresholdMeters) {
-        const thr = typeof thresholdMeters === 'number' ? thresholdMeters : 2.5;
-        if (!beforeCoords || !afterCoords || beforeCoords.length < 2 || afterCoords.length < 2) {
-            return null;
-        }
-        const lines = [];
-        for (let i = 0; i < afterCoords.length - 1; i++) {
-            const mid = [
-                (afterCoords[i][0] + afterCoords[i + 1][0]) / 2,
-                (afterCoords[i][1] + afterCoords[i + 1][1]) / 2
-            ];
-            if (minDistPointToPolylineMeters(mid, beforeCoords) > thr) {
-                lines.push([afterCoords[i], afterCoords[i + 1]]);
-            }
-        }
-        if (!lines.length) {
-            return null;
-        }
-        return {
-            type: 'MultiLineString',
-            coordinates: lines
-        };
-    }
-
     function refreshApprovalQueue() {
         fetch('/mapping/api/pending-requests/', {
             method: 'GET',
@@ -530,7 +684,12 @@
         }
 
         if (filtered.length === 0) {
-            requestsList.innerHTML = '<p class="approval-empty-filter">No requests match this filter.</p>';
+            requestsList.innerHTML =
+                '<p class="approval-empty-filter">' +
+                escapeHtml(
+                    uiT('approval_empty_filter', 'No requests match this filter.')
+                ) +
+                '</p>';
             syncApprovalUI();
             return;
         }
@@ -573,42 +732,30 @@
         if (typeof map === 'undefined' || !map) {
             return;
         }
-        try {
-            const mainLayers = [
-                'request-line-layer-' + featureId,
-                'request-line-ring-' + featureId,
-                'request-line-outline-' + featureId,
-            ];
-            mainLayers.forEach(function(lid) {
+        const layerIds = [
+            'request-line-layer-' + featureId,
+            'request-line-ring-' + featureId,
+            'request-line-outline-' + featureId,
+            'request-line-before-layer-' + featureId,
+            'request-line-before-underlay-' + featureId,
+        ];
+        const sourceIds = [
+            'request-line-source-' + featureId,
+            'request-line-before-source-' + featureId,
+        ];
+        layerIds.forEach(function (lid) {
+            try {
                 if (map.getLayer(lid)) {
                     map.removeLayer(lid);
                 }
-            });
-            const mainSrc = 'request-line-source-' + featureId;
-            if (map.getSource(mainSrc)) {
-                map.removeSource(mainSrc);
-            }
-        } catch (e0) {}
-
-        const triplets = [
-            ['request-line-before-layer-', 'request-line-before-underlay-', 'request-line-before-source-'],
-            ['request-line-diff-layer-', 'request-line-diff-underlay-', 'request-line-diff-source-']
-        ];
-        triplets.forEach(function(t) {
-            const layerId = t[0] + featureId;
-            const underlayLayerId = t[1] + featureId;
-            const sourceId = t[2] + featureId;
-            try {
-                if (map.getLayer(layerId)) {
-                    map.removeLayer(layerId);
-                }
-                if (map.getLayer(underlayLayerId)) {
-                    map.removeLayer(underlayLayerId);
-                }
-                if (map.getSource(sourceId)) {
-                    map.removeSource(sourceId);
-                }
             } catch (e) {}
+        });
+        sourceIds.forEach(function (sid) {
+            try {
+                if (map.getSource(sid)) {
+                    map.removeSource(sid);
+                }
+            } catch (e2) {}
         });
     }
 
@@ -634,16 +781,16 @@
         }
 
         cleanupRequestLines();
-        removeApproveRejectButtons();
+        removeApproveRejectButtons({ keepReviewMode: true });
         setApprovalPanelOpen(false);
-        hideEditToolbarsForReview();
+        setManagerReviewMode(true, request);
         
         const normalizedGeometry = normalizeRequestGeometry(request.geometry);
         if (!normalizedGeometry || !normalizedGeometry.coordinates || normalizedGeometry.coordinates.length < 2) {
             showToast(
                 uiT(
                     'toast_cant_show_on_map',
-                    "Can't show on map — details still available"
+                    "Can't show on the map. Details are still available."
                 ),
                 'warning'
             );
@@ -707,7 +854,7 @@
                     populateSidepanelWithRequestData(requestForMap);
                 } catch (ePop) {}
                 createApproveRejectButtons(request);
-                hideEditToolbarsForReview();
+                setManagerReviewMode(true, requestForMap);
             }, 1100);
         });
     }
@@ -716,7 +863,7 @@
     function ensureSidePanelForReview(callback) {
         const sidePanel = document.getElementById('editSidePanel');
 
-        hideEditToolbarsForReview();
+        setManagerReviewMode(true, null);
 
         if (!sidePanel) {
             if (callback) {
@@ -725,7 +872,7 @@
             return;
         }
 
-        const isCurrentlyActive = !sidePanel.classList.contains('-translate-x-full');
+        const isCurrentlyActive = !sidePanel.classList.contains('msp-is-closed');
         if (isCurrentlyActive) {
             if (callback) {
                 setTimeout(callback, 100);
@@ -738,95 +885,123 @@
         if (typeof window.applyMapSidePanelOpen === 'function') {
             window.applyMapSidePanelOpen(true);
         } else {
-            sidePanel.classList.remove('-translate-x-full');
+            sidePanel.classList.remove('msp-is-closed');
         }
         setTimeout(function() {
-            hideEditToolbarsForReview();
+            setManagerReviewMode(true);
             if (callback) {
                 callback();
             }
         }, 400);
     }
 
-    function renderBeforeRequestLine(featureId, geometry) {
-        if (typeof map === 'undefined' || !map) return;
-
-        const sourceId = 'request-line-before-source-' + featureId;
-        const underlayLayerId = 'request-line-before-underlay-' + featureId;
-        const layerId = 'request-line-before-layer-' + featureId;
-
+    function upsertReviewLineLayer(sourceId, layerId, geometry, paint, layout) {
+        if (typeof map === 'undefined' || !map || !geometry) {
+            return;
+        }
         try {
-            if (map.getLayer(layerId)) map.removeLayer(layerId);
-            if (map.getLayer(underlayLayerId)) map.removeLayer(underlayLayerId);
-            if (map.getSource(sourceId)) map.removeSource(sourceId);
-
+            if (map.getLayer(layerId)) {
+                map.removeLayer(layerId);
+            }
+            if (map.getSource(sourceId)) {
+                map.removeSource(sourceId);
+            }
             map.addSource(sourceId, {
                 type: 'geojson',
                 data: { type: 'Feature', geometry: geometry }
             });
             map.addLayer({
-                id: underlayLayerId,
+                id: layerId,
                 type: 'line',
                 source: sourceId,
+                layout: layout || {
+                    'line-cap': 'round',
+                    'line-join': 'round'
+                },
+                paint: paint
+            });
+        } catch (error) {}
+    }
+
+    function bringReviewCompareLayersToFront(featureId) {
+        if (typeof map === 'undefined' || !map || typeof map.moveLayer !== 'function') {
+            return;
+        }
+        [
+            'request-line-before-underlay-' + featureId,
+            'request-line-before-layer-' + featureId,
+            'request-line-layer-' + featureId,
+            'request-line-ring-' + featureId,
+            'request-line-outline-' + featureId,
+        ].forEach(function (lid) {
+            if (!map.getLayer(lid)) {
+                return;
+            }
+            try {
+                map.moveLayer(lid);
+            } catch (eMove) {}
+        });
+    }
+
+    // Ghosted original path - pale underlay + dashed zinc, always behind proposed.
+    function renderBeforeRequestLine(featureId, geometry) {
+        const sourceId = 'request-line-before-source-' + featureId;
+        const underlayId = 'request-line-before-underlay-' + featureId;
+        const layerId = 'request-line-before-layer-' + featureId;
+        if (typeof map === 'undefined' || !map || !geometry) {
+            return;
+        }
+        try {
+            [underlayId, layerId].forEach(function (lid) {
+                if (map.getLayer(lid)) {
+                    map.removeLayer(lid);
+                }
+            });
+            if (map.getSource(sourceId)) {
+                map.removeSource(sourceId);
+            }
+            map.addSource(sourceId, {
+                type: 'geojson',
+                data: { type: 'Feature', geometry: geometry }
+            });
+            map.addLayer({
+                id: underlayId,
+                type: 'line',
+                source: sourceId,
+                layout: { 'line-cap': 'round', 'line-join': 'round' },
                 paint: {
-                    'line-color': '#d1d5db',
-                    'line-width': 12,
-                    'line-opacity': 0.4,
-                    'line-blur': 5
+                    'line-color': '#ffffff',
+                    'line-width': 8,
+                    'line-opacity': 0.92
                 }
             });
             map.addLayer({
                 id: layerId,
                 type: 'line',
                 source: sourceId,
+                layout: { 'line-cap': 'round', 'line-join': 'round' },
                 paint: {
-                    'line-color': '#6b7280',
-                    'line-width': 4,
-                    'line-opacity': 0.95,
-                    'line-dasharray': [1.2, 1.2]
+                    'line-color': '#52525b',
+                    'line-width': 3,
+                    'line-opacity': 1,
+                    'line-dasharray': [2.25, 1.75]
                 }
             });
         } catch (error) {}
     }
 
-    function renderDiffRequestLine(featureId, multiLineGeometry) {
-        if (typeof map === 'undefined' || !map || !multiLineGeometry) return;
-
-        const sourceId = 'request-line-diff-source-' + featureId;
-        const underlayLayerId = 'request-line-diff-underlay-' + featureId;
-        const layerId = 'request-line-diff-layer-' + featureId;
-
-        try {
-            if (map.getLayer(layerId)) map.removeLayer(layerId);
-            if (map.getLayer(underlayLayerId)) map.removeLayer(underlayLayerId);
-            if (map.getSource(sourceId)) map.removeSource(sourceId);
-
-            map.addSource(sourceId, {
-                type: 'geojson',
-                data: { type: 'Feature', geometry: multiLineGeometry }
-            });
-            map.addLayer({
-                id: underlayLayerId,
-                type: 'line',
-                source: sourceId,
-                paint: {
-                    'line-color': '#fdba74',
-                    'line-width': 14,
-                    'line-opacity': 0.55,
-                    'line-blur': 5
-                }
-            });
-            map.addLayer({
-                id: layerId,
-                type: 'line',
-                source: sourceId,
-                paint: {
-                    'line-color': '#ea580c',
-                    'line-width': 6,
-                    'line-opacity': 1
-                }
-            });
-        } catch (error) {}
+    // Proposed path - solid brand navy, drawn above original (no third overlay).
+    function renderProposedRequestLine(featureId, geometry) {
+        upsertReviewLineLayer(
+            'request-line-source-' + featureId,
+            'request-line-layer-' + featureId,
+            geometry,
+            {
+                'line-color': '#0f2d53',
+                'line-width': 5.5,
+                'line-opacity': 1
+            }
+        );
     }
 
     function renderRequestCompareOnMap(featureId, request) {
@@ -834,32 +1009,32 @@
         if (!normAfter) {
             return;
         }
-        const styledAfter = Object.assign({}, request, { geometry: normAfter });
 
         const normBefore =
             request.original_geometry && request.geometry_changed
                 ? normalizeRequestGeometry(request.original_geometry)
                 : null;
 
+        // Geometry reviews: only Original (ghost) + Proposed (solid).
+        // Pending-lock orange + live basemap road are muted while the dock is open.
         if (normBefore && request.geometry_changed) {
+            hideReviewedRoadOnBasemap(request);
+            setFocusedPendingLocksMuted(true);
             renderBeforeRequestLine(featureId, normBefore);
+            renderProposedRequestLine(featureId, normAfter);
+            bringReviewCompareLayersToFront(featureId);
+            return;
         }
 
-        renderRequestLineAsMapLibreLayer(featureId, styledAfter);
-
-        if (normBefore && normAfter.coordinates && normBefore.coordinates && request.geometry_changed) {
-            const diffGeom = buildChangedSegmentsGeoJson(
-                normBefore.coordinates,
-                normAfter.coordinates,
-                2.5
-            );
-            if (diffGeom) {
-                renderDiffRequestLine(featureId, diffGeom);
-            }
-        }
+        setFocusedPendingLocksMuted(true);
+        renderRequestLineAsMapLibreLayer(
+            featureId,
+            Object.assign({}, request, { geometry: normAfter })
+        );
+        bringReviewCompareLayersToFront(featureId);
     }
 
-    // Draw the request line on the map as a MapLibre layer (before / after / diff when applicable).
+    // Draw the request line on the map (Original + Proposed for reshapes; styled line otherwise).
     function drawRequestLineOnMap(request) {
         if (typeof map === 'undefined' || !map) {
             return;
@@ -868,9 +1043,10 @@
         const featureId = 'request-' + request.id;
         renderRequestCompareOnMap(featureId, request);
         
-        // Update feature label
+        // Keep panel / symbology in sync with the reviewed feature type.
         if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateCurrentFeatureLabel === 'function') {
-            window.lineDrawingHandler.updateCurrentFeatureLabel(request.current_feature_label || 'Unnamed Road');
+            const label = String(request.current_feature_label || '').trim();
+            window.lineDrawingHandler.updateCurrentFeatureLabel(label || 'Line');
         }
         if (!window.viewingRequestIds) {
             window.viewingRequestIds = [];
@@ -894,25 +1070,33 @@
             (window.RoadClosure && window.RoadClosure.FEATURE_LABEL) || "Road Closure";
         const getStyle = window.getVisualizationStyle;
         const closureStyle = typeof getStyle === "function" ? getStyle(closureLabel) : null;
-        const featureStyle = typeof getStyle === "function" ? getStyle(request.current_feature_label || "Unnamed Road") : null;
-        const style = (isRoadClosed && closureStyle) ? closureStyle : featureStyle;
-        if (!style) {
-            return;
-        }
+        const featureLabel = String(request.current_feature_label || '').trim() || 'Line';
+        const featureStyle =
+            typeof getStyle === 'function' ? getStyle(featureLabel) : null;
+        // Always draw something during review - never silently skip if symbology is missing.
+        const style =
+            (isRoadClosed && closureStyle) ||
+            featureStyle || {
+                lineColor: '#0f2d53',
+                lineWidth: 5,
+                lineOpacity: 1,
+                lineDasharray: [1, 0],
+            };
 
-        const lineDasharray = (style.lineDasharray && Array.isArray(style.lineDasharray)) ? style.lineDasharray : [1, 0];
+        const lineDasharray =
+            style.lineDasharray && Array.isArray(style.lineDasharray)
+                ? style.lineDasharray
+                : [1, 0];
 
         var mls = window.MapLineSelection;
         if (!mls) {
             return;
         }
-        var paintLabel = isRoadClosed
-            ? closureLabel
-            : request.current_feature_label || "Unnamed Road";
+        var paintLabel = isRoadClosed ? closureLabel : featureLabel;
         var corePaint = mls.buildEditingCorePaint(style, lineDasharray, paintLabel);
         var pair = isRoadClosed
             ? null
-            : mls.maplibreSelectionCasingPaintPair(style.lineWidth, lineDasharray);
+            : mls.maplibreSelectionCasingPaintPair(style.lineWidth || 5, lineDasharray);
 
         try {
             if (map.getLayer(layerId)) {
@@ -961,37 +1145,54 @@
         } catch (error) {}
     }
 
-    // Open the road panel for read-only review and fill label / closure fields.
+    function buildReviewLineData(request) {
+        const fields =
+            request.fields_data && typeof request.fields_data === 'object'
+                ? Object.assign({}, request.fields_data)
+                : {};
+        const roadName = String(request.road_name || fields.name || '').trim();
+        if (roadName && !String(fields.name || '').trim()) {
+            fields.name = roadName;
+        }
+        return {
+            road_closure: request.road_closure,
+            fields_data: fields,
+            current_feature_label: request.current_feature_label || '',
+            is_riyadh_road: !!request.is_riyadh_road,
+            riyadh_road_id: request.riyadh_road_id,
+        };
+    }
+
+    // Open the road panel for read-only review and fill feature / label / closure.
     function populateSidepanelWithRequestData(request) {
         const sidePanel = document.getElementById('editSidePanel');
-        hideEditToolbarsForReview();
+        setManagerReviewMode(true, request);
         if (!sidePanel) {
             return;
         }
 
-        if (sidePanel.classList.contains('-translate-x-full')) {
+        if (sidePanel.classList.contains('msp-is-closed')) {
             if (typeof window.initMapSidePanelChrome === 'function') {
                 window.initMapSidePanelChrome();
             }
             if (typeof window.applyMapSidePanelOpen === 'function') {
                 window.applyMapSidePanelOpen(true);
             } else {
-                sidePanel.classList.remove('-translate-x-full');
+                sidePanel.classList.remove('msp-is-closed');
             }
         }
 
-        if (window.lineDrawingHandler && typeof window.lineDrawingHandler.updateCurrentFeatureLabel === 'function') {
+        const featureLabel = String(request.current_feature_label || '').trim();
+        if (
+            window.lineDrawingHandler &&
+            typeof window.lineDrawingHandler.updateCurrentFeatureLabel === 'function'
+        ) {
             window.lineDrawingHandler.updateCurrentFeatureLabel(
-                request.current_feature_label || 'Unnamed Road'
+                featureLabel || 'Line'
             );
         }
 
-        function fillReviewFields() {
-            hideEditToolbarsForReview();
-            if (request.fields_data) {
-                populateFieldsData(request.fields_data);
-            }
-        }
+        const reviewLineData = buildReviewLineData(request);
 
         setTimeout(function () {
             if (
@@ -1001,10 +1202,16 @@
                 window.lineDrawingHandler.showEditFeatureScreen({
                     hideBackButton: true,
                     requestGeometry: request.geometry,
-                    lineData: { road_closure: request.road_closure },
+                    lineData: reviewLineData,
                 });
             }
-            setTimeout(fillReviewFields, 50);
+            setTimeout(function () {
+                setManagerReviewMode(true);
+                populateFieldsData(reviewLineData.fields_data);
+                if (typeof window.syncRoadPanelEditModeUI === 'function') {
+                    window.syncRoadPanelEditModeUI();
+                }
+            }, 50);
         }, 50);
     }
 
@@ -1024,96 +1231,134 @@
         }
     }
 
-    // Create the Approve / Reject floating buttons for the active request.
+    // Floating review dock: edit type + requester meta, above Lon/Lat/Zoom.
     function createApproveRejectButtons(request) {
         removeApproveRejectButtons();
-        setManagerReviewMode(true);
+        const showLegend = Boolean(
+            request.geometry_changed && request.original_geometry
+        );
+        setManagerReviewMode(true, request);
 
-        const buttonContainer = document.createElement('div');
-        buttonContainer.id = 'approveRejectButtonsContainer';
-        buttonContainer.className = 'fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 flex gap-3 items-center';
-        buttonContainer.style.pointerEvents = 'auto';
+        const typeMeta = getRequestTypeMeta(request);
+        const requesterName = String(
+            request.requester_name || uiT('unknown_user', 'Unknown')
+        );
+        const requesterEmail = String(request.requester_email || '').trim();
+        const timeLabel = formatRequestTime(request.created_at);
+
+        const dock = document.createElement('div');
+        dock.id = 'approveRejectButtonsContainer';
+        dock.className = 'approval-review-dock';
+        dock.setAttribute('role', 'region');
+        dock.setAttribute(
+            'aria-label',
+            uiT('approval_review_dock_aria', 'Review decision')
+        );
+
         const card = document.createElement('div');
-        card.className = 'bg-white rounded-lg shadow-2xl border border-gray-300 px-4 py-3 flex flex-wrap gap-3 items-center max-w-lg';
-        card.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.2)';
-        const infoText = document.createElement('span');
-        infoText.className = 'text-sm font-medium text-gray-800 mr-2';
-        infoText.textContent = 'Review: ' + (request.request_category_label || 'Road Edit');
-        card.appendChild(infoText);
+        card.className = 'approval-review-dock__card';
+
+        // Edit type + requester only - road name lives in the side panel.
+        const copy = document.createElement('div');
+        copy.className = 'approval-review-dock__copy';
+        copy.innerHTML =
+            '<p class="approval-review-dock__eyebrow">' +
+            escapeHtml(uiT('approval_review_eyebrow', 'Review')) +
+            '</p>' +
+            '<p class="approval-review-dock__title">' +
+            escapeHtml(typeMeta.label) +
+            '</p>' +
+            '<div class="approval-review-dock__requester">' +
+            buildRequesterAvatarHtml(request, 'approval-avatar') +
+            '<div class="approval-review-dock__requester-meta">' +
+            '<span class="approval-review-dock__requester-name">' +
+            escapeHtml(requesterName) +
+            '</span>' +
+            (requesterEmail
+                ? '<span class="approval-review-dock__requester-email">' +
+                  escapeHtml(requesterEmail) +
+                  '</span>'
+                : '') +
+            (timeLabel
+                ? '<time class="approval-review-dock__requester-time" datetime="' +
+                  escapeHtml(String(request.created_at || '')) +
+                  '">' +
+                  escapeHtml(timeLabel) +
+                  '</time>'
+                : '') +
+            '</div></div>';
+        card.appendChild(copy);
+
+        const actions = document.createElement('div');
+        actions.className = 'approval-review-dock__actions';
+
+        const rejectBtn = document.createElement('button');
+        rejectBtn.type = 'button';
+        rejectBtn.id = 'rejectRequestBtn';
+        rejectBtn.className = 'approval-review-dock__btn approval-review-dock__btn--reject';
+        rejectBtn.innerHTML =
+            '<svg class="approval-review-dock__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">' +
+            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>' +
+            '</svg><span>' +
+            escapeHtml(uiT('reject', 'Reject')) +
+            '</span>';
+        rejectBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            openRejectReasonDialog(function (payload) {
+                if (payload) {
+                    rejectRequest(request.id, payload);
+                }
+            });
+        });
+
         const approveBtn = document.createElement('button');
+        approveBtn.type = 'button';
         approveBtn.id = 'approveRequestBtn';
-        approveBtn.className = 'px-4 py-2 bg-geotrak text-white rounded-md hover:bg-geotrak-hover transition-colors text-sm font-medium flex items-center justify-center gap-2 shadow-md';
-        approveBtn.innerHTML = `
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-            Approve
-        `;
-        approveBtn.addEventListener('click', function(e) {
+        approveBtn.className = 'approval-review-dock__btn approval-review-dock__btn--approve';
+        approveBtn.innerHTML =
+            '<svg class="approval-review-dock__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">' +
+            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>' +
+            '</svg><span>' +
+            escapeHtml(uiT('approve', 'Approve')) +
+            '</span>';
+        approveBtn.addEventListener('click', function (e) {
             e.stopPropagation();
             approveRequest(request.id);
         });
-        card.appendChild(approveBtn);
-        const rejectBtn = document.createElement('button');
-        rejectBtn.id = 'rejectRequestBtn';
-        rejectBtn.className = 'px-4 py-2 bg-white text-geotrak border border-gray-300 rounded-md hover:bg-gray-100 transition-colors text-sm font-medium flex items-center justify-center gap-2 shadow-md';
-        rejectBtn.innerHTML = `
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-            Reject
-        `;
-        rejectBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const runReject = function () {
-                rejectRequest(request.id);
-            };
-            if (window.notify && typeof window.notify.confirm === 'function') {
-                window.notify
-                    .confirm({
-                        title: 'Reject request',
-                        message: 'Are you sure you want to reject this approval request?',
-                        confirmLabel: 'Reject',
-                        cancelLabel: 'Cancel',
-                        variant: 'danger',
-                    })
-                    .then(function (ok) {
-                        if (ok) {
-                            runReject();
-                        }
-                    });
-                return;
-            }
-            if (window.confirm('Reject this approval request?')) {
-                runReject();
-            }
-        });
-        card.appendChild(rejectBtn);
 
-        if (request.geometry_changed && request.original_geometry) {
+        actions.appendChild(rejectBtn);
+        actions.appendChild(approveBtn);
+        card.appendChild(actions);
+
+        if (showLegend) {
             const legend = document.createElement('div');
-            legend.className = 'text-[11px] text-gray-600 flex flex-col gap-1 border-t border-gray-200 pt-2 mt-1';
-            legend.innerHTML = '<span><span class="font-medium text-gray-600">━━</span> Gray dashed: original</span>'
-                + '<span><span class="font-medium text-geotrak">━━</span> Solid: proposed</span>'
-                + '<span><span class="font-medium text-orange-600">━━</span> Orange: changed segments</span>';
+            legend.className = 'approval-review-dock__legend';
+            legend.innerHTML =
+                '<span><i class="approval-review-dock__swatch approval-review-dock__swatch--original" aria-hidden="true"></i>' +
+                escapeHtml(uiT('approval_legend_original', 'Original')) +
+                '</span>' +
+                '<span><i class="approval-review-dock__swatch approval-review-dock__swatch--proposed" aria-hidden="true"></i>' +
+                escapeHtml(uiT('approval_legend_proposed', 'Proposed')) +
+                '</span>';
             card.appendChild(legend);
         }
 
-        buttonContainer.appendChild(card);
-        document.body.appendChild(buttonContainer);
-        window.currentReviewingRequestId = request.id;
+        dock.appendChild(card);
+        document.body.appendChild(dock);
         try {
             window.dispatchEvent(new CustomEvent('map:selectionChanged'));
         } catch (eSel) {}
     }
 
-    function removeApproveRejectButtons() {
+    function removeApproveRejectButtons(options) {
+        const opts = options || {};
         const container = document.getElementById('approveRejectButtonsContainer');
         if (container) {
             container.remove();
         }
-        window.currentReviewingRequestId = null;
-        setManagerReviewMode(false);
+        if (!opts.keepReviewMode) {
+            setManagerReviewMode(false);
+        }
     }
 
     function approveRequest(requestId) {
@@ -1131,7 +1376,7 @@
         .then(function(result) {
             const data = result.data || {};
             if (result.ok && data.success) {
-                showToast(toastApproveSuccess(data), 'success');
+                showToast(toastApproveSuccess(data, requestId), 'success');
                 cleanupRequestLines();
                 if (typeof window.clearDraftLineDrawingFromMap === 'function') {
                     window.clearDraftLineDrawingFromMap();
@@ -1175,19 +1420,136 @@
         });
     }
 
-    function rejectRequest(requestId) {
+    function closeRejectReasonDialog() {
+        const existing = document.getElementById('approvalRejectDialog');
+        if (existing) {
+            existing.remove();
+        }
+        document.body.classList.remove('approval-reject-dialog-open');
+    }
+
+    function openRejectReasonDialog(onDone) {
+        closeRejectReasonDialog();
+        const overlay = document.createElement('div');
+        overlay.id = 'approvalRejectDialog';
+        overlay.className = 'approval-reject-dialog';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute(
+            'aria-label',
+            uiT('reject_request_title', 'Reject request')
+        );
+        overlay.innerHTML =
+            '<div class="approval-reject-dialog__card">' +
+            '<h3 class="approval-reject-dialog__title">' +
+            uiT('reject_request_title', 'Reject request') +
+            '</h3>' +
+            '<p class="approval-reject-dialog__hint">' +
+            uiT(
+                'reject_request_hint',
+                'Add a short reason for the editor, or choose No reason.'
+            ) +
+            '</p>' +
+            '<label class="approval-reject-dialog__label" for="approvalRejectReason">' +
+            uiT('reject_reason_label', 'Reason') +
+            '</label>' +
+            '<textarea id="approvalRejectReason" class="approval-reject-dialog__textarea" rows="3" maxlength="500"></textarea>' +
+            '<label class="approval-reject-dialog__check">' +
+            '<input type="checkbox" id="approvalRejectNoReason" />' +
+            '<span>' +
+            uiT('reject_no_reason', 'No reason') +
+            '</span>' +
+            '</label>' +
+            '<div class="approval-reject-dialog__actions">' +
+            '<button type="button" class="approval-reject-dialog__btn approval-reject-dialog__btn--cancel" data-reject-cancel>' +
+            uiT('cancel', 'Cancel') +
+            '</button>' +
+            '<button type="button" class="approval-reject-dialog__btn approval-reject-dialog__btn--confirm" data-reject-confirm>' +
+            uiT('reject', 'Reject') +
+            '</button>' +
+            '</div>' +
+            '</div>';
+
+        document.body.appendChild(overlay);
+        document.body.classList.add('approval-reject-dialog-open');
+
+        const textarea = overlay.querySelector('#approvalRejectReason');
+        const noReason = overlay.querySelector('#approvalRejectNoReason');
+        const confirmBtn = overlay.querySelector('[data-reject-confirm]');
+        const cancelBtn = overlay.querySelector('[data-reject-cancel]');
+
+        function syncNoReason() {
+            const off = !!noReason.checked;
+            textarea.disabled = off;
+            if (off) {
+                textarea.value = '';
+            }
+        }
+        noReason.addEventListener('change', syncNoReason);
+
+        function finish(payload) {
+            closeRejectReasonDialog();
+            if (typeof onDone === 'function') {
+                onDone(payload);
+            }
+        }
+
+        cancelBtn.addEventListener('click', function () {
+            finish(null);
+        });
+        overlay.addEventListener('click', function (ev) {
+            if (ev.target === overlay) {
+                finish(null);
+            }
+        });
+        confirmBtn.addEventListener('click', function () {
+            if (noReason.checked) {
+                finish({ no_reason: true, reason: '' });
+                return;
+            }
+            const reason = (textarea.value || '').trim();
+            if (!reason) {
+                showToast(
+                    uiT(
+                        'reject_reason_required',
+                        'Add a rejection reason, or choose No reason.'
+                    ),
+                    'warning'
+                );
+                textarea.focus();
+                return;
+            }
+            finish({ no_reason: false, reason: reason });
+        });
+
+        requestAnimationFrame(function () {
+            textarea.focus();
+        });
+    }
+
+    function rejectRequest(requestId, payload) {
+        payload = payload || {};
         fetch('/mapping/api/request/' + requestId + '/reject/', {
             method: 'POST',
             headers: {
-                'X-CSRFToken': getCookie('csrftoken')
-            }
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+                Accept: 'application/json',
+            },
+            body: JSON.stringify({
+                reason: payload.reason || '',
+                no_reason: !!payload.no_reason,
+            }),
         })
         .then(function(response) {
-            return response.json();
+            return response.json().then(function (data) {
+                return { ok: response.ok, data: data };
+            });
         })
-        .then(function(data) {
-            if (data.success) {
-                showToast(toastRejectSuccess(data), 'success');
+        .then(function(result) {
+            const data = result.data || {};
+            if (result.ok && data.success) {
+                showToast(toastRejectSuccess(data, requestId), 'success');
                 cleanupRequestLines();
                 removeApproveRejectButtons();
                 approvalQueue = approvalQueue.filter(function(req) {
@@ -1246,7 +1608,6 @@
         removeApproveRejectButtons();
     };
 
-    window.refreshApprovalQueue = refreshApprovalQueue;
     window.populateFieldsData = populateFieldsData;
 
 })();

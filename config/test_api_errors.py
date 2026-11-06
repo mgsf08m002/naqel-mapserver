@@ -56,7 +56,7 @@ class ApiErrorsTests(SimpleTestCase):
             message_key="toast_couldnt_save",
             log=False,
         )
-        self.assertEqual(response.json()["message"], "Couldn't save — try again")
+        self.assertEqual(response.json()["message"], "Couldn't save. Try again.")
 
     def test_search_unavailable_key_en_ar(self):
         req_en = self.factory.get("/")

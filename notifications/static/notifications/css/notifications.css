@@ -1,18 +1,35 @@
 /**
- * GeoTrak notifications — compact reference-style toasts + confirm dialog.
+ * GeoTrak notifications - compact reference-style toasts + confirm dialog.
  */
 
 #geotrakToastStack {
+    /* Logged-in chrome: clear the app header. Auth pages override below. */
     --toast-stack-top: calc(var(--app-chrome-offset, 5.1rem) + 0.5rem);
     position: fixed;
-    top: var(--toast-stack-top);
-    right: max(0.85rem, var(--app-chrome-pad-x, 0.85rem));
+    top: max(var(--toast-stack-top), calc(env(safe-area-inset-top, 0px) + 0.75rem));
+    /* Logical end = top-right in LTR, top-left in RTL. Do not set physical left/right
+       after this - they override inset-inline-* and pin the stack to the wrong side. */
+    inset-inline-end: max(0.85rem, var(--app-chrome-pad-x, 0.85rem), env(safe-area-inset-right, 0px), env(safe-area-inset-left, 0px));
+    inset-inline-start: auto;
     z-index: 9999;
     display: flex;
     flex-direction: column;
     gap: 0.55rem;
-    width: min(100vw - 1.7rem, 17.5rem);
+    width: min(calc(100vw - 1.7rem), 17.5rem);
+    max-width: calc(100vw - 1.7rem);
     pointer-events: none;
+    box-sizing: border-box;
+}
+
+/* Auth / public shells have no .app-chrome - sit just under the language toggle. */
+body:not(:has(.app-chrome)) #geotrakToastStack {
+    --toast-stack-top: calc(3.6rem + env(safe-area-inset-top, 0px));
+}
+
+@media (min-width: 640px) {
+    body:not(:has(.app-chrome)) #geotrakToastStack {
+        --toast-stack-top: calc(4rem + env(safe-area-inset-top, 0px));
+    }
 }
 
 #geotrakToastStack > .geotrak-toast {
@@ -39,10 +56,14 @@
         transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+html[dir="rtl"] .geotrak-toast {
+    transform: translate3d(-0.75rem, -0.3rem, 0) scale(0.98);
+}
+
 .geotrak-toast::before {
     content: "";
     position: absolute;
-    left: 0;
+    inset-inline-start: 0;
     top: 0;
     bottom: 0;
     width: 4px;
@@ -53,7 +74,8 @@
     display: flex;
     align-items: flex-start;
     gap: 0.65rem;
-    padding: 0.8rem 0.55rem 0.8rem 0.9rem;
+    padding-block: 0.8rem;
+    padding-inline: 0.9rem 0.55rem;
 }
 
 .geotrak-toast__icon-wrap {
@@ -141,6 +163,10 @@
     transform: scaleX(1);
 }
 
+html[dir="rtl"] .geotrak-toast__progress-bar {
+    transform-origin: right center;
+}
+
 @keyframes geotrak-toast-progress-shrink {
     from { transform: scaleX(1); }
     to { transform: scaleX(0); }
@@ -159,6 +185,10 @@
 .geotrak-toast.hide {
     opacity: 0;
     transform: translate3d(0.55rem, -0.2rem, 0) scale(0.98);
+}
+
+html[dir="rtl"] .geotrak-toast.hide {
+    transform: translate3d(-0.55rem, -0.2rem, 0) scale(0.98);
 }
 
 .geotrak-toast[data-type="success"] {
@@ -192,18 +222,19 @@
 
 @media (max-width: 640px) {
     #geotrakToastStack {
-        left: 0.75rem;
-        right: 0.75rem;
-        width: auto;
-        max-width: 20rem;
-        margin-left: auto;
+        inset-inline-end: max(0.75rem, env(safe-area-inset-right, 0px), env(safe-area-inset-left, 0px));
+        inset-inline-start: auto;
+        width: min(calc(100vw - 1.5rem), 20rem);
+        max-width: calc(100vw - 1.5rem);
     }
 
-    .geotrak-toast {
+    .geotrak-toast,
+    html[dir="rtl"] .geotrak-toast {
         transform: translate3d(0, -0.45rem, 0) scale(0.98);
     }
 
-    .geotrak-toast.hide {
+    .geotrak-toast.hide,
+    html[dir="rtl"] .geotrak-toast.hide {
         transform: translate3d(0, -0.3rem, 0) scale(0.98);
     }
 }

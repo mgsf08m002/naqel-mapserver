@@ -1,6 +1,9 @@
 /**
- * Road name search on the map (English or Arabic): zoom to match, open road details.
- * Requires map-road-select.js (openRiyadhRoadById) and geotrakMaplibreMap from map.js.
+ * Map road-name search (EN/AR): draggable toggle, debounced API lookup,
+ * zoom to geometry, open road details.
+ *
+ * Depends on: geotrakMaplibreMap (map.js), openRiyadhRoadById (map-road-select.js).
+ * Exports: geotrakZoomToRoadGeometry (also used by deeplink + outcome bell).
  */
 (function (global) {
     'use strict';
@@ -9,12 +12,15 @@
     var SEARCH_LIMIT = 12;
     var DEBOUNCE_MS = 280;
     var DRAG_THRESHOLD_PX = 6;
-    var POSITION_STORAGE_KEY = 'geotrak.mapRoadSearch.position';
+    var EDGE_PX = 8;
+    var POSITION_STORAGE_KEY = 'geotrak.mapRoadSearch.position.v2';
     var SEARCH_URL = '/mapping/api/riyadh-road-search/';
 
-    function getMap() {
-        var map = global.geotrakMaplibreMap;
-        return map && typeof map.flyTo === 'function' ? map : null;
+    function uiT(key, fallback) {
+        if (typeof global.uiT === 'function') {
+            return global.uiT(key, fallback);
+        }
+        return fallback != null ? fallback : key;
     }
 
     function notify(message, type) {
@@ -26,6 +32,17 @@
             console.warn(message);
         }
     }
+
+    function getMap() {
+        var map = global.geotrakMaplibreMap;
+        return map && typeof map.flyTo === 'function' ? map : null;
+    }
+
+    function getMapContainer() {
+        return document.getElementById('mapContainer');
+    }
+
+    // --- Zoom helpers (shared export) ---
 
     function bboxFromGeometry(geometry) {
         if (!geometry || !geometry.coordinates) {
@@ -58,13 +75,16 @@
         if (!Number.isFinite(minLng)) {
             return null;
         }
-        return [[minLng, minLat], [maxLng, maxLat]];
+        return [
+            [minLng, minLat],
+            [maxLng, maxLat],
+        ];
     }
 
     function zoomToGeometry(geometry) {
         var map = getMap();
         if (!map || !geometry) {
-            notify((typeof global.uiT === 'function' ? global.uiT('toast_map_loading', 'Map still loading') : 'Map still loading'), 'error');
+            notify(uiT('toast_map_loading', 'Map still loading'), 'error');
             return;
         }
         var bounds = bboxFromGeometry(geometry);
@@ -99,18 +119,20 @@
         map.flyTo(Object.assign({}, flyOpts, { zoom: 16 }));
     }
 
-    function resultSecondaryLabel(item) {
+    // --- Search API ---
+
+    function alternateNameLabel(item) {
         if (!item) {
             return '';
         }
-        if (item.name_en && item.name_ar && item.name_en !== item.name_ar) {
-            return item.name_en + ' · ' + item.name_ar;
+        var primary = String(item.display_name || '').trim();
+        var ar = String(item.name_ar || '').trim();
+        var en = String(item.name_en || '').trim();
+        if (ar && ar !== primary) {
+            return ar;
         }
-        if (item.name_ar && item.display_name !== item.name_ar) {
-            return item.name_ar;
-        }
-        if (item.name_en && item.display_name !== item.name_en) {
-            return item.name_en;
+        if (en && en !== primary) {
+            return en;
         }
         return '';
     }
@@ -127,22 +149,31 @@
             headers: { Accept: 'application/json' },
             credentials: 'same-origin',
         });
-        var data = await resp.json();
+        var data = null;
+        try {
+            data = await resp.json();
+        } catch (e) {
+            data = null;
+        }
         if (!resp.ok || !data) {
-            var searchFallback =
-                typeof global.uiT === 'function'
-                    ? global.uiT('toast_search_unavailable', 'Search is temporarily unavailable')
-                    : 'Search is temporarily unavailable';
             return {
                 success: false,
-                message:
-                    typeof global.safeUserMessage === 'function'
-                        ? global.safeUserMessage(data, searchFallback)
-                        : searchFallback,
+                message: searchUnavailableMessage(data),
                 results: [],
             };
         }
         return data;
+    }
+
+    function searchUnavailableMessage(payload) {
+        var fallback = uiT(
+            'toast_search_unavailable',
+            'Search is temporarily unavailable'
+        );
+        if (typeof global.safeUserMessage === 'function') {
+            return global.safeUserMessage(payload, fallback);
+        }
+        return fallback;
     }
 
     async function selectSearchResult(result) {
@@ -153,40 +184,110 @@
             zoomToGeometry(result.geometry);
         }
         if (typeof global.openRiyadhRoadById !== 'function') {
-            notify((typeof global.uiT === 'function' ? global.uiT('toast_map_loading', 'Map still loading') : 'Map still loading'), 'error');
+            notify(uiT('toast_map_loading', 'Map still loading'), 'error');
             return;
         }
         var opened = await global.openRiyadhRoadById(
             result.id,
-            { name: result.display_name || result.name_en || result.name_ar || '' },
+            {
+                name:
+                    result.display_name ||
+                    result.name_en ||
+                    result.name_ar ||
+                    '',
+            },
             { enterEditMode: false }
         );
         if (!opened.success) {
-            var openFallback =
-                typeof global.uiT === 'function'
-                    ? global.uiT('toast_couldnt_open_road', "Couldn't open road")
-                    : "Couldn't open road";
+            var fallback = uiT(
+                'toast_couldnt_open_road',
+                "Couldn't open road"
+            );
             notify(
                 typeof global.safeUserMessage === 'function'
-                    ? global.safeUserMessage(opened, openFallback)
-                    : openFallback,
+                    ? global.safeUserMessage(opened, fallback)
+                    : fallback,
                 'error'
             );
         }
     }
 
-    function getMapContainer() {
-        return document.getElementById('mapContainer');
+    // --- Draggable toggle position ---
+
+    function chromeTopMargin() {
+        var raw = getComputedStyle(document.documentElement)
+            .getPropertyValue('--app-chrome-offset')
+            .trim();
+        var offsetPx;
+        if (/rem$/i.test(raw)) {
+            var rem = parseFloat(raw);
+            var rootFs =
+                parseFloat(getComputedStyle(document.documentElement).fontSize) ||
+                16;
+            offsetPx = rem * rootFs;
+        } else {
+            offsetPx = parseFloat(raw);
+        }
+        if (!Number.isFinite(offsetPx) || offsetPx <= 0) {
+            offsetPx = 78;
+        }
+        return Math.round(offsetPx + 6);
     }
 
     function initDrag(root, handle) {
         var container = getMapContainer();
         if (!container) {
-            return { suppressClick: function () { return false; } };
+            return {
+                suppressClick: function () {
+                    return false;
+                },
+            };
         }
 
         var dragState = null;
         var suppressClick = false;
+        var currentX = null;
+        var currentY = null;
+
+        function containerSize() {
+            var rect = container.getBoundingClientRect();
+            return {
+                width: container.clientWidth || rect.width || 0,
+                height: container.clientHeight || rect.height || 0,
+            };
+        }
+
+        function clampPosition(x, y) {
+            var size = containerSize();
+            var btnW = root.offsetWidth || 36;
+            var btnH = root.offsetHeight || 36;
+            var minY = chromeTopMargin();
+            var maxX = Math.max(EDGE_PX, size.width - btnW - EDGE_PX);
+            var maxY = Math.max(minY, size.height - btnH - EDGE_PX);
+            return {
+                x: Math.min(Math.max(EDGE_PX, x), maxX),
+                y: Math.min(Math.max(minY, y), maxY),
+            };
+        }
+
+        function applyPosition(x, y) {
+            var pos = clampPosition(x, y);
+            currentX = pos.x;
+            currentY = pos.y;
+            root.classList.add('is-positioned');
+            root.style.inset = 'auto';
+            root.style.left = Math.round(pos.x) + 'px';
+            root.style.top = Math.round(pos.y) + 'px';
+            root.style.right = 'auto';
+            root.style.bottom = 'auto';
+            return pos;
+        }
+
+        function defaultPosition() {
+            var size = containerSize();
+            var btnW = root.offsetWidth || 36;
+            return applyPosition(size.width - btnW - 12, chromeTopMargin());
+        }
 
         function readSavedPosition() {
             try {
@@ -195,53 +296,71 @@
                     return null;
                 }
                 var parsed = JSON.parse(raw);
-                if (parsed && Number.isFinite(parsed.x) && Number.isFinite(parsed.y)) {
-                    return { x: parsed.x, y: parsed.y };
+                if (
+                    parsed &&
+                    Number.isFinite(parsed.xr) &&
+                    Number.isFinite(parsed.yr)
+                ) {
+                    return { xr: parsed.xr, yr: parsed.yr };
                 }
             } catch (e) {}
             return null;
         }
 
         function savePosition(x, y) {
+            var size = containerSize();
+            var btnW = root.offsetWidth || 36;
+            var btnH = root.offsetHeight || 36;
+            var spanX = Math.max(1, size.width - btnW - EDGE_PX * 2);
+            var spanY = Math.max(1, size.height - btnH - EDGE_PX * 2);
+            var xr = (x - EDGE_PX) / spanX;
+            var yr = (y - chromeTopMargin()) / spanY;
             try {
                 global.localStorage.setItem(
                     POSITION_STORAGE_KEY,
-                    JSON.stringify({ x: x, y: y })
+                    JSON.stringify({
+                        xr: Math.min(1, Math.max(0, xr)),
+                        yr: Math.min(1, Math.max(0, yr)),
+                    })
                 );
             } catch (e) {}
         }
 
-        function applyPosition(x, y) {
-            root.style.left = Math.round(x) + 'px';
-            root.style.top = Math.round(y) + 'px';
-            root.style.right = 'auto';
-            root.style.bottom = 'auto';
+        function restoreOrDefault() {
+            var size = containerSize();
+            if (size.width < 40 || size.height < 40) {
+                return false;
+            }
+            var saved = readSavedPosition();
+            if (saved) {
+                var btnW = root.offsetWidth || 36;
+                var btnH = root.offsetHeight || 36;
+                var spanX = Math.max(1, size.width - btnW - EDGE_PX * 2);
+                var spanY = Math.max(1, size.height - btnH - EDGE_PX * 2);
+                applyPosition(
+                    EDGE_PX + saved.xr * spanX,
+                    chromeTopMargin() + saved.yr * spanY
+                );
+            } else {
+                defaultPosition();
+            }
+            return true;
         }
 
-        function clampPosition(x, y) {
-            var maxX = Math.max(8, container.clientWidth - root.offsetWidth - 8);
-            var maxY = Math.max(8, container.clientHeight - root.offsetHeight - 8);
-            return {
-                x: Math.min(Math.max(8, x), maxX),
-                y: Math.min(Math.max(8, y), maxY),
-            };
+        function reclampToCurrent() {
+            if (currentX == null || currentY == null) {
+                restoreOrDefault();
+                return;
+            }
+            applyPosition(currentX, currentY);
         }
 
-        function defaultPosition() {
-            var margin = 12;
-            var clamped = clampPosition(
-                container.clientWidth - root.offsetWidth - margin,
-                margin
-            );
-            applyPosition(clamped.x, clamped.y);
-        }
-
-        var saved = readSavedPosition();
-        if (saved) {
-            var clamped = clampPosition(saved.x, saved.y);
-            applyPosition(clamped.x, clamped.y);
-        } else {
-            requestAnimationFrame(defaultPosition);
+        if (!restoreOrDefault()) {
+            requestAnimationFrame(function () {
+                if (!restoreOrDefault()) {
+                    setTimeout(restoreOrDefault, 50);
+                }
+            });
         }
 
         function endDrag(e) {
@@ -249,12 +368,8 @@
                 return;
             }
             if (dragState.moved) {
-                var clamped = clampPosition(
-                    parseFloat(root.style.left) || 0,
-                    parseFloat(root.style.top) || 0
-                );
-                applyPosition(clamped.x, clamped.y);
-                savePosition(clamped.x, clamped.y);
+                var pos = applyPosition(currentX, currentY);
+                savePosition(pos.x, pos.y);
                 suppressClick = true;
             }
             dragState = null;
@@ -267,6 +382,9 @@
         handle.addEventListener('pointerdown', function (e) {
             if (e.button !== 0 && e.pointerType === 'mouse') {
                 return;
+            }
+            if (currentX == null || currentY == null) {
+                restoreOrDefault();
             }
             var containerRect = container.getBoundingClientRect();
             var rootRect = root.getBoundingClientRect();
@@ -291,7 +409,8 @@
             var dy = e.clientY - dragState.startY;
             if (
                 !dragState.moved &&
-                (Math.abs(dx) > DRAG_THRESHOLD_PX || Math.abs(dy) > DRAG_THRESHOLD_PX)
+                (Math.abs(dx) > DRAG_THRESHOLD_PX ||
+                    Math.abs(dy) > DRAG_THRESHOLD_PX)
             ) {
                 dragState.moved = true;
                 root.classList.add('map-road-search--dragging');
@@ -300,20 +419,15 @@
                 return;
             }
             e.preventDefault();
-            var pos = clampPosition(dragState.originX + dx, dragState.originY + dy);
-            applyPosition(pos.x, pos.y);
+            applyPosition(dragState.originX + dx, dragState.originY + dy);
         });
 
         handle.addEventListener('pointerup', endDrag);
         handle.addEventListener('pointercancel', endDrag);
-
-        global.addEventListener('resize', function () {
-            var clamped = clampPosition(
-                parseFloat(root.style.left) || 0,
-                parseFloat(root.style.top) || 0
-            );
-            applyPosition(clamped.x, clamped.y);
-        });
+        global.addEventListener('resize', reclampToCurrent);
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(reclampToCurrent).observe(container);
+        }
 
         return {
             suppressClick: function () {
@@ -325,6 +439,8 @@
             },
         };
     }
+
+    // --- Panel UI ---
 
     function initMapRoadSearch() {
         var root = document.getElementById('mapRoadSearch');
@@ -344,7 +460,7 @@
         var activeRequest = 0;
 
         function isOpen() {
-            return !overlay.classList.contains('hidden');
+            return overlay.classList.contains('is-open');
         }
 
         function setStatus(text) {
@@ -352,49 +468,72 @@
                 return;
             }
             status.textContent = text || '';
-            status.classList.toggle('hidden', !text);
+            status.classList.toggle('is-empty', !text);
         }
 
         function closePanel() {
-            overlay.classList.add('hidden');
+            if (!isOpen()) {
+                return;
+            }
+            overlay.classList.remove('is-open');
             overlay.setAttribute('aria-hidden', 'true');
             root.classList.remove('map-road-search--above-overlay');
             toggle.setAttribute('aria-expanded', 'false');
+            input.blur();
         }
 
         function openPanel() {
-            overlay.classList.remove('hidden');
+            if (isOpen()) {
+                return;
+            }
+            overlay.classList.add('is-open');
             overlay.setAttribute('aria-hidden', 'false');
             root.classList.add('map-road-search--above-overlay');
             toggle.setAttribute('aria-expanded', 'true');
-            input.focus();
+            // Focus after the open animation starts so the caret feels intentional.
+            window.setTimeout(function () {
+                if (isOpen()) {
+                    input.focus();
+                }
+            }, 80);
         }
 
         function renderResults(items) {
             list.innerHTML = '';
             if (!items || !items.length) {
-                setStatus('No roads found.');
+                setStatus(uiT('road_search_empty', 'No roads found.'));
                 return;
             }
             setStatus(
-                items.length === 1 ? '1 match — press Enter' : items.length + ' matches'
+                items.length === 1
+                    ? uiT('road_search_match_one', '1 match. Press Enter.')
+                    : uiT('road_search_match_many', '{n} matches').replace(
+                          '{n}',
+                          String(items.length)
+                      )
             );
             items.forEach(function (item) {
                 var li = document.createElement('li');
                 var btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'map-road-search__result';
+
                 var primary = document.createElement('span');
                 primary.className = 'map-road-search__result-primary';
-                primary.textContent = item.display_name || 'Unnamed road';
+                primary.dir = 'auto';
+                primary.textContent =
+                    item.display_name || uiT('unnamed_road', 'Unnamed Road');
                 btn.appendChild(primary);
-                var secondary = resultSecondaryLabel(item);
+
+                var secondary = alternateNameLabel(item);
                 if (secondary) {
                     var secondaryEl = document.createElement('span');
                     secondaryEl.className = 'map-road-search__result-secondary';
+                    secondaryEl.dir = 'auto';
                     secondaryEl.textContent = secondary;
                     btn.appendChild(secondaryEl);
                 }
+
                 btn.addEventListener('click', function () {
                     selectSearchResult(item);
                     closePanel();
@@ -408,30 +547,25 @@
             var q = input.value.trim();
             if (q.length < MIN_QUERY_LEN) {
                 list.innerHTML = '';
-                setStatus('Enter at least ' + MIN_QUERY_LEN + ' characters to search.');
+                setStatus(
+                    uiT(
+                        'road_search_min_chars',
+                        'Enter at least {n} characters to search.'
+                    ).replace('{n}', String(MIN_QUERY_LEN))
+                );
                 return;
             }
+
             var reqId = ++activeRequest;
-            setStatus('Searching…');
+            setStatus(uiT('road_search_searching', 'Searching…'));
             try {
                 var data = await fetchSearchResults(q);
                 if (reqId !== activeRequest) {
                     return;
                 }
                 if (!data.success) {
-                    renderResults([]);
-                    var searchFailFallback =
-                        typeof global.uiT === 'function'
-                            ? global.uiT(
-                                  'toast_search_unavailable',
-                                  'Search is temporarily unavailable'
-                              )
-                            : 'Search is temporarily unavailable';
-                    var failMsg =
-                        typeof global.safeUserMessage === 'function'
-                            ? global.safeUserMessage(data, searchFailFallback)
-                            : searchFailFallback;
-                    setStatus(failMsg);
+                    list.innerHTML = '';
+                    setStatus(searchUnavailableMessage(data));
                     return;
                 }
                 var items = data.results || [];
@@ -442,15 +576,8 @@
                 }
             } catch (e) {
                 if (reqId === activeRequest) {
-                    renderResults([]);
-                    setStatus(
-                        typeof global.uiT === 'function'
-                            ? global.uiT(
-                                  'toast_search_unavailable',
-                                  'Search is temporarily unavailable'
-                              )
-                            : 'Search is temporarily unavailable'
-                    );
+                    list.innerHTML = '';
+                    setStatus(searchUnavailableMessage(null));
                 }
             }
         }
@@ -472,10 +599,6 @@
             }
         });
 
-        panel.addEventListener('click', function (e) {
-            e.stopPropagation();
-        });
-
         input.addEventListener('input', function () {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(function () {
@@ -493,7 +616,6 @@
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && isOpen()) {
                 closePanel();
-                input.blur();
             }
         });
     }

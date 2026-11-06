@@ -1,1 +1,1 @@
-"""No models to register — this app provides templates, static assets, and templatetags only."""
+"""No models to register - this app provides templates, static assets, and templatetags only."""

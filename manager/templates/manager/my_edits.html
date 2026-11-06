@@ -1,8 +1,6 @@
 {% extends 'manager/base.html' %}
 
-{% block title %}My Edits · Manager · GeoTrak Maps{% endblock %}
-
-{% block page_title %}My Edits{% endblock %}
+{% block title %}{{ ui.my_edits }} - {{ ui.role_manager }} - {{ ui.brand_name }}{% endblock %}
 
 {% block content %}
 {% include 'mapping/includes/my_edits_content.html' %}

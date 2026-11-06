@@ -32,7 +32,7 @@ def _norm_str(value) -> str:
 
 
 def coerce_feature_properties(properties: Any) -> dict[str, Any]:
-    """JSONField values may be stored as a dict or a JSON string — normalize to dict."""
+    """JSONField values may be stored as a dict or a JSON string - normalize to dict."""
     if properties is None:
         return {}
     if isinstance(properties, dict):

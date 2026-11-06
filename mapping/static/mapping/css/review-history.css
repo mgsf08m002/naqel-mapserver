@@ -254,7 +254,7 @@
 .rh-table__head,
 .rh-row {
   display: grid;
-  grid-template-columns: minmax(10rem, 2.2fr) minmax(5.5rem, 1fr) minmax(4.5rem, 0.65fr) minmax(7rem, 1fr) minmax(6rem, 0.9fr);
+  grid-template-columns: minmax(10rem, 2.2fr) minmax(5.5rem, 1fr) minmax(5.5rem, 0.95fr) minmax(7rem, 1fr) minmax(6rem, 0.9fr);
   gap: 0.5rem 0.75rem;
   align-items: center;
   padding: 0.45rem 0.25rem;
@@ -319,6 +319,13 @@
   color: #52525b;
 }
 
+.rh-row__status-cell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
 .rh-row__status {
   font-size: 0.625rem;
   font-weight: 700;
@@ -326,8 +333,23 @@
   text-transform: uppercase;
 }
 
+html[dir='rtl'] .rh-row__status {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .rh-row__status--approved { color: #047857; }
 .rh-row__status--rejected { color: #be123c; }
+
+.rh-row__reason {
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #71717a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .rh-row__date,
 .rh-row__submitter {
@@ -336,4 +358,50 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Card layout must live here so it wins over the desktop grid above. */
+@media (max-width: 900px) {
+  .rh-table__head {
+    display: none;
+  }
+
+  .rh-table__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .rh-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "road road"
+      "type status"
+      "date submitter";
+    gap: 0.35rem 0.75rem;
+    align-items: center;
+    min-width: 0;
+    padding: 0.75rem;
+    border: 1px solid #e4e4e7;
+    border-radius: 0.5rem;
+    background: #fafafa;
+  }
+
+  .rh-row__road-cell { grid-area: road; }
+  .rh-row__type { grid-area: type; }
+  .rh-row__status-cell {
+    grid-area: status;
+    justify-self: end;
+  }
+  .rh-row__date { grid-area: date; }
+  .rh-row__submitter {
+    grid-area: submitter;
+    justify-self: end;
+    text-align: end;
+  }
+
+  .rh-row__reason {
+    white-space: normal;
+  }
 }

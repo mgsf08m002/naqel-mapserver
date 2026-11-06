@@ -38,7 +38,7 @@
             elements.errorState?.classList.add('is-hidden');
 
             const userId = elements.page?.dataset.userId;
-            const fallback = t('view_user_load_failed', "Couldn't load user information — try again");
+            const fallback = t('view_user_load_failed', "Couldn't load user information. Try again.");
             if (!userId || Number.isNaN(Number(userId))) {
                 showError(fallback);
                 return;
@@ -54,7 +54,7 @@
             renderUserDetails(data.user);
             elements.userDetails?.classList.remove('is-hidden');
         } catch (error) {
-            showError(t('view_user_load_failed', "Couldn't load user information — try again"));
+            showError(t('view_user_load_failed', "Couldn't load user information. Try again."));
         } finally {
             elements.loadingState?.classList.add('is-hidden');
         }
@@ -80,8 +80,8 @@
         setStatusChip(elements.detailStatus, user.is_active);
 
         elements.detailFullName.textContent = user.full_name || t('not_set', 'Not set');
-        elements.detailEmail.textContent = user.email || '—';
-        elements.detailUsername.textContent = user.username || '—';
+        elements.detailEmail.textContent = user.email || '-';
+        elements.detailUsername.textContent = user.username || '-';
         elements.detailRole.textContent = roleDisplay;
         elements.detailSuperuser.textContent = user.is_superuser ? t('yes', 'Yes') : t('no', 'No');
         elements.detailCreationDate.textContent = user.account_creation_date || t('not_set', 'Not set');
