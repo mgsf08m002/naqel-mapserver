@@ -151,7 +151,12 @@ class ValidateTileRequestTests(TestCase):
 
 
 @skipUnless(connection.vendor == "postgresql", "usage upsert uses PostgreSQL ON CONFLICT ON CONSTRAINT")
-@override_settings(TILE_AUTH_SHARED_SECRET=SECRET, TILE_ACCESS_LOG_SESSION_USAGE=True)
+@override_settings(
+    TILE_AUTH_SHARED_SECRET=SECRET,
+    TILE_ACCESS_LOG_SESSION_USAGE=True,
+    # Exact per-request counters: disable the pan/zoom auth memo used in production.
+    TILE_AUTH_DECISION_CACHE_SECONDS=0,
+)
 class UsageCountingTests(TestCase):
     """One TileUsageDaily row per (day, layer, token-or-user) with an atomic counter."""
 

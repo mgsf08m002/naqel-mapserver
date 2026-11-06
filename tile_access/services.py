@@ -8,6 +8,7 @@ from datetime import timedelta
 from urllib.parse import parse_qs, urlsplit
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db import connection
 from django.utils import timezone
 
@@ -21,6 +22,8 @@ TILE_PATH_RE = re.compile(
 )
 LAST_USED_RESOLUTION = timedelta(seconds=60)
 MAP_ROLES = {"manager", "editor"}
+# Brief memo for session/anonymous auth_request storms. Token decisions are never cached.
+DEFAULT_DECISION_CACHE_SECONDS = 5
 
 
 @dataclass(frozen=True)
@@ -100,6 +103,13 @@ def _touch_last_used(token: TileAccessToken) -> None:
         TileAccessToken.objects.filter(pk=token.pk).update(last_used_at=now)
 
 
+def _decision_cache_ttl() -> int:
+    try:
+        return max(0, int(getattr(settings, "TILE_AUTH_DECISION_CACHE_SECONDS", DEFAULT_DECISION_CACHE_SECONDS)))
+    except (TypeError, ValueError):
+        return DEFAULT_DECISION_CACHE_SECONDS
+
+
 def authorize_tile_request(request, original_uri: str) -> TileDecision:
     """Decide whether the tile in ``original_uri`` may be served to this request."""
     source, query_string = parse_original_uri(original_uri)
@@ -112,6 +122,7 @@ def authorize_tile_request(request, original_uri: str) -> TileDecision:
 
     raw_token = extract_raw_token(request, query_string)
     if raw_token:
+        # Never memoize token decisions — revoke/expiry must apply immediately.
         token = TileAccessToken.objects.filter(token_hash=hash_token(raw_token)).first()
         if token is None:
             return TileDecision(403, "unknown token")
@@ -125,14 +136,25 @@ def authorize_tile_request(request, original_uri: str) -> TileDecision:
         record_usage(layer=layer, token=token)
         return TileDecision(204, "token", token.token_prefix)
 
+    ttl = _decision_cache_ttl()
     user = getattr(request, "user", None)
     if layer.allow_session_access and user_may_view_tiles(user):
+        cache_key = f"tile_auth:sess:{user.pk}:{source}"
+        if ttl > 0 and cache.get(cache_key):
+            return TileDecision(204, "session", "session")
         if getattr(settings, "TILE_ACCESS_LOG_SESSION_USAGE", True):
             record_usage(layer=layer, user=user)
+        if ttl > 0:
+            cache.set(cache_key, 1, ttl)
         return TileDecision(204, "session", "session")
 
     if layer.allow_anonymous_access:
+        cache_key = f"tile_auth:anon:{source}"
+        if ttl > 0 and cache.get(cache_key):
+            return TileDecision(204, "anonymous", "anonymous")
         record_usage(layer=layer)
+        if ttl > 0:
+            cache.set(cache_key, 1, ttl)
         return TileDecision(204, "anonymous", "anonymous")
 
     return TileDecision(401, "no credentials")

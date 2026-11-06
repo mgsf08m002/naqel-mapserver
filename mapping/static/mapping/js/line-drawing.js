@@ -2484,6 +2484,14 @@
             window.currentlySelectedItemType = null;
         }
 
+        // Keep post-save GeoJSON overlay until fresh MVT tiles settle.
+        if (window.__riyadhPostSaveOverlayActive) {
+            try {
+                syncDraftClosureMapLayers();
+            } catch (eKeep) {}
+            return;
+        }
+
         try {
             setSelectedOverlayGeometry(null);
             hideSelectedOverlayPaint();

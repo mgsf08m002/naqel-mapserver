@@ -5,7 +5,7 @@
     window.__riyadhRoadsTileReloaders = window.__riyadhRoadsTileReloaders || [];
 
     var TILE_RELOAD_COALESCE_MS = 60;
-    var TILE_RELOAD_AFTER_OVERLAY_MS = 280;
+    var TILE_RELOAD_AFTER_OVERLAY_MS = 120;
     var tileReloadCoalesceTimer = null;
     var tileReloadCoalesceVersion = null;
 
@@ -164,25 +164,22 @@
         }
     };
 
-    /**
-     * Soft MVT refresh: keep current tiles visible until new ones load.
-     * Shared contract with GeoTrak Maps `reloadMaplibreVectorTileSource`.
-     */
+    /** Soft MVT refresh via setTiles(?v=). Returns false if source/setTiles unavailable. */
     window.reloadMaplibreVectorTileSource = function (map, sourceId, baseTileUrl, version) {
         if (!map || !sourceId || !baseTileUrl) {
             return false;
         }
         var bustedUrl = window.buildRiyadhRoadsTileUrl(baseTileUrl, version);
         var src = map.getSource(sourceId);
-        if (!src) {
+        if (!src || typeof src.setTiles !== 'function') {
             return false;
         }
         try {
-            if (typeof src.setTiles === 'function') {
-                src.setTiles([bustedUrl]);
-            }
-        } catch (eSet) {}
-        return true;
+            src.setTiles([bustedUrl]);
+            return true;
+        } catch (eSet) {
+            return false;
+        }
     };
 
     window.applyLiveNetworkEditToMap = function (data, options) {

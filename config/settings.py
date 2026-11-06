@@ -49,6 +49,9 @@ TILES_PUBLIC_PATH = os.getenv("TILES_PUBLIC_PATH", "/tiles").strip().rstrip("/")
 TILE_AUTH_SHARED_SECRET = os.getenv("TILE_AUTH_SHARED_SECRET", "").strip()
 # Count web-map (session) tile requests in TileUsageDaily as well as token requests.
 TILE_ACCESS_LOG_SESSION_USAGE = _env_bool("TILE_ACCESS_LOG_SESSION_USAGE", True)
+# Memoize session/anonymous tile allow decisions briefly (auth_request hot path).
+# Set 0 to disable. Token decisions are never cached.
+TILE_AUTH_DECISION_CACHE_SECONDS = int(os.getenv("TILE_AUTH_DECISION_CACHE_SECONDS", "5") or "5")
 
 # SECURITY WARNING: DEBUG must be False in production.
 DEBUG = _env_bool('DEBUG', True)

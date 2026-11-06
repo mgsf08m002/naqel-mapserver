@@ -263,6 +263,9 @@
         zoom: 9.5,
         maxZoom: activeBasemapMaxZoom(),
         maxBounds: bounds,
+        fadeDuration: 100,
+        maxTileCacheSize: 1200,
+        maxParallelImageRequests: 32,
         style: buildInitialStyle(),
     });
 
@@ -565,7 +568,7 @@
         map.addSource(SOURCE_ID_RIYADH, {
             type: 'vector',
             tiles: [bustedUrl],
-            minzoom: 0,
+            minzoom: 6,
             maxzoom: 14,
             promoteId: promote,
         });
@@ -2216,7 +2219,7 @@
             })
             .then(function (payload) {
                 if (typeof window.applyLiveNetworkEditToMap === 'function') {
-                    window.applyLiveNetworkEditToMap(payload, { reloadDelayMs: 0 });
+                    window.applyLiveNetworkEditToMap(payload);
                 }
                 if (payload.redirect_url) {
                     const delay = payload && payload.tiles_version ? 400 : 0;
