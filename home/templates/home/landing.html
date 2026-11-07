@@ -5,6 +5,7 @@
     {% include 'auth/includes/geotrak_favicon.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% include 'auth/includes/app_version_meta.html' %}
     <title>{{ ui.brand_name }}</title>
     <meta property="og:title" content="{{ ui.brand_name }}" />
     <meta property="og:description" content="{{ ui.landing_meta_description }}" />
@@ -16,8 +17,8 @@
     <script src='https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js'></script>
     
     <!-- Tailwind CSS -->
-    <link href="{% static 'css/output.css' %}" rel="stylesheet">
-    <link href="{% static 'css/responsive.css' %}?v=resp-9" rel="stylesheet">
+    <link href="{% static 'css/output.css' %}?v={{ asset_v }}" rel="stylesheet">
+    <link href="{% static 'css/responsive.css' %}?v={{ asset_v }}" rel="stylesheet">
 </head>
 <body class="m-0 p-0 bg-white min-h-screen font-sans flex flex-col h-screen overflow-hidden">
     <div class="app-chrome">
@@ -70,13 +71,15 @@
         {% include 'mapping/includes/basemap_gallery.html' %}
     </div>
 
+    {% include 'auth/includes/whats_new.html' %}
+
     <!-- Map JavaScript -->
     {% include 'auth/includes/ui_i18n_script.html' %}
-    <script src="{% static 'mapping/js/map-line-selection.js' %}"></script>
-    <script src="{% static 'mapping/js/road-closure.js' %}"></script>
-    <script src="{% static 'mapping/js/riyadh-tiles-reload.js' %}"></script>
-    <script src="{% static 'mapping/js/map.js' %}"></script>
-    <script src="{% static 'mapping/js/public-approved-lines.js' %}"></script>
+    <script src="{% static 'mapping/js/map-line-selection.js' %}?v={{ asset_v }}"></script>
+    <script src="{% static 'mapping/js/road-closure.js' %}?v={{ asset_v }}"></script>
+    <script src="{% static 'mapping/js/riyadh-tiles-reload.js' %}?v={{ asset_v }}"></script>
+    <script src="{% static 'mapping/js/map.js' %}?v={{ asset_v }}"></script>
+    <script src="{% static 'mapping/js/public-approved-lines.js' %}?v={{ asset_v }}"></script>
 </body>
 </html>
 

@@ -4,7 +4,7 @@
 {% block layer_page_title %}{{ ui.lu_page_upload }} - {{ ui.brand_name }}{% endblock %}
 
 {% block upload_flow_assets %}
-<script src="{% static 'layer_uploader/js/upload_form.js' %}?v=lu-i18n-1" defer></script>
+<script src="{% static 'layer_uploader/js/upload_form.js' %}?v={{ asset_v }}" defer></script>
 {% endblock %}
 
 {% block upload_flow_header %}

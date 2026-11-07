@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'mapping/css/my-edits.css' %}?v=me-resp-2">
+<link rel="stylesheet" href="{% static 'mapping/css/my-edits.css' %}?v={{ asset_v }}">
 
 <div class="me-page" id="my-edits-root"
      data-api-url="{{ my_edits_api_url }}"
@@ -85,4 +85,4 @@
     </div>
 </div>
 
-<script src="{% static 'mapping/js/my-edits.js' %}?v=me-i18n-1" defer></script>
+<script src="{% static 'mapping/js/my-edits.js' %}?v={{ asset_v }}" defer></script>

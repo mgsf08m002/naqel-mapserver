@@ -1,0 +1,17 @@
+<div class="border-t border-gray-100 mt-1 pt-1.5 px-3 pb-1.5">
+  {% if whats_new_banner %}
+  <button
+    type="button"
+    class="w-full text-center text-[10px] leading-tight text-gray-400 tabular-nums rounded-md py-1 px-1 hover:text-[#0f2d53] hover:bg-gray-50 transition-colors cursor-pointer"
+    data-whats-new-open
+    title="{{ ui.whats_new_aria }}"
+    aria-label="{{ ui.whats_new_aria }}"
+  >
+    {{ app_version_display }}
+  </button>
+  {% else %}
+  <p class="w-full text-center text-[10px] leading-tight text-gray-400 tabular-nums select-none py-1">
+    {{ app_version_display }}
+  </p>
+  {% endif %}
+</div>

@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'mapping/css/review-history.css' %}?v=rh-resp-2">
+<link rel="stylesheet" href="{% static 'mapping/css/review-history.css' %}?v={{ asset_v }}">
 
 <div class="rh-page" id="review-history-root"
      data-api-url="{{ review_history_api_url }}"
@@ -88,4 +88,4 @@
     </div>
 </div>
 
-<script src="{% static 'mapping/js/review-history.js' %}?v=rh-i18n-1" defer></script>
+<script src="{% static 'mapping/js/review-history.js' %}?v={{ asset_v }}" defer></script>

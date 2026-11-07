@@ -1,0 +1,125 @@
+/* What's New release banner modal */
+
+body.geotrak-whats-new-open {
+  overflow: hidden;
+}
+
+.geotrak-whats-new {
+  position: fixed;
+  inset: 0;
+  z-index: 10020;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    max(1rem, env(safe-area-inset-top, 0px))
+    max(1rem, env(safe-area-inset-right, 0px))
+    max(1rem, env(safe-area-inset-bottom, 0px))
+    max(1rem, env(safe-area-inset-left, 0px));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+
+.geotrak-whats-new.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.geotrak-whats-new__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 45, 83, 0.42);
+  backdrop-filter: blur(2px);
+}
+
+.geotrak-whats-new__panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 52rem);
+  max-height: min(92vh, 40rem);
+  display: flex;
+  flex-direction: column;
+  border-radius: 1.05rem;
+  background: #ffffff;
+  box-shadow:
+    0 24px 48px rgba(15, 45, 83, 0.18),
+    0 0 0 1px rgba(15, 45, 83, 0.06);
+  overflow: hidden;
+  transform: translateY(10px) scale(0.985);
+  opacity: 0;
+  transition: transform 0.24s ease, opacity 0.24s ease;
+}
+
+.geotrak-whats-new.is-open .geotrak-whats-new__panel {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+.geotrak-whats-new__media {
+  display: block;
+  width: 100%;
+  max-height: min(68vh, 28rem);
+  object-fit: contain;
+  object-position: center;
+  background: #f7fafc;
+}
+
+.geotrak-whats-new__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem 1rem;
+  border-top: 1px solid rgba(15, 45, 83, 0.08);
+  background: #ffffff;
+}
+
+.geotrak-whats-new__btn {
+  min-width: 6.5rem;
+  padding: 0.55rem 1.15rem;
+  border-radius: 0.7rem;
+  border: 1px solid #0f2d53;
+  background: #0f2d53;
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.geotrak-whats-new__btn:hover {
+  background: #0c2547;
+  border-color: #0c2547;
+}
+
+.geotrak-whats-new__btn:focus-visible {
+  outline: 2px solid #0f2d53;
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .geotrak-whats-new__panel {
+    width: min(100%, 100%);
+    border-radius: 0.9rem;
+  }
+
+  .geotrak-whats-new__media {
+    max-height: min(58vh, 22rem);
+  }
+
+  .geotrak-whats-new__footer {
+    padding: 0.75rem 0.85rem 0.9rem;
+  }
+
+  .geotrak-whats-new__btn {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .geotrak-whats-new,
+  .geotrak-whats-new__panel {
+    transition-duration: 0.01ms !important;
+  }
+}

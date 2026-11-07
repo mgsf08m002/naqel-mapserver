@@ -9,7 +9,10 @@ from config.ui_locale import set_ui_language
 urlpatterns = [
     path(
         "favicon.ico",
-        RedirectView.as_view(url="/static/auth/images/geotrak-browser-icon.png?v=2", permanent=False),
+        RedirectView.as_view(
+            url=f"/static/auth/images/geotrak-browser-icon.png?v={settings.GEOTRAK_APP_VERSION}",
+            permanent=False,
+        ),
         name="favicon",
     ),
     path("set-language/", set_ui_language, name="set_ui_language"),

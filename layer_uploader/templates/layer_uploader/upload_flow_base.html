@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block layer_assets %}
-<link rel="stylesheet" href="{% static 'layer_uploader/css/upload_flow.css' %}?v=lu-i18n-2">
+<link rel="stylesheet" href="{% static 'layer_uploader/css/upload_flow.css' %}?v={{ asset_v }}">
 {% block upload_flow_assets %}{% endblock %}
 {% endblock %}
 

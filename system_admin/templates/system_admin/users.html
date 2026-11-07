@@ -4,7 +4,7 @@
 {% block title %}{{ ui.users_doc_title }}{% endblock %}
 
 {% block extra_css %}
-<link href="{% static 'system_admin/css/users.css' %}?v=users-resp-2" rel="stylesheet">
+<link href="{% static 'system_admin/css/users.css' %}?v={{ asset_v }}" rel="stylesheet">
 {% endblock %}
 
 {% block content_wrapper %}
@@ -284,5 +284,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'system_admin/js/users.js' %}"></script>
+<script src="{% static 'system_admin/js/users.js' %}?v={{ asset_v }}"></script>
 {% endblock %}

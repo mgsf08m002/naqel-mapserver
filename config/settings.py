@@ -8,6 +8,8 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
+from config.app_version import resolve_app_version
+
 # Load environment variables from the .env file.
 load_dotenv()
 
@@ -38,6 +40,9 @@ def _env_int(name: str, default: int) -> int:
 SECRET_KEY = os.getenv('SECRET_KEY')
 if not SECRET_KEY:
     raise ValueError("SECRET_KEY environment variable is not set. Please set it in your .env file.")
+
+# Product release version (UI + asset bust). Override in production via env.
+GEOTRAK_APP_VERSION = resolve_app_version()
 
 MAPTILER_API_KEY = os.getenv('MAPTILER_API_KEY', '').strip()
 
@@ -173,6 +178,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'config.ui_locale.ui_locale',
+                'config.app_version.app_version_context',
                 'system_admin.context_processors.user_profile',
                 'mapping.context_processors.maptiler_api_key',
                 'mapping.context_processors.riyadh_roads_tile_url',

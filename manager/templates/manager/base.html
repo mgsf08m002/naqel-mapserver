@@ -5,9 +5,10 @@
     {% include 'auth/includes/geotrak_favicon.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% include 'auth/includes/app_version_meta.html' %}
     <title>{% block title %}{{ ui.role_manager }} - {{ ui.brand_name }}{% endblock %}</title>
-    <link href="{% static 'css/output.css' %}" rel="stylesheet">
-    <link href="{% static 'css/responsive.css' %}?v=resp-9" rel="stylesheet">
+    <link href="{% static 'css/output.css' %}?v={{ asset_v }}" rel="stylesheet">
+    <link href="{% static 'css/responsive.css' %}?v={{ asset_v }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
 </head>
 <body class="bg-white min-h-screen font-sans flex flex-col h-screen overflow-hidden" data-user-role="manager">
@@ -159,6 +160,7 @@
                                 <span class="flex-1">{{ ui.logout }}</span>
                             </button>
                         </form>
+                        {% include 'auth/includes/user_menu_version.html' %}
                     </div>
                 </div>
             </div>
@@ -176,6 +178,7 @@
     </main>
 
     {% include 'notifications/includes/toast_stack.html' %}
+    {% include 'auth/includes/whats_new.html' %}
 
     <style>
         .menu-item.active {
@@ -188,13 +191,13 @@
         }
     </style>
 
-    <script src="{% static 'notifications/js/notifications.js' %}"></script>
+    <script src="{% static 'notifications/js/notifications.js' %}?v={{ asset_v }}"></script>
     {% include 'notifications/includes/django_messages_script.html' %}
     {% include 'auth/includes/ui_i18n_script.html' %}
-    <script src="{% static 'manager/js/header.js' %}"></script>
+    <script src="{% static 'manager/js/header.js' %}?v={{ asset_v }}"></script>
     {% block extra_js %}{% endblock %}
     {% if request.resolver_match.url_name == 'map' %}
-    <script src="{% static 'mapping/js/edit-button.js' %}?v=review-lock-1"></script>
+    <script src="{% static 'mapping/js/edit-button.js' %}?v={{ asset_v }}"></script>
     {% endif %}
 </body>
 </html>

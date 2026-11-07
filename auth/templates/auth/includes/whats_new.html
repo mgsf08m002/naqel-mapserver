@@ -1,0 +1,35 @@
+{% load static %}
+{% if whats_new_banner %}
+<link rel="stylesheet" href="{% static 'css/whats-new.css' %}?v={{ asset_v }}">
+<div
+    id="geotrakWhatsNew"
+    class="geotrak-whats-new"
+    hidden
+    aria-hidden="true"
+    data-version="{{ app_version }}"
+>
+    <div class="geotrak-whats-new__backdrop" aria-hidden="true"></div>
+    <div
+        class="geotrak-whats-new__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="geotrakWhatsNewTitle"
+    >
+        <h2 id="geotrakWhatsNewTitle" class="sr-only">{{ ui.whats_new_aria }}</h2>
+        <img
+            class="geotrak-whats-new__media"
+            src="{% static whats_new_banner %}?v={{ asset_v }}"
+            alt="{{ ui.whats_new_aria }}"
+            width="1600"
+            height="500"
+            decoding="async"
+        >
+        <div class="geotrak-whats-new__footer">
+            <button type="button" class="geotrak-whats-new__btn" data-whats-new-dismiss>
+                {{ ui.whats_new_got_it }}
+            </button>
+        </div>
+    </div>
+</div>
+<script src="{% static 'js/whats-new.js' %}?v={{ asset_v }}" defer></script>
+{% endif %}

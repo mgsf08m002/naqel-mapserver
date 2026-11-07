@@ -4,7 +4,7 @@
 {% block title %}{{ ui.perm_check_doc_title }}{% endblock %}
 
 {% block extra_css %}
-<link href="{% static 'system_admin/css/permissions.css' %}?v=ar-rtl-2" rel="stylesheet">
+<link href="{% static 'system_admin/css/permissions.css' %}?v={{ asset_v }}" rel="stylesheet">
 {% endblock %}
 
 {% block content_wrapper %}

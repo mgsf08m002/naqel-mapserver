@@ -15,3 +15,8 @@
 # Secrets in this app's .env must match geo_infra/.env:
 #   DB_PASSWORD / RIYADH_ROADS_DB_PASSWORD  =  GEOTRAK_DB_PASSWORD
 #   TILE_AUTH_SHARED_SECRET                =  TILE_AUTH_SHARED_SECRET
+#
+# Product version (UI + static cache bust + What's New):
+#   VERSION file at repo root (default), or override with GEOTRAK_APP_VERSION in .env
+#   Banners (optional): static/images/whats-new/<version>-en.png and -ar.png
+

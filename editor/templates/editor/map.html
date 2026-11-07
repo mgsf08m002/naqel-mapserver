@@ -10,8 +10,8 @@
 <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css' />
 <script src='https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js'></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.css"/>
-<link rel="stylesheet" href="{% static 'mapping/css/line-styles.css' %}?v=search-ui-3"/>
-<link rel="stylesheet" href="{% static 'mapping/css/clear-selection-toolbar.css' %}"/>
+<link rel="stylesheet" href="{% static 'mapping/css/line-styles.css' %}?v={{ asset_v }}"/>
+<link rel="stylesheet" href="{% static 'mapping/css/clear-selection-toolbar.css' %}?v={{ asset_v }}"/>
 <script src="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.umd.js"></script>
 <svg style="display: none;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
     <symbol id="iD-icon-line" viewBox="0 0 24 24">
@@ -52,20 +52,20 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mapping/js/map-line-selection.js' %}"></script>
-<script src="{% static 'mapping/js/road-closure.js' %}"></script>
-<script src="{% static 'mapping/js/riyadh-road-shared.js' %}"></script>
-<script src="{% static 'mapping/js/riyadh-tiles-reload.js' %}"></script>
-<script src="{% static 'mapping/js/map.js' %}"></script>
-<script src="{% static 'mapping/js/map-road-select.js' %}"></script>
-<script src="{% static 'mapping/js/map-road-search.js' %}?v=search-ui-2"></script>
-<script src="{% static 'mapping/js/map-road-deeplink.js' %}"></script>
-<script src="{% static 'mapping/js/geometry-normalize.js' %}"></script>
-<script src="{% static 'mapping/js/line-drawing.js' %}?v=approval-clean-1"></script>
-<script src="{% static 'mapping/js/road-geometry-edit.js' %}"></script>
-<script src="{% static 'mapping/js/map-edit-undo.js' %}"></script>
-<script src="{% static 'mapping/js/save-line-edit.js' %}?v=approval-clean-1"></script>
-<script src="{% static 'mapping/js/pending-road-locks.js' %}?v=approval-clean-1"></script>
-<script src="{% static 'mapping/js/map-clear-selection.js' %}"></script>
+<script src="{% static 'mapping/js/map-line-selection.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/road-closure.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/riyadh-road-shared.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/riyadh-tiles-reload.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/map.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/map-road-select.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/map-road-search.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/map-road-deeplink.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/geometry-normalize.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/line-drawing.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/road-geometry-edit.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/map-edit-undo.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/save-line-edit.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/pending-road-locks.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/map-clear-selection.js' %}?v={{ asset_v }}"></script>
 {% endblock %}
 

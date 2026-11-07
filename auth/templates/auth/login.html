@@ -5,10 +5,11 @@
     {% include 'auth/includes/geotrak_favicon.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% include 'auth/includes/app_version_meta.html' %}
     <title>{{ ui.login_title }}</title>
-    <link href="{% static 'css/output.css' %}" rel="stylesheet">
-    <link href="{% static 'css/responsive.css' %}?v=resp-9" rel="stylesheet">
-    <link href="{% static 'auth/css/auth-shell.css' %}?v=resp-3" rel="stylesheet">
+    <link href="{% static 'css/output.css' %}?v={{ asset_v }}" rel="stylesheet">
+    <link href="{% static 'css/responsive.css' %}?v={{ asset_v }}" rel="stylesheet">
+    <link href="{% static 'auth/css/auth-shell.css' %}?v={{ asset_v }}" rel="stylesheet">
 </head>
 <body class="font-sans">
     <div class="auth-shell">
@@ -97,9 +98,9 @@
     </div>
 
     {% include 'notifications/includes/toast_stack.html' %}
-    <script src="{% static 'notifications/js/notifications.js' %}"></script>
+    <script src="{% static 'notifications/js/notifications.js' %}?v={{ asset_v }}"></script>
     {% include 'notifications/includes/django_messages_script.html' %}
     {% include 'auth/includes/ui_i18n_script.html' %}
-    <script src="{% static 'auth/js/login.js' %}"></script>
+    <script src="{% static 'auth/js/login.js' %}?v={{ asset_v }}"></script>
 </body>
 </html>

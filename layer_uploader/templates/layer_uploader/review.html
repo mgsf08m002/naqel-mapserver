@@ -6,11 +6,11 @@
 
 {% block layer_assets %}
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css" />
-<link rel="stylesheet" href="{% static 'mapping/css/road-selection.css' %}">
-<link rel="stylesheet" href="{% static 'mapping/css/clear-selection-toolbar.css' %}?v=lr-clear-1">
-<link rel="stylesheet" href="{% static 'layer_uploader/css/layer_review.css' %}?v=lu-panel-3">
-<script src="{% static 'mapping/js/map-line-selection.js' %}"></script>
-<script src="{% static 'mapping/js/riyadh-tiles-reload.js' %}"></script>
+<link rel="stylesheet" href="{% static 'mapping/css/road-selection.css' %}?v={{ asset_v }}">
+<link rel="stylesheet" href="{% static 'mapping/css/clear-selection-toolbar.css' %}?v={{ asset_v }}">
+<link rel="stylesheet" href="{% static 'layer_uploader/css/layer_review.css' %}?v={{ asset_v }}">
+<script src="{% static 'mapping/js/map-line-selection.js' %}?v={{ asset_v }}"></script>
+<script src="{% static 'mapping/js/riyadh-tiles-reload.js' %}?v={{ asset_v }}"></script>
 <script src="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.js"></script>
 {% endblock %}
 
@@ -31,6 +31,6 @@
   {% include 'layer_uploader/includes/review_workspace.html' %}
 </div>
 
-<script src="{% static 'layer_uploader/js/layer_review.js' %}?v=lu-i18n-1" defer></script>
-<script src="{% static 'mapping/js/map-clear-selection.js' %}?v=lr-clear-1" defer></script>
+<script src="{% static 'layer_uploader/js/layer_review.js' %}?v={{ asset_v }}" defer></script>
+<script src="{% static 'mapping/js/map-clear-selection.js' %}?v={{ asset_v }}" defer></script>
 {% endblock %}
