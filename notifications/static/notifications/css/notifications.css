@@ -220,7 +220,8 @@ html[dir="rtl"] .geotrak-toast.hide {
     }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
+    /* Keep logical insets only - never set physical left/right here. */
     #geotrakToastStack {
         inset-inline-end: max(0.75rem, env(safe-area-inset-right, 0px), env(safe-area-inset-left, 0px));
         inset-inline-start: auto;

@@ -1,10 +1,10 @@
 <section class="lu-detected">
   <div class="lu-detected__head">
     <div>
-      <h2 class="lu-detected__title">Detected layers</h2>
-      <p class="lu-detected__sub">Choose one layer to continue.</p>
+      <h2 class="lu-detected__title">{{ ui.lu_detected_title }}</h2>
+      <p class="lu-detected__sub">{{ ui.lu_detected_sub }}</p>
     </div>
-    <span class="lu-detected__count">{{ shapefiles|length }} found</span>
+    <span class="lu-detected__count">{{ shapefiles|length }} {{ ui.lu_found }}</span>
   </div>
 
   <form method="post" class="lu-detected__form">
@@ -25,9 +25,9 @@
             <span class="lu-layer-option__top">
               <span class="lu-layer-option__name">{{ shp.name }}</span>
               {% if shp.error %}
-              <span class="lu-layer-option__badge lu-layer-option__badge--error">Invalid</span>
+              <span class="lu-layer-option__badge lu-layer-option__badge--error">{{ ui.lu_badge_invalid }}</span>
               {% else %}
-              <span class="lu-layer-option__badge">Ready</span>
+              <span class="lu-layer-option__badge">{{ ui.lu_badge_ready }}</span>
               {% endif %}
             </span>
             {% if shp.error %}
@@ -36,9 +36,9 @@
             <span class="lu-layer-option__meta">
               <span>{{ shp.crs_name }}</span>
               <span class="lu-layer-option__dot" aria-hidden="true">-</span>
-              <span>SRID {{ shp.epsg }}</span>
+              <span>{{ ui.lu_label_srid }} {{ shp.epsg }}</span>
               <span class="lu-layer-option__dot" aria-hidden="true">-</span>
-              <span>{{ shp.count }} features</span>
+              <span>{{ shp.count }} {{ ui.lr_feature_many }}</span>
             </span>
             {% endif %}
           </span>
@@ -47,6 +47,6 @@
       {% endfor %}
     </div>
 
-    {% include 'layer_uploader/includes/flow_actions.html' with submit_label='Continue' secondary_url=upload_reset_url secondary_label='Start over' %}
+    {% include 'layer_uploader/includes/flow_actions.html' with submit_label=ui.lu_continue secondary_url=upload_reset_url secondary_label=ui.lu_start_over %}
   </form>
 </section>

@@ -1,14 +1,14 @@
 <div class="lu-picker">
-  <div id="lu-picker-empty" class="lu-dropzone" role="button" tabindex="0" aria-label="Choose shapefile files to upload">
+  <div id="lu-picker-empty" class="lu-dropzone" role="button" tabindex="0" aria-label="{{ ui.lu_drop_aria }}">
     <svg class="lu-dropzone__graphic" width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.25" d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16"/>
     </svg>
-    <p class="lu-dropzone__title">Drag and drop files here</p>
+    <p class="lu-dropzone__title">{{ ui.lu_drop_title }}</p>
     <p class="lu-dropzone__hint">
-      or
-      <button type="button" id="lu-pick-files" class="lu-dropzone__link">browse from your computer</button>
+      {{ ui.lu_drop_or }}
+      <button type="button" id="lu-pick-files" class="lu-dropzone__link">{{ ui.lu_drop_browse }}</button>
     </p>
-    <p class="lu-dropzone__formats">Accepts .shp, .shx, .dbf, .zip, and optional .prj</p>
+    <p class="lu-dropzone__formats">{{ ui.lu_drop_formats }}</p>
   </div>
 
   <div id="lu-picker-filled" class="lu-picker-filled hidden" aria-live="polite">
@@ -16,11 +16,11 @@
       <div class="lu-selection__head">
         <div class="lu-selection__title-wrap">
           <span class="lu-selection__count" id="lu-file-count">0</span>
-          <span class="lu-selection__title" id="lu-selection-title">Selected files</span>
+          <span class="lu-selection__title" id="lu-selection-title">{{ ui.lu_files_selected }}</span>
         </div>
         <div class="lu-selection__tools">
-          <button type="button" id="lu-add-more-files" class="lu-selection__tool">Add files</button>
-          <button type="button" id="lu-clear-all" class="lu-selection__tool lu-selection__tool--muted">Clear all</button>
+          <button type="button" id="lu-add-more-files" class="lu-selection__tool">{{ ui.lu_add_files }}</button>
+          <button type="button" id="lu-clear-all" class="lu-selection__tool lu-selection__tool--muted">{{ ui.lu_clear_all }}</button>
         </div>
       </div>
       <ul id="lu-file-list" class="lu-file-list"></ul>

@@ -13,13 +13,14 @@
     display: none !important;
 }
 
-/* Fallback offset when edit toolbar is open (JS sets exact top from measured height). */
+/* Fallback only - map-clear-selection.js overwrites top from measured edit dock height.
+   Chrome-aware offsets live in responsive.css (body:has(.app-chrome) ...). */
 #mapContainer.map-edit-toolbar-active .map-clear-selection-toolbar {
     top: 5.1rem;
 }
 
+/* Layer review owns chrome-aware top via layer_review.css; keep centering only. */
 #layer-review-root .map-clear-selection-toolbar {
-    top: 0.75rem;
     left: 50%;
     right: auto;
     transform: translateX(-50%);

@@ -1,21 +1,21 @@
 <section class="lu-tips" aria-labelledby="upload-requirements">
-  <h2 id="upload-requirements" class="lu-tips__title">Before you upload</h2>
+  <h2 id="upload-requirements" class="lu-tips__title">{{ ui.lu_tips_title }}</h2>
   <ul class="lu-tips__list">
     <li class="lu-tips__item">
       <span class="lu-tips__num" aria-hidden="true">1</span>
-      <p class="lu-tips__text">Use matching base names for <strong>.shp</strong>, <strong>.shx</strong>, and <strong>.dbf</strong>.</p>
+      <p class="lu-tips__text">{{ ui.lu_tip_1|safe }}</p>
     </li>
     <li class="lu-tips__item">
       <span class="lu-tips__num" aria-hidden="true">2</span>
-      <p class="lu-tips__text">Include <strong>.prj</strong> when available for accurate CRS detection.</p>
+      <p class="lu-tips__text">{{ ui.lu_tip_2|safe }}</p>
     </li>
     <li class="lu-tips__item">
       <span class="lu-tips__num" aria-hidden="true">3</span>
-      <p class="lu-tips__text">Confirm CRS and SRID on the next step after detection.</p>
+      <p class="lu-tips__text">{{ ui.lu_tip_3 }}</p>
     </li>
     <li class="lu-tips__item">
       <span class="lu-tips__num" aria-hidden="true">4</span>
-      <p class="lu-tips__text">Zip archives are supported. Optional <strong>.prj</strong> improves coordinate detection.</p>
+      <p class="lu-tips__text">{{ ui.lu_tip_4|safe }}</p>
     </li>
   </ul>
 </section>

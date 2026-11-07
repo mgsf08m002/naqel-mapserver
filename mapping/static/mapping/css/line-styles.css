@@ -1086,7 +1086,7 @@ svg[data-terra-draw] line {
 }
 
 @media (max-width: 639px) {
-    /* Labels are hidden by responsive.css; keep compact spacing only. */
+    /* Edit-dock text labels are hidden in responsive.css; tighten icon spacing. */
     .map-edit-dock {
         gap: 0.4rem;
     }
@@ -1094,10 +1094,6 @@ svg[data-terra-draw] line {
     .map-edit-dock__mode {
         padding: 0 0.5rem;
     }
-}
-
-#mapContainer.map-edit-toolbar-active .map-clear-selection-toolbar {
-    top: 5.1rem;
 }
 
 /* Zoom gate overlay */

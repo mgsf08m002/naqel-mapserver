@@ -1,20 +1,20 @@
 {% extends 'layer_uploader/upload_flow_base.html' %}
 {% load static %}
 
-{% block layer_page_title %}Layer Complete - GeoTrak Maps{% endblock %}
+{% block layer_page_title %}{{ ui.lu_page_complete }} - {{ ui.brand_name }}{% endblock %}
 
 {% block upload_flow_header %}
 <header class="lu-flow-head">
   <div class="lu-flow-head__intro">
     {% if auto_published %}
-    <h1 class="lu-flow-head__title">Layer published</h1>
-    <p class="lu-flow-head__sub">Your selected roads have been added to the live map network.</p>
+    <h1 class="lu-flow-head__title">{{ ui.lu_success_published_title }}</h1>
+    <p class="lu-flow-head__sub">{{ ui.lu_success_published_sub }}</p>
     {% elif submitted_to_manager %}
-    <h1 class="lu-flow-head__title">Layer submitted</h1>
-    <p class="lu-flow-head__sub">Your approved roads were sent to the manager map for review.</p>
+    <h1 class="lu-flow-head__title">{{ ui.lu_success_submitted_title }}</h1>
+    <p class="lu-flow-head__sub">{{ ui.lu_success_submitted_sub }}</p>
     {% else %}
-    <h1 class="lu-flow-head__title">Layer saved</h1>
-    <p class="lu-flow-head__sub">Your layer is ready. Open the map to continue working.</p>
+    <h1 class="lu-flow-head__title">{{ ui.lu_success_saved_title }}</h1>
+    <p class="lu-flow-head__sub">{{ ui.lu_success_saved_sub }}</p>
     {% endif %}
   </div>
   {% include 'layer_uploader/includes/upload_flow_steps.html' with step=4 %}
@@ -24,7 +24,7 @@
 {% block upload_flow_body %}
 <div class="lu-layout lu-layout--single lu-layout--success">
   <div class="lu-main">
-    <section class="lu-success-hero" aria-label="Upload complete">
+    <section class="lu-success-hero" aria-label="{{ ui.lu_success_aria }}">
       <img
         src="{% static 'layer_uploader/img/thankyou-layer-upload.png' %}"
         alt=""
@@ -33,7 +33,7 @@
         height="72"
         decoding="async"
       >
-      <a href="{{ map_url }}" class="lu-actions__primary lu-success-hero__btn">Open map</a>
+      <a href="{{ map_url }}" class="lu-actions__primary lu-success-hero__btn">{{ ui.lu_open_map }}</a>
     </section>
   </div>
 </div>

@@ -681,22 +681,6 @@ body.manager-review-dock-active #clearSelectionToolbar {
   background: rgb(15 45 83);
 }
 
-/* Coords stay at the map bottom; only nudge MapLibre attribution on narrow widths. */
-@media (max-width: 639px) {
-  .approval-review-dock {
-    bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
-  }
-
-  .approval-review-dock__card {
-    width: min(100%, 24rem);
-    padding: 0.75rem 0.875rem;
-  }
-
-  body.manager-review-dock-active .maplibregl-ctrl-bottom-right,
-  body.manager-review-dock-active .maplibregl-ctrl-bottom-left {
-    bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
-  }
-}
 
 /* --- Reject reason dialog --- */
 .approval-reject-dialog {
@@ -816,7 +800,7 @@ body.approval-reject-dialog-open {
     position: fixed;
     inset-inline: 0.75rem;
     top: auto;
-    bottom: 0.75rem;
+    bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
     width: auto;
     max-width: none;
     max-height: min(75vh, calc(100vh - var(--app-chrome-offset) - 1rem));
@@ -825,5 +809,19 @@ body.approval-reject-dialog-open {
 
   .approval-panel__list {
     max-height: min(60vh, calc(100vh - var(--app-chrome-offset) - 5rem));
+  }
+
+  .approval-review-dock {
+    bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .approval-review-dock__card {
+    width: min(100%, 24rem);
+    padding: 0.75rem 0.875rem;
+  }
+
+  body.manager-review-dock-active .maplibregl-ctrl-bottom-right,
+  body.manager-review-dock-active .maplibregl-ctrl-bottom-left {
+    bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
   }
 }

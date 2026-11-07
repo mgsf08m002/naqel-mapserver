@@ -44,7 +44,7 @@ def collect_detected_shapefiles(temp_dir: str) -> list[dict]:
                     {
                         "name": base_name,
                         "crs_name": crs_name,
-                        "epsg": epsg if epsg else "Not defined",
+                        "epsg": epsg,
                         "count": len(source),
                     }
                 )
@@ -53,7 +53,7 @@ def collect_detected_shapefiles(temp_dir: str) -> list[dict]:
             detected.append(
                 {
                     "name": base_name,
-                    "error": "Couldn't read this shapefile. Try again.",
+                    "error_key": "lu_err_shapefile_unreadable",
                 }
             )
     return detected

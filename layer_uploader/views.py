@@ -26,7 +26,12 @@ from .api import (
 )
 from .constants import BULK_CREATE_BATCH_SIZE, TABLE_PAGE_SIZE_DEFAULT
 from .models import Feature, Layer
-from .presentation import post_upload_map_url, review_page_context, upload_flow_context
+from .presentation import (
+    localize_detected_shapefiles,
+    post_upload_map_url,
+    review_page_context,
+    upload_flow_context,
+)
 from .services import (
     LayerPublishFailed,
     apply_uploader_review_action,
@@ -41,8 +46,38 @@ from .utils import coerce_epsg, find_new_features_against_riyadh_roads, simplify
 logger = logging.getLogger(__name__)
 
 
-def _json_forbidden():
-    return JsonResponse({"detail": "Forbidden"}, status=403)
+_DOMAIN_MESSAGE_KEYS = {
+    "This layer has already been submitted.": "lu_err_already_submitted",
+    "Approve at least one road before submitting.": "toast_approve_one_road",
+    "feature_ids required": "lu_err_feature_ids_required",
+    "Unknown action": "lu_err_unknown_action",
+    "Invalid feature_id": "lu_err_invalid_feature",
+    "Invalid feature_ids": "lu_err_invalid_feature",
+    "Feature not found": "lu_err_feature_not_found",
+    "Only approved or rejected features can be reset": "lu_err_reset_status",
+    "This row cannot be updated": "lu_err_row_locked",
+    "Only LineString or MultiLineString features can be published to the road network.": "lu_err_line_only",
+    "Geometry has no coordinates.": "lu_err_no_coords",
+    "Missing geometry.": "lu_err_missing_geom",
+    "Area features must have a boundary; this polygon cannot be published as a road.": "lu_err_polygon_boundary",
+}
+
+
+def _json_forbidden(request=None):
+    return JsonResponse(
+        {"detail": client_message(request, "access_denied", fallback="Access denied")},
+        status=403,
+    )
+
+
+def _domain_detail(request, exc: Exception) -> str:
+    message = str(exc)
+    key = _DOMAIN_MESSAGE_KEYS.get(message)
+    if key:
+        return client_message(request, key)
+    if message.startswith("Unsupported geometry type"):
+        return client_message(request, "lu_err_unsupported_geom")
+    return client_message(request, "generic_error")
 
 
 def _parse_action_body(request):
@@ -82,9 +117,9 @@ def _parse_feature_ids(body) -> list[int] | None:
 def _action_error_response(request, exc: Exception) -> JsonResponse:
     """Curated domain errors stay visible; unexpected failures stay opaque."""
     if isinstance(exc, LookupError):
-        return JsonResponse({"detail": str(exc)}, status=404)
+        return JsonResponse({"detail": _domain_detail(request, exc)}, status=404)
     if isinstance(exc, ValueError):
-        return JsonResponse({"detail": str(exc)}, status=400)
+        return JsonResponse({"detail": _domain_detail(request, exc)}, status=400)
     return json_detail_error(
         request,
         exc=exc,
@@ -114,13 +149,25 @@ def _review_features_qs(layer: Layer):
 
 
 def _shapefile_details(shp_path: str) -> dict:
+    """Raw shapefile metadata. ``epsg`` may be None when CRS is unknown."""
     with fiona.open(shp_path) as source:
         crs_name, epsg = simplify_crs(source.crs)
         count = len(source)
     return {
         "count": count,
         "crs_name": crs_name,
-        "epsg": epsg if epsg else "Not defined",
+        "epsg": epsg,
+    }
+
+
+def _display_shapefile_details(request, shp_path: str) -> dict:
+    """Template-facing details with localized empty-EPSG copy."""
+    details = _shapefile_details(shp_path)
+    return {
+        "count": details["count"],
+        "crs_name": details["crs_name"],
+        "epsg": details["epsg"]
+        or client_message(request, "lu_epsg_not_defined"),
     }
 
 
@@ -147,7 +194,7 @@ def _validate_template_context(request, selected: str, shp_path: str, **extra):
     return upload_flow_context(
         request,
         name=selected,
-        **_shapefile_details(shp_path),
+        **_display_shapefile_details(request, shp_path),
         **extra,
     )
 
@@ -169,12 +216,19 @@ def upload_view(request):
             return render(
                 request,
                 "layer_uploader/upload.html",
-                upload_flow_context(request, error="No valid shapefile found."),
+                upload_flow_context(
+                    request,
+                    error=client_message(request, "lu_err_no_shapefile"),
+                ),
             )
 
         request.session["temp_dir"] = temp_dir
 
-        selectable = [s for s in detected_shapefiles if s.get("name") and not s.get("error")]
+        selectable = [
+            s
+            for s in detected_shapefiles
+            if s.get("name") and not s.get("error_key") and not s.get("error")
+        ]
         if len(selectable) == 1:
             request.session["selected"] = selectable[0]["name"]
             return redirect("validate")
@@ -182,7 +236,10 @@ def upload_view(request):
         return render(
             request,
             "layer_uploader/upload.html",
-            upload_flow_context(request, shapefiles=detected_shapefiles),
+            upload_flow_context(
+                request,
+                shapefiles=localize_detected_shapefiles(request, detected_shapefiles),
+            ),
         )
 
     return render(request, "layer_uploader/upload.html", upload_flow_context(request))
@@ -202,7 +259,7 @@ def validate_view(request):
             "layer_uploader/upload.html",
             upload_flow_context(
                 request,
-                error="Session expired. Please upload files again.",
+                error=client_message(request, "lu_err_session_expired"),
             ),
         )
 
@@ -211,7 +268,10 @@ def validate_view(request):
         return render(
             request,
             "layer_uploader/upload.html",
-            upload_flow_context(request, error="Shapefile not found."),
+            upload_flow_context(
+                request,
+                error=client_message(request, "lu_err_shapefile_not_found"),
+            ),
         )
 
     details = _shapefile_details(shp_path)
@@ -288,7 +348,7 @@ def review_view(request, layer_id):
 def review_geojson_view(request, layer_id):
     layer = get_object_or_404(Layer, pk=layer_id)
     if not can_access_uploader_review(request.user, layer):
-        return _json_forbidden()
+        return _json_forbidden(request)
     bbox = parse_bbox_param(request.GET.get("bbox"))
     payload = features_geojson(
         layer.pk,
@@ -303,7 +363,7 @@ def review_geojson_view(request, layer_id):
 def review_table_json_view(request, layer_id):
     layer = get_object_or_404(Layer, pk=layer_id)
     if not can_access_uploader_review(request.user, layer):
-        return _json_forbidden()
+        return _json_forbidden(request)
     list_all = parse_list_all_param(request.GET.get("list"))
     page, page_size = parse_table_pagination(
         request.GET.get("page"),
@@ -324,7 +384,7 @@ def review_table_json_view(request, layer_id):
             list_all=list_all,
         )
     except ValueError as exc:
-        return JsonResponse({"detail": str(exc)}, status=400)
+        return JsonResponse({"detail": _domain_detail(request, exc)}, status=400)
     return JsonResponse(payload)
 
 
@@ -333,7 +393,7 @@ def review_table_json_view(request, layer_id):
 def review_feature_json_view(request, layer_id, feature_id):
     layer = get_object_or_404(Layer, pk=layer_id)
     if not can_access_uploader_review(request.user, layer):
-        return _json_forbidden()
+        return _json_forbidden(request)
     feature = get_object_or_404(
         Feature,
         pk=feature_id,
@@ -348,7 +408,7 @@ def review_feature_json_view(request, layer_id, feature_id):
 def review_action_view(request, layer_id):
     layer = get_object_or_404(Layer, pk=layer_id)
     if not can_access_uploader_review(request.user, layer):
-        return _json_forbidden()
+        return _json_forbidden(request)
 
     body = _parse_action_body(request)
     if body is None:
@@ -392,7 +452,7 @@ def submit_layer_view(request, layer_id):
             message_key="toast_couldnt_submit",
         )
     except ValueError as exc:
-        return JsonResponse({"detail": str(exc)}, status=400)
+        return JsonResponse({"detail": _domain_detail(request, exc)}, status=400)
     except Exception as exc:
         return json_detail_error(
             request,

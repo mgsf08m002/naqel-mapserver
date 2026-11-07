@@ -18,6 +18,20 @@
     const submitUrl = root.dataset.submitUrl || '';
     const uploadAppliesImmediately = root.dataset.uploadAppliesImmediately === 'true';
     const largeLayer = root.dataset.largeLayer === 'true';
+
+    function uiT(key, fallback) {
+        if (typeof window.uiT === 'function') {
+            return window.uiT(key, fallback);
+        }
+        return fallback != null ? fallback : key;
+    }
+
+    function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
     function featureDetailUrl(featureId) {
         return tableUrl.replace(/table\.json.*/, 'features/' + String(featureId) + '.json');
     }
@@ -125,7 +139,7 @@
         const defs = [
             {
                 id: ESRI_SATELLITE_BASEMAP_ID,
-                label: 'Satellite',
+                label: uiT('basemap_satellite', 'Satellite'),
                 theme: 'imagery',
                 sourceId: 'review-bm-esri',
                 layerId: 'review-bm-esri-layer',
@@ -142,7 +156,7 @@
             defs.push(
                 {
                     id: MAPTILER_SATELLITE_BASEMAP_ID,
-                    label: 'Satellite',
+                    label: uiT('basemap_satellite', 'Satellite'),
                     theme: 'imagery',
                     sourceId: 'review-bm-mt-satellite',
                     layerId: 'review-bm-mt-satellite-layer',
@@ -152,7 +166,7 @@
                 },
                 {
                     id: 'maptiler-streets',
-                    label: 'Streets',
+                    label: uiT('basemap_streets', 'Streets'),
                     theme: 'light',
                     sourceId: 'review-bm-mt-streets',
                     layerId: 'review-bm-mt-streets-layer',
@@ -162,7 +176,7 @@
                 },
                 {
                     id: 'maptiler-outdoor',
-                    label: 'Outdoor',
+                    label: uiT('basemap_outdoor', 'Outdoor'),
                     theme: 'light',
                     sourceId: 'review-bm-mt-outdoor',
                     layerId: 'review-bm-mt-outdoor-layer',
@@ -172,7 +186,7 @@
                 },
                 {
                     id: 'maptiler-dark',
-                    label: 'Dark',
+                    label: uiT('basemap_dark', 'Dark'),
                     theme: 'dark',
                     sourceId: 'review-bm-mt-dark',
                     layerId: 'review-bm-mt-dark-layer',
@@ -755,15 +769,15 @@
             const approve = document.createElement('button');
             approve.type = 'button';
             approve.className = 'lr-action-btn lr-action-btn--approve lr-action-btn--card';
-            approve.setAttribute('aria-label', 'Approve feature');
-            approve.setAttribute('title', 'Approve');
+            approve.setAttribute('aria-label', uiT('lr_approve_feature', 'Approve feature'));
+            approve.setAttribute('title', uiT('approve', 'Approve'));
             approve.innerHTML = ICON_APPROVE_SVG;
 
             const reject = document.createElement('button');
             reject.type = 'button';
             reject.className = 'lr-action-btn lr-action-btn--reject lr-action-btn--card';
-            reject.setAttribute('aria-label', 'Reject feature');
-            reject.setAttribute('title', 'Reject');
+            reject.setAttribute('aria-label', uiT('lr_reject_feature', 'Reject feature'));
+            reject.setAttribute('title', uiT('reject', 'Reject'));
             reject.innerHTML = ICON_REJECT_SVG;
 
             container.appendChild(approve);
@@ -775,9 +789,12 @@
             const reset = document.createElement('button');
             reset.type = 'button';
             reset.className = 'lr-btn-reset lr-btn-reset--compact';
-            reset.textContent = 'Reset';
-            reset.setAttribute('aria-label', 'Reset to new');
-            reset.setAttribute('title', 'Move back to new so you can approve or reject again');
+            reset.textContent = uiT('lr_reset', 'Reset');
+            reset.setAttribute('aria-label', uiT('lr_reset_aria', 'Reset to new'));
+            reset.setAttribute(
+                'title',
+                uiT('lr_reset_title', 'Move back to new so you can approve or reject again')
+            );
             container.appendChild(reset);
         }
     }
@@ -830,7 +847,10 @@
             return;
         }
         const n = count != null ? count : 0;
-        countEl.textContent = n === 1 ? '1 feature' : String(n) + ' features';
+        countEl.textContent =
+            n === 1
+                ? uiT('lr_feature_count_one', '1 feature')
+                : uiT('lr_feature_count_many', '{n} features').replace('{n}', String(n));
     }
 
     function setFeatureListLoading(loading) {
@@ -840,7 +860,9 @@
         featureListEl.classList.toggle('lr-feature-list--loading', !!loading);
         if (loading) {
             featureListEl.innerHTML =
-                '<p class="lr-feature-empty lr-feature-empty--loading">Loading features…</p>';
+                '<p class="lr-feature-empty lr-feature-empty--loading">' +
+                escapeHtml(uiT('lr_loading', 'Loading features…')) +
+                '</p>';
         }
     }
 
@@ -906,19 +928,19 @@
         if (approve) {
             approve.addEventListener('click', function (e) {
                 e.stopPropagation();
-                postFeatureAction('nominate', f.id, 'Approve');
+                postFeatureAction('nominate', f.id, uiT('toast_couldnt_approve', "Couldn't approve"));
             });
         }
         if (reject) {
             reject.addEventListener('click', function (e) {
                 e.stopPropagation();
-                postFeatureAction('reject', f.id, 'Reject');
+                postFeatureAction('reject', f.id, uiT('toast_couldnt_reject', "Couldn't reject"));
             });
         }
         if (reset) {
             reset.addEventListener('click', function (e) {
                 e.stopPropagation();
-                postFeatureAction('reset', f.id, 'Reset');
+                postFeatureAction('reset', f.id, uiT('generic_error', 'Something went wrong. Try again.'));
             });
         }
     }
@@ -1004,10 +1026,7 @@
                 if (requestId !== featureListRequestId) {
                     return;
                 }
-                var loadFallback =
-                    typeof window.uiT === 'function'
-                        ? window.uiT('toast_couldnt_load', "Couldn't load")
-                        : "Couldn't load";
+                var loadFallback = uiT('toast_couldnt_load', "Couldn't load");
                 featureListEl.innerHTML =
                     '<p class="lr-feature-empty">' + escapeHtml(loadFallback) + '</p>';
                 window.notify.tryShow(loadFallback, 'error');
@@ -1151,15 +1170,22 @@
         const selectedCount = selectedFeatureIds.size;
         const stagedCount = getStagedSelectedIds().length;
         if (selectedCount > 0) {
-            const noun = stagedCount === 1 ? 'feature' : 'features';
-            btnApprove.textContent = 'Approve ' + String(stagedCount) + ' ' + noun;
-            btnReject.textContent = 'Reject ' + String(stagedCount) + ' ' + noun;
+            const noun =
+                stagedCount === 1
+                    ? uiT('lr_feature_one', 'feature')
+                    : uiT('lr_feature_many', 'features');
+            btnApprove.textContent = uiT('lr_approve_n', 'Approve {n} {noun}')
+                .replace('{n}', String(stagedCount))
+                .replace('{noun}', noun);
+            btnReject.textContent = uiT('lr_reject_n', 'Reject {n} {noun}')
+                .replace('{n}', String(stagedCount))
+                .replace('{noun}', noun);
             btnApprove.disabled = stagedCount === 0;
             btnReject.disabled = stagedCount === 0;
             return;
         }
-        btnApprove.textContent = 'Approve all';
-        btnReject.textContent = 'Reject all';
+        btnApprove.textContent = uiT('lr_approve_all', 'Approve all');
+        btnReject.textContent = uiT('lr_reject_all', 'Reject all');
         btnApprove.disabled = false;
         btnReject.disabled = false;
     }
@@ -1965,7 +1991,7 @@
         const check = document.createElement('input');
         check.type = 'checkbox';
         check.className = 'lr-feature-card__check';
-        check.setAttribute('aria-label', 'Select feature');
+        check.setAttribute('aria-label', uiT('lr_select_feature', 'Select feature'));
         check.checked = selectedFeatureIds.has(f.id);
 
         const info = document.createElement('div');
@@ -2004,7 +2030,9 @@
         featureListEl.innerHTML = '';
         if (!list.length) {
             featureListEl.innerHTML =
-                '<p class="lr-feature-empty">No features match the current filter.</p>';
+                '<p class="lr-feature-empty">' +
+                escapeHtml(uiT('lr_empty_filter', 'No features match the current filter.')) +
+                '</p>';
             return;
         }
         const fragment = document.createDocumentFragment();
@@ -2041,7 +2069,9 @@
                         throw new Error(j.detail || r.statusText);
                     });
                 }
-                throw new Error(r.status === 403 ? 'Access denied' : r.statusText);
+                throw new Error(
+                    r.status === 403 ? uiT('access_denied', 'Access denied') : r.statusText
+                );
             }
             return r.json();
         });
@@ -2050,20 +2080,27 @@
     function fetchReviewJson(url) {
         return fetch(url, { credentials: 'same-origin' }).then(function (r) {
             if (!r.ok) {
-                throw new Error(r.status === 403 ? 'Access denied' : 'Request failed');
+                throw new Error(
+                    r.status === 403
+                        ? uiT('access_denied', 'Access denied')
+                        : uiT('request_failed', 'Request failed')
+                );
             }
             return r.json();
         });
     }
 
-    const STATUS_LABELS = {
-        staged: 'New',
-        nominated: 'Approved',
-        rejected_upload: 'Rejected',
-    };
+    function statusLabels() {
+        return {
+            staged: uiT('lr_status_new', 'New'),
+            nominated: uiT('lr_status_approved', 'Approved'),
+            rejected_upload: uiT('lr_status_rejected', 'Rejected'),
+        };
+    }
 
     function statusBadge(status) {
-        const label = STATUS_LABELS[status] || status;
+        const labels = statusLabels();
+        const label = labels[status] || status;
         let cls = 'lr-badge-staged';
         if (status === 'nominated') {
             cls = 'lr-badge-nominated';
@@ -2076,27 +2113,25 @@
     function renderFeatureSummary(f) {
         const name = f.road_name != null ? String(f.road_name).trim() : '';
         const nameClass = name ? 'lr-feature-card__name' : 'lr-feature-card__name lr-feature-card__name--empty';
-        const nameText = name || 'Unnamed road';
+        const nameText = name || uiT('unnamed_road', 'Unnamed Road');
         const osmId = f.osm_id != null ? String(f.osm_id).trim() : '';
         const osmText = osmId || '-';
         return (
-            '<span class="lr-feature-card__label">Road Name</span>' +
+            '<span class="lr-feature-card__label">' +
+            escapeHtml(uiT('lr_label_road_name', 'Road Name')) +
+            '</span>' +
             '<span class="' +
             nameClass +
             '">' +
             escapeHtml(nameText) +
             '</span>' +
-            '<span class="lr-feature-card__label">Osm Id</span>' +
+            '<span class="lr-feature-card__label">' +
+            escapeHtml(uiT('lr_label_osm_id', 'Osm Id')) +
+            '</span>' +
             '<span class="lr-feature-card__osm">' +
             escapeHtml(osmText) +
             '</span>'
         );
-    }
-
-    function escapeHtml(s) {
-        const d = document.createElement('div');
-        d.textContent = s;
-        return d.innerHTML;
     }
 
     function initReviewData() {
@@ -2114,7 +2149,7 @@
                 syncMapFeatureLayers();
             })
             .catch(function () {
-                window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_load', "Couldn't load") : "Couldn't load"), 'error');
+                window.notify.tryShow(uiT('toast_couldnt_load', "Couldn't load"), 'error');
             });
     }
 
@@ -2138,7 +2173,7 @@
             statusFilterEl.addEventListener('change', function () {
                 statusFilter = statusFilterEl.value || '';
                 loadFeatureList().catch(function () {
-                    window.notify.tryShow((typeof window.uiT === 'function' ? window.uiT('toast_couldnt_load', "Couldn't load") : "Couldn't load"), 'error');
+                    window.notify.tryShow(uiT('toast_couldnt_load', "Couldn't load"), 'error');
                 });
             });
         }
@@ -2174,12 +2209,12 @@
                 if (!stagedIds.length) {
                     return;
                 }
-                runBulkAction('nominate_selected', (typeof window.uiT === 'function' ? window.uiT('toast_couldnt_approve', "Couldn't approve") : "Couldn't approve"), {
+                runBulkAction('nominate_selected', uiT('toast_couldnt_approve', "Couldn't approve"), {
                     feature_ids: stagedIds,
                 });
                 return;
             }
-            runBulkAction('nominate_all', (typeof window.uiT === 'function' ? window.uiT('toast_couldnt_approve', "Couldn't approve") : "Couldn't approve"));
+            runBulkAction('nominate_all', uiT('toast_couldnt_approve', "Couldn't approve"));
         });
     }
     if (btnBulkReject) {
@@ -2189,12 +2224,12 @@
                 if (!stagedIds.length) {
                     return;
                 }
-                runBulkAction('reject_selected', (typeof window.uiT === 'function' ? window.uiT('toast_couldnt_reject', "Couldn't reject") : "Couldn't reject"), {
+                runBulkAction('reject_selected', uiT('toast_couldnt_reject', "Couldn't reject"), {
                     feature_ids: stagedIds,
                 });
                 return;
             }
-            runBulkAction('reject_all', (typeof window.uiT === 'function' ? window.uiT('toast_couldnt_reject', "Couldn't reject") : "Couldn't reject"));
+            runBulkAction('reject_all', uiT('toast_couldnt_reject', "Couldn't reject"));
         });
     }
 
@@ -2229,10 +2264,7 @@
                 }
             })
             .catch(function (err) {
-                var submitFallback =
-                    typeof window.uiT === 'function'
-                        ? window.uiT('toast_couldnt_submit', "Couldn't submit")
-                        : "Couldn't submit";
+                var submitFallback = uiT('toast_couldnt_submit', "Couldn't submit");
                 window.notify.tryShow(
                     typeof window.safeUserMessage === 'function'
                         ? window.safeUserMessage(err, submitFallback)
@@ -2249,18 +2281,28 @@
             const nominatedCount = nominatedEl ? parseInt(nominatedEl.textContent, 10) : 0;
             if (!nominatedCount || Number.isNaN(nominatedCount)) {
                 window.notify.tryShow(
-                    (typeof window.uiT === 'function'
-                        ? window.uiT('toast_approve_one_road', 'Approve at least one road')
-                        : 'Approve at least one road'),
+                    uiT('toast_approve_one_road', 'Approve at least one road'),
                     'warning'
                 );
                 return;
             }
-            const confirmMsg = uploadAppliesImmediately
-                ? 'Publish ' + nominatedCount + ' approved road(s) to the map now? This cannot be undone.'
-                : 'Submit ' + nominatedCount + ' approved road(s) for manager review? You will not be able to edit this layer afterward.';
-            const confirmTitle = uploadAppliesImmediately ? 'Publish layer' : 'Submit for review';
-            const confirmLabel = uploadAppliesImmediately ? 'Publish' : 'Submit';
+            const confirmMsg = (
+                uploadAppliesImmediately
+                    ? uiT(
+                          'lr_publish_confirm',
+                          'Publish {n} approved road(s) to the map now? This cannot be undone.'
+                      )
+                    : uiT(
+                          'lr_submit_confirm',
+                          'Submit {n} approved road(s) for manager review? You will not be able to edit this layer afterward.'
+                      )
+            ).replace('{n}', String(nominatedCount));
+            const confirmTitle = uploadAppliesImmediately
+                ? uiT('lr_publish_title', 'Publish layer')
+                : uiT('lr_submit_title', 'Submit for review');
+            const confirmLabel = uploadAppliesImmediately
+                ? uiT('lr_publish', 'Publish')
+                : uiT('lr_submit', 'Submit');
 
             const runSubmit = function () {
                 submitReviewedLayer();
@@ -2271,7 +2313,7 @@
                     title: confirmTitle,
                     message: confirmMsg,
                     confirmLabel: confirmLabel,
-                    cancelLabel: 'Cancel',
+                    cancelLabel: uiT('cancel', 'Cancel'),
                 })
                 .then(function (ok) {
                     if (ok) {

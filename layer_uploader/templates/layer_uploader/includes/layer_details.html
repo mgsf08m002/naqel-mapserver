@@ -1,20 +1,20 @@
 <section class="lu-details">
-  <h2 class="lu-details__head">Detected layer</h2>
+  <h2 class="lu-details__head">{{ ui.lu_detected_layer }}</h2>
   <dl class="lu-details__list">
     <div class="lu-details__row">
-      <dt class="lu-details__label">Layer name</dt>
+      <dt class="lu-details__label">{{ ui.lu_label_layer_name }}</dt>
       <dd class="lu-details__value">{{ name }}</dd>
     </div>
     <div class="lu-details__row">
-      <dt class="lu-details__label">Features</dt>
+      <dt class="lu-details__label">{{ ui.lu_label_features }}</dt>
       <dd class="lu-details__value">{{ count }}</dd>
     </div>
     <div class="lu-details__row">
-      <dt class="lu-details__label">CRS</dt>
+      <dt class="lu-details__label">{{ ui.lu_label_crs }}</dt>
       <dd class="lu-details__value">{{ crs_name }}</dd>
     </div>
     <div class="lu-details__row">
-      <dt class="lu-details__label">SRID</dt>
+      <dt class="lu-details__label">{{ ui.lu_label_srid }}</dt>
       <dd class="lu-details__value">{{ epsg }}</dd>
     </div>
   </dl>

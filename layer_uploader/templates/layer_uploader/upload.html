@@ -1,19 +1,17 @@
 {% extends 'layer_uploader/upload_flow_base.html' %}
 {% load static %}
 
-{% block layer_page_title %}Upload Layer - GeoTrak Maps{% endblock %}
+{% block layer_page_title %}{{ ui.lu_page_upload }} - {{ ui.brand_name }}{% endblock %}
 
 {% block upload_flow_assets %}
-<script src="{% static 'layer_uploader/js/upload_form.js' %}" defer></script>
+<script src="{% static 'layer_uploader/js/upload_form.js' %}?v=lu-i18n-1" defer></script>
 {% endblock %}
 
 {% block upload_flow_header %}
 <header class="lu-flow-head">
   <div class="lu-flow-head__intro">
-    <h1 class="lu-flow-head__title">Upload shapefile</h1>
-    <p class="lu-flow-head__sub">
-      Add <strong>.shp</strong>, <strong>.shx</strong>, and <strong>.dbf</strong> files, or one zip archive. Layers are detected automatically before review.
-    </p>
+    <h1 class="lu-flow-head__title">{{ ui.lu_upload_title }}</h1>
+    <p class="lu-flow-head__sub">{{ ui.lu_upload_sub|safe }}</p>
   </div>
   {% include 'layer_uploader/includes/upload_flow_steps.html' with step=1 %}
 </header>
@@ -25,7 +23,7 @@
     <form method="post" enctype="multipart/form-data" class="lu-form">
       {% csrf_token %}
       {% include 'layer_uploader/includes/file_picker.html' %}
-      {% include 'layer_uploader/includes/flow_actions.html' with submit_label='Upload & detect' secondary_url=upload_reset_url secondary_label='Reset' %}
+      {% include 'layer_uploader/includes/flow_actions.html' with submit_label=ui.lu_upload_detect secondary_url=upload_reset_url secondary_label=ui.lu_reset %}
     </form>
 
     {% if shapefiles %}
@@ -33,7 +31,7 @@
     {% endif %}
   </div>
 
-  <aside class="lu-aside" aria-label="Upload guidance">
+  <aside class="lu-aside" aria-label="{{ ui.lu_guidance_aria }}">
     {% include 'layer_uploader/includes/upload_requirements.html' %}
   </aside>
 </div>

@@ -1,42 +1,42 @@
-<div class="lr-workspace" aria-label="Layer review map and features">
+<div class="lr-workspace" aria-label="{{ ui.lr_workspace_aria }}">
   <div class="lr-workspace-map" id="lr-map-workspace">
-    <div id="review-map" class="review-map-frame" role="application" aria-label="Feature map"></div>
+    <div id="review-map" class="review-map-frame" role="application" aria-label="{{ ui.lr_map_aria }}"></div>
     {% include 'mapping/includes/basemap_gallery.html' %}
     {% include 'mapping/includes/clear_selection_toolbar.html' %}
     {% if review_large_layer %}
-    <p class="lr-map-hint" aria-live="polite">Large layer. Roads load for the current view.</p>
+    <p class="lr-map-hint" aria-live="polite">{{ ui.lr_large_hint }}</p>
     {% endif %}
   </div>
 
-  <aside id="lr-features-panel" class="lr-features-panel" aria-label="Features">
+  <aside id="lr-features-panel" class="lr-features-panel" aria-label="{{ ui.lr_features }}">
     <div class="lr-features-panel__body">
       <header class="lr-panel-header">
         <div class="lr-panel-head">
-          <h2 class="lr-panel-title">Features</h2>
+          <h2 class="lr-panel-title">{{ ui.lr_features }}</h2>
           <div class="lr-panel-head-actions">
             <span id="lr-feature-count" class="lr-panel-count">-</span>
             {% if not can_submit %}
-            <a id="btn-finish" href="{% url 'success' %}?submitted=1" class="lr-btn-finish">Done</a>
+            <a id="btn-finish" href="{% url 'success' %}?submitted=1" class="lr-btn-finish">{{ ui.lr_done }}</a>
             {% endif %}
           </div>
         </div>
         <div class="lr-panel-controls">
-          <select id="lr-status-filter" class="lr-filter-select" aria-label="Filter by status">
-            <option value="">All statuses</option>
-            <option value="staged">New</option>
-            <option value="nominated">Approved</option>
-            <option value="rejected_upload">Rejected</option>
+          <select id="lr-status-filter" class="lr-filter-select" aria-label="{{ ui.lr_filter_status_aria }}">
+            <option value="">{{ ui.lr_all_statuses }}</option>
+            <option value="staged">{{ ui.lr_status_new }}</option>
+            <option value="nominated">{{ ui.lr_status_approved }}</option>
+            <option value="rejected_upload">{{ ui.lr_status_rejected }}</option>
           </select>
           <div class="lr-bulk-actions">
-            <button type="button" id="btn-bulk-approve" class="lr-bulk-btn lr-bulk-btn--approve">Approve all</button>
-            <button type="button" id="btn-bulk-reject" class="lr-bulk-btn lr-bulk-btn--reject">Reject all</button>
+            <button type="button" id="btn-bulk-approve" class="lr-bulk-btn lr-bulk-btn--approve">{{ ui.lr_approve_all }}</button>
+            <button type="button" id="btn-bulk-reject" class="lr-bulk-btn lr-bulk-btn--reject">{{ ui.lr_reject_all }}</button>
           </div>
         </div>
         <div class="lr-panel-stats" aria-live="polite">
-          <span class="lr-stat">Total <strong id="lr-cnt-total">-</strong></span>
-          <span class="lr-stat lr-stat--staged">New <strong id="lr-cnt-staged">-</strong></span>
-          <span class="lr-stat lr-stat--nominated">Approved <strong id="lr-cnt-nominated">-</strong></span>
-          <span class="lr-stat lr-stat--rejected">Rejected <strong id="lr-cnt-rejected_upload">-</strong></span>
+          <span class="lr-stat">{{ ui.lr_stat_total }} <strong id="lr-cnt-total">-</strong></span>
+          <span class="lr-stat lr-stat--staged">{{ ui.lr_status_new }} <strong id="lr-cnt-staged">-</strong></span>
+          <span class="lr-stat lr-stat--nominated">{{ ui.lr_status_approved }} <strong id="lr-cnt-nominated">-</strong></span>
+          <span class="lr-stat lr-stat--rejected">{{ ui.lr_status_rejected }} <strong id="lr-cnt-rejected_upload">-</strong></span>
         </div>
       </header>
       <div id="lr-feature-list" class="lr-feature-list" role="list"></div>
@@ -48,12 +48,12 @@
           class="lr-btn-submit"
         >
           {% if upload_applies_immediately %}
-          <span class="lr-btn-submit__label">Confirm</span>
+          <span class="lr-btn-submit__label">{{ ui.confirm }}</span>
           {% else %}
           <svg class="lr-btn-submit__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9 22 2z"/>
           </svg>
-          <span class="lr-btn-submit__label">Submit layer</span>
+          <span class="lr-btn-submit__label">{{ ui.lr_submit_layer }}</span>
           {% endif %}
         </button>
       </footer>

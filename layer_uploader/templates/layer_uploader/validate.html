@@ -1,7 +1,7 @@
 {% extends 'layer_uploader/upload_flow_base.html' %}
 {% load static %}
 
-{% block layer_page_title %}Layer Details - GeoTrak Maps{% endblock %}
+{% block layer_page_title %}{{ ui.lu_page_details }} - {{ ui.brand_name }}{% endblock %}
 
 {% block upload_flow_assets %}
 <script src="{% static 'layer_uploader/js/validate_form.js' %}" defer></script>
@@ -10,8 +10,8 @@
 {% block upload_flow_header %}
 <header class="lu-flow-head">
   <div class="lu-flow-head__intro">
-    <h1 class="lu-flow-head__title">Layer details</h1>
-    <p class="lu-flow-head__sub">Confirm the detected layer information, then continue to map review.</p>
+    <h1 class="lu-flow-head__title">{{ ui.lu_details_title }}</h1>
+    <p class="lu-flow-head__sub">{{ ui.lu_details_sub }}</p>
   </div>
   {% include 'layer_uploader/includes/upload_flow_steps.html' with step=2 %}
 </header>
@@ -23,11 +23,11 @@
     <form method="post" class="lu-form" id="lu-validate-form">
       {% csrf_token %}
       {% include 'layer_uploader/includes/layer_details.html' %}
-      {% include 'layer_uploader/includes/flow_actions.html' with submit_label='Review layer' secondary_url=upload_reset_url secondary_label='Start over' %}
+      {% include 'layer_uploader/includes/flow_actions.html' with submit_label=ui.lu_review_layer secondary_url=upload_reset_url secondary_label=ui.lu_start_over %}
     </form>
   </div>
 
-  <aside class="lu-aside" aria-label="Next step">
+  <aside class="lu-aside" aria-label="{{ ui.lu_next_step_aria }}">
     {% include 'layer_uploader/includes/validate_next_steps.html' %}
   </aside>
 </div>
@@ -36,8 +36,8 @@
 {% block upload_flow_extras %}
 <div id="lu-validate-overlay" class="lu-validate-overlay hidden" aria-hidden="true">
   <div class="lu-validate-overlay__panel" role="status" aria-live="polite" aria-busy="true">
-    <p class="lu-validate-overlay__message">Comparing roads to the network and preparing review…</p>
-    <p class="lu-validate-overlay__hint">This may take a few minutes for large shapefiles. Please wait.</p>
+    <p class="lu-validate-overlay__message">{{ ui.lu_validate_overlay }}</p>
+    <p class="lu-validate-overlay__hint">{{ ui.lu_validate_hint }}</p>
   </div>
 </div>
 {% endblock %}

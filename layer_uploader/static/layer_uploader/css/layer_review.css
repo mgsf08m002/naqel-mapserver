@@ -20,7 +20,8 @@ body:has(#layer-review-root.lr-shell) main {
   --lr-color-new: #0000f7;
   --lr-color-approved: #02AD41;
   --lr-color-rejected: #f77e7e;
-  --lr-features-panel-width: 24rem;
+  --lr-features-panel-width: 22rem;
+  --lr-features-panel-gap: var(--app-chrome-pad-x, 1rem);
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -28,21 +29,24 @@ body:has(#layer-review-root.lr-shell) main {
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  background: #fff;
+  background: transparent;
   color: var(--lr-fg);
 }
 
-/* --- Workspace --- */
+/* --- Workspace: map full-bleed; features card overlays below chrome --- */
 #layer-review-root .lr-workspace {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: row;
+  position: relative;
   overflow: hidden;
+  background: var(--lr-map-placeholder);
 }
 
 #layer-review-root .lr-workspace-map {
-  flex: 1;
+  flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
   min-height: 0;
   position: relative;
@@ -72,7 +76,7 @@ body:has(#layer-review-root.lr-shell) main {
 
 #layer-review-root .lr-map-hint {
   position: absolute;
-  top: 0.75rem;
+  top: calc(var(--app-chrome-offset, 0px) + 0.5rem);
   left: 50%;
   z-index: 30;
   transform: translateX(-50%);
@@ -89,17 +93,36 @@ body:has(#layer-review-root.lr-shell) main {
   white-space: nowrap;
 }
 
-/* --- Features panel --- */
+/* --- Features panel (floating card under header) --- */
 #layer-review-root .lr-features-panel {
-  flex-shrink: 0;
-  align-self: stretch;
+  position: absolute;
+  top: var(--app-chrome-offset, 0px);
+  inset-inline-end: var(--lr-features-panel-gap);
+  bottom: var(--lr-features-panel-gap);
+  z-index: 25;
+  width: min(var(--lr-features-panel-width), calc(100% - (2 * var(--lr-features-panel-gap))));
+  max-width: 42vw;
   min-height: 0;
-  width: var(--lr-features-panel-width);
-  max-width: min(42vw, 22rem);
   display: flex;
   flex-direction: column;
   background: #fff;
-  border-inline-start: 1px solid var(--lr-border);
+  border: 1px solid rgba(15, 45, 83, 0.1);
+  border-radius: var(--app-header-radius, 1.05rem);
+  overflow: hidden;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 8px 28px rgba(15, 45, 83, 0.08);
+}
+
+/* Keep map zoom / clear-selection clear of the floating features card. */
+#layer-review-root .maplibregl-ctrl-top-right {
+  inset-inline-end: calc(
+    var(--lr-features-panel-gap) + min(var(--lr-features-panel-width), 42vw) + 0.75rem
+  );
+}
+
+#layer-review-root .map-clear-selection-toolbar {
+  top: calc(var(--app-chrome-offset, 0px) + 0.35rem);
 }
 
 #layer-review-root .lr-features-panel__body {
@@ -596,4 +619,76 @@ body:has(#layer-review-root.lr-shell) main {
 #layer-review-root .lr-btn-submit:focus-visible {
   outline: 2px solid var(--geotrak-brand);
   outline-offset: 2px;
+}
+
+/* --- Responsive --- */
+@media (max-width: 767px) {
+  #layer-review-root .lr-workspace {
+    flex-direction: column;
+  }
+
+  #layer-review-root .lr-workspace-map {
+    width: auto;
+    flex: 0 0 min(40vh, 20rem);
+    min-height: min(40vh, 20rem);
+    margin-top: var(--app-chrome-offset, 0px);
+  }
+
+  #layer-review-root .lr-features-panel {
+    position: relative;
+    top: auto;
+    inset-inline-end: auto;
+    bottom: auto;
+    z-index: auto;
+    width: 100%;
+    max-width: none;
+    flex: 1 1 auto;
+    min-height: 0;
+    border: 0;
+    border-top: 1px solid var(--lr-border);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  #layer-review-root .maplibregl-ctrl-top-right {
+    inset-inline-end: var(--lr-features-panel-gap);
+  }
+
+  #layer-review-root .map-clear-selection-toolbar {
+    top: calc(var(--app-chrome-offset, 0px) + 0.35rem);
+  }
+
+  #layer-review-root .lr-map-hint {
+    top: calc(var(--app-chrome-offset, 0px) + 0.5rem);
+    max-width: calc(100% - 1rem);
+    white-space: normal;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  #layer-review-root .lr-panel-controls {
+    flex-wrap: wrap;
+  }
+
+  #layer-review-root .lr-bulk-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-width: 0;
+    width: 100%;
+  }
+
+  #layer-review-root .lr-bulk-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 479px) {
+  #layer-review-root .lr-feature-card__info {
+    grid-template-columns: 1fr;
+  }
+
+  #layer-review-root .lr-panel-stats {
+    gap: 0.35rem 0.625rem;
+  }
 }

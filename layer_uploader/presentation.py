@@ -2,6 +2,9 @@
 
 from django.urls import reverse
 
+from config.ui_locale import resolve
+from config.ui_strings import t
+
 from .access import user_layer_uploads_apply_immediately
 from .constants import LARGE_LAYER_FEATURE_THRESHOLD
 from .models import Layer
@@ -45,6 +48,21 @@ def upload_flow_context(request, **extra) -> dict:
         "upload_reset_url": reverse("upload"),
         **extra,
     }
+
+
+def localize_detected_shapefiles(request, shapefiles: list[dict]) -> list[dict]:
+    """Resolve shapefile discovery keys into the active UI language."""
+    language = resolve(request)
+    localized: list[dict] = []
+    for row in shapefiles:
+        item = dict(row)
+        error_key = item.pop("error_key", None)
+        if error_key:
+            item["error"] = t(language, error_key)
+        if "epsg" in item and not item["epsg"]:
+            item["epsg"] = t(language, "lu_epsg_not_defined")
+        localized.append(item)
+    return localized
 
 
 def review_page_context(request, layer: Layer) -> dict:

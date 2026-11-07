@@ -103,7 +103,13 @@
     removeBtn.type = 'button';
     removeBtn.className = 'lu-file-item__remove';
     removeBtn.innerHTML = ICONS.remove;
-    removeBtn.setAttribute('aria-label', 'Remove ' + file.name);
+    removeBtn.setAttribute(
+      'aria-label',
+      (typeof window.uiT === 'function'
+        ? window.uiT('lu_remove_file', 'Remove {name}')
+        : 'Remove {name}'
+      ).replace('{name}', file.name)
+    );
     removeBtn.addEventListener('click', function () {
       var next = fileListArray();
       next.splice(index, 1);
@@ -126,7 +132,14 @@
     }
 
     fileCount.textContent = String(files.length);
-    selectionTitle.textContent = files.length === 1 ? 'File selected' : 'Files selected';
+    selectionTitle.textContent =
+      files.length === 1
+        ? typeof window.uiT === 'function'
+          ? window.uiT('lu_file_selected', 'File selected')
+          : 'File selected'
+        : typeof window.uiT === 'function'
+          ? window.uiT('lu_files_selected', 'Files selected')
+          : 'Files selected';
 
     files.forEach(function (file, index) {
       list.appendChild(buildFileRow(file, index));

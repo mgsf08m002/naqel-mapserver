@@ -523,12 +523,6 @@ a.lu-actions__primary {
   color: var(--geotrak-brand);
 }
 
-.lu-actions--flush {
-  margin-top: 0;
-  padding-top: 0.25rem;
-  border-top: 0;
-}
-
 /* --- Success page (done step only) --- */
 .lu-layout--success {
   flex: 1;
@@ -828,4 +822,50 @@ body.lu-validate-overlay-open {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* --- Responsive (owned by upload flow, not global responsive.css) --- */
+@media (max-width: 767px) {
+  .lu-progress__label {
+    font-size: 0.5625rem;
+    white-space: normal;
+    line-height: 1.2;
+    max-width: 4.75rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .lu-flow-shell {
+    padding: 0.625rem 0.75rem 0.75rem;
+  }
+
+  .lu-flow-head__title {
+    font-size: 1rem;
+  }
+
+  .lu-progress__label {
+    max-width: 4.5rem;
+  }
+
+  .lu-dropzone {
+    min-height: 10rem;
+    padding: 1.25rem 1rem;
+  }
+
+  .lu-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lu-actions__primary {
+    width: 100%;
+  }
+
+  .lu-validate-overlay {
+    padding: 1rem;
+  }
+
+  .lu-validate-overlay__panel {
+    max-width: 100%;
+  }
 }
