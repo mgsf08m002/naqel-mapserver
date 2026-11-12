@@ -41,6 +41,10 @@ db.sqlite3-journal
 # Generated static files (Tailwind output)
 /static/css/output.css
 
+# Local AI agent context (do not push)
+.cursor/
+AGENTS.md
+
 # IDE / OS
 .vscode/
 .idea/
