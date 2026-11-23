@@ -1,0 +1,2 @@
+# Shell scripts run on Linux (VPS / containers): keep LF endings.
+*.sh text eol=lf
